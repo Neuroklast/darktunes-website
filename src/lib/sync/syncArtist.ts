@@ -234,7 +234,7 @@ async function syncSongkick(
 // ── Spotify sync (scaffold – requires OAuth token) ──────────────────────────
 
 async function syncSpotify(
-  artist: { id: string; spotifyId?: string | null },
+  artist: { id: string; name: string; spotifyId?: string | null },
   deps: SyncDeps,
   result: SyncResult,
 ): Promise<void> {
@@ -269,7 +269,7 @@ async function syncSpotify(
     const releaseData: ReleaseInsert = {
       title: album.name,
       artist_id: artist.id,
-      artist_name: '', // will be filled from artist row in production
+      artist_name: artist.name,
       release_date: album.release_date,
       cover_art: coverArt || null,
       type,

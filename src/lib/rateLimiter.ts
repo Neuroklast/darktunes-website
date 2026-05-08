@@ -11,7 +11,7 @@ export interface RetryOptions {
   maxRetries: number
   /** Initial delay before the first retry in milliseconds. Default: 500 */
   initialDelayMs: number
-  /** Maximum delay cap in milliseconds. Default: 30 000 */
+  /** Maximum delay cap in milliseconds. Default: 30,000 */
   maxDelayMs: number
   /** Multiplicative back-off factor. Default: 2 */
   factor: number

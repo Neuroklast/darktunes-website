@@ -159,7 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const uploadToR2: UploadToR2Fn =
     R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_BUCKET_NAME
       ? buildUploadToR2()
-      : async ({ }) => '' // no-op when R2 is not configured
+      : async (_params) => '' // no-op when R2 is not configured
 
   try {
     const syncResult = await syncArtist(

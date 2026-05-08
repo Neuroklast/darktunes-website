@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Plus, PencilSimple, Trash, ArrowsClockwise } from '@phosphor-icons/react'
 import { useArtists } from '@/hooks/useArtists'
+import { supabase } from '@/lib/supabase'
 import { ArtistForm, type ArtistFormData } from './forms/ArtistForm'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -210,16 +211,9 @@ export function ArtistsManager() {
   const handleSync = async (artist: Artist) => {
     setSyncingId(artist.id)
     try {
-      // Retrieve the current session token from localStorage (Supabase stores it there)
-      const rawSession = Object.entries(localStorage).find(([k]) =>
-        k.startsWith('sb-') && k.endsWith('-auth-token'),
-      )
-      const token: string =
-        rawSession
-          ? (JSON.parse(rawSession[1]) as { access_token?: string }).access_token ?? ''
-          : ''
-
-      if (!token) {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token ?? null
+      if (sessionError || !token) {
         toast.error('No active session — please sign in again')
         return
       }

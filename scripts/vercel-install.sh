@@ -64,10 +64,19 @@ require_env "CLOUDFLARE_R2_BUCKET_NAME"       "R2 bucket name"
 require_env "CLOUDFLARE_R2_PUBLIC_URL"        "R2 public CDN base URL (e.g. https://cdn.darktunes.com)"
 echo ""
 
-echo "  — External API keys (server-side, optional) —"
-require_env "SPOTIFY_ACCESS_TOKEN" "Spotify client-credentials access token (for artist sync)"
-require_env "SONGKICK_API_KEY"     "Songkick API key (for concert/tour date sync)"
-require_env "DISCOGS_TOKEN"        "Discogs personal access token (for discography sync)"
+echo "  — External API keys (server-side, optional — sync skipped when absent) —"
+optional_env() {
+  local var_name="$1"
+  local description="$2"
+  if [ -z "${!var_name:-}" ]; then
+    echo "  ○  OPTIONAL (not set): ${var_name}  (${description})"
+  else
+    echo "  ✔  ${var_name}"
+  fi
+}
+optional_env "SPOTIFY_ACCESS_TOKEN" "Spotify client-credentials token (for artist Spotify sync)"
+optional_env "SONGKICK_API_KEY"     "Songkick API key (for concert / tour-date sync)"
+optional_env "DISCOGS_TOKEN"        "Discogs personal access token (for discography sync)"
 echo ""
 
 if [ "$MISSING" -gt 0 ]; then
