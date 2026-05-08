@@ -25,6 +25,10 @@ function rowToArtist(row: ArtistRow): Artist {
     vatNumber: row.vat_number ?? undefined,
     isEuNonGerman: row.is_eu_non_german,
     notes: row.notes ?? undefined,
+    spotifyId: row.spotify_id ?? undefined,
+    discogsId: row.discogs_id ?? undefined,
+    songkickId: row.songkick_id ?? undefined,
+    lastSyncedAt: row.last_synced_at ?? undefined,
   }
 }
 

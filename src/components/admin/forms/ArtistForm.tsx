@@ -23,6 +23,9 @@ export interface ArtistFormData {
   featured: boolean
   isEuNonGerman: boolean
   notes: string
+  spotifyId: string
+  discogsId: string
+  songkickId: string
 }
 
 function toSlug(name: string): string {
@@ -130,6 +133,25 @@ export function ArtistForm({ value, onChange, isLoading }: Props) {
       <div className="space-y-1">
         <Label htmlFor="notes">Notes</Label>
         <Textarea id="notes" {...register('notes')} rows={2} disabled={isLoading} />
+      </div>
+
+      <div className="border-t border-border pt-4 space-y-1">
+        <p className="text-sm font-medium text-muted-foreground">External API IDs (for auto-sync)</p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-1">
+          <Label htmlFor="spotifyId">Spotify Artist ID</Label>
+          <Input id="spotifyId" {...register('spotifyId')} placeholder="e.g. 4tZwfgrHOc3mvqYlEYSvVi" disabled={isLoading} />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="discogsId">Discogs Artist ID</Label>
+          <Input id="discogsId" {...register('discogsId')} placeholder="e.g. 123456" disabled={isLoading} />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="songkickId">Songkick Artist ID</Label>
+          <Input id="songkickId" {...register('songkickId')} placeholder="e.g. 9876543" disabled={isLoading} />
+        </div>
       </div>
 
       <div className="flex items-center gap-6">

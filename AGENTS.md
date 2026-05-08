@@ -42,12 +42,18 @@ Test Isolation: Tests must not rely on external network requests. Mock all exter
 Supabase Mock Pattern: In DAL tests, create a mock builder where all chain methods (select, order, insert, update, delete, upsert, eq, single) return `this` via `vi.fn().mockReturnThis()`. The builder object has `then`, `catch`, `finally` bound to a `Promise.resolve({data, error})`. This makes the entire chain thenable — `await db.from('x').select().order()` resolves correctly.
 
 Data Access Layer (DAL)
-All database queries live in `src/lib/api/` — one file per table (artists.ts, releases.ts, news.ts, videos.ts, assets.ts).
+All database queries live in `src/lib/api/` — one file per table (artists.ts, releases.ts, news.ts, videos.ts, assets.ts, syncLogs.ts, concerts.ts).
 Every DAL function receives `SupabaseClient<Database>` as its first argument. Never import the global `supabase` singleton inside a DAL file.
 DAL functions throw `new Error(error.message)` when Supabase returns an error. For `.single()` queries, error code `PGRST116` (not found) returns `null` instead of throwing.
 Row-to-domain mappers: Use `rowTo*` functions to convert snake_case DB rows to camelCase domain types. Nullables map to `undefined` (optional fields) or `''` (required string fields) using `?? undefined` / `?? ''`.
 Hook Pattern: Hooks in `src/hooks/` wrap DAL functions. Each hook checks `isSupabaseConfigured` at load time — if false, immediately sets `isLoading = false` and returns empty data. This prevents Supabase calls when env vars are not set.
-Vercel API Routes: Serverless functions live at `api/` (repo root, not `src/`). The upload route (`api/upload.ts`) uses `SUPABASE_SERVICE_ROLE_KEY` to verify Bearer tokens via `supabase.auth.getUser(token)` before processing uploads.
+Vercel API Routes: Serverless functions live at `api/` (repo root, not `src/`). Both `api/upload.ts` and `api/sync-artist.ts` use `SUPABASE_SERVICE_ROLE_KEY` to verify Bearer tokens. `sync-artist.ts` also checks the caller's role (admin/editor) before running the sync pipeline.
+
+Image Optimisation: All images shown on the public site MUST be routed through `getOptimizedImageUrl(url, width)` from `src/lib/imageUtils.ts` (wsrv.nl proxy → WebP output). Never embed raw external image URLs in `<img>` src attributes.
+
+Rate Limiting: Server-side calls to external APIs (iTunes, Spotify, Songkick, Discogs) MUST use `withExponentialBackoff()` from `src/lib/rateLimiter.ts`. Throw `HttpError(status, message)` for HTTP errors so the retry logic can distinguish retryable (429, 5xx) from non-retryable (4xx) failures.
+
+Sync Service Pattern: Complex multi-source sync logic lives in `src/lib/sync/` (not in API route handlers). Dependencies (db, fetch, uploadToR2) are injected via a `SyncDeps` interface, making the logic fully unit-testable without HTTP context.
 
 Inversion of Control (IoC) & Component Contracts
 Props Over State: UI components MUST receive all data and callbacks as props — they must not directly access global state, context, or external stores.

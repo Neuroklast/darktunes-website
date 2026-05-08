@@ -15,6 +15,10 @@ export interface Artist {
   vatNumber?: string
   isEuNonGerman?: boolean
   notes?: string
+  spotifyId?: string
+  discogsId?: string
+  songkickId?: string
+  lastSyncedAt?: string
 }
 
 export interface Release {
@@ -68,5 +72,30 @@ export interface Asset {
   r2Key: string
   publicUrl: string
   uploadedBy?: string
+  createdAt: string
+}
+
+export interface Concert {
+  id: string
+  artistId: string | null
+  artistName: string
+  eventName: string
+  venueName?: string
+  city?: string
+  country?: string
+  eventDate: string
+  ticketUrl?: string
+  songkickId?: string
+  status: 'upcoming' | 'past' | 'cancelled'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SyncLog {
+  id: string
+  artistId: string | null
+  triggeredBy: 'manual' | 'cron'
+  status: 'pending' | 'success' | 'partial' | 'error'
+  details: Record<string, unknown> | null
   createdAt: string
 }

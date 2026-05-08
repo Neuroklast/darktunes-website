@@ -7,6 +7,9 @@ Access the admin panel by visiting `/admin` (or creating a separate deployment f
 - **User Authentication**: Secure login/signup via Supabase Auth
 - **Role-Based Access Control**: Admin and Editor roles with different permissions
 - **Artists Management**: Create, read, update, and delete artist profiles
+  - Skeleton loading states for smooth UX (no layout shifts)
+  - External API ID fields (Spotify, Discogs, Songkick) for auto-sync
+  - Per-artist **Sync Now** button (triggers `POST /api/sync-artist`)
 - **Releases Management**: Manage music releases with iTunes API integration
 - **News Management**: Create and publish news posts and announcements
 - **Videos Management**: Manage music videos and YouTube content
@@ -39,6 +42,8 @@ Navigate to the admin route in your application. You'll be prompted to log in if
 
 ### Artists
 - Add new artists with their bio, genres, and social links
+- Fill in **Spotify Artist ID**, **Discogs Artist ID**, **Songkick Artist ID** to enable auto-sync
+- Click **Sync Now** (↻ icon) on any artist row to immediately pull releases from iTunes + Songkick
 - Update artist information
 - Mark artists as featured
 - Delete artists (cascades to their releases)

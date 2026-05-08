@@ -51,6 +51,10 @@ export interface Database {
           vat_number: string | null
           is_eu_non_german: boolean
           notes: string | null
+          spotify_id: string | null
+          discogs_id: string | null
+          songkick_id: string | null
+          last_synced_at: string | null
           created_at: string
           updated_at: string
         }
@@ -71,6 +75,10 @@ export interface Database {
           vat_number?: string | null
           is_eu_non_german?: boolean
           notes?: string | null
+          spotify_id?: string | null
+          discogs_id?: string | null
+          songkick_id?: string | null
+          last_synced_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -91,6 +99,10 @@ export interface Database {
           vat_number?: string | null
           is_eu_non_german?: boolean
           notes?: string | null
+          spotify_id?: string | null
+          discogs_id?: string | null
+          songkick_id?: string | null
+          last_synced_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -249,6 +261,81 @@ export interface Database {
           public_url?: string
           uploaded_by?: string | null
           created_at?: string
+        }
+        Relationships: []
+      }
+      sync_logs: {
+        Row: {
+          id: string
+          artist_id: string | null
+          triggered_by: 'manual' | 'cron'
+          status: 'pending' | 'success' | 'partial' | 'error'
+          details: Record<string, unknown> | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          artist_id?: string | null
+          triggered_by?: 'manual' | 'cron'
+          status?: 'pending' | 'success' | 'partial' | 'error'
+          details?: Record<string, unknown> | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          artist_id?: string | null
+          triggered_by?: 'manual' | 'cron'
+          status?: 'pending' | 'success' | 'partial' | 'error'
+          details?: Record<string, unknown> | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      concerts: {
+        Row: {
+          id: string
+          artist_id: string | null
+          artist_name: string
+          event_name: string
+          venue_name: string | null
+          city: string | null
+          country: string | null
+          event_date: string
+          ticket_url: string | null
+          songkick_id: string | null
+          status: 'upcoming' | 'past' | 'cancelled'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          artist_id?: string | null
+          artist_name: string
+          event_name: string
+          venue_name?: string | null
+          city?: string | null
+          country?: string | null
+          event_date: string
+          ticket_url?: string | null
+          songkick_id?: string | null
+          status?: 'upcoming' | 'past' | 'cancelled'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          artist_id?: string | null
+          artist_name?: string
+          event_name?: string
+          venue_name?: string | null
+          city?: string | null
+          country?: string | null
+          event_date?: string
+          ticket_url?: string | null
+          songkick_id?: string | null
+          status?: 'upcoming' | 'past' | 'cancelled'
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }
