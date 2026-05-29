@@ -102,7 +102,7 @@
         "@types/react-dom": "^19.0.4",
         "@vercel/node": "^5.7.15",
         "eslint": "^9.28.0",
-        "eslint-config-next": "^15.5.15",
+        "eslint-config-next": "^16.2.6",
         "eslint-plugin-react-hooks": "^5.2.0",
         "globals": "^16.0.0",
         "jsdom": "^29.1.1",
