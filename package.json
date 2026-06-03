@@ -23,7 +23,7 @@
     "perf:test": "playwright test tests/performance"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1056.0",
+    "@aws-sdk/client-s3": "^3.1061.0",
     "@aws-sdk/s3-request-presigner": "^3.1056.0",
     "@hookform/resolvers": "^5.4.0",
     "@octokit/core": "^6.1.4",
