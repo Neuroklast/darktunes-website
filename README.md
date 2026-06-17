@@ -25,17 +25,17 @@ Built with **Next.js 15 (App Router)**, React, Supabase, Cloudflare R2, and Tail
 
 ## 🛠 Tech Stack
 
-| Layer | Technology |
-|---|---|
-| UI framework | Next.js 15 (App Router) + React 19 + TypeScript |
-| Styling | Tailwind CSS v4 (PostCSS) |
-| Animations | Framer Motion, Lenis |
-| Icons | Phosphor Icons |
-| Database | Supabase (PostgreSQL) |
-| Auth | Supabase Auth + `@supabase/ssr` + Next.js Edge Middleware |
-| Storage | Cloudflare R2 (AWS SDK v3) |
-| Deployment | Vercel |
-| Testing | Vitest + Testing Library |
+| Layer        | Technology                                                |
+| ------------ | --------------------------------------------------------- |
+| UI framework | Next.js 15 (App Router) + React 19 + TypeScript           |
+| Styling      | Tailwind CSS v4 (PostCSS)                                 |
+| Animations   | Framer Motion, Lenis                                      |
+| Icons        | Phosphor Icons                                            |
+| Database     | Supabase (PostgreSQL)                                     |
+| Auth         | Supabase Auth + `@supabase/ssr` + Next.js Edge Middleware |
+| Storage      | Cloudflare R2 (AWS SDK v3)                                |
+| Deployment   | Vercel                                                    |
+| Testing      | Vitest + Testing Library                                  |
 
 ---
 
@@ -60,25 +60,25 @@ npm run dev
 
 ## 📜 Available Scripts
 
-| Script | Description |
-|---|---|
-| `npm run dev` | Start Next.js development server (port 3000) |
-| `npm run build` | Production build (`next build`) |
-| `npm run preview` | Preview the production build locally (`next start`) |
-| `npm run lint` | Run ESLint |
-| `npm run ci` | Full CI check: lint → tsc → test → build |
-| `npm test` | Run unit tests (Vitest) |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run test:e2e` | Run Playwright E2E & visual regression tests |
-| `npm run analyze` | Build with bundle analyzer enabled |
-| `npm run perf:bundle` | Alias for `npm run analyze` |
-| `npm run perf:dev` | Start turbo dev server for performance work |
-| `npm run perf:build` | Run production profiling build |
-| `npm run perf:analyze` | Build with analyzer enabled |
-| `npm run perf:lighthouse` | Run Lighthouse CI locally |
-| `npm run perf:test` | Run Playwright performance tests |
-| `npm run db:push` | Push local Supabase schema changes to a configured Supabase project |
-| `npm run db:diff` | Generate a local schema diff with the Supabase CLI |
+| Script                    | Description                                                         |
+| ------------------------- | ------------------------------------------------------------------- |
+| `npm run dev`             | Start Next.js development server (port 3000)                        |
+| `npm run build`           | Production build (`next build`)                                     |
+| `npm run preview`         | Preview the production build locally (`next start`)                 |
+| `npm run lint`            | Run ESLint                                                          |
+| `npm run ci`              | Full CI check: lint → tsc → test → build                            |
+| `npm test`                | Run unit tests (Vitest)                                             |
+| `npm run test:watch`      | Run tests in watch mode                                             |
+| `npm run test:e2e`        | Run Playwright E2E & visual regression tests                        |
+| `npm run analyze`         | Build with bundle analyzer enabled                                  |
+| `npm run perf:bundle`     | Alias for `npm run analyze`                                         |
+| `npm run perf:dev`        | Start turbo dev server for performance work                         |
+| `npm run perf:build`      | Run production profiling build                                      |
+| `npm run perf:analyze`    | Build with analyzer enabled                                         |
+| `npm run perf:lighthouse` | Run Lighthouse CI locally                                           |
+| `npm run perf:test`       | Run Playwright performance tests                                    |
+| `npm run db:push`         | Push local Supabase schema changes to a configured Supabase project |
+| `npm run db:diff`         | Generate a local schema diff with the Supabase CLI                  |
 
 ---
 
@@ -91,6 +91,7 @@ npm run dev
 - **Bundle budget enforcement**: `scripts/check-bundle-budget.js` + `.github/workflows/performance-budget.yml`
 
 ---
+
 ## ✅ Quality Assurance
 
 ### Local QA commands
@@ -108,6 +109,7 @@ npm run test -- tests/unit/ci-colors.spec.ts
 ### QA CI pipeline
 
 The dedicated QA workflow (`.github/workflows/qa.yml`) runs five jobs:
+
 - `lint-and-unit-tests` — ESLint + Vitest
 - `e2e-tests` — Playwright route/security/feature checks
 - `security-audit` — npm audit (high severity gate)
@@ -128,49 +130,48 @@ The dedicated QA workflow (`.github/workflows/qa.yml`) runs five jobs:
 
 ---
 
-
 ## 🔑 Environment Variables
 
 Copy `.env.example` to `.env.local` and fill in your values.
 
 ### Client-side (`NEXT_PUBLIC_` prefix — exposed to the browser)
 
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| Variable                        | Description                   |
+| ------------------------------- | ----------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL          |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous/public key |
 
 ### Server-side (Next.js Route Handlers / Edge Middleware only — never in the browser)
 
-| Variable | Description |
-|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key — used by `/api/upload` to verify auth tokens |
-| `CLOUDFLARE_R2_ACCOUNT_ID` | Cloudflare account ID |
-| `CLOUDFLARE_R2_ACCESS_KEY_ID` | R2 API access key ID |
-| `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | R2 API secret access key |
-| `CLOUDFLARE_R2_BUCKET_NAME` | R2 bucket name (e.g. `darktunes-assets`) |
-| `CLOUDFLARE_R2_PUBLIC_URL` | R2 public CDN base URL (e.g. `https://cdn.darktunes.com`) |
+| Variable                          | Description                                                             |
+| --------------------------------- | ----------------------------------------------------------------------- |
+| `SUPABASE_SERVICE_ROLE_KEY`       | Supabase service-role key — used by `/api/upload` to verify auth tokens |
+| `CLOUDFLARE_R2_ACCOUNT_ID`        | Cloudflare account ID                                                   |
+| `CLOUDFLARE_R2_ACCESS_KEY_ID`     | R2 API access key ID                                                    |
+| `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | R2 API secret access key                                                |
+| `CLOUDFLARE_R2_BUCKET_NAME`       | R2 bucket name (e.g. `darktunes-assets`)                                |
+| `CLOUDFLARE_R2_PUBLIC_URL`        | R2 public CDN base URL (e.g. `https://cdn.darktunes.com`)               |
 
 ### External API Keys (optional — Artist Auto-Sync)
 
-| Variable | Description |
-|---|---|
-| `SPOTIFY_CLIENT_ID` | Spotify app client ID (sync releases by Spotify Artist ID) |
-| `SPOTIFY_CLIENT_SECRET` | Spotify app client secret |
-| `DISCOGS_TOKEN` | Discogs personal access token (sync releases by Discogs Artist ID) |
-| `SONGKICK_API_KEY` | Songkick API key (sync tour dates by Songkick Artist ID) |
-| `BANDSINTOWN_API_KEY` | Bandsintown API key (sync tour dates by Bandsintown artist name) |
-| `YOUTUBE_API_KEY` | Google API key with YouTube Data API v3 (sync videos via `POST /api/sync-youtube`) |
-| `YOUTUBE_CHANNEL_ID` | YouTube channel ID (starts with `UC`) |
-| `CRON_SECRET` | Optional secret for Vercel cron requests to `POST /api/sync-youtube` (Bearer token) |
-| `CONTACT_EMAIL` | Email address for contact form submissions (defaults to `info@darktunes.com`) |
+| Variable                | Description                                                                         |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `SPOTIFY_CLIENT_ID`     | Spotify app client ID (sync releases by Spotify Artist ID)                          |
+| `SPOTIFY_CLIENT_SECRET` | Spotify app client secret                                                           |
+| `DISCOGS_TOKEN`         | Discogs personal access token (sync releases by Discogs Artist ID)                  |
+| `SONGKICK_API_KEY`      | Songkick API key (sync tour dates by Songkick Artist ID)                            |
+| `BANDSINTOWN_API_KEY`   | Bandsintown API key (sync tour dates by Bandsintown artist name)                    |
+| `YOUTUBE_API_KEY`       | Google API key with YouTube Data API v3 (sync videos via `POST /api/sync-youtube`)  |
+| `YOUTUBE_CHANNEL_ID`    | YouTube channel ID (starts with `UC`)                                               |
+| `CRON_SECRET`           | Optional secret for Vercel cron requests to `POST /api/sync-youtube` (Bearer token) |
+| `CONTACT_EMAIL`         | Email address for contact form submissions (defaults to `info@darktunes.com`)       |
 
 ### Supabase Read Replica (optional — Supabase Pro plan)
 
-| Variable | Description |
-|---|---|
-| `SUPABASE_REPLICA_URL` | Supabase read-replica URL (Pro plan). Routes heavy analytics/reporting queries away from the primary DB. Falls back to primary when unset. |
-| `SUPABASE_REPLICA_ANON_KEY` | Anon key for the read replica. |
+| Variable                    | Description                                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SUPABASE_REPLICA_URL`      | Supabase read-replica URL (Pro plan). Routes heavy analytics/reporting queries away from the primary DB. Falls back to primary when unset. |
+| `SUPABASE_REPLICA_ANON_KEY` | Anon key for the read replica.                                                                                                             |
 
 See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for full setup instructions.
 
@@ -183,6 +184,7 @@ Types are defined in `src/types/database.ts`.
 **Always keep both in sync** — see the schema change checklist in [AGENTS.md](./AGENTS.md).
 
 To apply the schema (fresh or existing database):
+
 1. Open the **Supabase SQL Editor** in the dashboard.
 2. Paste the contents of `supabase/reset.sql` and click **Run**.
 
@@ -192,14 +194,14 @@ The script is safe to re-run at any time — it never deletes existing data.
 
 ## ♿ Accessibility & Quality
 
-| Requirement | Status | Implementation |
-|---|---|---|
-| **WCAG 2.1 AA** | ✅ | Skip-to-main link, `lang` attribute, ARIA labels/roles on all interactive elements, decorative images `alt=""` + `aria-hidden`, 44 × 44 px touch targets, visible focus rings |
-| **Reduced Motion** | ✅ | `useReducedMotion()` (Framer Motion) in every animated component; transitions and stagger animations are disabled when the OS preference is set |
-| **Artist Navigation** | ✅ | All artist cards navigate to `/artists/[slug]` via Next.js `<Link>`. No modal used for artist navigation |
-| **TypeScript `any`** | ✅ | Zero `any` annotations in production code; ESLint enforces this |
-| **LenisProvider** | ✅ | Single global instance in `app/_components/Providers.tsx`. No `scroll-behavior: smooth` in CSS (Lenis handles it) |
-| **Code Splitting** | ✅ | 15 heavy admin manager panels lazy-loaded via `React.lazy` + `Suspense` in `AdminDashboard`. `VideoModal` lazy-loaded in `Videos` (interaction-only) |
+| Requirement           | Status | Implementation                                                                                                                                                                |
+| --------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **WCAG 2.1 AA**       | ✅     | Skip-to-main link, `lang` attribute, ARIA labels/roles on all interactive elements, decorative images `alt=""` + `aria-hidden`, 44 × 44 px touch targets, visible focus rings |
+| **Reduced Motion**    | ✅     | `useReducedMotion()` (Framer Motion) in every animated component; transitions and stagger animations are disabled when the OS preference is set                               |
+| **Artist Navigation** | ✅     | All artist cards navigate to `/artists/[slug]` via Next.js `<Link>`. No modal used for artist navigation                                                                      |
+| **TypeScript `any`**  | ✅     | Zero `any` annotations in production code; ESLint enforces this                                                                                                               |
+| **LenisProvider**     | ✅     | Single global instance in `app/_components/Providers.tsx`. No `scroll-behavior: smooth` in CSS (Lenis handles it)                                                             |
+| **Code Splitting**    | ✅     | 15 heavy admin manager panels lazy-loaded via `React.lazy` + `Suspense` in `AdminDashboard`. `VideoModal` lazy-loaded in `Videos` (interaction-only)                          |
 
 ---
 
@@ -387,20 +389,17 @@ scripts/
 
 ## 🎨 Brand Colors
 
-| Token | Hex | Usage |
-|---|---|---|
-| `--primary` | `#493687` | Violet – CTAs, active nav, focus rings |
-| `--secondary` | `#7e1e37` | Pink – hover, promo badges |
-| `--background` | `#101010` | Near-black page background |
-| `--card` | `#292929` | Cards, modals, player bar |
-| `--border` | `#383838` | Subtle borders, inputs |
-| `--foreground` | `#ffffff` | Primary text |
+| Token          | Hex       | Usage                                  |
+| -------------- | --------- | -------------------------------------- |
+| `--primary`    | `#493687` | Violet – CTAs, active nav, focus rings |
+| `--secondary`  | `#7e1e37` | Pink – hover, promo badges             |
+| `--background` | `#101010` | Near-black page background             |
+| `--card`       | `#292929` | Cards, modals, player bar              |
+| `--border`     | `#383838` | Subtle borders, inputs                 |
+| `--foreground` | `#ffffff` | Primary text                           |
 
 ---
 
 ## 📄 License
 
 Proprietary — All Rights Reserved. See [LICENSE](./LICENSE).
-
-
-- Press portal: public label press landing, artist EPK pages, embargo-aware press releases, dashboard profile/contact tools, upgraded press kit downloads, and promo-track preview/download flows.
