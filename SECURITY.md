@@ -3,7 +3,7 @@
 ## Supported Versions
 
 | Version | Supported |
-|---|---|
+| --- | --- |
 | `main` branch | ✅ |
 | Older branches | ❌ |
 
@@ -55,7 +55,7 @@ The following public endpoints are protected by an in-memory sliding-window
 IP rate limiter (`src/lib/ipRateLimit.ts`) in addition to other guards:
 
 | Route | Limit | Window | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `/api/contact` | 5 requests | 10 minutes | + honeypot field |
 | `/api/newsletter` | 3 requests | 10 minutes | + silent success on duplicate email |
 | `/api/journalist-applications` | 3 requests | 30 minutes | POST only |
@@ -67,12 +67,11 @@ Upstash Redis rate limiter.
 ## Upload Size Limits (enforced in Route Handlers)
 
 | Route | Max Size |
-|---|---|
+| --- | --- |
 | `/api/upload` (admin assets) | 50 MB |
 | `/api/portal/upload-photo` | 5 MB |
 | `/api/portal/upload-release-cover` | 5 MB |
 | `/api/portal/upload-asset` | 20 MB |
 | `/api/portal/documents/upload` | 20 MB (PDF/DOCX) |
-
 
 - Press inquiries from authenticated journalists are stored as internal app log entries; promo track previews/downloads continue to use short-lived signed R2 URLs and journalist download logging.

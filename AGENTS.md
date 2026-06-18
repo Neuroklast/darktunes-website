@@ -1,4 +1,5 @@
-Developer & Agent Guidelines (AGENTS.md)
+# Developer & Agent Guidelines (AGENTS.md)
+
 MANDATORY: All developers and AI agents working on this project MUST strictly adhere to the following guidelines. This ensures code quality, security, legal compliance (GDPR), perfect UI/UX, and maintainability.
 
 Clean Code & Architecture (ISO/IEC 25010)
@@ -75,10 +76,11 @@ Supabase Mock Pattern: In DAL tests, create a mock builder where all chain metho
 E2E & Visual Regression Testing (Playwright)
 E2E test runner: `npm run test:e2e` (runs `playwright test` using `playwright.config.ts`).
 Test files live in `tests/e2e/` — one spec file per concern:
-  - `visual.spec.ts`      — full-page & section screenshots for visual regression.
-  - `responsive.spec.ts`  — shrinking header, hamburger menu, grid stacking.
-  - `interactions.spec.ts`— touch-target sizes (≥ 44×44 px on mobile), video/artist modals, swipe-to-close.
-  - `edgecases.spec.ts`   — skeleton ↔ card dimension parity (CLS), long-name truncation, slow-network.
+
+- `visual.spec.ts`      — full-page & section screenshots for visual regression.
+- `responsive.spec.ts`  — shrinking header, hamburger menu, grid stacking.
+- `interactions.spec.ts`— touch-target sizes (≥ 44×44 px on mobile), video/artist modals, swipe-to-close.
+- `edgecases.spec.ts`   — skeleton ↔ card dimension parity (CLS), long-name truncation, slow-network.
 Three browser projects: `Desktop Chrome` (1920×1080), `Mobile Safari` (iPhone 13), `Mobile Chrome` (Pixel 5).
 CRT/noise/scanline overlays MUST be hidden via CSS injection (`page.addStyleTag`) before any `toHaveScreenshot` call to prevent flaky diffs from animated noise.
 The webServer block in `playwright.config.ts` runs `npm run build && npm run preview` automatically; set `SKIP_BUILD=1` to reuse an existing build artifact.
@@ -93,10 +95,11 @@ Bundle size assertions: Measure `rootMainFiles` from `.next/build-manifest.json`
 Lighthouse CI: Use `node_modules/.bin/lhci collect` followed by `node_modules/.bin/lhci assert` as separate workflow steps. Do NOT use `lhci autorun` — it attempts static-site auto-detection and fails on Next.js server-rendered projects. Config lives in `lighthouserc.js` (ESM, `export default`). Remove or omit the `upload` section unless an LHCI server is configured.
 Bundle budget script (`scripts/check-bundle-budget.js`): Measures route-specific JS (excluding shared rootMainFiles) from `app-build-manifest.json`. Route keys use the URL segment path format (e.g. `/page`, `/artists/[slug]/page`). Chunk-name-based size checks (e.g. searching for "framer-motion" in filenames) will ALWAYS return 0 KB because Next.js uses hash-based chunk names — do NOT add such checks. Budget thresholds reflect uncompressed on-disk sizes; update them (with a comment) whenever a deliberate new dependency is added.
 Performance scripts summary:
-  - `npm run analyze` / `npm run perf:analyze` — bundle analyzer (ANALYZE=true next build)
-  - `npm run perf:lighthouse` — run `lhci collect && lhci assert` locally (requires prior build)
-  - `npm run perf:test` — Playwright performance suite
-  - `npm run perf:build` — profiling build (`next build --profile`)
+
+- `npm run analyze` / `npm run perf:analyze` — bundle analyzer (ANALYZE=true next build)
+- `npm run perf:lighthouse` — run `lhci collect && lhci assert` locally (requires prior build)
+- `npm run perf:test` — Playwright performance suite
+- `npm run perf:build` — profiling build (`next build --profile`)
 
 Data Access Layer (DAL)
 All database queries live in `src/lib/api/` — one file per table (artists.ts, releases.ts, news.ts, videos.ts, assets.ts, artistAssets.ts, labelMessages.ts, artistReplies.ts, siteSettings.ts, artistProfiles.ts, streamingStats.ts, salesStatements.ts, newsletter.ts, pressPhotos.ts, promoTracks.ts, journalistApplications.ts).
@@ -116,12 +119,14 @@ Public vs Admin DAL: The public homepage (app/page.tsx) uses `getPublicArtists()
 
 Detail Page Data API Waterfall
 app/releases/[id]/page.tsx — Data API Waterfall:
+
   1. URL segment `id` → UUID of the release
   2. `getReleaseById(client, id)` → SELECT * FROM releases WHERE id = ? (RLS: anon sees visible releases with visible artists)
   3. `getDictionary(locale)` → resolved from NEXT_LOCALE cookie / Accept-Language header
   Steps 2+3 run in parallel via Promise.all. Cookie-free public client used inside unstable_cache (revalidate: 60, tag: 'releases').
 
 app/artists/[slug]/page.tsx — Data API Waterfall:
+
   1. URL segment `slug` → artist slug
   2. `getArtistBySlug(client, slug)` → Stage 1 direct slug match; Stage 2 fallback scans rows with NULL/empty slug and matches the mapper-generated slug from artist name (RLS: anon sees visible artists)
   3. `getReleasesByArtistId` + `getConcertsByArtistId` + `getVideosByArtistId` + `getPublicNewsPostsByArtistId` → four parallel queries using the resolved artist.id (news capped at 3 most recent)
@@ -137,19 +142,21 @@ Dialog Contracts: All modals must extend DialogProps (with open / onClose). No d
 
 Admin Route Auth Pattern
 All admin API routes MUST use the shared auth helpers from `src/lib/adminAuth.ts`:
-  - `extractBearerToken(authHeader)` — extracts the JWT from `Authorization: Bearer <token>`, throws ApiError(401) if missing.
-  - `verifyAdminOrEditor(token)` — verifies the token and asserts `admin` or `editor` role. Throws ApiError(401) for invalid tokens, ApiError(403) for insufficient role.
-  - `verifyAdmin(token)` — like `verifyAdminOrEditor` but requires the `admin` role specifically. Use for admin-only mutations (e.g. modifying role permissions).
-  - `verifyPermission(token, permission)` — verifies the token and checks a specific permission column in the `role_permissions` table. Admin role always passes. Use this instead of `verifyAdminOrEditor` for content-specific routes so granular permissions are enforced end-to-end.
+
+- `extractBearerToken(authHeader)` — extracts the JWT from `Authorization: Bearer <token>`, throws ApiError(401) if missing.
+- `verifyAdminOrEditor(token)` — verifies the token and asserts `admin` or `editor` role. Throws ApiError(401) for invalid tokens, ApiError(403) for insufficient role.
+- `verifyAdmin(token)` — like `verifyAdminOrEditor` but requires the `admin` role specifically. Use for admin-only mutations (e.g. modifying role permissions).
+- `verifyPermission(token, permission)` — verifies the token and checks a specific permission column in the `role_permissions` table. Admin role always passes. Use this instead of `verifyAdminOrEditor` for content-specific routes so granular permissions are enforced end-to-end.
 
 Available `RolePermissionKey` values: `can_publish_news`, `can_edit_news`, `can_manage_artists`, `can_manage_releases`, `can_manage_videos`, `can_view_admin_panel`.
 
 Route → permission mapping:
-  - fetch-artist-image, prefill-artist*, enrich-artist-discogs → `can_manage_artists`
-  - resolve-release-smart-link → `can_manage_releases`
-  - fetch-youtube-info → `can_manage_videos`
-  - `/api/admin/assets/*`, `/api/admin/media/*` → `can_view_admin_panel`
-  - `/api/admin/roles/permissions` GET → `verifyAdminOrEditor`, PATCH → `verifyAdmin`
+
+- fetch-artist-image, prefill-artist*, enrich-artist-discogs → `can_manage_artists`
+- resolve-release-smart-link → `can_manage_releases`
+- fetch-youtube-info → `can_manage_videos`
+- `/api/admin/assets/*`, `/api/admin/media/*` → `can_view_admin_panel`
+- `/api/admin/roles/permissions` GET → `verifyAdminOrEditor`, PATCH → `verifyAdmin`
 
 Do NOT duplicate `verifyTokenAndRole` inline in individual route files — use the shared helper.
 Every admin route MUST be wrapped with `withErrorHandler` from `src/lib/errors.ts` for uniform error responses.
@@ -163,7 +170,6 @@ CPU-intensive image operations (resize, format conversion) MUST use `src/workers
 Worker instances are lazily created per component/operation and MUST be terminated (`processor.terminate()`) when done. Create in component mount effect, terminate in cleanup.
 ImageBitmap objects are transferred (not copied) to the worker via the Transferable API — do not reuse a bitmap after calling `resize()` or `toBlob()`.
 
-
 Server-side external API calls MUST use `withExponentialBackoff()` from `src/lib/rateLimiter.ts`.
 Throw `HttpError(status, message)` for HTTP errors to distinguish retryable (429, 5xx) from non-retryable failures.
 Non-HTTP errors (e.g. network errors) are not retried — they fail immediately.
@@ -174,6 +180,7 @@ These functions proxy through wsrv.nl and output WebP format, preventing origin 
 Use `getOptimizedImageUrl` for rectangular/banner images and `getSquareThumbnail` for cover art / profile photos.
 
 Next.js `<Image>` Component – ALWAYS use `<Image />` from `next/image` instead of bare `<img>` tags. Raw `<img>` causes the `@next/next/no-img-element` lint error and degrades LCP.
+
 - Images already proxied through wsrv.nl: add `unoptimized` so Next.js does not double-process them.
 - Images in position:relative containers: use `fill` prop (e.g. carousels, hero, thumbnails).
 - Logos and images with known natural dimensions: use `width` / `height` props + `style={{ width: 'auto' }}` CSS override to preserve aspect ratio.
@@ -193,9 +200,10 @@ Release deduplication: `src/lib/sync/deduplication.ts` merges Spotify + Discogs 
 
 Cron Jobs (Vercel):
   Three cron jobs are configured in `vercel.json`:
-  - `/api/sync-youtube` — daily at 06:00 UTC: fetches latest YouTube channel videos.
-  - `/api/sync` — daily at 03:00 UTC: enqueues async sync jobs for all artists into `sync_queue` and returns immediately.
-  - `/api/process-sync-queue` — every 5 minutes: picks one pending job from `sync_queue`, syncs that artist (iTunes), marks it done/failed. maxDuration: 60s.
+
+- `/api/sync-youtube` — daily at 06:00 UTC: fetches latest YouTube channel videos.
+- `/api/sync` — daily at 03:00 UTC: enqueues async sync jobs for all artists into `sync_queue` and returns immediately.
+- `/api/process-sync-queue` — every 5 minutes: picks one pending job from `sync_queue`, syncs that artist (iTunes), marks it done/failed. maxDuration: 60s.
   All routes accept either a ****** (manual trigger) or a Vercel cron call (`x-vercel-cron: 1` header) optionally guarded by `CRON_SECRET` env var.
   The `isValidCronSecret` helper uses `timingSafeEqual` to prevent timing attacks.
 
@@ -247,7 +255,7 @@ Discogs Artist Enrichment (manual):
   `src/lib/sync/discogsApi.ts` exports two functions:
     - `fetchDiscogsArtistReleases(id, token, fetch)` — paginated release list (used by syncAll).
     - `fetchDiscogsArtistProfile(id, token, fetch)` — fetches artist bio, primary image, and URLs from `GET /artists/{id}`. Token is optional (higher rate limit when provided).
-  `cleanDiscogsMarkup(text)` strips Discogs wiki markup ([a=Name], [l=Label], [url=…][/url], etc.) and is exported for standalone use and testing.
+  `cleanDiscogsMarkup(text)` strips Discogs wiki markup ([a=Name], [l=Label], `[url=…][/url]`, etc.) and is exported for standalone use and testing.
   Admin route `POST /api/admin/enrich-artist-discogs` (body: `{ discogsId }`) verifies admin/editor role, calls `fetchDiscogsArtistProfile`, and returns `{ name, bio, imageUrl, urls }`. It does NOT write to the DB — the admin UI applies the data via the normal artist update flow.
   The "Enrich from Discogs" button in `ArtistForm` only fills empty fields (bio, imageUrl) — it never overwrites data the admin has already entered.
 
@@ -288,29 +296,31 @@ the full local check suite and iterate until ALL commands exit with code 0.
 Never open a pull request while any check is still failing.
 
 Check sequence (run ALL in order after every fix, then restart from step 1):
+
   1. `npm run lint`       — ESLint: read ALL errors before fixing any. Fix all, then re-run.
   2. `npx tsc --noEmit`  — TypeScript strict check: fix all type errors. No `any` shortcuts.
   3. `npm test`           — Vitest: all unit tests must pass green.
   4. `npm run build`      — Next.js production build: fix all build errors.
 
 Iteration rules:
-  - After EVERY individual fix, re-run the FULL sequence from step 1 — never just the one
+
+- After EVERY individual fix, re-run the FULL sequence from step 1 — never just the one
     step that previously failed.
-  - Read ALL errors output by a command in one pass, then fix ALL of them before re-running.
+- Read ALL errors output by a command in one pass, then fix ALL of them before re-running.
     Do not fix one error, re-run, fix the next — batch the fixes per command.
-  - A PR MUST NOT be opened until all four commands exit with code 0 in a single clean run.
-  - If fixing one check introduces a regression in a previously passing check, resolve the
+- A PR MUST NOT be opened until all four commands exit with code 0 in a single clean run.
+- If fixing one check introduces a regression in a previously passing check, resolve the
     regression before continuing.
-  - Suppression shortcuts (`as any`, `@ts-ignore`, `// eslint-disable`) added purely to
+- Suppression shortcuts (`as any`, `@ts-ignore`, `// eslint-disable`) added purely to
     silence a failing check are FORBIDDEN — always fix the root cause.
 Review & Update All Docs and Scripts: At the END of EVERY agent session, review each of the following files for accuracy and update any section that is stale or inconsistent with the actual codebase:
-  - README.md (quick start, scripts table, env-var table, project structure)
-  - DEPLOYMENT.md (env-var names must match .env.example and scripts/vercel-install.sh exactly)
-  - INTEGRATION-SUMMARY.md (reflect the current implemented vs. pending state)
-  - ADMIN.md (admin panel features and setup steps)
-  - SECURITY.md (security practices relevant to the actual code)
-  - scripts/vercel-install.sh (env-var list must match .env.example)
-  - .env.example (must list every variable the app actually reads)
+- README.md (quick start, scripts table, env-var table, project structure)
+- DEPLOYMENT.md (env-var names must match .env.example and scripts/vercel-install.sh exactly)
+- INTEGRATION-SUMMARY.md (reflect the current implemented vs. pending state)
+- ADMIN.md (admin panel features and setup steps)
+- SECURITY.md (security practices relevant to the actual code)
+- scripts/vercel-install.sh (env-var list must match .env.example)
+- .env.example (must list every variable the app actually reads)
 This review is MANDATORY, not optional, even when no documentation changes were part of the original task.
 Update Documentation: If new public APIs, components, or utilities were added, update the relevant docs in the docs/ directory or inline JSDoc comments.
 Minimal Changes Principle: Make the smallest possible change that fully addresses the requirement. Do not refactor unrelated code in the same PR. Do not add new dependencies unless absolutely necessary — check npm audit for any new package.
@@ -323,6 +333,7 @@ Full schema requirements (3NF, naming conventions, RLS rules, idempotency patter
 
 MANDATORY RULE — Schema Change Checklist:
 Every PR that adds, removes, or renames a column / table / enum MUST include ALL of the following:
+
   1. Updated `supabase/reset.sql` — add the column/table to the CREATE TABLE definition AND add an idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` guard so existing databases are updated safely.
   2. Updated `src/types/database.ts` to reflect the new schema (Row, Insert, Update shapes).
   3. If applicable: updated application hooks (src/hooks/use*.ts) that query the affected table.
@@ -339,8 +350,9 @@ Multi-tenancy: `artists.user_id UUID REFERENCES auth.users(id)` links each artis
 Portal DAL functions: `getArtistByUserId(db, userId)` in `src/lib/api/artistProfiles.ts` resolves the current user's linked artist. Always call this before accessing artist-scoped data.
 RLS enforcement: `artist_profiles`, `streaming_stats`, `sales_statements`, `release_checklists`, `artist_replies`, and `artist_assets` all have artist-scoped RLS policies using `auth.uid()` + artist linkage. Security is at the DB layer; no middleware-only filtering.
 Presigned URL pattern: `src/lib/portal/presignedUrl.ts` exposes two injectable functions:
-  - `generatePresignedDownloadUrl(r2Key, deps)` — 5-minute GET URL for artist downloads (`PresignedUrlDeps`)
-  - `generatePresignedUploadUrl(r2Key, contentType, deps)` — 15-minute PUT URL for the SOS PDF generator to upload directly to R2, bypassing Vercel's 4.5 MB body limit (`PresignedUploadUrlDeps`)
+
+- `generatePresignedDownloadUrl(r2Key, deps)` — 5-minute GET URL for artist downloads (`PresignedUrlDeps`)
+- `generatePresignedUploadUrl(r2Key, contentType, deps)` — 15-minute PUT URL for the SOS PDF generator to upload directly to R2, bypassing Vercel's 4.5 MB body limit (`PresignedUploadUrlDeps`)
   The Server Action `app/portal/statements/_actions/presignedUrl.ts` wires real deps for artist-facing downloads.
 Photo upload: `app/api/portal/upload-photo/route.ts` accepts `multipart/form-data`, verifies auth, confirms artist ownership, then uploads to `profile-photos/{artistId}/{uuid}.{ext}` in R2. Max 5 MB, image types only.
 Release submission: `POST /api/portal/submit-release` creates a new release with `is_visible = FALSE` (pending admin approval). Optional cover uploads use `POST /api/portal/upload-release-cover` (max 5 MB images) into `release-covers/{artistId}/`. After a successful insert, the route fires a fire-and-forget call to `sendSubmissionNotificationEmail()` (see Submission Notifications below) and creates `editor_notifications` rows for all admins and editors so the bell icon in the admin sidebar highlights the new submission.
@@ -355,8 +367,9 @@ Portal nav items are now feature-flag aware (`portal_feature_flags`): Overview, 
 Billing master data lives in `artist_billing_profiles` and is edited at `/portal/billing`. Portal invoice creation MUST call `isBillingProfileComplete()` before generating PDFs. SOS-linked invoices pass through `/portal/invoices?statement={id}`, store the artist’s own bookkeeping number in `artist_invoice_number`, and set `sales_statements.status = 'acknowledged'` after successful creation.
 
 Portal Analytics page (`app/portal/analytics/page.tsx`) has two tabs:
-  - **Streaming** tab: monthly stream counts from `streaming_stats`, rendered by `StreamingChart` / `StreamingChartInner` using Recharts.
-  - **Einnahmen** (Earnings) tab: royalty earnings from `sales_statements`, rendered by `EarningsChart` / `EarningsChartInner`. Shows KPI cards (total earned, last payout, pending count) and a bar chart of `amount_eur` per `period`. The default tab can be pre-selected via the `?tab=earnings` query param.
+
+- **Streaming** tab: monthly stream counts from `streaming_stats`, rendered by `StreamingChart` / `StreamingChartInner` using Recharts.
+- **Einnahmen** (Earnings) tab: royalty earnings from `sales_statements`, rendered by `EarningsChart` / `EarningsChartInner`. Shows KPI cards (total earned, last payout, pending count) and a bar chart of `amount_eur` per `period`. The default tab can be pre-selected via the `?tab=earnings` query param.
   Both charts are loaded lazily via `next/dynamic` (`ssr: false`) to exclude Recharts from the initial bundle.
   Data fetch follows IoC: the Server Component fetches both `getStreamingStatsByArtistId` and `getSalesStatementsByArtistId` in parallel (`Promise.all`) and passes results as props to the leaf client components.
 
@@ -376,23 +389,25 @@ API: `POST /api/portal/submit-video` (artist auth, creates pending video row); `
 
 Admin Accounting Tab
 `/admin/accounting` — admin-only route with two tabs:
-  - **SOS Generator**: Upload royalty statement PDFs for any artist directly from the admin panel. Runs the `uploadStatement` Server Action (same action as the portal flow). Requires admin/editor session.
-  - **Statement History**: Read-only table of all `sales_statements` rows (same data as `StatementsManager` in the admin dashboard), sorted newest-first. Shows artist name, period, amount (EUR), filename, and status.
+
+- **SOS Generator**: Upload royalty statement PDFs for any artist directly from the admin panel. Runs the `uploadStatement` Server Action (same action as the portal flow). Requires admin/editor session.
+- **Statement History**: Read-only table of all `sales_statements` rows (same data as `StatementsManager` in the admin dashboard), sorted newest-first. Shows artist name, period, amount (EUR), filename, and status.
 
 Admin System Tab (Health, Logs, Maintenance)
 `/admin/system` — admin-only route with multiple sub-sections:
-  - **Health dashboard**: sync queue stats, DB connectivity, Vercel cron status.
-  - **Audit Log**: all `sync_logs` entries with full-text search, `api_source` filter, and `status` filter.
-  - **Error Log**: failed and partial sync runs (`sync_logs.status IN ('error','partial')`).
-  - **App Errors**: `app_logs` entries with `level = 'error'` or `level = 'warn'`.
-  - **Media Library**: R2 media file browser (`/api/admin/media` routes), separate from the Assets asset manager.
-  - **Maintenance panel** (`MaintenanceManager.tsx`): destructive one-shot admin operations:
-      - `POST /api/admin/maintenance/clear-logs` — truncates `sync_logs` older than N days.
-      - `POST /api/admin/maintenance/purge-releases` — deletes orphaned releases (`artist_id IS NULL`).
-      - `POST /api/admin/maintenance/reset-checklists` — deletes all `release_checklists` rows for a given artist.
-      - `POST /api/admin/maintenance/clear-accreditations` — deletes pending `accreditation_requests` older than N days.
-      - `POST /api/admin/maintenance/reset-accreditations` — resets a journalist's accreditation status.
-      - `POST /api/admin/maintenance/clear-stats` — deletes `streaming_stats` rows for a given artist + period.
+
+- **Health dashboard**: sync queue stats, DB connectivity, Vercel cron status.
+- **Audit Log**: all `sync_logs` entries with full-text search, `api_source` filter, and `status` filter.
+- **Error Log**: failed and partial sync runs (`sync_logs.status IN ('error','partial')`).
+- **App Errors**: `app_logs` entries with `level = 'error'` or `level = 'warn'`.
+- **Media Library**: R2 media file browser (`/api/admin/media` routes), separate from the Assets asset manager.
+- **Maintenance panel** (`MaintenanceManager.tsx`): destructive one-shot admin operations:
+  - `POST /api/admin/maintenance/clear-logs` — truncates `sync_logs` older than N days.
+  - `POST /api/admin/maintenance/purge-releases` — deletes orphaned releases (`artist_id IS NULL`).
+  - `POST /api/admin/maintenance/reset-checklists` — deletes all `release_checklists` rows for a given artist.
+  - `POST /api/admin/maintenance/clear-accreditations` — deletes pending `accreditation_requests` older than N days.
+  - `POST /api/admin/maintenance/reset-accreditations` — resets a journalist's accreditation status.
+  - `POST /api/admin/maintenance/clear-stats` — deletes `streaming_stats` rows for a given artist + period.
   All maintenance routes require admin/editor auth via `verifyAdminOrEditor`. All are wrapped with `withErrorHandler`.
 
 Supabase Read Replica Client
@@ -411,40 +426,43 @@ Admin statements overview: `StatementsManager` component (`src/components/admin/
 
 Submission Notifications (artist portal → admin)
 When an artist submits a release or video, two notification paths are triggered in parallel:
+
 1. In-app bell: `editor_notifications` rows are inserted for every user with role `admin` or `editor` (query uses `.in('role', ['admin', 'editor'])`). The `EditorNotificationBell` component in `AdminSidebarNav` highlights unread notifications — it is shown in both the desktop sidebar brand header and the mobile header.
 2. Email: `sendSubmissionNotificationEmail()` in `src/lib/email/sendSubmissionNotificationEmail.ts` sends an HTML notification via Resend to `LABEL_NOTIFICATION_EMAIL`. Follows the same non-throwing, fire-and-forget pattern as `sendStatementNotification.ts` — failure is logged but never blocks the portal response. Silently skipped when `RESEND_API_KEY` or `LABEL_NOTIFICATION_EMAIL` are unset.
 The `sendSubmissionNotificationEmail` function is dependency-injected (`SendSubmissionEmailDeps`) to remain fully testable without network calls. 7 unit tests in `src/lib/email/sendSubmissionNotificationEmail.test.ts`.
 
 Admin Live Shows (EventManager in admin context)
 `EventManager` (`app/portal/events/_components/EventManager.tsx`) accepts two optional props:
-  - `concertsApiPath?: string` (default: `/api/portal/concerts`) — the API base URL for CRUD operations. Set to `/api/admin/concerts` in the admin context.
-  - `hideIcsExport?: boolean` (default: `false`) — hides the ICS export button (portal-specific, not applicable in admin).
+
+- `concertsApiPath?: string` (default: `/api/portal/concerts`) — the API base URL for CRUD operations. Set to `/api/admin/concerts` in the admin context.
+- `hideIcsExport?: boolean` (default: `false`) — hides the ICS export button (portal-specific, not applicable in admin).
 `AdminConcertsManager` (`src/components/admin/AdminConcertsManager.tsx`) wraps `EventManager` with an artist-selector dropdown so admins can manage concerts for any artist. It is rendered under the **Events** tab of `AdminDashboard` (Calendar icon, visible to both admins and editors).
 Admin concerts API (`app/api/admin/concerts/route.ts`) uses `verifyAdminOrEditor` + `extractBearerToken`. POST requires `artistId` in the request body (unlike the portal route which resolves the artist from the session cookie). The concerts table RLS already allows admins and editors to insert/update/delete any row — no schema changes were needed.
 
 Vercel Deployment
 Install script: scripts/vercel-install.sh runs npm ci and validates all required environment variables.
 Required env vars are split into two groups:
-  - Client-side (must have NEXT_PUBLIC_ prefix to be exposed to the browser):
+
+- Client-side (must have NEXT_PUBLIC_ prefix to be exposed to the browser):
       NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
-  - Server-side (never exposed to the browser; used only in Vercel Route Handlers / Edge Functions):
+- Server-side (never exposed to the browser; used only in Vercel Route Handlers / Edge Functions):
       SUPABASE_SERVICE_ROLE_KEY,
       CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID,
       CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME,
       CLOUDFLARE_R2_PUBLIC_URL
-  - Optional (external API sync — required for Spotify / Discogs / Songkick artist sync):
+- Optional (external API sync — required for Spotify / Discogs / Songkick artist sync):
       SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET,
      DISCOGS_TOKEN, SONGKICK_API_KEY,
      BANDSINTOWN_API_KEY
-  - Optional (YouTube sync):
+- Optional (YouTube sync):
      YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID, CRON_SECRET
-  - Optional (Newsletter DOI — required for sending Double Opt-In confirmation emails):
+- Optional (Newsletter DOI — required for sending Double Opt-In confirmation emails):
      RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_SITE_URL
-  - Optional (MailerLite — adds verified subscribers to the marketing list after DOI confirmation):
+- Optional (MailerLite — adds verified subscribers to the marketing list after DOI confirmation):
      MAILERLITE_API_KEY, MAILERLITE_GROUP_ID
-  - Optional (ISR webhook revalidation — required for Supabase webhook-triggered cache busting):
+- Optional (ISR webhook revalidation — required for Supabase webhook-triggered cache busting):
      REVALIDATE_SECRET
-  - Optional (Supabase Read Replica — Supabase Pro plan; routes heavy analytics reads off the primary DB):
+- Optional (Supabase Read Replica — Supabase Pro plan; routes heavy analytics reads off the primary DB):
      SUPABASE_REPLICA_URL, SUPABASE_REPLICA_ANON_KEY
 Configure all variables in Vercel Dashboard → Project → Settings → Environment Variables.
 See DEPLOYMENT.md for full variable descriptions and setup instructions.
@@ -477,28 +495,33 @@ Seven enforceable principles for consistent modal/layout quality. All new and up
 
 **1. Responsive Modal Sizes (Viewport-relative)**
 ALL modals/dialogs MUST use viewport-relative sizing with responsive breakpoints. Hard-coding a single `max-w-*` class without breakpoints is forbidden.
+
 - ✅ Correct: `className="max-w-[calc(100%-2rem)] sm:max-w-lg md:max-w-xl lg:max-w-2xl"`
 - ❌ Forbidden: `className="max-w-lg"` (fixed size without responsive context)
 
 Default breakpoints for new modals:
+
 - Mobile (<640px): `max-w-[calc(100%-2rem)]` (1 rem side margin)
 - sm (≥640px): `sm:max-w-lg` (32 rem / 512 px)
 - md (≥768px): `md:max-w-xl` (36 rem / 576 px)
 - lg (≥1024px): `lg:max-w-2xl` (42 rem / 672 px)
 
 Documented exceptions (must be noted in a code comment):
+
 - Video/gallery modals: `sm:max-w-[95vw]` (maximum width for 16:9 content)
 - Forms with many fields: `lg:max-w-4xl`
 - Confirmation dialogs (text only): `sm:max-w-sm`
 
 **2. Vertical Height Limiting (max-h + Scroll)**
 EVERY modal body MUST enforce a maximum height with internal scrolling so long content never overflows the viewport.
+
 - ✅ Required pattern: `<div className="overflow-y-auto max-h-[70vh] p-6">{children}</div>`
 - `max-h-[70vh]` leaves 30 % of viewport for header / footer / close button.
 - `overflow-y-auto` enables vertical scrolling on overflow.
 - `p-6` prevents content from touching the edge.
 
 `max-h` values by modal type:
+
 - Standard forms: `max-h-[70vh]`
 - Video / media modals: `max-h-[92vh]` (maximise space for 16:9)
 - Confirmation dialogs: `max-h-[50vh]`
@@ -507,11 +530,13 @@ EVERY modal body MUST enforce a maximum height with internal scrolling so long c
 USE ONLY multiples of `0.5rem` (8 px) from the standard Tailwind spacing scale for all padding and margin inside modals and dialogs.
 
 Allowed values:
+
 - Tight:     `p-2` (8 px), `p-3` (12 px), `p-4` (16 px)
 - Standard:  `p-6` (24 px) — default for modal bodies
 - Generous:  `p-8` (32 px), `p-12` (48 px)
 
 Forbidden:
+
 - Off-grid values: `p-5`, `p-7`, `p-9`
 - Pixel literals: `style={{ padding: '13px' }}`
 
@@ -531,15 +556,18 @@ When building a fully custom modal (like `TacticalModal`) that does not use Radi
 
 **5. Backdrop Pattern**
 Every modal MUST render a visible semi-transparent backdrop so the rest of the page is visually dimmed.
+
 - ✅ Standard: `bg-black/80` with `transition={{ duration: 0.12, ease: 'linear' }}` (skip transition when `prefersReducedMotion`)
 - Use `pointer-events-auto` on the backdrop and attach `onClick={onClose}` to it so clicking outside the panel dismisses the modal.
 - The `Dialog` primitive from `@/components/ui/dialog` (Radix) handles the backdrop automatically — do NOT add a second backdrop overlay on top of it.
 
 **6. Enter/Exit Animation**
 Use a consistent spring animation for panel entrance. The preferred preset ("blade snap") matches `TacticalModal` and `VideoModal`:
+
 ```ts
 const MODAL_SPRING = { type: 'spring', stiffness: 400, damping: 40 } as const
 ```
+
 - Entrance: opacity 0 → 1 + scale 0.96 → 1 (or `clipPath` blade-slice for panel-style dialogs).
 - When `prefersReducedMotion` is `true`: set `duration: 0` on all transitions — skip all transforms.
 - Import `useReducedMotion` from `framer-motion` in every animated modal.
@@ -547,6 +575,7 @@ const MODAL_SPRING = { type: 'spring', stiffness: 400, damping: 40 } as const
 
 **7. Close / Dismiss Behaviour**
 Every modal MUST support all three standard dismiss paths without exception:
+
 1. **Close button**: visible `×` button in the top-right corner, `min-w-[44px] min-h-[44px]`, `aria-label="Close [context]"`.
 2. **ESC key**: handled automatically by Radix `Dialog`; for custom modals add a `keydown` listener on `document` that calls `onClose()` when `event.key === 'Escape'`.
 3. **Backdrop click**: `onClick={onClose}` on the backdrop element (Radix handles this via `onOpenChange`).
@@ -564,6 +593,7 @@ ADMIN/PORTAL/PRESS ROUTES — NO VISUAL EFFECTS: VisualEffectsOverlay and ThemeE
 
 Color Theme Admin (ColorThemeManager)
 `src/components/admin/ColorThemeManager.tsx` is the admin editor for the CI Color System. Key architectural rules:
+
 - All mutable editor state lives in a SINGLE `useReducer` (`ThemeDraft` + `ThemeAction` union). Do NOT add individual `useState` hooks per field — use `dispatch({ type: ... })` instead.
 - Live preview is DECLARATIVE: `buildPreviewCss(draft)` produces a `:root { … }` CSS string which is rendered as `<style data-id="ctm-live-preview" dangerouslySetInnerHTML={{ ... }} />` in JSX. React mounts/unmounts it automatically. Do NOT reintroduce `document.documentElement.style.setProperty` / `removeProperty` calls — they cause hydration mismatches.
 - `ThemeStyleInjector` (app/_components/ThemeStyleInjector.tsx) handles the SSR side: it injects the SAVED theme as a `<style>` tag in `<head>` at server-render time to prevent FOUC. ColorThemeManager handles the live preview only.
@@ -574,50 +604,56 @@ Color Theme Admin (ColorThemeManager)
 
 Typography System (state-of-the-art)
 `ThemeTypography` (src/config/themeConfig.ts) exposes the following CSS tokens, all admin-configurable:
-  - `fontFamily`           → `--font-family-body`
-  - `headingFamily`        → `--font-family-heading`
-  - `serifFamily`          → `--font-serif` (dedicated serif/accent override; if unset, inherits body font)
-  - `headingSize`          → `--heading-size` (h1 base size in rem)
-  - `headingScale`         → `--heading-scale` (ratio; h2 = h1×scale, h3 = h1×scale²)
-  - `bodySize`             → `--body-size`
-  - `bodyWeight`           → `--body-weight`
-  - `headingWeight`        → `--heading-weight`
-  - `lineHeight`           → `--line-height-body`
-  - `lineHeightHeading`    → `--line-height-heading`
-  - `letterSpacing`        → `--letter-spacing-body`
-  - `letterSpacingHeading` → `--letter-spacing-heading`
+
+- `fontFamily`           → `--font-family-body`
+- `headingFamily`        → `--font-family-heading`
+- `serifFamily`          → `--font-serif` (dedicated serif/accent override; if unset, inherits body font)
+- `headingSize`          → `--heading-size` (h1 base size in rem)
+- `headingScale`         → `--heading-scale` (ratio; h2 = h1×scale, h3 = h1×scale²)
+- `bodySize`             → `--body-size`
+- `bodyWeight`           → `--body-weight`
+- `headingWeight`        → `--heading-weight`
+- `lineHeight`           → `--line-height-body`
+- `lineHeightHeading`    → `--line-height-heading`
+- `letterSpacing`        → `--letter-spacing-body`
+- `letterSpacingHeading` → `--letter-spacing-heading`
 
 `--font-serif` wiring (critical): The Tailwind `font-serif` utility maps to `font-family: var(--font-serif)`. There are 27+ usages in Hero, Artist bios, MarkdownContent, etc. ThemeStyleInjector emits `--font-serif` as follows:
-  - `serifFamily` set → `--font-serif: 'serifFamily', serif` (dedicated accent typeface)
-  - `serifFamily` empty + `fontFamily` set → `--font-serif: var(--font-family-body)` (all serif elements follow body font)
-  - Both empty → token not emitted (falls back to globals.css default: `var(--font-family-body, Georgia, serif)`)
+
+- `serifFamily` set → `--font-serif: 'serifFamily', serif` (dedicated accent typeface)
+- `serifFamily` empty + `fontFamily` set → `--font-serif: var(--font-family-body)` (all serif elements follow body font)
+- Both empty → token not emitted (falls back to globals.css default: `var(--font-family-body, Georgia, serif)`)
   ⛔ Do NOT restore `--font-serif` as an inline style on `<html>` in layout.tsx — inline styles override ThemeStyleInjector's `<style>` tag.
 
 `buildGoogleFontSpec(fontName, weights)` (exported from ThemeStyleInjector.tsx):
-  - Converts a font name + weight array into a Google Fonts CSS2 API family spec fragment
-  - Strips CSS fallback stacks (splits on `,`), strips surrounding quotes
-  - Returns `null` for empty strings and http/https URLs
-  - Auto-constructs URL for unknown names (`spaces → +`) — any valid Google Font works without a map entry
-  - Always includes 400 as safety weight; deduplicates and sorts weights numerically
-  - Used by both ThemeStyleInjector (SSR) and TypographyTab (client-side preview font loading)
+
+- Converts a font name + weight array into a Google Fonts CSS2 API family spec fragment
+- Strips CSS fallback stacks (splits on `,`), strips surrounding quotes
+- Returns `null` for empty strings and http/https URLs
+- Auto-constructs URL for unknown names (`spaces → +`) — any valid Google Font works without a map entry
+- Always includes 400 as safety weight; deduplicates and sorts weights numerically
+- Used by both ThemeStyleInjector (SSR) and TypographyTab (client-side preview font loading)
 
 Font loading strategy:
-  - ThemeStyleInjector (SSR): emits `<link rel="stylesheet">` + `<link rel="preconnect">` for configured fonts; weight-subsets to only bodyWeight + headingWeight (reduces CSS payload ~60% vs. loading 300;400;500;600;700).
-  - Adds `<link rel="preload" as="style">` for the primary body font weight to improve FCP.
-  - TypographyTab (client): owns a self-contained `useEffect` that calls `loadGoogleFonts()` whenever body/heading/serif font selection changes. Works standalone in any context (Storybook, testbed, future refactors) without depending on a parent's useEffect.
+
+- ThemeStyleInjector (SSR): emits `<link rel="stylesheet">` + `<link rel="preconnect">` for configured fonts; weight-subsets to only bodyWeight + headingWeight (reduces CSS payload ~60% vs. loading 300;400;500;600;700).
+- Adds `<link rel="preload" as="style">` for the primary body font weight to improve FCP.
+- TypographyTab (client): owns a self-contained `useEffect` that calls `loadGoogleFonts()` whenever body/heading/serif font selection changes. Works standalone in any context (Storybook, testbed, future refactors) without depending on a parent's useEffect.
 
 Real-time cross-tab theme sync:
-  - `src/components/ThemeBroadcastListener.tsx` is a `"use client"` component (returns null) mounted in `app/_components/Providers.tsx`.
-  - It opens `BroadcastChannel('theme-updates')` and calls `router.refresh()` when it receives `{ type: 'theme-updated' }`.
-  - The admin tab that triggered the save does NOT receive its own broadcast (BroadcastChannel sender exclusion is spec behaviour).
-  - Gracefully skips when BroadcastChannel is unsupported (private Safari, some Webviews).
-  - NEVER add a second ThemeBroadcastListener instance.
+
+- `src/components/ThemeBroadcastListener.tsx` is a `"use client"` component (returns null) mounted in `app/_components/Providers.tsx`.
+- It opens `BroadcastChannel('theme-updates')` and calls `router.refresh()` when it receives `{ type: 'theme-updated' }`.
+- The admin tab that triggered the save does NOT receive its own broadcast (BroadcastChannel sender exclusion is spec behaviour).
+- Gracefully skips when BroadcastChannel is unsupported (private Safari, some Webviews).
+- NEVER add a second ThemeBroadcastListener instance.
 
 Press & Media Ecosystem
 Public EPK page: `app/press/page.tsx` (Server Component) fetches press_photos, artist profile bios (short/medium/long), concerts, and press_quote from Supabase. All photo display URLs pass through `getOptimizedImageUrl()` (wsrv.nl proxy); download links point to the original R2 public CDN URL.
 Promo Pool: `/promo-pool/*` is a dual-gated journalist-only area.
-  - Gate 1 (Edge Middleware): unauthenticated users are redirected to `/promo-pool/login`.
-  - Gate 2 (Layout Server Component): authenticated users without role `journalist` or `admin` see `PromoPoolAccessGate` (shows application status or application form).
+
+- Gate 1 (Edge Middleware): unauthenticated users are redirected to `/promo-pool/login`.
+- Gate 2 (Layout Server Component): authenticated users without role `journalist` or `admin` see `PromoPoolAccessGate` (shows application status or application form).
 Anti-leak audio: `promo_tracks` stores only the R2 object key — NO public URL. The `getPromoTrackStreamUrl(r2Key)` Server Action in `src/actions/promoTrack.ts` verifies the journalist/admin role and returns a 15-minute presigned GET URL. The URL is only generated on explicit user click, never in initial HTML.
 Admin EPK upload: `getEpkUploadUrl(category, filename, contentType)` in `src/actions/epkUpload.ts` generates a 15-minute presigned PUT URL for direct browser-to-R2 upload, bypassing Vercel's 4.5 MB limit. Categories: `press-photos` | `promo-tracks`.
 Journalist applications: `journalist_applications` table; `POST /api/journalist-applications` lets anyone submit. `PATCH /api/journalist-applications/[id]` (admin-only) approves/rejects and updates `profiles.role` to `journalist` / `user`. Admin UI is in `src/components/admin/PressManager.tsx` (Press Portal page).
@@ -633,23 +669,26 @@ Types: `UserRole` and `UserWithProfile` are in `src/types/users.ts`.
 DAL: `src/lib/api/users.ts` exports `listUsersWithProfiles`, `updateUserRole`, `banUser`, `deleteUser`, `linkArtistToUser`, `unlinkArtistFromUser`. All functions accept a service-role `SupabaseClient`. Supabase Auth Admin API methods (`listUsers`, `updateUserById`, `deleteUser`) are called via the `adminClient.auth.admin` namespace.
 Hook: `src/hooks/useUsers.ts` fetches from `GET /api/admin/users` and exposes `updateRole`, `toggleBan`, `deleteUser`, `linkArtist`, `unlinkArtist` with optimistic updates and toast notifications.
 API Routes (all admin-only, use service-role client):
-  - `GET /api/admin/users` — lists all users merged with profile roles and linked artist names.
-  - `PATCH /api/admin/users/[id]` — updates `role` and/or `ban` status; rejects self-modification.
-  - `DELETE /api/admin/users/[id]` — deletes user from Auth; profiles cascade. Rejects self-deletion.
-  - `PATCH /api/admin/users/[id]/link-artist` — links or unlinks (`artistId: null`) an artist to a user. Validates no double-linking.
+
+- `GET /api/admin/users` — lists all users merged with profile roles and linked artist names.
+- `PATCH /api/admin/users/[id]` — updates `role` and/or `ban` status; rejects self-modification.
+- `DELETE /api/admin/users/[id]` — deletes user from Auth; profiles cascade. Rejects self-deletion.
+- `PATCH /api/admin/users/[id]/link-artist` — links or unlinks (`artistId: null`) an artist to a user. Validates no double-linking.
 Security: Every route verifies `profiles.role = 'admin'` server-side via `createServerSupabaseClient()` before using the service-role client. The service-role key never reaches the browser.
 
 Feature Toggles
 There are now two feature-flag systems:
+
 1) Global JSON toggles in `site_settings` key `feature_toggles` (`promoPool`, `sosStatements`, `editorTools`) managed by `FeatureTogglesManager`.
 2) Role-targeted portal/journalist module flags in `portal_feature_flags` (e.g. `artist.tour`, `journalist.press_kit`) managed by `FeatureFlagsManager` and `PATCH /api/admin/feature-flags/[id]`.
 Enforcement: Portal and press dashboard nav/routes read `portal_feature_flags`; legacy promo-pool/editor gates still read `site_settings.feature_toggles`.
 
 Artist Portal Access Gate
 Portal layout (`app/portal/layout.tsx`) enforces role-based access BEFORE rendering the portal UI:
-  - Roles `artist` or `admin` → portal accessible (user must also have a linked artist record).
-  - Role `user` (unassigned/new) → `PortalAccessGate` component shown — explains how to request access.
-  - Other roles (`editor`, `journalist`) → `PortalAccessGate` shown with role explanation.
+
+- Roles `artist` or `admin` → portal accessible (user must also have a linked artist record).
+- Role `user` (unassigned/new) → `PortalAccessGate` component shown — explains how to request access.
+- Other roles (`editor`, `journalist`) → `PortalAccessGate` shown with role explanation.
 `PortalAccessGate` lives at `app/portal/_components/PortalAccessGate.tsx`.
 New users default to `user` role = zero portal/admin access until an Admin explicitly assigns a role and links their artist profile.
 
@@ -696,22 +735,25 @@ robots.txt & llms.txt Maintenance
 Two auto-generated discovery files are served by Next.js at build/request time — no static files to edit manually:
 
 `app/robots.ts` — generates `/robots.txt` via the Next.js Metadata API.
-  - To BLOCK a new private route prefix (e.g. `/members/`): add `'/members/'` to the `disallow` array in the `rules[0]` entry.
-  - To BLOCK an additional AI training crawler: add its user-agent string to the `userAgent` array in the second rules entry.
-  - To add a NEW sitemap URL: add the full URL to the `sitemap` property.
-  - ⛔ Never add allow rules for routes protected by middleware — middleware already blocks them; allow rules would be misleading.
+
+- To BLOCK a new private route prefix (e.g. `/members/`): add `'/members/'` to the `disallow` array in the `rules[0]` entry.
+- To BLOCK an additional AI training crawler: add its user-agent string to the `userAgent` array in the second rules entry.
+- To add a NEW sitemap URL: add the full URL to the `sitemap` property.
+- ⛔ Never add allow rules for routes protected by middleware — middleware already blocks them; allow rules would be misleading.
 
 `app/llms.txt/route.ts` — generates `/llms.txt` dynamically from live Supabase data (ISR revalidate: 300 s).
-  - New artists and releases appear automatically — no manual update needed.
-  - To ADD a new public section (e.g. `/merch`): add a line to the `## Sections` block inside `buildLlmsTxt()`.
-  - To REMOVE a section: delete its line from the `## Sections` block and its corresponding data fetch/render block.
-  - To ADD extra metadata (e.g. label social links): add it to the header block in `buildLlmsTxt()`.
-  - ⛔ Never list admin, portal, press, or promo-pool routes in `llms.txt` — those are restricted by robots.txt.
-  - Cache tags: the route uses `artists` and `releases` tags — it is automatically refreshed when those caches are invalidated by the sync cron jobs.
+
+- New artists and releases appear automatically — no manual update needed.
+- To ADD a new public section (e.g. `/merch`): add a line to the `## Sections` block inside `buildLlmsTxt()`.
+- To REMOVE a section: delete its line from the `## Sections` block and its corresponding data fetch/render block.
+- To ADD extra metadata (e.g. label social links): add it to the header block in `buildLlmsTxt()`.
+- ⛔ Never list admin, portal, press, or promo-pool routes in `llms.txt` — those are restricted by robots.txt.
+- Cache tags: the route uses `artists` and `releases` tags — it is automatically refreshed when those caches are invalidated by the sync cron jobs.
 
 ## Server vs. Client Component Decision Matrix — MANDATORY
 
 Default to React Server Components (RSC). Add `"use client"` ONLY when the component:
+
 - Uses browser event handlers (onClick, onChange, onSubmit)
 - Uses browser-only APIs (window, localStorage, navigator, IntersectionObserver)
 - Uses React hooks: useState, useEffect, useReducer, useRef, useContext
@@ -723,6 +765,7 @@ NEVER add `"use client"` to a component just to avoid a TypeScript error or for
 "convenience". Prop-drill server data down to client leaf components instead.
 
 Pattern — RSC parent → "use client" leaf:
+
 ```tsx
 // ✅ Correct: Server Component fetches, Client Component animates
 // app/artists/[slug]/page.tsx (Server Component)
@@ -737,9 +780,9 @@ DAL calls. Write operations from the React client context run exclusively as
 `"use server"` Server Actions or JWT-authenticated Route Handlers.
 
 | Context | Pattern | Examples |
-|---|---|---|
+| --- | --- | --- |
 | Portal forms (artist, profile, checklist) | Server Action (`"use server"`) | `src/actions/portal/*.ts` |
-| Admin forms (artists, releases, news) | Route Handler + JWT ****** `/api/admin/artists`, `/api/admin/releases` |
+| Admin forms (artists, releases, news) | Route Handler + JWT | `/api/admin/artists`, `/api/admin/releases` |
 | External systems (cron, webhooks) | Route Handler | `/api/sync`, `/api/webhooks/*` |
 | SOS statement upload | Server Action (`"use server"`) | `app/portal/statements/_actions/uploadStatement.ts` |
 | Public reads | RSC + `unstable_cache` | `app/artists/[slug]/page.tsx` |
@@ -755,7 +798,7 @@ fit. Migrations from Route Handlers to Server Actions happen incrementally.
 ## Server Actions vs. Route Handlers
 
 | Use Case | Use |
-|---|---|
+| --- | --- |
 | Form submissions from Client Components (portal, newsletter, EPK) | Server Action (`"use server"`) |
 | External API consumers (cron jobs, webhooks, SOS generator) | Route Handler (`route.ts`) |
 | Admin JWT-protected mutations called from JS `fetch()` | Route Handler |
@@ -798,6 +841,7 @@ import { cn } from '@/lib/utils'
 DO NOT import from this file in any new code.
 
 Replace with:
+
 - Client Components: `createBrowserSupabaseClient()` from `@/lib/supabase/client`
 - Server Components / Route Handlers: `createServerSupabaseClient()` from `@/lib/supabase/server`
 - Service-role operations: pass `createServerSupabaseClient()` with SUPABASE_SERVICE_ROLE_KEY
@@ -809,10 +853,12 @@ Multi-resource pages combine tags: `['artists', 'releases']`
 Single-resource pages: `['releases', \`release-${id}\`]`
 
 ### List-level tags (invalidate all pages of this type)
+
   'artists' | 'releases' | 'news' | 'videos' | 'concerts'
   'site-settings' | 'artist-profiles' | 'sync-logs'
 
 ### Entity-level tags (invalidate only one specific page)
+
   `'artist-${slug}'`   → use in `app/artists/[slug]/page.tsx`
   `'release-${id}'`    → use in `app/releases/[id]/page.tsx`
   `'news-${slug}'`     → use in `app/news/[slug]/page.tsx`
@@ -824,6 +870,7 @@ full-list revalidation or a targeted single-entity revalidation will bust them:
   `app/news/[slug]`     → tags: `['news', 'news-${slug}']`
 
 When calling revalidateTag() in a Route Handler after a write:
+
 - Artist update: `revalidateTag('artists')` + `revalidateTag('artist-${slug}')`
 - Release update: `revalidateTag('releases')` + `revalidateTag('release-${id}')`
 - News update: `revalidateTag('news')` + `revalidateTag('news-${slug}')`
@@ -838,6 +885,7 @@ Every `page.tsx` MUST export either a static `metadata` object or a
 `generateMetadata()` async function. NEVER use `<title>` or `<meta>` in JSX.
 
 Static pages (e.g. /impressum):
+
 ```tsx
 export const metadata: Metadata = {
   title: 'Impressum | darkTunes Music Group',
@@ -846,6 +894,7 @@ export const metadata: Metadata = {
 ```
 
 Dynamic pages (e.g. /artists/[slug]):
+
 ```tsx
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const artist = await getArtistBySlug(client, params.slug)
@@ -868,6 +917,7 @@ Use shadcn/ui `<Skeleton>` as the primitive. Never use a spinner as a full-page 
 ## generateStaticParams — Required for known dynamic routes
 
 These routes MUST export `generateStaticParams()` to enable ISR pre-rendering:
+
 - `app/artists/[slug]/page.tsx`
 - `app/releases/[id]/page.tsx`
 - `app/news/[slug]/page.tsx`
@@ -894,6 +944,7 @@ Key prefixes (NEVER deviate):
 ## Naming Conventions
 
 Files:
+
 - React components:   PascalCase.tsx    (ArtistCard.tsx)
 - Pages:              page.tsx          (enforced by Next.js)
 - Hooks:              useCamelCase.ts   (useArtists.ts)
@@ -902,9 +953,10 @@ Files:
 - Types:              camelCase.ts      (database.ts, users.ts)
 - Server Actions:     camelCase.ts      (newsletter.ts, presignedUrl.ts)
 - Route Handlers:     route.ts          (enforced by Next.js)
-- Tests:              *.test.ts / *.spec.ts (co-located with source)
+- Tests:              *.test.ts /*.spec.ts (co-located with source)
 
 Components:
+
 - All React component function names: PascalCase
 - Hooks: always prefixed with `use`
 - DAL functions: `verb + Noun` pattern (getArtistBySlug, upsertRelease, deleteVideo)
@@ -912,7 +964,7 @@ Components:
 
 ## Directory Structure
 
-```
+```text
 app/                      → Next.js App Router (pages, layouts, API routes)
 app/_components/          → App-level wrappers (Providers.tsx, HomePageContent.tsx)
 app/api/                  → Route Handlers (HTTP API endpoints)
@@ -972,6 +1024,7 @@ Exception: Same-directory imports use `./` (e.g., `./utils`).
 Exception: Files under `app/` must be imported via relative paths, not `@/app/...`.
 
 Import order (enforced by ESLint):
+
 1. Node built-ins (node:fs, node:path)
 2. External packages (react, next/image, framer-motion)
 3. Internal absolute imports (@/components/..., @/lib/...)
@@ -996,6 +1049,7 @@ No global state library (Redux, Zustand, Jotai, Recoil) is used in this project.
 Do NOT add one without team agreement.
 
 State rules:
+
 - Persisted server state → RSC + ISR (no React Query / SWR / TanStack)
 - Shared UI state (locale, consent) → React Context in app/_components/Providers.tsx
 - Component-local state → useState / useReducer
@@ -1029,6 +1083,7 @@ Applies to: label_messages.body_html, artist_replies.body_html, any CMS rich-tex
 ## Application Error Logging (app_logs table)
 
 Log to `app_logs` for errors that need admin visibility but are non-fatal:
+
 - Failed email deliveries (SOS notification, newsletter DOI)
 - Failed R2 upload/delete operations during sync
 - External API timeouts that fall back to cached data
@@ -1040,8 +1095,10 @@ Visible in Admin → Logs tab (AppErrors sub-view).
 ## Database Schema Management (supabase/reset.sql) — MANDATORY
 
 ### Definition Order
+
 Helper Functions MUST be defined BEFORE their first use in CREATE TABLE / CREATE POLICY / TRIGGER.
 Required order in reset.sql:
+
   1. EXTENSIONS
   2. ENUM TYPES
   3. ALL HELPER FUNCTIONS (set_updated_at, handle_new_auth_user, handle_oauth_artist_verification,
@@ -1051,6 +1108,7 @@ Required order in reset.sql:
   6. DATA BACKFILLS (INSERT … ON CONFLICT DO NOTHING)
 
 ### has_permission — Correct Call Signature
+
 `public.has_permission(perm TEXT)` takes EXACTLY ONE ARGUMENT.
 The function retrieves auth.uid() internally.
 NEVER call `public.has_permission(auth.uid(), 'permission_name')` — that is the wrong signature.
@@ -1058,6 +1116,7 @@ NEVER call `public.has_permission(auth.uid(), 'permission_name')` — that is th
   ❌ Wrong:    public.has_permission(auth.uid(), 'can_manage_releases')
 
 ### No Duplicate Column Declarations
+
 If a column is already declared inside the CREATE TABLE block, do NOT add a redundant
 ALTER TABLE … ADD COLUMN IF NOT EXISTS guard for the same column.
 Guards are ONLY for columns added after the initial CREATE TABLE definition.
@@ -1065,26 +1124,31 @@ Guards are ONLY for columns added after the initial CREATE TABLE definition.
 ## Task Decomposition & Multi-Agent Pattern — RECOMMENDED
 
 ### Large-Task Decomposition
+
 Before starting any task with >3 distinct concerns, the agent MUST:
+
   1. Enumerate all sub-tasks as a numbered list in the PR description.
   2. Commit each sub-task as a SEPARATE atomic commit (one concern per commit).
   3. Run `npm run typecheck && npm test && npm run build` after EACH sub-task commit.
   This ensures partial work is always in a passing, mergeable state.
 
 ### Parallel Agent Sessions (Multi-Agent Pattern)
+
 For large features spanning multiple independent modules, PREFER splitting the work into
 separate GitHub Issues (one per module) rather than one monolithic PR.
 Each issue/PR must be independently mergeable and must not block sibling branches.
 
 Example split for a schema + DAL + UI task:
-  - Issue A: supabase/reset.sql + src/types/database.ts  (schema layer)
-  - Issue B: src/lib/api/*.ts DAL functions + unit tests  (data layer, depends on A)
-  - Issue C: src/components/ + app/ UI changes            (presentation layer, depends on B)
+
+- Issue A: supabase/reset.sql + src/types/database.ts  (schema layer)
+- Issue B: src/lib/api/*.ts DAL functions + unit tests  (data layer, depends on A)
+- Issue C: src/components/ + app/ UI changes            (presentation layer, depends on B)
 
 Mark blocking relationships using GitHub's "blocking" issue feature.
 A coding agent session should be started per issue for true parallel execution.
 
 ### Subtask Handoff in AGENTS.md
+
 When an agent completes a subtask that another agent depends on, it MUST leave a summary
 comment in the PR describing the exact exports / DB schema changes it introduced,
 so the dependent agent can pick up accurately.

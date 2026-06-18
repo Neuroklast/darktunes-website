@@ -3,6 +3,7 @@
 ## What Is Implemented
 
 ### Public Website
+
 - **Hero section** — rotating featured release/news carousel with dynamic background (6s auto-advance + clickable dot indicators); buttons functional (Listen Now → streaming/player, Explore → `#releases` for releases or `#news` for news)
 - **Releases section** — server-side fetched from Supabase via RSC + ISR (60s revalidate); semantic `<ul>/<li>` grid; `useReducedMotion` support
 - **Spotify Player** — embedded iframe player for the label playlist
@@ -16,6 +17,7 @@
 - **WCAG 2.1 AA/AAA compliance** — skip navigation link in `app/layout.tsx`, `id="main-content"` on `<main>`, `useReducedMotion` in all animated sections, descriptive alt text, icon aria-labels, 44×44px touch targets, semantic lists
 
 ### Infrastructure (Next.js 15 App Router)
+
 - **Next.js 15 (App Router)** + React 19 + TypeScript — migrated from Vite SPA
 - **Tailwind CSS v4** (PostCSS) with custom darkTunes brand tokens in `app/globals.css`
 - **Framer Motion** for page animations and modal transitions
@@ -30,10 +32,12 @@
 - **TypeScript DB types** in `src/types/database.ts`
 
 ### Environment Validation
+
 - **Client-side** (`src/env.ts`) — Zod schema for `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`; warns in dev/prod, returns null if missing (graceful degradation)
 - **Server-side** (`src/lib/env.server.ts`) — Zod schema for all server-only vars; throws at startup if any required variable is missing
 
 ### Data Access Layer (`src/lib/api/`)
+
 - `artists.ts` — CRUD for artists table
 - `releases.ts` — CRUD + `upsertReleaseByItunesId` for iTunes sync
 - `news.ts` — CRUD for news_posts table
@@ -46,6 +50,7 @@
 - Each DAL function receives `SupabaseClient<Database>` as first arg; fully unit-tested
 
 ### React Hooks (`src/hooks/`)
+
 - `useArtists` — loads artists, exposes create/update/delete
 - `useReleases` — loads releases, exposes create/update/delete + `syncFromItunes()`
 - `useNews` — loads news posts, exposes create/update/delete
@@ -56,6 +61,7 @@
 - All hooks check `isSupabaseConfigured` and short-circuit gracefully in dev
 
 ### Admin Panel (Next.js App Router)
+
 - Route: `/admin` (dynamic, server-rendered on demand, protected by Edge Middleware)
 - Route: `/admin/login` (dynamic, server-rendered on demand)
 - Authentication via `useAuth` hook (Supabase Auth)
@@ -74,6 +80,7 @@
 - **RolesManager** *(admin-only tab)* — configures per-role content permissions (`canPublishNews`, `canEditNews`, `canManageArtists`, `canManageReleases`, `canManageVideos`, `canViewAdminPanel`) stored as JSON in `site_settings` under key `role_permissions`. Admin permissions are always full and cannot be restricted.
 
 ### SOS (Statement of Sales) — Direct Server Action Upload
+
 - Statement-of-Sales PDFs are uploaded directly via the `uploadStatement` Server Action in `app/portal/statements/_actions/uploadStatement.ts`.
 - Authentication is via the caller's Supabase session (admin or editor role required) — no external webhook or shared secret needed.
 - The Server Action generates a presigned R2 PUT URL, uploads the PDF, persists a `sales_statements` row, and triggers an artist email notification.
@@ -84,6 +91,7 @@
 - SOS-linked invoices store `statement_id`, `artist_invoice_number`, and optional notes; the portal creates §14 UStG-ready PDFs and marks approved statements as acknowledged after invoice creation.
 
 ### File Upload (Next.js Route Handler)
+
 - `app/api/upload/route.ts` — POST Route Handler that:
   1. Verifies `Authorization: Bearer <token>` and requires `admin` or `editor` role
   2. Parses multipart/form-data (native Next.js `FormData` API), including optional `folderId` / `artistId`
@@ -92,12 +100,14 @@
   5. Creates the `assets` row server-side and returns `{ duplicate, asset, publicUrl, r2Key, filename, mimeType, sizeBytes }`
 
 ### Admin Form Components (`src/components/admin/forms/`)
+
 - `ArtistForm` — auto-slug, featured/isEuNonGerman toggles, and integrated `AssetPicker` controls for image/logo fields
 - `ReleaseForm` — cover art, type select, streaming URL fields
 - `NewsForm` — title, auto-slug, excerpt, content, image, publish date, status, press-only toggle, and optional artist association dropdown
 - `VideoForm` — youtubeId with auto-thumbnail generation
 
 ### Multi-API Sync Engine (`src/lib/sync/`)
+
 - **`syncAll.ts`** — Multi-artist, multi-API orchestrator. Runs iTunes, Spotify, Discogs, Songkick, Bandsintown, and Odesli sync for every artist. Accepts `SyncAllDeps` (extends `SyncDeps` with optional `spotify`, `discogsToken`, `songkickApiKey`, `bandsintownApiKey`). Never throws — errors captured per-API in `SyncAllResult`.
 - **`spotifyApi.ts`** — Fetches artist albums via Spotify Web API (client credentials flow). Returns `SpotifyRelease[]` with cover art URLs, popularity scores, and UPC barcodes.
 - **`discogsApi.ts`** — Fetches physical releases from Discogs API (Personal Access Token). Paginated. Returns catalog numbers and barcodes.
@@ -107,37 +117,47 @@
 - **`deduplication.ts`** — Merges Spotify (digital) and Discogs (physical) release lists using ISRC → barcode/UPC → normalised title + year as matching precedence.
 
 ### Centralized Error Handling (`src/lib/errors.ts`)
+
 - **`ApiError`** — Structured HTTP error class with `status`, `message`, and optional `code`.
 - **`withErrorHandler(handler)`** — Higher-Order Function that wraps any Next.js Route Handler. Catches `ApiError` (returns its status), `ZodError` (returns 400 with `VALIDATION_ERROR` code), and unknown errors (returns 500). All errors returned as `{ error, code, status }` JSON.
 
 ### API Routes
+
 - **`POST /api/sync`** — Triggers full multi-API sync for all artists. Requires `Authorization: Bearer <token>`. Uses `withErrorHandler`.
 - **`GET /api/health`** — Returns database connection status (latency ms), per-API last-sync timestamp and status, and rate-limit warnings. Public endpoint.
 
 ### Admin Health Dashboard
+
 - **`SystemHealthWidget`** (`src/components/admin/SystemHealthWidget.tsx`) — Grid of status cards (DB online/offline, per-API last sync, rate-limit badges) with a "Force Sync All" button. Auto-refreshes every 60 seconds.
 - Added **System Health** tab to `AdminDashboard.tsx`.
 
 ### Error Boundaries
+
 - **`app/error.tsx`** — Next.js error boundary for route segments; shows a retry button.
 - **`app/global-error.tsx`** — Global error boundary for layout-level failures; includes `<html>` and `<body>`.
 
 ### Rate Limiter (`src/lib/rateLimiter.ts`)
+
 - `HttpError` — HTTP error class with a `status` code; used to distinguish retryable (429, 5xx) from non-retryable (4xx) failures.
 - `withExponentialBackoff(fn, maxRetries, baseDelayMs)` — Retries `fn` with exponential back-off delays. Non-`HttpError` errors and non-retryable HTTP errors fail immediately.
 
 ### Image Optimisation (`src/lib/imageUtils.ts`)
+
 All public-facing images MUST be served through wsrv.nl:
+
 - `getOptimizedImageUrl(url, width)` — Returns a wsrv.nl URL that serves the image at the given width in WebP format.
 - `getSquareThumbnail(url, size)` — Returns a wsrv.nl URL for a square cover-crop thumbnail in WebP.
 Use these functions wherever `<img>` or Next.js `<Image>` displays an artist photo or release cover art.
 
 ### R2 Upload Helper (`src/lib/r2Utils.ts`)
+
 - `createR2Client(accountId, keyId, secret)` — Creates a pre-configured AWS S3 client pointed at Cloudflare R2.
 - `uploadUrlToR2(imageUrl, s3, bucket, r2PublicUrl, keyPrefix, fetchFn)` — Downloads a remote image and uploads it to R2, returning the public CDN URL.
 
 ### Sync Service Pattern
+
 Complex sync logic lives in `src/lib/sync/` with a dependency-injected `SyncDeps` interface:
+
 ```typescript
 interface SyncDeps {
   db: SupabaseClient<Database>   // Supabase service-role client
@@ -145,13 +165,16 @@ interface SyncDeps {
   uploadToR2: (imageUrl: string, keyPrefix: string) => Promise<string>
 }
 ```
+
 The HTTP handler in `app/api/sync-artist/route.ts` only wires real deps and calls `syncArtist()`. Tests mock all deps.
 
 ### Sync Logs DAL (`src/lib/api/syncLogs.ts`)
+
 - `getSyncLogsByArtist(db, artistId, limit)` — Fetches recent sync history for an artist.
 - `insertSyncLog(db, log)` — Records a sync result.
 
 ### Manual Sync API (`app/api/sync-artist/route.ts`)
+
 - POST `/api/sync-artist` with body `{ artistId: string }` and `Authorization: Bearer <token>` header.
 - Verifies the caller is authenticated, runs the sync pipeline, returns `SyncResult`.
 
@@ -160,7 +183,7 @@ The HTTP handler in `app/api/sync-artist/route.ts` only wires real deps and call
 ## What Still Needs Wiring Up
 
 | Feature | Status | Notes |
-|---|---|---|
+| --- | --- | --- |
 | iTunes auto-sync on artist create | ✅ Implemented | Manual "Sync Now" per artist in ArtistsManager; POST /api/sync-artist |
 | Image caching in R2 | ✅ Implemented | Cover art from iTunes is downloaded & uploaded to R2 via uploadUrlToR2 |
 | wsrv.nl image proxy | ✅ Implemented | getOptimizedImageUrl / getSquareThumbnail in src/lib/imageUtils.ts |
@@ -221,7 +244,7 @@ The HTTP handler in `app/api/sync-artist/route.ts` only wires real deps and call
 ## File Reference
 
 | File | Purpose |
-|---|---|
+| --- | --- |
 | `README.md` | Project overview, quick start, scripts |
 | `DEPLOYMENT.md` | Full deployment guide (Vercel, Supabase, R2) |
 | `ADMIN.md` | Admin panel usage documentation |
@@ -288,6 +311,5 @@ npm run dev
 # -> http://localhost:3000 (public site)
 # -> http://localhost:3000/admin (admin panel)
 ```
-
 
 - Press portal expanded with public label/artist EPK views, press release detail pages, journalist onboarding, profile/contact pages, embargo-aware DAL queries, and admin Press Portal tooling.

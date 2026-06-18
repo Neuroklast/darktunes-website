@@ -9,7 +9,7 @@ modifying the schema **must** verify compliance with all rules below.
 ## 1. Single Source of Truth
 
 | Artefact | Purpose |
-|---|---|
+| --- | --- |
 | `supabase/reset.sql` | The ONE AND ONLY schema script. All table definitions, column additions, RLS policies, triggers, seed data, and enum types live here. |
 | `src/types/database.ts` | TypeScript mirror of the schema. Must be kept in sync with `reset.sql` after every change. |
 
@@ -37,14 +37,14 @@ The schema must comply with the **Third Normal Form** at all times:
 A transitive dependency exists when a non-key column A depends on another
 non-key column B, which in turn depends on the primary key PK:
 
-```
+```text
 PK → B → A   ← FORBIDDEN (A should live in the table whose PK is B)
 ```
 
-#### Resolved violations (historical — do not reintroduce):
+#### Resolved violations (historical — do not reintroduce)
 
 | Column removed | Table | Reason |
-|---|---|---|
+| --- | --- | --- |
 | `artist_name` | `releases`, `videos`, `concerts` | Transitive: `artist_id → artists.name`. Use JOIN instead. |
 | `instagram_url`, `youtube_url`, `website_url`, `bandcamp_url`, `spotify_url`, `apple_music_url`, `tiktok_url`, `facebook_url` | `artist_profiles` | Redundant with `artists.*_url`. Canonical source: `artists` table. |
 
@@ -53,7 +53,7 @@ PK → B → A   ← FORBIDDEN (A should live in the table whose PK is B)
 Each logical attribute has **exactly one canonical table**:
 
 | Attribute | Canonical table | Notes |
-|---|---|---|
+| --- | --- | --- |
 | Social / streaming URLs | `artists` | `instagram_url`, `spotify_url`, `youtube_url`, `apple_music_url`, `facebook_url`, `twitter_url`, `tiktok_url`, `bandcamp_url`, `website_url`, `shop_url` |
 | Artist primary image | `artists.image_url` | `artist_profiles.photo_url` is the EPK press photo (different purpose) |
 | Artist genres | `artists.genres` | `artist_profiles.genres` is an optional EPK override (intentional) |
@@ -66,7 +66,7 @@ table. Never store array-of-IDs in a column for relationships that require
 FK integrity:
 
 | Junction table | Entities |
-|---|---|
+| --- | --- |
 | `artist_members` | `auth.users` ↔ `artists` (portal access) |
 | `release_artists` | `releases` ↔ `artists` (credits) |
 | `news_post_artists` | `news_posts` ↔ `artists` |
@@ -96,7 +96,7 @@ Every schema change in `reset.sql` must be safe to run on **both a fresh
 database and an existing database with live data**:
 
 | Object | Idempotent pattern |
-|---|---|
+| --- | --- |
 | Tables | `CREATE TABLE IF NOT EXISTS` |
 | Columns | `ALTER TABLE … ADD COLUMN IF NOT EXISTS` |
 | Indexes | `CREATE INDEX IF NOT EXISTS` |
@@ -122,7 +122,7 @@ database and an existing database with live data**:
 ## 6. Naming Conventions
 
 | Object | Convention | Example |
-|---|---|---|
+| --- | --- | --- |
 | Tables | `snake_case`, plural | `artist_members`, `press_photos` |
 | Columns | `snake_case` | `artist_id`, `created_at` |
 | Indexes | `idx_<table>_<column(s)>` | `idx_releases_artist_id` |

@@ -3,6 +3,7 @@
 A modern alternative music label website featuring immersive design with CRT effects, animated modals, dynamic content presentation, and a full-featured admin panel for content management.
 
 **Experience Qualities**:
+
 1. **Immersive** - Deep dark atmosphere with vintage CRT aesthetics that pull users into the alternative music world
 2. **Dynamic** - Smooth scrolling interactions with shrinking logo, overlay modals with build-up animations creating engaging transitions
 3. **Bold** - High-contrast design with powerful typography and striking visuals that command attention
@@ -13,6 +14,7 @@ This application combines a public-facing content showcase with a comprehensive 
 ## Essential Features
 
 ### Shrinking Logo Header
+
 - **Functionality**: Logo starts large and shrinks as user scrolls down
 - **Purpose**: Creates dynamic visual hierarchy and saves screen space while maintaining brand presence
 - **Trigger**: Page scroll event
@@ -20,6 +22,7 @@ This application combines a public-facing content showcase with a comprehensive 
 - **Success criteria**: Logo transitions smoothly between sizes, header remains fixed and functional at all scroll positions
 
 ### Video Overlay Modal
+
 - **Functionality**: Clicking video thumbnails opens full-screen modal with animated entrance
 - **Purpose**: Provides immersive video viewing experience without navigation
 - **Trigger**: Click on video thumbnail or play button
@@ -27,6 +30,7 @@ This application combines a public-facing content showcase with a comprehensive 
 - **Success criteria**: Modal animates smoothly, video embeds properly, clicking outside closes modal
 
 ### CRT Screen Effect
+
 - **Functionality**: Subtle scanline overlay with noise texture across entire page
 - **Purpose**: Creates vintage monitor aesthetic fitting alternative music label brand
 - **Trigger**: Applied on page load
@@ -34,6 +38,7 @@ This application combines a public-facing content showcase with a comprehensive 
 - **Success criteria**: Effect is visible but not distracting, performs well, enhances rather than hinders readability
 
 ### Content Sections
+
 - **Functionality**: Hero banner, new releases grid, artist roster, news feed, video gallery, footer
 - **Purpose**: Present label's content in organized, visually appealing sections
 - **Trigger**: Page load and scroll
@@ -41,6 +46,7 @@ This application combines a public-facing content showcase with a comprehensive 
 - **Success criteria**: All sections load properly, content is accessible, responsive across devices
 
 ### Admin Panel
+
 - **Functionality**: Full content management system with authentication, role-based access, and CRUD operations
 - **Purpose**: Enables label staff to manage all website content without developer intervention
 - **Trigger**: Admin navigates to /admin route, logs in with credentials
@@ -48,6 +54,7 @@ This application combines a public-facing content showcase with a comprehensive 
 - **Success criteria**: Secure authentication, intuitive interface, real-time updates, proper permission enforcement
 
 ### Database Integration
+
 - **Functionality**: Supabase backend for storing artists, releases, news, videos, user profiles
 - **Purpose**: Centralized data management with real-time synchronization between admin and public views
 - **Trigger**: Application start, user interactions, admin content updates
@@ -55,6 +62,7 @@ This application combines a public-facing content showcase with a comprehensive 
 - **Success criteria**: Fast queries, reliable persistence, automatic sync, proper data relationships
 
 ### Cloud Storage
+
 - **Functionality**: Cloudflare R2 for storing and serving images, cover art, and media files
 - **Purpose**: Scalable, cost-effective asset management with CDN delivery
 - **Trigger**: Admin uploads file, public site requests asset
@@ -84,6 +92,7 @@ Dark, moody palette with vibrant purple accents representing the alternative mus
 - **Card Background**: Dark Gray `oklch(0.20 0 0)` - Subtle elevation while maintaining darkness
 
 **Foreground/Background Pairings**:
+
 - Background `oklch(0.12 0 0)`: White text `oklch(1 0 0)` - Ratio 19.4:1 ✓
 - Primary `oklch(0.35 0.15 290)`: White text `oklch(1 0 0)` - Ratio 6.8:1 ✓
 - Secondary `oklch(0.714 0.203 305.504)`: White text `oklch(1 0 0)` - Ratio 5.2:1 ✓
@@ -98,6 +107,7 @@ Typefaces should feel technical yet stylish, combining the precision of music pr
 - **Accent (UI/Code)**: JetBrains Mono - Monospace for technical elements and labels
 
 **Typographic Hierarchy**:
+
 - H1 (Page Title): Oxanium Bold/72px/tight tracking - Maximum impact for hero headlines
 - H2 (Section Headers): Oxanium Bold/48px/wide tracking - Clear section delineation
 - H3 (Card Titles): Oxanium SemiBold/24px/normal tracking - Prominent content titles
@@ -110,39 +120,39 @@ Animations should feel powerful and intentional, like the drop of a heavy beat. 
 
 ## Component Selection
 
-- **Components**: 
+- **Components**:
   - Dialog (Shadcn) for video modals with custom overlay styling
   - Card (Shadcn) for releases and news with hover effects
   - Button (Shadcn) with bold styling for CTAs
   - Badge (Shadcn) for genre tags and labels
   - Separator for section dividers
   
-- **Customizations**: 
+- **Customizations**:
   - Custom CRT overlay component with CSS scanlines and noise
   - Custom shrinking header with scroll-triggered animations
   - Custom video modal with spring animations via framer-motion
   - Grid layouts using CSS Grid with gap spacing
 
-- **States**: 
+- **States**:
   - Buttons: subtle scale on hover, brightness increase, accent glow on primary
   - Cards: lift with shadow on hover, border glow effect
   - Modal: backdrop blur with fade-in, content scale-up with spring
   - Logo: smooth size transition on scroll threshold
   
-- **Icon Selection**: 
+- **Icon Selection**:
   - Play (filled) for video playback
   - X for modal close
   - List/Hamburger for mobile menu
   - MusicNote, Calendar, Tag for metadata
   - Social icons (Instagram, Spotify, YouTube) for artist links
   
-- **Spacing**: 
+- **Spacing**:
   - Container padding: px-4 md:px-8 lg:px-16
   - Section spacing: py-16 md:py-24
   - Card gap: gap-6 md:gap-8
   - Component spacing: space-y-4 for vertical, gap-4 for grids
   
-- **Mobile**: 
+- **Mobile**:
   - Logo shrinks less dramatically on mobile (already starts smaller)
   - Grids collapse from 3-4 columns to 1-2 columns
   - Modal takes full screen on mobile

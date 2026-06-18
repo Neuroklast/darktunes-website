@@ -3,16 +3,20 @@
 ## 🚀 Vercel Deployment
 
 ### Prerequisites
-1. A Vercel account (https://vercel.com)
+
+1. A Vercel account (<https://vercel.com>)
 2. Vercel CLI installed: `npm i -g vercel`
 
 ### Steps to Deploy
+
 1. **Connect to Vercel**
+
    ```bash
    vercel login
    ```
 
 2. **Link Project** (first time only)
+
    ```bash
    vercel link
    ```
@@ -23,6 +27,7 @@
    - Add all variables from `.env.example`
 
 4. **Deploy**
+
    ```bash
    # Preview deployment
    vercel
@@ -32,6 +37,7 @@
    ```
 
 ### Automatic Deployments
+
 - Push to `main` branch for automatic production deployment
 - Push to any branch for automatic preview deployment
 
@@ -40,7 +46,8 @@
 ## 🗄️ Supabase Setup
 
 ### 1. Create Supabase Project
-1. Go to https://supabase.com
+
+1. Go to <https://supabase.com>
 2. Create a new project
 3. Note your project URL and anon key
 
@@ -64,19 +71,23 @@ indexes, triggers, RLS policies, and default seed data.
 > You can run the entire script on an already-live database without losing data.
 
 #### Step A — Register the user
+
 Sign up through your app's login page or via the Supabase Dashboard:
 **Authentication → Users → Invite user**.
 
 #### Step B — Verify the profile row exists
+
 ```sql
 SELECT id, email, role
 FROM public.profiles
 WHERE email = 'your-email@example.com';
 ```
+
 You should see exactly one row. If not, re-run the full schema script above —
 the backfill `INSERT … ON CONFLICT DO NOTHING` at the bottom will add it.
 
 #### Step C — Promote to admin
+
 ```sql
 UPDATE public.profiles
 SET role = 'admin'
@@ -86,6 +97,7 @@ WHERE id = (
   LIMIT 1
 );
 ```
+
 > ⚠️ Replace `your-email@example.com` with the actual address.
 > `UPDATE 0 rows` means the profile row is still missing — re-run Step B first.
 
@@ -94,17 +106,20 @@ WHERE id = (
 ## ☁️ Cloudflare R2 Setup
 
 ### 1. Create R2 Bucket
+
 1. Go to Cloudflare Dashboard
 2. Navigate to R2 Object Storage
 3. Create a new bucket: `darktunes-assets`
 4. Enable public access if needed
 
 ### 2. Get API Credentials
+
 1. Go to R2 > Manage R2 API Tokens
 2. Create API token with read/write permissions
 3. Note your Account ID, Access Key ID, and Secret Access Key
 
 ### 3. Configure CORS (if needed)
+
 ```json
 [
   {
@@ -122,6 +137,7 @@ File uploads are handled server-side at Next.js Route Handlers (`app/api/upload/
 This eliminates CORS issues that arise from client-side direct uploads. No Supabase Edge Functions are needed for uploads.
 
 The Route Handler:
+
 1. Verifies the Bearer token and requires an `admin` or `editor` role
 2. Parses multipart `FormData` on the server (including optional `folderId` / `artistId` metadata)
 3. Computes a SHA-256 hash and short-circuits duplicate uploads to the existing asset record
@@ -135,15 +151,18 @@ The Route Handler:
 Set these in your Vercel project settings (Dashboard → Project → Settings → Environment Variables):
 
 ### Supabase (client-side — `NEXT_PUBLIC_` prefix, browser-safe)
+
 - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL *(required at build time for Next.js)*
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anon/public key *(required at build time for Next.js)*
 
 ### Supabase (server-side — never exposed to browser)
+
 - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service-role key *(server-side only)*
   - Found at: Supabase Dashboard → Project Settings → API → `service_role` key
   - Used by: `app/api/upload/route.ts` (Next.js Route Handler) to verify Bearer auth tokens before accepting R2 uploads
 
 ### Cloudflare R2 (server-side — Next.js Route Handlers only)
+
 - `CLOUDFLARE_R2_ACCOUNT_ID`: Your Cloudflare account ID
 - `CLOUDFLARE_R2_ACCESS_KEY_ID`: R2 API token access key ID
 - `CLOUDFLARE_R2_SECRET_ACCESS_KEY`: R2 API token secret access key
@@ -151,38 +170,48 @@ Set these in your Vercel project settings (Dashboard → Project → Settings �
 - `CLOUDFLARE_R2_PUBLIC_URL`: R2 public CDN base URL (e.g. `https://cdn.darktunes.com`)
 
 ### External API Keys (optional — Artist Auto-Sync)
+
 These are used by `POST /api/sync-artist` to enrich artist profiles. iTunes sync works without any key; the others require keys from the respective developer portals.
-- `SPOTIFY_CLIENT_ID`: Spotify app client ID (https://developer.spotify.com/dashboard → Create App)
+
+- `SPOTIFY_CLIENT_ID`: Spotify app client ID (<https://developer.spotify.com/dashboard> → Create App)
 - `SPOTIFY_CLIENT_SECRET`: Spotify app client secret
-- `DISCOGS_TOKEN`: Discogs personal access token (https://www.discogs.com/settings/developers)
-- `SONGKICK_API_KEY`: Songkick API key (https://www.songkick.com/developer → Request API key)
-- `BANDSINTOWN_API_KEY`: Bandsintown API key (https://www.bandsintown.com/api/app_id → Request access) — used by `src/lib/sync/bandsintownApi.ts` for concert sync
+- `DISCOGS_TOKEN`: Discogs personal access token (<https://www.discogs.com/settings/developers>)
+- `SONGKICK_API_KEY`: Songkick API key (<https://www.songkick.com/developer> → Request API key)
+- `BANDSINTOWN_API_KEY`: Bandsintown API key (<https://www.bandsintown.com/api/app_id> → Request access) — used by `src/lib/sync/bandsintownApi.ts` for concert sync
 
 ### Contact Form (optional — email delivery)
+
 - `CONTACT_EMAIL`: The email address that receives contact form submissions from `POST /api/contact`. Defaults to `info@darktunes.com` if not set. Use a monitored inbox.
 
 ### YouTube Video Sync (optional — sync channel videos)
-- `YOUTUBE_API_KEY`: Google Cloud API key with YouTube Data API v3 enabled. See https://console.developers.google.com → Enable YouTube Data API v3.
+
+- `YOUTUBE_API_KEY`: Google Cloud API key with YouTube Data API v3 enabled. See <https://console.developers.google.com> → Enable YouTube Data API v3.
 - `YOUTUBE_CHANNEL_ID`: Your YouTube channel ID (starts with `UC`). Used by `POST /api/sync-youtube` to fetch and upsert the latest videos.
 - `CRON_SECRET`: Optional Bearer token for Vercel cron calls to `POST /api/sync-youtube`. If set, cron requests must send `Authorization: Bearer <CRON_SECRET>`.
 
 ### Newsletter Double Opt-In (optional — confirmation email delivery)
+
 These variables are shared between the **Supabase Edge Function** (`newsletter-confirm`) and the Next.js app. Configure `RESEND_*` both as Supabase Edge Function secrets (for DOI emails) and in Vercel when you want the contact form Route Handler to send mail.
-- `RESEND_API_KEY`: API key from https://resend.com — used to send DOI confirmation emails and contact-form emails.
+
+- `RESEND_API_KEY`: API key from <https://resend.com> — used to send DOI confirmation emails and contact-form emails.
 - `RESEND_FROM_EMAIL`: Verified sender address, e.g. `noreply@darktunes.com`. Must be a domain verified in Resend.
 - `NEXT_PUBLIC_SITE_URL`: The public site URL without trailing slash (e.g. `https://darktunes.com`) — used to build the confirmation link inside the email. Also set this as a Vercel env var (with the `NEXT_PUBLIC_` prefix) so the confirmation page can be rendered.
 - `LABEL_NOTIFICATION_EMAIL`: Label inbox address that receives an email whenever an artist submits a release or video via the portal. Leave blank to disable submission notification emails (they are silently skipped if this variable is unset).
 
 ### Newsletter — MailerLite sync (optional — marketing list)
+
 After DOI confirmation, verified subscribers are pushed to MailerLite server-to-server via `GET /api/newsletter/verify`. Both vars are optional — omit to store subscribers in Supabase only.
-- `MAILERLITE_API_KEY`: MailerLite API key from https://app.mailerlite.com/integrations/api/
+
+- `MAILERLITE_API_KEY`: MailerLite API key from <https://app.mailerlite.com/integrations/api/>
 - `MAILERLITE_GROUP_ID`: MailerLite group/segment ID to add subscribers to.
-  - To find your Group ID: log in at https://app.mailerlite.com → Subscribers → Groups → click the group → the ID appears in the URL (`/groups/{id}/...`).
+  - To find your Group ID: log in at <https://app.mailerlite.com> → Subscribers → Groups → click the group → the ID appears in the URL (`/groups/{id}/...`).
 
 ### ISR Webhook Revalidation (optional — Supabase-triggered cache busting)
+
 - `REVALIDATE_SECRET`: A random, high-entropy ****** checked by `POST /api/revalidate`. Required when you configure Supabase webhooks to call this endpoint after DB writes so the ISR cache is busted automatically. Generate with `openssl rand -hex 32`. Share this value with the Supabase webhook configuration (Authorization header value).
 
 ### Supabase Read Replica (optional — Supabase Pro plan)
+
 - `SUPABASE_REPLICA_URL`: Connection URL for a Supabase read replica (configure via Supabase Dashboard → Database → Replicas). When set, heavy analytics queries (portal analytics charts, admin health/logs dashboard, SOS CSV exports) are routed here to reduce load on the primary DB. Falls back silently to the primary DB when unset — safe for development and Starter plan deployments.
 - `SUPABASE_REPLICA_ANON_KEY`: Anon key for the read replica. Must be set alongside `SUPABASE_REPLICA_URL`.
 
@@ -239,6 +268,7 @@ These secrets power the Deno runtime inside Supabase Edge Functions. They are
 does NOT make them available to Edge Functions.
 
 Set these in **Supabase Dashboard → Project → Edge Functions → Secrets**:
+
 - `RESEND_API_KEY` — same value as your Vercel `RESEND_API_KEY`
 - `RESEND_FROM_EMAIL` — same value as your Vercel `RESEND_FROM_EMAIL`
 - `NEXT_PUBLIC_SITE_URL` — your production URL (e.g. `https://darktunes.com`)
@@ -260,6 +290,7 @@ and DOI confirmation emails will never be delivered.
 ## ✅ Vercel Cron Job Validation
 
 After deployment, verify that Vercel cron jobs are active:
+
 1. Vercel Dashboard → Project → **Cron Jobs** tab.
 2. Confirm all three cron entries appear:
    - `/api/sync-youtube` — daily 06:00 UTC (YouTube channel sync)
@@ -273,14 +304,17 @@ After deployment, verify that Vercel cron jobs are active:
 ## 🛠️ Maintenance
 
 ### Database Backups
+
 Supabase provides automatic daily backups. Additional backups can be configured in project settings.
 
 ### Monitoring
+
 - Check Vercel Analytics for performance metrics
 - Monitor Supabase dashboard for database health
 - Review R2 usage in Cloudflare dashboard
 
 ### Updates
+
 ```bash
 # Update dependencies
 npm update
@@ -288,6 +322,5 @@ npm update
 # Deploy updates
 vercel --prod
 ```
-
 
 - No additional environment variables are required for the press portal expansion; existing Supabase/R2/Resend variables continue to power press logins, secure asset delivery, and optional email workflows.
