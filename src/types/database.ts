@@ -683,7 +683,19 @@ export interface Database {
           bio_short: string | null
           bio_medium: string | null
           bio_long: string | null
+          bio_short_en: string | null
+          bio_medium_en: string | null
+          bio_long_en: string | null
           press_quote: string | null
+          press_quote_en: string | null
+          draft_bio_short: string | null
+          draft_bio_medium: string | null
+          draft_bio_long: string | null
+          draft_bio_short_en: string | null
+          draft_bio_medium_en: string | null
+          draft_bio_long_en: string | null
+          draft_press_quote: string | null
+          draft_press_quote_en: string | null
           booking_contact: string | null
           press_contact: string | null
           rider_stage_plot_url: string | null
@@ -705,6 +717,11 @@ export interface Database {
           epk_document: Record<string, unknown> | null
           epk_document_version: number
           epk_editor_mode: string
+          bio_status: 'draft' | 'pending_review' | 'approved'
+          bio_embargo_until: string | null
+          bio_reviewed_by: string | null
+          bio_reviewed_at: string | null
+          bio_submitted_at: string | null
           created_at: string
           updated_at: string
         }
@@ -714,7 +731,19 @@ export interface Database {
           bio_short?: string | null
           bio_medium?: string | null
           bio_long?: string | null
+          bio_short_en?: string | null
+          bio_medium_en?: string | null
+          bio_long_en?: string | null
           press_quote?: string | null
+          press_quote_en?: string | null
+          draft_bio_short?: string | null
+          draft_bio_medium?: string | null
+          draft_bio_long?: string | null
+          draft_bio_short_en?: string | null
+          draft_bio_medium_en?: string | null
+          draft_bio_long_en?: string | null
+          draft_press_quote?: string | null
+          draft_press_quote_en?: string | null
           booking_contact?: string | null
           press_contact?: string | null
           rider_stage_plot_url?: string | null
@@ -736,6 +765,11 @@ export interface Database {
           epk_document?: Record<string, unknown> | null
           epk_document_version?: number
           epk_editor_mode?: string
+          bio_status?: 'draft' | 'pending_review' | 'approved'
+          bio_embargo_until?: string | null
+          bio_reviewed_by?: string | null
+          bio_reviewed_at?: string | null
+          bio_submitted_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -745,7 +779,19 @@ export interface Database {
           bio_short?: string | null
           bio_medium?: string | null
           bio_long?: string | null
+          bio_short_en?: string | null
+          bio_medium_en?: string | null
+          bio_long_en?: string | null
           press_quote?: string | null
+          press_quote_en?: string | null
+          draft_bio_short?: string | null
+          draft_bio_medium?: string | null
+          draft_bio_long?: string | null
+          draft_bio_short_en?: string | null
+          draft_bio_medium_en?: string | null
+          draft_bio_long_en?: string | null
+          draft_press_quote?: string | null
+          draft_press_quote_en?: string | null
           booking_contact?: string | null
           press_contact?: string | null
           rider_stage_plot_url?: string | null
@@ -767,6 +813,11 @@ export interface Database {
           epk_document?: Record<string, unknown> | null
           epk_document_version?: number
           epk_editor_mode?: string
+          bio_status?: 'draft' | 'pending_review' | 'approved'
+          bio_embargo_until?: string | null
+          bio_reviewed_by?: string | null
+          bio_reviewed_at?: string | null
+          bio_submitted_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -927,6 +978,94 @@ export interface Database {
           updated_at?: string
         }
         Relationships: []
+      }
+      artist_bio_versions: {
+        Row: {
+          id: string
+          artist_id: string
+          locale: 'de' | 'en'
+          tier: 'short' | 'medium' | 'long'
+          content_html: string
+          press_quote: string | null
+          status: string
+          changed_by: string | null
+          reviewed_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          artist_id: string
+          locale: 'de' | 'en'
+          tier: 'short' | 'medium' | 'long'
+          content_html: string
+          press_quote?: string | null
+          status?: string
+          changed_by?: string | null
+          reviewed_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          artist_id?: string
+          locale?: 'de' | 'en'
+          tier?: 'short' | 'medium' | 'long'
+          content_html?: string
+          press_quote?: string | null
+          status?: string
+          changed_by?: string | null
+          reviewed_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'artist_bio_versions_artist_id_fkey'
+            columns: ['artist_id']
+            isOneToOne: false
+            referencedRelation: 'artists'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      artist_bio_events: {
+        Row: {
+          id: string
+          artist_id: string
+          journalist_id: string | null
+          event_type: 'view' | 'copy' | 'download'
+          locale: 'de' | 'en' | null
+          tier: 'short' | 'medium' | 'long' | null
+          format: 'txt' | 'pdf' | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          artist_id: string
+          journalist_id?: string | null
+          event_type: 'view' | 'copy' | 'download'
+          locale?: 'de' | 'en' | null
+          tier?: 'short' | 'medium' | 'long' | null
+          format?: 'txt' | 'pdf' | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          artist_id?: string
+          journalist_id?: string | null
+          event_type?: 'view' | 'copy' | 'download'
+          locale?: 'de' | 'en' | null
+          tier?: 'short' | 'medium' | 'long' | null
+          format?: 'txt' | 'pdf' | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'artist_bio_events_artist_id_fkey'
+            columns: ['artist_id']
+            isOneToOne: false
+            referencedRelation: 'artists'
+            referencedColumns: ['id']
+          },
+        ]
       }
       artist_billing_profiles: {
         Row: {
@@ -2633,6 +2772,7 @@ export interface Database {
           journalist_id: string
           release_id: string | null
           asset_id: string | null
+          artist_id: string | null
           asset_key: string
           downloaded_at: string
         }
@@ -2641,6 +2781,7 @@ export interface Database {
           journalist_id: string
           release_id?: string | null
           asset_id?: string | null
+          artist_id?: string | null
           asset_key: string
           downloaded_at?: string
         }
@@ -2649,10 +2790,19 @@ export interface Database {
           journalist_id?: string
           release_id?: string | null
           asset_id?: string | null
+          artist_id?: string | null
           asset_key?: string
           downloaded_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'journalist_downloads_artist_id_fkey'
+            columns: ['artist_id']
+            isOneToOne: false
+            referencedRelation: 'artists'
+            referencedColumns: ['id']
+          },
+        ]
       }
       accreditation_requests: {
         Row: {

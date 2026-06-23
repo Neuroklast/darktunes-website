@@ -1241,6 +1241,18 @@ CREATE TABLE IF NOT EXISTS public.artist_epks (
   bio_short      TEXT,
   bio_medium     TEXT,
   bio_long       TEXT,
+  bio_short_en   TEXT,
+  bio_medium_en  TEXT,
+  bio_long_en    TEXT,
+  press_quote_en TEXT,
+  draft_bio_short      TEXT,
+  draft_bio_medium     TEXT,
+  draft_bio_long       TEXT,
+  draft_bio_short_en   TEXT,
+  draft_bio_medium_en  TEXT,
+  draft_bio_long_en    TEXT,
+  draft_press_quote    TEXT,
+  draft_press_quote_en TEXT,
   -- Simon: Gibt es einen Grund ein extra Foto mit ins EPK zu nehmen? Könnte man nicht einfach das Foto der Band nehmen?
   -- photo_url      TEXT,
   press_quote    TEXT,
@@ -1266,6 +1278,13 @@ CREATE TABLE IF NOT EXISTS public.artist_epks (
   -- Password-protect sensitive EPK sections
   epk_password_hash       TEXT,
   epk_password_sections   TEXT[]  NOT NULL DEFAULT '{}',
+  -- Bio publication workflow (draft → pending_review → approved)
+  bio_status              TEXT        NOT NULL DEFAULT 'approved'
+    CHECK (bio_status IN ('draft', 'pending_review', 'approved')),
+  bio_embargo_until       TIMESTAMPTZ,
+  bio_reviewed_by         UUID        REFERENCES auth.users (id) ON DELETE SET NULL,
+  bio_reviewed_at         TIMESTAMPTZ,
+  bio_submitted_at        TIMESTAMPTZ,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -1307,6 +1326,25 @@ COMMENT ON COLUMN public.artist_epks.epk_document IS
   'EPK Canvas document JSON (schema version 2) — Konva editor state.';
 COMMENT ON COLUMN public.artist_epks.epk_editor_mode IS
   'EPK editor mode: legacy (HTML presets) or canvas (Konva builder).';
+
+-- Bio publication workflow (idempotent guards for existing databases)
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS bio_status            TEXT NOT NULL DEFAULT 'approved';
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS bio_embargo_until     TIMESTAMPTZ;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS bio_reviewed_by         UUID REFERENCES auth.users (id) ON DELETE SET NULL;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS bio_reviewed_at       TIMESTAMPTZ;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS bio_submitted_at        TIMESTAMPTZ;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS bio_short_en            TEXT;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS bio_medium_en           TEXT;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS bio_long_en             TEXT;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS press_quote_en          TEXT;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS draft_bio_short         TEXT;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS draft_bio_medium        TEXT;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS draft_bio_long          TEXT;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS draft_bio_short_en      TEXT;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS draft_bio_medium_en     TEXT;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS draft_bio_long_en       TEXT;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS draft_press_quote        TEXT;
+ALTER TABLE public.artist_epks ADD COLUMN IF NOT EXISTS draft_press_quote_en    TEXT;
 
 -- ---------------------------------------------------------------------------
 -- TABLE: epk_versions  (EPK document version history)
@@ -1405,6 +1443,47 @@ DROP TRIGGER IF EXISTS trg_artist_profiles_updated_at ON public.artist_epks;
 CREATE TRIGGER trg_artist_profiles_updated_at
   BEFORE UPDATE ON public.artist_epks
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- TABLE: artist_bio_versions  (immutable snapshots on admin approve)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.artist_bio_versions (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id     UUID        NOT NULL REFERENCES public.artists (id) ON DELETE CASCADE,
+  locale        TEXT        NOT NULL CHECK (locale IN ('de', 'en')),
+  tier          TEXT        NOT NULL CHECK (tier IN ('short', 'medium', 'long')),
+  content_html  TEXT        NOT NULL,
+  press_quote   TEXT,
+  status        TEXT        NOT NULL DEFAULT 'approved',
+  changed_by    UUID        REFERENCES auth.users (id) ON DELETE SET NULL,
+  reviewed_by   UUID        REFERENCES auth.users (id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_artist_bio_versions_artist_created
+  ON public.artist_bio_versions (artist_id, created_at DESC);
+
+-- ---------------------------------------------------------------------------
+-- TABLE: artist_bio_events  (press EPK view / copy / download analytics)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.artist_bio_events (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id     UUID        NOT NULL REFERENCES public.artists (id) ON DELETE CASCADE,
+  journalist_id UUID        REFERENCES auth.users (id) ON DELETE SET NULL,
+  event_type    TEXT        NOT NULL CHECK (event_type IN ('view', 'copy', 'download')),
+  locale        TEXT        CHECK (locale IN ('de', 'en')),
+  tier          TEXT        CHECK (tier IN ('short', 'medium', 'long')),
+  format        TEXT        CHECK (format IN ('txt', 'pdf')),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_artist_bio_events_artist_created
+  ON public.artist_bio_events (artist_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_artist_bio_events_type_created
+  ON public.artist_bio_events (event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_artist_bio_events_journalist
+  ON public.artist_bio_events (journalist_id)
+  WHERE journalist_id IS NOT NULL;
 
 -- ---------------------------------------------------------------------------
 -- TABLE: streaming_stats  (monthly platform stream counts per artist)
@@ -1770,11 +1849,13 @@ CREATE TABLE IF NOT EXISTS public.journalist_downloads (
   journalist_id UUID        NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
   release_id    UUID        REFERENCES public.releases (id) ON DELETE SET NULL,
   asset_id      UUID        REFERENCES public.assets (id) ON DELETE SET NULL,
+  artist_id     UUID        REFERENCES public.artists (id) ON DELETE SET NULL,
   asset_key     TEXT        NOT NULL,
   downloaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.journalist_downloads ADD COLUMN IF NOT EXISTS asset_id UUID REFERENCES public.assets(id) ON DELETE SET NULL;
+ALTER TABLE public.journalist_downloads ADD COLUMN IF NOT EXISTS artist_id UUID REFERENCES public.artists (id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_journalist_downloads_journalist_id
   ON public.journalist_downloads (journalist_id);
@@ -1959,6 +2040,8 @@ ALTER TABLE public.message_folders       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.message_rules         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.message_attachments   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.journalist_downloads  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.artist_bio_versions   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.artist_bio_events     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.accreditation_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.editor_activity_log   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.editor_notifications  ENABLE ROW LEVEL SECURITY;
@@ -2436,6 +2519,32 @@ DROP POLICY IF EXISTS "artist_epks: artist read own"   ON public.artist_epks;
 DROP POLICY IF EXISTS "artist_epks: artist insert own" ON public.artist_epks;
 DROP POLICY IF EXISTS "artist_epks: artist update own" ON public.artist_epks;
 DROP POLICY IF EXISTS "artist_epks: admin all"         ON public.artist_epks;
+DROP POLICY IF EXISTS "artist_epks: public read short bio" ON public.artist_epks;
+DROP POLICY IF EXISTS "artist_epks: journalist read full bio" ON public.artist_epks;
+
+-- Allows public read of approved, non-embargoed EPK rows for visible artists.
+-- DAL strips medium/long bios for anonymous callers (hybrid press access).
+CREATE POLICY "artist_epks: public read short bio" ON public.artist_epks
+  FOR SELECT USING (
+    bio_status = 'approved'
+    AND (bio_embargo_until IS NULL OR bio_embargo_until <= NOW())
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = artist_id AND a.is_visible = TRUE
+    )
+  );
+
+-- Allows accredited journalists and admins to read full approved EPK bios.
+CREATE POLICY "artist_epks: journalist read full bio" ON public.artist_epks
+  FOR SELECT USING (
+    public.get_my_role() IN ('journalist', 'admin')
+    AND bio_status = 'approved'
+    AND (bio_embargo_until IS NULL OR bio_embargo_until <= NOW())
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = artist_id AND a.is_visible = TRUE
+    )
+  );
 
 -- Allows artists to read their own EPK/profile data
 CREATE POLICY "artist_epks: artist read own" ON public.artist_epks
@@ -2598,6 +2707,41 @@ CREATE POLICY "epk_templates: admin all" ON public.epk_templates
   FOR ALL
   USING (public.get_my_role() = 'admin')
   WITH CHECK (public.get_my_role() = 'admin');
+
+-- ---------------------------------------------------------------------------
+-- RLS: artist_bio_versions
+-- ---------------------------------------------------------------------------
+DROP POLICY IF EXISTS "artist_bio_versions: admin editor manage" ON public.artist_bio_versions;
+
+CREATE POLICY "artist_bio_versions: admin editor manage" ON public.artist_bio_versions
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    OR public.has_permission('can_manage_artists')
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    OR public.has_permission('can_manage_artists')
+  );
+
+-- ---------------------------------------------------------------------------
+-- RLS: artist_bio_events
+-- ---------------------------------------------------------------------------
+DROP POLICY IF EXISTS "artist_bio_events: anonymous insert" ON public.artist_bio_events;
+DROP POLICY IF EXISTS "artist_bio_events: journalist insert own" ON public.artist_bio_events;
+DROP POLICY IF EXISTS "artist_bio_events: admin editor read" ON public.artist_bio_events;
+
+CREATE POLICY "artist_bio_events: anonymous insert" ON public.artist_bio_events
+  FOR INSERT WITH CHECK (journalist_id IS NULL);
+
+CREATE POLICY "artist_bio_events: journalist insert own" ON public.artist_bio_events
+  FOR INSERT WITH CHECK (journalist_id = auth.uid());
+
+CREATE POLICY "artist_bio_events: admin editor read" ON public.artist_bio_events
+  FOR SELECT USING (
+    public.get_my_role() = 'admin'
+    OR public.has_permission('can_manage_artists')
+  );
 
 -- ---------------------------------------------------------------------------
 -- RLS: streaming_stats
