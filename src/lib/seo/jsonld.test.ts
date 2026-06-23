@@ -6,6 +6,7 @@ import {
   buildMusicAlbumSchema,
   buildNewsArticleSchema,
   buildPressArticleSchema,
+  buildPressEpkSchema,
   serializeJsonLd,
   SITE_URL,
 } from './jsonld'
@@ -228,6 +229,15 @@ describe('buildMusicGroupSchema', () => {
     expect(schema.sameAs).not.toContain(undefined)
     expect(schema.sameAs.every((u) => typeof u === 'string' && u.length > 0)).toBe(true)
   })
+
+  it('prefers explicit description over artist.bio', () => {
+    const schema = buildMusicGroupSchema({
+      artist,
+      releases,
+      description: 'Approved short bio from EPK.',
+    })
+    expect(schema.description).toBe('Approved short bio from EPK.')
+  })
 })
 
 describe('buildMusicAlbumSchema', () => {
@@ -323,6 +333,20 @@ describe('buildNewsArticleSchema', () => {
   it('omits publisher logo when not provided', () => {
     const schema = buildNewsArticleSchema({ post: newsPost })
     expect((schema.publisher as Record<string, unknown>).logo).toBeUndefined()
+  })
+})
+
+describe('buildPressEpkSchema', () => {
+  it('outputs WebPage with press kit URL', () => {
+    const schema = buildPressEpkSchema({
+      artist: { name: 'Test Artist', slug: 'test-artist', imageUrl: artist.imageUrl, genres: artist.genres },
+      description: 'Short bio for press.',
+      pressQuote: 'A striking quote.',
+    })
+    expect(schema['@type']).toBe('WebPage')
+    expect(schema.url).toBe(`${SITE_URL}/press/artists/test-artist`)
+    expect(schema.about).toMatchObject({ '@type': 'MusicGroup', name: 'Test Artist' })
+    expect(schema.citation).toMatchObject({ text: 'A striking quote.' })
   })
 })
 

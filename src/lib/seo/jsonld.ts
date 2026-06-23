@@ -128,14 +128,17 @@ export interface MusicGroupSchemaInput {
     | 'websiteUrl'
   >
   releases: Pick<Release, 'id' | 'title' | 'releaseDate'>[]
+  /** Approved short bio plain text; overrides artist.bio when set. */
+  description?: string
 }
 
-export function buildMusicGroupSchema({ artist, releases }: MusicGroupSchemaInput) {
+export function buildMusicGroupSchema({ artist, releases, description }: MusicGroupSchemaInput) {
+  const resolvedDescription = description?.trim() || artist.bio || undefined
   return {
     '@context': 'https://schema.org',
     '@type': 'MusicGroup',
     name: artist.name,
-    description: artist.bio || undefined,
+    description: resolvedDescription,
     image: artist.imageUrl || undefined,
     genre: artist.genres?.length ? artist.genres : undefined,
     url: `${SITE_URL}/artists/${artist.slug}`,
@@ -261,6 +264,52 @@ export function buildPressArticleSchema({ post }: PressArticleSchemaInput) {
     headline: post.title,
     datePublished: post.publishedAt,
     url: `${SITE_URL}/press/releases/${post.slug}`,
+    publisher: {
+      '@type': 'Organization',
+      name: 'darkTunes Music Group',
+      url: SITE_URL,
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Press EPK (artist press kit page)
+// ---------------------------------------------------------------------------
+
+export interface PressEpkSchemaInput {
+  artist: Pick<Artist, 'name' | 'slug' | 'imageUrl' | 'genres'>
+  description?: string
+  pressQuote?: string
+}
+
+export function buildPressEpkSchema({ artist, description, pressQuote }: PressEpkSchemaInput) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: `${artist.name} — Press Kit`,
+    description: description?.trim() || undefined,
+    url: `${SITE_URL}/press/artists/${artist.slug}`,
+    about: {
+      '@type': 'MusicGroup',
+      name: artist.name,
+      genre: artist.genres?.length ? artist.genres : undefined,
+      image: artist.imageUrl || undefined,
+      description: description?.trim() || undefined,
+      url: `${SITE_URL}/artists/${artist.slug}`,
+    },
+    ...(pressQuote?.trim()
+      ? {
+          citation: {
+            '@type': 'Quotation',
+            text: pressQuote.trim(),
+          },
+        }
+      : {}),
+    isPartOf: {
+      '@type': 'WebSite',
+      name: 'darkTunes Press Portal',
+      url: `${SITE_URL}/press`,
+    },
     publisher: {
       '@type': 'Organization',
       name: 'darkTunes Music Group',

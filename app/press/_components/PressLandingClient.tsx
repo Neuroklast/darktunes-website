@@ -13,10 +13,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ObfuscatedText } from '@/components/press/ObfuscatedText'
 import { getOptimizedImageUrl, getSquareThumbnail } from '@/lib/imageUtils'
 import type { Dictionary } from '@/i18n/types'
+import type { PublicArtistEpk } from '@/lib/api/artistProfiles'
 import type { Artist, NewsPost, SiteSettings } from '@/types'
+
+function stripHtmlTags(html: string): string {
+  return html.replace(/<[^>]*>/g, '').trim()
+}
+
+function rosterSubtitle(artist: Artist, epk: PublicArtistEpk | undefined): string {
+  const bioShort = epk?.bioShort ? stripHtmlTags(epk.bioShort) : ''
+  if (bioShort) return bioShort
+  if (artist.genres.length > 0) return artist.genres.join(' · ')
+  return artist.bio ?? ''
+}
 
 interface PressLandingClientProps {
   artists: Artist[]
+  artistEpks: Record<string, PublicArtistEpk>
   pressReleases: NewsPost[]
   siteSettings: Pick<SiteSettings, 'labelName' | 'labelTagline' | 'contactEmail' | 'impressumPhone' | 'impressumEmail'>
   dict: Dictionary
@@ -34,6 +47,7 @@ type SortKey = 'nameAsc' | 'nameDesc' | 'genreAsc'
 
 export function PressLandingClient({
   artists,
+  artistEpks,
   pressReleases,
   siteSettings,
   dict,
@@ -46,12 +60,15 @@ export function PressLandingClient({
 
   const filteredArtists = useMemo(() => {
     const q = search.toLowerCase()
-    const filtered = artists.filter(
-      (a) =>
+    const filtered = artists.filter((a) => {
+      const epkBio = artistEpks[a.id]?.bioShort ? stripHtmlTags(artistEpks[a.id].bioShort!) : ''
+      return (
         a.name.toLowerCase().includes(q) ||
         a.genres.some((g) => g.toLowerCase().includes(q)) ||
-        (a.bio ?? '').toLowerCase().includes(q),
-    )
+        epkBio.toLowerCase().includes(q) ||
+        (a.bio ?? '').toLowerCase().includes(q)
+      )
+    })
     return filtered.slice().sort((a, b) => {
       if (sort === 'nameAsc') return a.name.localeCompare(b.name)
       if (sort === 'nameDesc') return b.name.localeCompare(a.name)
@@ -61,7 +78,7 @@ export function PressLandingClient({
       const bGenre = [...b.genres].sort()[0] ?? ''
       return aGenre.localeCompare(bGenre)
     })
-  }, [artists, search, sort])
+  }, [artists, artistEpks, search, sort])
 
   const contactEmail = siteSettings.impressumEmail || siteSettings.contactEmail
   const contactPhone = siteSettings.impressumPhone
@@ -161,7 +178,7 @@ export function PressLandingClient({
                           <div>
                             <p className="font-semibold">{artist.name}</p>
                             <p className="line-clamp-2 text-sm text-muted-foreground">
-                              {artist.genres.join(' · ') || artist.bio}
+                              {rosterSubtitle(artist, artistEpks[artist.id])}
                             </p>
                           </div>
                           <ArrowRight

@@ -23,7 +23,9 @@ import { notFound } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { getPublicArtistEpk } from '@/lib/api/artistProfiles'
 import { getArtistBySlug, getPublicArtists, getRelatedArtists } from '@/lib/api/artists'
+import { stripHtmlToPlainText } from '@/lib/press/bioText'
 import { getReleasesByArtistId } from '@/lib/api/releases'
 import { getConcertsByArtistId } from '@/lib/api/concerts'
 import { getVideosByArtistId } from '@/lib/api/videos'
@@ -102,15 +104,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   // Silently swallow errors only in metadata generation — a missing artist
   // just returns a generic title; the page itself will show the proper 404.
-  const data = await makeGetArtistData(slug)().catch(() => null)
+  const [data, locale] = await Promise.all([
+    makeGetArtistData(slug)().catch(() => null),
+    getLocale(),
+  ])
   if (!data) return { title: 'Artist not found — darkTunes' }
   const { artist } = data
+  const pressLocale = locale === 'en' ? 'en' : 'de'
+  const publicEpk = await getPublicArtistEpk(createPublicSupabaseClient(), artist.id, pressLocale).catch(() => null)
+  const epkDescription = publicEpk?.bioShort ? stripHtmlToPlainText(publicEpk.bioShort) : undefined
+  const description =
+    epkDescription?.slice(0, 160) ??
+    (artist.bio ? artist.bio.slice(0, 160) : `${artist.name} on darkTunes Music Group`)
   return {
     title: `${artist.name} | darkTunes Music Group`,
-    description: artist.bio ? artist.bio.slice(0, 160) : `${artist.name} on darkTunes Music Group`,
+    description,
     openGraph: {
       title: `${artist.name} — darkTunes Music Group`,
-      description: artist.bio ? artist.bio.slice(0, 160) : undefined,
+      description,
       images: artist.imageUrl ? [{ url: artist.imageUrl }] : [],
       type: 'profile',
     },
@@ -128,12 +139,19 @@ export default async function ArtistDetailPage({ params }: Props) {
   if (!data) notFound()
   const dict = await getDictionary(locale)
   const { artist, releases, concerts, videos, news, assets, relatedArtists } = data
+  const pressLocale = locale === 'en' ? 'en' : 'de'
+  const publicEpk = await getPublicArtistEpk(createPublicSupabaseClient(), artist.id, pressLocale).catch(() => null)
+  const schemaDescription = publicEpk?.bioShort
+    ? stripHtmlToPlainText(publicEpk.bioShort)
+    : undefined
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: serializeJsonLd(buildMusicGroupSchema({ artist, releases })),
+          __html: serializeJsonLd(
+            buildMusicGroupSchema({ artist, releases, description: schemaDescription }),
+          ),
         }}
       />
       <ArtistDetailContent
