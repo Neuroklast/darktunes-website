@@ -1,12 +1,13 @@
 'use client'
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { CloudArrowUp, Headphones, Images, Layout, Newspaper, TrendUp, Users } from '@phosphor-icons/react'
+import { ClockCounterClockwise, CloudArrowUp, FileText, Headphones, Images, Layout, Newspaper, TrendUp, Users } from '@phosphor-icons/react'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { getArtists } from '@/lib/api/artists'
 import { getPromoTracks, createPromoTrack, deletePromoTrack } from '@/lib/api/promoTracks'
 import type { JournalistApplication } from '@/lib/api/journalistApplications'
 import type { PromoTrack } from '@/lib/api/promoTracks'
+import { getBioEventAnalytics, type BioEventAnalytics } from '@/lib/api/bioEvents'
 import { listRequests } from '@/lib/api/accreditations'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,6 +21,8 @@ import { toast } from 'sonner'
 const AccreditationsManager = lazy(() => import('./AccreditationsManager').then((m) => ({ default: m.AccreditationsManager })))
 const PressKitBuilder = lazy(() => import('./PressKitBuilder').then((m) => ({ default: m.PressKitBuilder })))
 const EpkTemplatesManager = lazy(() => import('./EpkTemplatesManager').then((m) => ({ default: m.EpkTemplatesManager })))
+const BioReviewManager = lazy(() => import('./BioReviewManager').then((m) => ({ default: m.BioReviewManager })))
+const BioHistoryManager = lazy(() => import('./BioHistoryManager').then((m) => ({ default: m.BioHistoryManager })))
 
 function PanelFallback() {
   return <Skeleton className="h-40 w-full" />
@@ -33,6 +36,7 @@ export function PressManager() {
   const [accreditationCount, setAccreditationCount] = useState(0)
   const [downloadCount, setDownloadCount] = useState(0)
   const [kitItemCount, setKitItemCount] = useState(0)
+  const [bioAnalytics, setBioAnalytics] = useState<BioEventAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
 
   const [trackForm, setTrackForm] = useState({
@@ -51,13 +55,14 @@ export function PressManager() {
   const loadAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [appsRes, trackRows, artistRows, accreditationRows, downloadRows, kitRows] = await Promise.all([
+      const [appsRes, trackRows, artistRows, accreditationRows, downloadRows, kitRows, bioStats] = await Promise.all([
         fetch('/api/journalist-applications').then((response) => response.json()).catch(() => ({ applications: [] })),
         getPromoTracks(supabase).catch(() => []),
         getArtists(supabase).catch(() => []),
         listRequests(supabase).catch(() => []),
         supabase.from('journalist_downloads').select('id', { count: 'exact', head: false }).then(({ data }) => data ?? [], () => []),
         supabase.from('press_kit_items').select('id', { count: 'exact', head: true }).then(({ count }) => count ?? 0, () => 0),
+        getBioEventAnalytics(supabase).catch(() => null),
       ])
       setApplications(appsRes.applications ?? [])
       setTracks(trackRows)
@@ -65,6 +70,7 @@ export function PressManager() {
       setAccreditationCount(accreditationRows.length)
       setDownloadCount(downloadRows.length)
       setKitItemCount(kitRows)
+      setBioAnalytics(bioStats)
     } finally {
       setLoading(false)
     }
@@ -138,6 +144,8 @@ export function PressManager() {
     <Tabs defaultValue="applications" className="space-y-4">
       <TabsList className="flex h-auto flex-wrap gap-1 p-1">
         <TabsTrigger value="applications" className="gap-2"><Users size={16} weight="bold" aria-hidden="true" />Applications</TabsTrigger>
+        <TabsTrigger value="bios" className="gap-2"><FileText size={16} weight="bold" aria-hidden="true" />Bio Review</TabsTrigger>
+        <TabsTrigger value="bio-history" className="gap-2"><ClockCounterClockwise size={16} weight="bold" aria-hidden="true" />Bio History</TabsTrigger>
         <TabsTrigger value="press-kit" className="gap-2"><Images size={16} weight="bold" aria-hidden="true" />Press Kit</TabsTrigger>
         <TabsTrigger value="tracks" className="gap-2"><Headphones size={16} weight="bold" aria-hidden="true" />Promo Tracks</TabsTrigger>
         <TabsTrigger value="accreditations" className="gap-2"><Newspaper size={16} weight="bold" aria-hidden="true" />Accreditations</TabsTrigger>
@@ -181,6 +189,18 @@ export function PressManager() {
           ))}
           {applications.length === 0 && <p className="text-sm text-muted-foreground">No journalist applications yet.</p>}
         </div>
+      </TabsContent>
+
+      <TabsContent value="bios">
+        <Suspense fallback={<PanelFallback />}>
+          <BioReviewManager />
+        </Suspense>
+      </TabsContent>
+
+      <TabsContent value="bio-history">
+        <Suspense fallback={<PanelFallback />}>
+          <BioHistoryManager artists={artists} />
+        </Suspense>
       </TabsContent>
 
       <TabsContent value="press-kit">
@@ -239,6 +259,49 @@ export function PressManager() {
           <Card className="border-border bg-card/70"><CardHeader><CardTitle>Promo Tracks</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold">{tracks.length}</p></CardContent></Card>
           <Card className="border-border bg-card/70"><CardHeader><CardTitle>Accreditations</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold">{accreditationCount}</p></CardContent></Card>
           <Card className="border-border bg-card/70 md:col-span-2 xl:col-span-4"><CardHeader><CardTitle>Total journalist downloads</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold">{downloadCount}</p></CardContent></Card>
+          <Card className="border-border bg-card/70"><CardHeader><CardTitle>EPK views</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold">{bioAnalytics?.totalViews ?? '—'}</p></CardContent></Card>
+          <Card className="border-border bg-card/70"><CardHeader><CardTitle>Bio copies</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold">{bioAnalytics?.totalCopies ?? '—'}</p></CardContent></Card>
+          <Card className="border-border bg-card/70"><CardHeader><CardTitle>Bio downloads</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold">{bioAnalytics?.totalDownloads ?? '—'}</p></CardContent></Card>
+          <Card className="border-border bg-card/70 md:col-span-2">
+            <CardHeader>
+              <CardTitle>Top artists by EPK views</CardTitle>
+              <CardDescription>Most viewed press kits</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {(bioAnalytics?.topArtistsByViews ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">No view events yet.</p>
+              ) : (
+                <ul className="list-none space-y-2 p-0">
+                  {bioAnalytics?.topArtistsByViews.map((item) => (
+                    <li key={item.artistId} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="truncate">{item.artistName}</span>
+                      <span className="font-mono text-muted-foreground">{item.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="border-border bg-card/70 md:col-span-2">
+            <CardHeader>
+              <CardTitle>Bio downloads by journalist</CardTitle>
+              <CardDescription>TXT/PDF exports per accredited user</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {(bioAnalytics?.downloadsByJournalist ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">No bio download events yet.</p>
+              ) : (
+                <ul className="list-none space-y-2 p-0">
+                  {bioAnalytics?.downloadsByJournalist.map((item) => (
+                    <li key={item.journalistId} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="truncate font-mono text-xs">{item.journalistId}</span>
+                      <span className="font-mono text-muted-foreground">{item.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </TabsContent>
 

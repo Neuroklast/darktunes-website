@@ -29,6 +29,7 @@ const row = {
   journalist_id: 'user-1',
   release_id: 'release-1',
   asset_id: 'asset-1',
+  artist_id: 'artist-1',
   asset_key: 'promo/file.wav',
   downloaded_at: '2026-01-01T00:00:00Z',
 }

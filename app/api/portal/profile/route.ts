@@ -17,6 +17,8 @@ import {
   createServerSupabaseClient,
 } from '@/lib/supabase/server'
 import { resolvePortalArtist, upsertArtistProfile } from '@/lib/api/artistProfiles'
+import { sendSubmissionNotificationEmail } from '@/lib/email/sendSubmissionNotificationEmail'
+import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { scryptSync, randomBytes } from 'crypto'
 import type { Database } from '@/types/database'
@@ -37,6 +39,9 @@ const profileBodySchema = z.object({
   bio_short: z.string().max(6000).nullable().optional(),
   bio_medium: z.string().max(12000).nullable().optional(),
   bio_long: z.string().max(30000).nullable().optional(),
+  bio_short_en: z.string().max(6000).nullable().optional(),
+  bio_medium_en: z.string().max(12000).nullable().optional(),
+  bio_long_en: z.string().max(30000).nullable().optional(),
   image_url: z.union([z.string().url(), z.literal(''), z.null()]).optional(),
   genres: z.array(z.string()).optional(),
   // Social/streaming URLs — stored in the artists table (single source of truth).
@@ -50,6 +55,8 @@ const profileBodySchema = z.object({
   tiktok_url: z.union([z.string().url(), z.literal(''), z.null()]).optional(),
   facebook_url: z.union([z.string().url(), z.literal(''), z.null()]).optional(),
   press_quote: z.string().max(1000).nullable().optional(),
+  press_quote_en: z.string().max(1000).nullable().optional(),
+  submit_bio_for_review: z.boolean().optional(),
   founding_year: z.number().int().min(1900).max(2100).nullable().optional(),
   hometown: z.string().max(200).nullable().optional(),
   booking_contact: z.string().max(500).nullable().optional(),
@@ -140,12 +147,50 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
     epk_gallery_photos,
     // bio, genres, founding_year, and hometown are stored on artists (single source of truth);
     // extract them here so they are NOT passed to upsertArtistProfile.
-    bio,
+    bio: _bio,
     genres,
     founding_year,
     hometown,
+    bio_short,
+    bio_medium,
+    bio_long,
+    bio_short_en,
+    bio_medium_en,
+    bio_long_en,
+    press_quote,
+    press_quote_en,
+    submit_bio_for_review,
     ...profileFields
   } = d
+
+  const hasBioEdits =
+    bio_short !== undefined ||
+    bio_medium !== undefined ||
+    bio_long !== undefined ||
+    bio_short_en !== undefined ||
+    bio_medium_en !== undefined ||
+    bio_long_en !== undefined ||
+    press_quote !== undefined ||
+    press_quote_en !== undefined
+
+  const bioDraftPatch = hasBioEdits
+    ? {
+        ...(bio_short !== undefined ? { draft_bio_short: bio_short } : {}),
+        ...(bio_medium !== undefined ? { draft_bio_medium: bio_medium } : {}),
+        ...(bio_long !== undefined ? { draft_bio_long: bio_long } : {}),
+        ...(bio_short_en !== undefined ? { draft_bio_short_en: bio_short_en } : {}),
+        ...(bio_medium_en !== undefined ? { draft_bio_medium_en: bio_medium_en } : {}),
+        ...(bio_long_en !== undefined ? { draft_bio_long_en: bio_long_en } : {}),
+        ...(press_quote !== undefined ? { draft_press_quote: press_quote } : {}),
+        ...(press_quote_en !== undefined ? { draft_press_quote_en: press_quote_en } : {}),
+        ...(submit_bio_for_review !== false
+          ? {
+              bio_status: 'pending_review' as const,
+              bio_submitted_at: new Date().toISOString(),
+            }
+          : {}),
+      }
+    : {}
 
   let epkPasswordHash: string | null | undefined = undefined
   if (profileFields.epk_password_raw !== undefined) {
@@ -165,6 +210,7 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
 
   const profileData = {
     ...profileFields,
+    ...bioDraftPatch,
     ...(rider_stage_plot_url !== undefined ? { rider_stage_plot_url: normalizeUrl(rider_stage_plot_url) } : {}),
     ...(rider_technical_url !== undefined ? { rider_technical_url: normalizeUrl(rider_technical_url) } : {}),
     ...(rider_hospitality_url !== undefined ? { rider_hospitality_url: normalizeUrl(rider_hospitality_url) } : {}),
@@ -178,9 +224,50 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
 
   const profile = await upsertArtistProfile(supabase, profileData)
 
+  if (hasBioEdits && submit_bio_for_review !== false) {
+    try {
+      const serviceRole = await createServiceRoleSupabaseClient()
+      const { data: recipientProfiles } = await serviceRole
+        .from('users')
+        .select('id')
+        .in('role', ['admin', 'editor'])
+
+      const recipients = (recipientProfiles ?? []).map((recipient) => ({
+        recipient_id: recipient.id,
+        type: 'artist_bio_submission',
+        entity_type: 'artist_epk',
+        entity_id: artist.id,
+        entity_name: artist.name,
+        sender_id: user.id,
+        read: false,
+      }))
+
+      if (recipients.length > 0) {
+        await serviceRole.from('editor_notifications').insert(recipients)
+      }
+
+      const resendApiKey = process.env.RESEND_API_KEY ?? ''
+      const resendFromEmail = process.env.RESEND_FROM_EMAIL ?? ''
+      const labelNotificationEmail = process.env.LABEL_NOTIFICATION_EMAIL ?? ''
+      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://darktunes.com').replace(/\/$/, '')
+      void sendSubmissionNotificationEmail(
+        {
+          type: 'release',
+          title: `Bio update: ${artist.name}`,
+          artistName: artist.name,
+          submittedAt: new Date().toISOString(),
+          adminUrl: `${siteUrl}/admin/press`,
+        },
+        { resendApiKey, resendFromEmail, labelNotificationEmail, fetch },
+      ).catch((err: unknown) => console.error('[portal/profile] bio notification email failed:', err))
+    } catch (notifyErr) {
+      console.error('[portal/profile] bio submission notification failed:', notifyErr)
+    }
+  }
+
   // 5. Sync shared fields back to the artists table (single source of truth)
   const artistUpdate: ArtistUpdate = { updated_at: new Date().toISOString() }
-  if (bio !== undefined) artistUpdate.bio = bio ?? ''
+  // artists.bio is synced only after admin approval — do not write bio from portal saves
   if (genres !== undefined) artistUpdate.genres = genres
   if (founding_year !== undefined) artistUpdate.founding_year = founding_year
   if (hometown !== undefined) artistUpdate.hometown = hometown
@@ -207,8 +294,10 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
   // 6. Invalidate public-facing artist pages so changes are reflected immediately
   if (artist.slug) {
     revalidatePath(`/artists/${artist.slug}`)
+    revalidatePath(`/press/artists/${artist.slug}`)
   }
   revalidatePath('/artists')
+  revalidatePath('/press')
 
   return NextResponse.json({ profile })
 })

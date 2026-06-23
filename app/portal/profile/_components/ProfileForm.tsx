@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
@@ -95,8 +96,10 @@ function ProfileFormInner({ dict, errors, artistId, artistName, artistSlug, init
   const [pdfDownloading, setPdfDownloading] = React.useState(false)
   const epkDocumentRef = React.useRef<HTMLElement>(null)
   const [genreCatalogue, setGenreCatalogue] = React.useState<Genre[]>([])
+  const [bioLocale, setBioLocale] = React.useState<'de' | 'en'>('de')
   const {
     form,
+    bioStatus,
     photoUrl,
     uploadProgress,
     isUploading,
@@ -377,77 +380,127 @@ function ProfileFormInner({ dict, errors, artistId, artistName, artistSlug, init
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="press_quote">{dict.profile_pressQuote}</Label>
-                  <Textarea
-                    id="press_quote"
-                    rows={2}
-                    className="bg-muted border-border resize-none"
-                    {...form.register('press_quote')}
-                  />
-                  {form.formState.errors.press_quote && (
-                    <p className="text-sm text-destructive">
-                      {form.formState.errors.press_quote.message}
-                    </p>
-                  )}
-                </div>
               </CardContent>
             </Card>
 
             {/* Bios using TiptapEditor */}
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">{dict.profile_biography}</CardTitle>
-                <CardDescription>{dict.profile_biography_description}</CardDescription>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base">{dict.profile_biography}</CardTitle>
+                    <CardDescription>{dict.profile_biography_description}</CardDescription>
+                  </div>
+                  <Badge variant={bioStatus === 'approved' ? 'default' : bioStatus === 'pending_review' ? 'secondary' : 'outline'}>
+                    {bioStatus === 'approved'
+                      ? dict.profile_bio_status_approved
+                      : bioStatus === 'pending_review'
+                        ? dict.profile_bio_status_pending
+                        : dict.profile_bio_status_draft}
+                  </Badge>
+                </div>
+                {bioStatus === 'pending_review' && (
+                  <p className="text-xs text-muted-foreground">{dict.profile_bio_pending_hint}</p>
+                )}
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label>{dict.profile_bio_short}</Label>
-                  <p className="text-xs text-muted-foreground">{dict.profile_bio_short_desc}</p>
-                  <Controller
-                    control={form.control}
-                    name="bio_short"
-                    render={({ field }) => (
-                      <TiptapEditor
-                        value={field.value ?? ''}
-                        onChange={field.onChange}
-                        placeholder={dict.profile_bio_short}
-                      />
-                    )}
-                  />
-                </div>
+                <Tabs value={bioLocale} onValueChange={(v) => setBioLocale(v as 'de' | 'en')}>
+                  <TabsList>
+                    <TabsTrigger value="de">{dict.profile_bio_locale_de}</TabsTrigger>
+                    <TabsTrigger value="en">{dict.profile_bio_locale_en}</TabsTrigger>
+                  </TabsList>
 
-                <div className="space-y-2">
-                  <Label>{dict.profile_bio_medium}</Label>
-                  <p className="text-xs text-muted-foreground">{dict.profile_bio_medium_desc}</p>
-                  <Controller
-                    control={form.control}
-                    name="bio_medium"
-                    render={({ field }) => (
-                      <TiptapEditor
-                        value={field.value ?? ''}
-                        onChange={field.onChange}
-                        placeholder={dict.profile_bio_medium}
+                  <TabsContent value="de" className="mt-4 space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="press_quote">{dict.profile_pressQuote}</Label>
+                      <Textarea
+                        id="press_quote"
+                        rows={2}
+                        className="bg-muted border-border resize-none"
+                        {...form.register('press_quote')}
                       />
-                    )}
-                  />
-                </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{dict.profile_bio_short}</Label>
+                      <p className="text-xs text-muted-foreground">{dict.profile_bio_short_desc}</p>
+                      <Controller
+                        control={form.control}
+                        name="bio_short"
+                        render={({ field }) => (
+                          <TiptapEditor value={field.value ?? ''} onChange={field.onChange} placeholder={dict.profile_bio_short} />
+                        )}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{dict.profile_bio_medium}</Label>
+                      <p className="text-xs text-muted-foreground">{dict.profile_bio_medium_desc}</p>
+                      <Controller
+                        control={form.control}
+                        name="bio_medium"
+                        render={({ field }) => (
+                          <TiptapEditor value={field.value ?? ''} onChange={field.onChange} placeholder={dict.profile_bio_medium} />
+                        )}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{dict.profile_bio_long}</Label>
+                      <p className="text-xs text-muted-foreground">{dict.profile_bio_long_desc}</p>
+                      <Controller
+                        control={form.control}
+                        name="bio_long"
+                        render={({ field }) => (
+                          <TiptapEditor value={field.value ?? ''} onChange={field.onChange} placeholder={dict.profile_bio_long} />
+                        )}
+                      />
+                    </div>
+                  </TabsContent>
 
-                <div className="space-y-2">
-                  <Label>{dict.profile_bio_long}</Label>
-                  <p className="text-xs text-muted-foreground">{dict.profile_bio_long_desc}</p>
-                  <Controller
-                    control={form.control}
-                    name="bio_long"
-                    render={({ field }) => (
-                      <TiptapEditor
-                        value={field.value ?? ''}
-                        onChange={field.onChange}
-                        placeholder={dict.profile_bio_long}
+                  <TabsContent value="en" className="mt-4 space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="press_quote_en">{dict.profile_pressQuote}</Label>
+                      <Textarea
+                        id="press_quote_en"
+                        rows={2}
+                        className="bg-muted border-border resize-none"
+                        {...form.register('press_quote_en')}
                       />
-                    )}
-                  />
-                </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{dict.profile_bio_short}</Label>
+                      <p className="text-xs text-muted-foreground">{dict.profile_bio_short_desc}</p>
+                      <Controller
+                        control={form.control}
+                        name="bio_short_en"
+                        render={({ field }) => (
+                          <TiptapEditor value={field.value ?? ''} onChange={field.onChange} placeholder={dict.profile_bio_short} />
+                        )}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{dict.profile_bio_medium}</Label>
+                      <p className="text-xs text-muted-foreground">{dict.profile_bio_medium_desc}</p>
+                      <Controller
+                        control={form.control}
+                        name="bio_medium_en"
+                        render={({ field }) => (
+                          <TiptapEditor value={field.value ?? ''} onChange={field.onChange} placeholder={dict.profile_bio_medium} />
+                        )}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{dict.profile_bio_long}</Label>
+                      <p className="text-xs text-muted-foreground">{dict.profile_bio_long_desc}</p>
+                      <Controller
+                        control={form.control}
+                        name="bio_long_en"
+                        render={({ field }) => (
+                          <TiptapEditor value={field.value ?? ''} onChange={field.onChange} placeholder={dict.profile_bio_long} />
+                        )}
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+                <p className="text-xs text-muted-foreground">{dict.profile_bio_review_hint}</p>
               </CardContent>
             </Card>
           </TabsContent>

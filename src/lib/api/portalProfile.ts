@@ -24,10 +24,6 @@ export class PortalProfileSaveError extends Error {
 export type ArtistProfilePayload = Pick<
   Database['public']['Tables']['artist_epks']['Insert'],
   | 'artist_id'
-  | 'bio_short'
-  | 'bio_medium'
-  | 'bio_long'
-  | 'press_quote'
   | 'booking_contact'
   | 'press_contact'
   | 'rider_stage_plot_url'
@@ -67,6 +63,16 @@ export type ArtistProfilePayload = Pick<
   facebook_url?: string | null
   soundcloud_url?: string | null
   custom_links?: Array<{ label: string; url: string }> | null
+  /** Route maps these form keys to draft_* columns and sets bio_status pending_review. */
+  bio_short?: string | null
+  bio_medium?: string | null
+  bio_long?: string | null
+  bio_short_en?: string | null
+  bio_medium_en?: string | null
+  bio_long_en?: string | null
+  press_quote?: string | null
+  press_quote_en?: string | null
+  submit_bio_for_review?: boolean
 }
 
 export type RiderType = 'stage_plot' | 'technical' | 'hospitality'

@@ -3,11 +3,17 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import {
   getArtistProfileByArtistId,
+  getPublicArtistEpk,
+  getPublicArtistEpksByArtistIds,
+  getJournalistArtistEpk,
+  getEditableBioValue,
+  resolvePublishedBioShort,
   upsertArtistProfile,
   getArtistByUserId,
   getArtistsByUserId,
   resolvePortalArtist,
   isProfileComplete,
+  isBioPublished,
   type ArtistProfile,
 } from './artistProfiles'
 import { rowToArtist } from './artistRowMapper'
@@ -81,7 +87,19 @@ const mockProfileRow: ArtistProfileRow = {
   bio_short: null,
   bio_medium: null,
   bio_long: null,
+  bio_short_en: null,
+  bio_medium_en: null,
+  bio_long_en: null,
   press_quote: '"Outstanding!" — Darkroom Magazine',
+  press_quote_en: null,
+  draft_bio_short: null,
+  draft_bio_medium: null,
+  draft_bio_long: null,
+  draft_bio_short_en: null,
+  draft_bio_medium_en: null,
+  draft_bio_long_en: null,
+  draft_press_quote: null,
+  draft_press_quote_en: null,
   booking_contact: null,
   press_contact: null,
   rider_stage_plot_url: null,
@@ -103,6 +121,11 @@ const mockProfileRow: ArtistProfileRow = {
   epk_document: null,
   epk_document_version: 1,
   epk_editor_mode: 'legacy',
+  bio_status: 'approved',
+  bio_embargo_until: null,
+  bio_reviewed_by: null,
+  bio_reviewed_at: null,
+  bio_submitted_at: null,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 }
@@ -150,6 +173,175 @@ const mockArtistRow: ArtistRow = {
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 }
+
+describe('isBioPublished', () => {
+  it('returns true for approved bios without embargo', () => {
+    expect(isBioPublished({ bioStatus: 'approved', bioEmbargoUntil: undefined })).toBe(true)
+  })
+
+  it('returns false for non-approved statuses', () => {
+    expect(isBioPublished({ bioStatus: 'pending_review', bioEmbargoUntil: undefined })).toBe(false)
+  })
+
+  it('returns false when embargo is in the future', () => {
+    const future = new Date('2099-01-01T00:00:00Z')
+    expect(
+      isBioPublished(
+        { bioStatus: 'approved', bioEmbargoUntil: future.toISOString() },
+        new Date('2026-01-01T00:00:00Z'),
+      ),
+    ).toBe(false)
+  })
+
+  it('returns true when embargo has passed', () => {
+    expect(
+      isBioPublished(
+        { bioStatus: 'approved', bioEmbargoUntil: '2020-01-01T00:00:00Z' },
+        new Date('2026-01-01T00:00:00Z'),
+      ),
+    ).toBe(true)
+  })
+})
+
+describe('getEditableBioValue', () => {
+  it('prefers draft over published', () => {
+    expect(getEditableBioValue('draft text', 'published text')).toBe('draft text')
+  })
+
+  it('falls back to published when draft is empty', () => {
+    expect(getEditableBioValue(undefined, 'published text')).toBe('published text')
+  })
+})
+
+describe('resolvePublishedBioShort', () => {
+  const profile: ArtistProfile = {
+    id: 'p1',
+    artistId: 'a1',
+    bioShort: 'DE short',
+    bioMedium: undefined,
+    bioLong: undefined,
+    pressQuote: undefined,
+    bioShortEn: 'EN short',
+    bioMediumEn: undefined,
+    bioLongEn: undefined,
+    pressQuoteEn: undefined,
+    draftBioShort: undefined,
+    draftBioMedium: undefined,
+    draftBioLong: undefined,
+    draftPressQuote: undefined,
+    draftBioShortEn: undefined,
+    draftBioMediumEn: undefined,
+    draftBioLongEn: undefined,
+    draftPressQuoteEn: undefined,
+    bioStatus: 'approved',
+    bioEmbargoUntil: undefined,
+    bioReviewedBy: undefined,
+    bioReviewedAt: undefined,
+    bioSubmittedAt: undefined,
+    bookingContact: undefined,
+    pressContact: undefined,
+    riderStagePlotUrl: undefined,
+    riderTechnicalUrl: undefined,
+    riderHospitalityUrl: undefined,
+    onboardingCompleted: false,
+    epkTheme: 'default',
+    epkLayout: 'classic',
+    epkOrientation: 'portrait',
+    epkBgImageUrl: undefined,
+    epkBgOpacity: 20,
+    epkSectionsOrder: [],
+    epkSectionsHidden: [],
+    epkPasswordHash: undefined,
+    epkPasswordSections: [],
+    epkGalleryPhotos: [],
+    epkCustomThemeTokens: {},
+    customLinks: [],
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z',
+  }
+
+  it('returns EN bio when locale is en', () => {
+    expect(resolvePublishedBioShort(profile, 'en')).toBe('EN short')
+  })
+
+  it('falls back to DE when EN is missing', () => {
+    expect(resolvePublishedBioShort({ ...profile, bioShortEn: undefined }, 'en')).toBe('DE short')
+  })
+})
+
+describe('getPublicArtistEpk', () => {
+  it('returns only short bio and press quote for approved profiles', async () => {
+    const db = makeMockDb({
+      ...mockProfileRow,
+      bio_short: 'Short bio HTML',
+      bio_medium: 'Medium bio HTML',
+      bio_long: 'Long bio HTML',
+    })
+    const result = await getPublicArtistEpk(db, 'artist-uuid')
+    expect(result).toEqual({
+      artistId: 'artist-uuid',
+      bioShort: 'Short bio HTML',
+      pressQuote: '"Outstanding!" — Darkroom Magazine',
+    })
+  })
+
+  it('returns locale-aware EN bios when available', async () => {
+    const db = makeMockDb({
+      ...mockProfileRow,
+      bio_short: 'DE short',
+      bio_short_en: 'EN short',
+      press_quote_en: 'EN quote',
+    })
+    const result = await getPublicArtistEpk(db, 'artist-uuid', 'en')
+    expect(result?.bioShort).toBe('EN short')
+    expect(result?.pressQuote).toBe('EN quote')
+  })
+
+  it('returns null when bios are pending review', async () => {
+    const db = makeMockDb({ ...mockProfileRow, bio_status: 'pending_review', bio_short: 'Draft' })
+    const result = await getPublicArtistEpk(db, 'artist-uuid')
+    expect(result).toBeNull()
+  })
+})
+
+describe('getPublicArtistEpksByArtistIds', () => {
+  it('returns empty map for empty artist list', async () => {
+    const db = makeMockDb([])
+    const result = await getPublicArtistEpksByArtistIds(db, [])
+    expect(result.size).toBe(0)
+  })
+
+  it('batch-fetches only approved published bios', async () => {
+    const db = makeMockDb([
+      { ...mockProfileRow, artist_id: 'a1', bio_short: 'Bio A' },
+      { ...mockProfileRow, artist_id: 'a2', bio_status: 'pending_review', bio_short: 'Hidden' },
+      { ...mockProfileRow, artist_id: 'a3', bio_short: 'Bio C' },
+    ])
+    const result = await getPublicArtistEpksByArtistIds(db, ['a1', 'a2', 'a3'])
+    expect(result.size).toBe(2)
+    expect(result.get('a1')?.bioShort).toBe('Bio A')
+    expect(result.get('a3')?.bioShort).toBe('Bio C')
+    expect(result.has('a2')).toBe(false)
+  })
+})
+
+describe('getJournalistArtistEpk', () => {
+  it('returns full bios without password fields', async () => {
+    const db = makeMockDb({
+      ...mockProfileRow,
+      bio_short: 'Short',
+      bio_medium: 'Medium',
+      bio_long: 'Long',
+      epk_password_hash: 'secret-hash',
+      epk_password_sections: ['riders'],
+    })
+    const result = await getJournalistArtistEpk(db, 'artist-uuid')
+    expect(result?.bioMedium).toBe('Medium')
+    expect(result?.bioLong).toBe('Long')
+    expect(result).not.toHaveProperty('epkPasswordHash')
+    expect(result).not.toHaveProperty('epkPasswordSections')
+  })
+})
 
 describe('getArtistProfileByArtistId', () => {
   it('returns mapped ArtistProfile for a found row', async () => {
@@ -309,6 +501,23 @@ describe('isProfileComplete', () => {
     bioMedium: undefined,
     bioLong: undefined,
     pressQuote: undefined,
+    bioShortEn: undefined,
+    bioMediumEn: undefined,
+    bioLongEn: undefined,
+    pressQuoteEn: undefined,
+    draftBioShort: undefined,
+    draftBioMedium: undefined,
+    draftBioLong: undefined,
+    draftPressQuote: undefined,
+    draftBioShortEn: undefined,
+    draftBioMediumEn: undefined,
+    draftBioLongEn: undefined,
+    draftPressQuoteEn: undefined,
+    bioStatus: 'approved',
+    bioEmbargoUntil: undefined,
+    bioReviewedBy: undefined,
+    bioReviewedAt: undefined,
+    bioSubmittedAt: undefined,
     bookingContact: undefined,
     pressContact: undefined,
     riderStagePlotUrl: undefined,

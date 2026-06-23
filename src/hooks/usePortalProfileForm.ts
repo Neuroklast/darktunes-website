@@ -22,7 +22,7 @@ import {
 } from '@/lib/api/portalProfile'
 import { getErrorMessageFromErrors } from '@/lib/clientErrors'
 import type { RiderType } from '@/lib/api/portalProfile'
-import type { ArtistProfile } from '@/lib/api/artistProfiles'
+import { getEditableBioValue, type ArtistProfile } from '@/lib/api/artistProfiles'
 import type { Artist } from '@/types'
 import type { Dictionary } from '@/i18n/types'
 import { compressImage } from '@/lib/imageResizer'
@@ -41,8 +41,12 @@ export const profileSchema = z.object({
   bio_short: z.string().max(6000).optional(),
   bio_medium: z.string().max(12000).optional(),
   bio_long: z.string().max(30000).optional(),
+  bio_short_en: z.string().max(6000).optional(),
+  bio_medium_en: z.string().max(12000).optional(),
+  bio_long_en: z.string().max(30000).optional(),
   genres: z.string().optional(),
   press_quote: z.string().max(1000).optional(),
+  press_quote_en: z.string().max(1000).optional(),
   founding_year: z.string().optional(),
   hometown: z.string().max(200).optional(),
   booking_contact: z.string().max(500).optional(),
@@ -130,11 +134,15 @@ export function usePortalProfileForm({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       bio: artist?.bio ?? '',
-      bio_short: initialProfile?.bioShort ?? '',
-      bio_medium: initialProfile?.bioMedium ?? '',
-      bio_long: initialProfile?.bioLong ?? '',
+      bio_short: getEditableBioValue(initialProfile?.draftBioShort, initialProfile?.bioShort),
+      bio_medium: getEditableBioValue(initialProfile?.draftBioMedium, initialProfile?.bioMedium),
+      bio_long: getEditableBioValue(initialProfile?.draftBioLong, initialProfile?.bioLong),
+      bio_short_en: getEditableBioValue(initialProfile?.draftBioShortEn, initialProfile?.bioShortEn),
+      bio_medium_en: getEditableBioValue(initialProfile?.draftBioMediumEn, initialProfile?.bioMediumEn),
+      bio_long_en: getEditableBioValue(initialProfile?.draftBioLongEn, initialProfile?.bioLongEn),
       genres: (artist?.genres ?? []).join(', '),
-      press_quote: initialProfile?.pressQuote ?? '',
+      press_quote: getEditableBioValue(initialProfile?.draftPressQuote, initialProfile?.pressQuote),
+      press_quote_en: getEditableBioValue(initialProfile?.draftPressQuoteEn, initialProfile?.pressQuoteEn),
       founding_year: artist?.foundedYear?.toString() ?? '',
       hometown: artist?.hometown ?? '',
       booking_contact: initialProfile?.bookingContact ?? '',
@@ -319,10 +327,15 @@ export function usePortalProfileForm({
           bio_short: values.bio_short ?? null,
           bio_medium: values.bio_medium ?? null,
           bio_long: values.bio_long ?? null,
+          bio_short_en: values.bio_short_en ?? null,
+          bio_medium_en: values.bio_medium_en ?? null,
+          bio_long_en: values.bio_long_en ?? null,
           genres: values.genres
             ? values.genres.split(',').map((g) => g.trim()).filter(Boolean)
             : [],
           press_quote: values.press_quote ?? null,
+          press_quote_en: values.press_quote_en ?? null,
+          submit_bio_for_review: true,
           founding_year: foundingYearNum && !isNaN(foundingYearNum) ? foundingYearNum : null,
           hometown: values.hometown || null,
           booking_contact: values.booking_contact || null,
@@ -369,6 +382,7 @@ export function usePortalProfileForm({
 
   return {
     form,
+    bioStatus: initialProfile?.bioStatus ?? 'approved',
     photoUrl,
     setPhotoUrl,
     uploadProgress,

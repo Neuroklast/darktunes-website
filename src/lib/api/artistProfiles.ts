@@ -22,16 +22,40 @@ type ArtistProfileInsert = Database['public']['Tables']['artist_epks']['Insert']
 type ArtistRow = Database['public']['Tables']['artists']['Row']
 
 // ---------------------------------------------------------------------------
-// Domain type
+// Domain types
 // ---------------------------------------------------------------------------
+
+export type BioStatus = 'draft' | 'pending_review' | 'approved'
+export type PressLocale = 'de' | 'en'
 
 export interface ArtistProfile {
   id: string
   artistId: string
+  /** Published (live) bios — German */
   bioShort: string | undefined
   bioMedium: string | undefined
   bioLong: string | undefined
   pressQuote: string | undefined
+  /** Published (live) bios — English */
+  bioShortEn: string | undefined
+  bioMediumEn: string | undefined
+  bioLongEn: string | undefined
+  pressQuoteEn: string | undefined
+  /** Pending draft bios — German */
+  draftBioShort: string | undefined
+  draftBioMedium: string | undefined
+  draftBioLong: string | undefined
+  draftPressQuote: string | undefined
+  /** Pending draft bios — English */
+  draftBioShortEn: string | undefined
+  draftBioMediumEn: string | undefined
+  draftBioLongEn: string | undefined
+  draftPressQuoteEn: string | undefined
+  bioStatus: BioStatus
+  bioEmbargoUntil: string | undefined
+  bioReviewedBy: string | undefined
+  bioReviewedAt: string | undefined
+  bioSubmittedAt: string | undefined
   bookingContact: string | undefined
   pressContact: string | undefined
   riderStagePlotUrl: string | undefined
@@ -58,11 +82,21 @@ export interface ArtistProfile {
   updatedAt: string
 }
 
+/** Public press EPK — short bio and press quote only (hybrid access). */
+export interface PublicArtistEpk {
+  artistId: string
+  bioShort: string | undefined
+  pressQuote: string | undefined
+}
+
+/** Journalist press EPK — full approved bios without sensitive password fields. */
+export type JournalistArtistEpk = Omit<ArtistProfile, 'epkPasswordHash' | 'epkPasswordSections'>
+
 // ---------------------------------------------------------------------------
 // Row mapper
 // ---------------------------------------------------------------------------
 
-function rowToArtistProfile(row: ArtistProfileRow): ArtistProfile {
+export function rowToArtistProfile(row: ArtistProfileRow): ArtistProfile {
   return {
     id: row.id,
     artistId: row.artist_id,
@@ -70,6 +104,23 @@ function rowToArtistProfile(row: ArtistProfileRow): ArtistProfile {
     bioMedium: row.bio_medium ?? undefined,
     bioLong: row.bio_long ?? undefined,
     pressQuote: row.press_quote ?? undefined,
+    bioShortEn: row.bio_short_en ?? undefined,
+    bioMediumEn: row.bio_medium_en ?? undefined,
+    bioLongEn: row.bio_long_en ?? undefined,
+    pressQuoteEn: row.press_quote_en ?? undefined,
+    draftBioShort: row.draft_bio_short ?? undefined,
+    draftBioMedium: row.draft_bio_medium ?? undefined,
+    draftBioLong: row.draft_bio_long ?? undefined,
+    draftPressQuote: row.draft_press_quote ?? undefined,
+    draftBioShortEn: row.draft_bio_short_en ?? undefined,
+    draftBioMediumEn: row.draft_bio_medium_en ?? undefined,
+    draftBioLongEn: row.draft_bio_long_en ?? undefined,
+    draftPressQuoteEn: row.draft_press_quote_en ?? undefined,
+    bioStatus: row.bio_status ?? 'approved',
+    bioEmbargoUntil: row.bio_embargo_until ?? undefined,
+    bioReviewedBy: row.bio_reviewed_by ?? undefined,
+    bioReviewedAt: row.bio_reviewed_at ?? undefined,
+    bioSubmittedAt: row.bio_submitted_at ?? undefined,
     bookingContact: row.booking_contact ?? undefined,
     pressContact: row.press_contact ?? undefined,
     riderStagePlotUrl: row.rider_stage_plot_url ?? undefined,
@@ -94,6 +145,68 @@ function rowToArtistProfile(row: ArtistProfileRow): ArtistProfile {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
+}
+
+/** Prefer draft value when editing; fall back to published. */
+export function getEditableBioValue(draft: string | undefined, published: string | undefined): string {
+  return draft ?? published ?? ''
+}
+
+export type PublishedBioFields = Pick<
+  ArtistProfile,
+  | 'bioShort'
+  | 'bioShortEn'
+  | 'bioMedium'
+  | 'bioMediumEn'
+  | 'bioLong'
+  | 'bioLongEn'
+  | 'pressQuote'
+  | 'pressQuoteEn'
+>
+
+export function resolvePublishedBioShort(profile: PublishedBioFields, locale: PressLocale): string | undefined {
+  if (locale === 'en') return profile.bioShortEn ?? profile.bioShort
+  return profile.bioShort
+}
+
+export function resolvePublishedBioMedium(profile: PublishedBioFields, locale: PressLocale): string | undefined {
+  if (locale === 'en') return profile.bioMediumEn ?? profile.bioMedium
+  return profile.bioMedium
+}
+
+export function resolvePublishedBioLong(profile: PublishedBioFields, locale: PressLocale): string | undefined {
+  if (locale === 'en') return profile.bioLongEn ?? profile.bioLong
+  return profile.bioLong
+}
+
+export function resolvePublishedPressQuote(profile: PublishedBioFields, locale: PressLocale): string | undefined {
+  if (locale === 'en') return profile.pressQuoteEn ?? profile.pressQuote
+  return profile.pressQuote
+}
+
+function toPublicArtistEpk(profile: ArtistProfile, locale: PressLocale = 'de'): PublicArtistEpk {
+  return {
+    artistId: profile.artistId,
+    bioShort: resolvePublishedBioShort(profile, locale),
+    pressQuote: resolvePublishedPressQuote(profile, locale),
+  }
+}
+
+function toJournalistArtistEpk(profile: ArtistProfile): JournalistArtistEpk {
+  const { epkPasswordHash: _hash, epkPasswordSections: _sections, ...rest } = profile
+  return rest
+}
+
+/**
+ * Returns true when bios are approved and any embargo date has passed.
+ */
+export function isBioPublished(
+  profile: Pick<ArtistProfile, 'bioStatus' | 'bioEmbargoUntil'>,
+  now: Date = new Date(),
+): boolean {
+  if (profile.bioStatus !== 'approved') return false
+  if (!profile.bioEmbargoUntil) return true
+  return new Date(profile.bioEmbargoUntil) <= now
 }
 
 /**
@@ -121,7 +234,14 @@ function hasAnySocialOrStreamingLink(artist: Artist): boolean {
 export function isProfileComplete(profile: ArtistProfile | null, artist?: Artist | null): boolean {
   if (!profile || !artist) return false
   const hasPhoto = Boolean(artist.imageUrl)
-  const hasBio = Boolean(profile.bioShort || profile.bioMedium || profile.bioLong)
+  const hasBio = Boolean(
+    profile.bioShort ||
+      profile.bioMedium ||
+      profile.bioLong ||
+      profile.draftBioShort ||
+      profile.draftBioMedium ||
+      profile.draftBioLong,
+  )
   return hasPhoto && hasBio && hasAnySocialOrStreamingLink(artist)
 }
 
@@ -149,6 +269,59 @@ export async function getArtistProfileByArtistId(
   }
 
   return data ? rowToArtistProfile(data as ArtistProfileRow) : null
+}
+
+/**
+ * Fetches the public press EPK slice for an artist (short bio + press quote).
+ * Returns `null` when no row exists, bios are not published, or RLS denies access.
+ */
+export async function getPublicArtistEpk(
+  db: DbClient,
+  artistId: string,
+  locale: PressLocale = 'de',
+): Promise<PublicArtistEpk | null> {
+  const profile = await getArtistProfileByArtistId(db, artistId)
+  if (!profile || !isBioPublished(profile)) return null
+  return toPublicArtistEpk(profile, locale)
+}
+
+/**
+ * Batch-fetch public short bios for a roster of artists (press landing).
+ */
+export async function getPublicArtistEpksByArtistIds(
+  db: DbClient,
+  artistIds: string[],
+  locale: PressLocale = 'de',
+): Promise<Map<string, PublicArtistEpk>> {
+  if (artistIds.length === 0) return new Map()
+
+  const { data, error } = await db
+    .from('artist_epks')
+    .select('*')
+    .in('artist_id', artistIds)
+
+  if (error) throw new Error(error.message)
+
+  const result = new Map<string, PublicArtistEpk>()
+  for (const row of data ?? []) {
+    const profile = rowToArtistProfile(row as ArtistProfileRow)
+    if (!isBioPublished(profile)) continue
+    result.set(profile.artistId, toPublicArtistEpk(profile, locale))
+  }
+  return result
+}
+
+/**
+ * Fetches the full approved press EPK for journalists/admins.
+ * Strips password-protection fields before returning to callers.
+ */
+export async function getJournalistArtistEpk(
+  db: DbClient,
+  artistId: string,
+): Promise<JournalistArtistEpk | null> {
+  const profile = await getArtistProfileByArtistId(db, artistId)
+  if (!profile || !isBioPublished(profile)) return null
+  return toJournalistArtistEpk(profile)
 }
 
 /**

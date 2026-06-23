@@ -12,6 +12,7 @@ function rowToDownload(row: DownloadRow): JournalistDownload {
     journalistId: row.journalist_id,
     releaseId: row.release_id,
     assetId: row.asset_id ?? undefined,
+    artistId: row.artist_id ?? null,
     assetKey: row.asset_key,
     downloadedAt: row.downloaded_at,
   }

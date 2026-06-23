@@ -229,6 +229,7 @@ export interface JournalistDownload {
   journalistId: string
   releaseId: string | null
   assetId?: string
+  artistId: string | null
   assetKey: string
   downloadedAt: string
 }
