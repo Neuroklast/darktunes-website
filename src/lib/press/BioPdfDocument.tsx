@@ -22,7 +22,7 @@ function ensureFonts(): void {
         },
       ],
     })
-    Font.registerHyphenationCallback((word) => [word])
+    Font.registerHyphenationCallback((word: string) => [word])
   } catch {
     // Helvetica fallback
   } finally {
