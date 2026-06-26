@@ -16,10 +16,15 @@ import {
   TwitterLogo,
   TiktokLogo,
   MusicNote,
+  LinkSimple,
 } from '@phosphor-icons/react'
 import { getOptimizedImageUrl } from '@/lib/imageUtils'
 import { buildPlatformLinkEntries } from '@/lib/platforms/buildPlatformLinkEntries'
 import { ODESLI_PLATFORM_CONFIG } from '@/lib/platforms/odesliPlatformConfig'
+import {
+  resolveReleaseHubLink,
+  resolveReleaseHubLinkLabelKey,
+} from '@/lib/platforms/resolveReleaseHubLink'
 import { BandcampIcon } from '@/components/icons/BandcampIcon'
 import { ShareButton } from '@/components/ShareButton'
 import { trackSmartLinkClick } from '@/lib/analytics/trackPageEvent'
@@ -53,6 +58,17 @@ export function ReleaseDetailContent({ release, artist }: ReleaseDetailContentPr
     day: 'numeric',
   })
 
+  const heroBackgroundUrl = getOptimizedImageUrl(release.heroBgUrl ?? release.coverArt, 1200)
+  const hubLinkUrl = resolveReleaseHubLink({
+    smartlinkUrl: release.smartlinkUrl,
+    smartUrl: release.smartUrl,
+    platformLinks: release.platformLinks,
+  })
+  const hubLinkLabelKey = resolveReleaseHubLinkLabelKey({
+    smartlinkUrl: release.smartlinkUrl,
+    smartUrl: release.smartUrl,
+    platformLinks: release.platformLinks,
+  })
   const platformEntries = buildPlatformLinkEntries({
     platformLinks: release.platformLinks,
     spotifyUrl: release.spotifyUrl,
@@ -60,6 +76,7 @@ export function ReleaseDetailContent({ release, artist }: ReleaseDetailContentPr
     youtubeUrl: release.youtubeUrl,
     bandcampUrl: release.bandcampUrl,
   })
+  const hasStreamingLinks = !!hubLinkUrl || platformEntries.length > 0
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -67,14 +84,14 @@ export function ReleaseDetailContent({ release, artist }: ReleaseDetailContentPr
       {/* Hero — shared layout cover art                                       */}
       {/* ------------------------------------------------------------------ */}
       <div className="relative">
-        {/* Full-bleed blurred background from the cover art */}
+        {/* Full-bleed blurred background — hero banner when set, else cover art */}
         <div
           className="absolute inset-0 h-[70vh] overflow-hidden"
           style={{ zIndex: 0 }}
           aria-hidden
         >
           <Image
-            src={getOptimizedImageUrl(release.coverArt, 1200)}
+            src={heroBackgroundUrl}
             alt=""
             fill
             className="object-cover opacity-20 blur-2xl scale-110"
@@ -139,9 +156,27 @@ export function ReleaseDetailContent({ release, artist }: ReleaseDetailContentPr
                 {formattedDate}
               </p>
 
-              {/* Streaming links — one button per platform */}
-              {platformEntries.length > 0 && (
+              {/* Smart link hub + per-platform streaming buttons */}
+              {hasStreamingLinks && (
                 <div className="flex flex-wrap gap-2 pt-2">
+                  {hubLinkUrl && (
+                    <a
+                      href={hubLinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={t(hubLinkLabelKey)}
+                      onClick={() => {
+                        const artistId = artist?.id ?? release.artistId
+                        if (artistId) {
+                          trackSmartLinkClick(artistId, `/releases/${release.id}`)
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 hover:scale-105 bg-primary text-primary-foreground"
+                    >
+                      <LinkSimple size={14} weight="bold" aria-hidden="true" />
+                      {t(hubLinkLabelKey)}
+                    </a>
+                  )}
                   {platformEntries.map(({ key, url }) => {
                     const cfg = ODESLI_PLATFORM_CONFIG[key]
                     const Icon = cfg?.icon ?? Globe

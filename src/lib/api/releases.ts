@@ -245,7 +245,9 @@ export async function getReleaseById(db: DbClient, id: string): Promise<Release 
     if (error.code === 'PGRST116') return null
     throw new Error(error.message)
   }
-  return data ? rowToRelease(data) : null
+  if (!data) return null
+  const [release] = await attachReleaseArtists(db, [rowToRelease(data)])
+  return release ?? null
 }
 
 export async function createRelease(db: DbClient, releaseData: ReleaseInsert): Promise<Release> {

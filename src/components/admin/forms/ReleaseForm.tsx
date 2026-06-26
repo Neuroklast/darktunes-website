@@ -171,18 +171,18 @@ export function ReleaseForm({ value, onChange, isLoading }: Props) {
           <Input id="coverArt" {...register('coverArt')} disabled={isLoading} className="flex-1" />
           <ImageUploadButton
             label="Upload"
-            onUploaded={(url) => setValue('coverArt', url)}
+            onUploaded={(url) => setValue('coverArt', url, { shouldDirty: true })}
           />
         </div>
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="heroBgUrl">Hero Background Image (optional, overrides cover in Hero)</Label>
+        <Label htmlFor="heroBgUrl">Hero Background Image (optional — background only, cover art stays separate)</Label>
         <div className="flex gap-2">
-          <Input id="heroBgUrl" {...register('heroBgUrl')} disabled={isLoading} placeholder="Leave empty to use cover art" className="flex-1" />
+          <Input id="heroBgUrl" {...register('heroBgUrl')} disabled={isLoading} placeholder="Leave empty to use cover art as background" className="flex-1" />
           <ImageUploadButton
             label="Upload"
-            onUploaded={(url) => setValue('heroBgUrl', url)}
+            onUploaded={(url) => setValue('heroBgUrl', url, { shouldDirty: true })}
           />
         </div>
       </div>

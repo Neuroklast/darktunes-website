@@ -214,12 +214,26 @@ describe('getReleaseById', () => {
     expect(result).toBeNull()
   })
 
-  it('returns mapped Release for found row', async () => {
-    const db = makeMockDb(mockReleaseRow)
+  it('returns mapped Release for found row with attached artist name', async () => {
+    const releaseBuilder = makeBuilder(mockReleaseRow)
+    const junctionBuilder = makeBuilder([], null)
+    const fallbackArtistBuilder = makeBuilder(
+      [{ id: 'art-001', name: 'Artist One', slug: 'artist-one' }],
+      null,
+    )
+
+    const db = {
+      from: vi.fn()
+        .mockReturnValueOnce(releaseBuilder)
+        .mockReturnValueOnce(junctionBuilder)
+        .mockReturnValueOnce(fallbackArtistBuilder),
+    } as unknown as DbClient
+
     const result = await getReleaseById(db, mockReleaseRow.id)
     expect(result?.title).toBe('Polymorph')
     expect(result?.itunesId).toBe('123456789')
     expect(result?.isVisible).toBe(true)
+    expect(result?.artistName).toBe('Artist One')
   })
 })
 

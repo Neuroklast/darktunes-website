@@ -2,8 +2,12 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { Globe, X } from '@phosphor-icons/react'
+import { Globe, LinkSimple, X } from '@phosphor-icons/react'
 import { buildPlatformLinkEntries } from '@/lib/platforms/buildPlatformLinkEntries'
+import {
+  resolveReleaseHubLink,
+  resolveReleaseHubLinkLabelKey,
+} from '@/lib/platforms/resolveReleaseHubLink'
 import { ODESLI_PLATFORM_CONFIG } from '@/lib/platforms/odesliPlatformConfig'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -23,10 +27,21 @@ interface ReleasePreviewModalProps {
 
 export function ReleasePreviewModal({ release, open, onClose }: ReleasePreviewModalProps) {
   const t = useTranslations('releases')
+  const tDetail = useTranslations('releaseDetail')
   const tConsent = useTranslations('consent')
   if (!release) return null
 
   const spotifyEmbedUri = release.spotifyId ? `spotify:album:${release.spotifyId}` : undefined
+  const hubLinkUrl = resolveReleaseHubLink({
+    smartlinkUrl: release.smartlinkUrl,
+    smartUrl: release.smartUrl,
+    platformLinks: release.platformLinks,
+  })
+  const hubLinkLabelKey = resolveReleaseHubLinkLabelKey({
+    smartlinkUrl: release.smartlinkUrl,
+    smartUrl: release.smartUrl,
+    platformLinks: release.platformLinks,
+  })
   const platformEntries = buildPlatformLinkEntries({
     platformLinks: release.platformLinks,
     spotifyUrl: release.spotifyUrl,
@@ -34,6 +49,7 @@ export function ReleasePreviewModal({ release, open, onClose }: ReleasePreviewMo
     youtubeUrl: release.youtubeUrl,
     bandcampUrl: release.bandcampUrl,
   })
+  const hasStreamingLinks = !!hubLinkUrl || platformEntries.length > 0
 
   const formattedDate = release.releaseDate
     ? new Date(release.releaseDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
@@ -101,12 +117,23 @@ export function ReleasePreviewModal({ release, open, onClose }: ReleasePreviewMo
               </div>
             )}
 
-            {platformEntries.length > 0 && (
+            {hasStreamingLinks && (
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
                   {t('streamingLinks')}
                 </p>
                 <div className="flex flex-wrap gap-2">
+                  {hubLinkUrl && (
+                    <a
+                      href={hubLinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/90 text-primary-foreground hover:bg-primary transition-colors"
+                    >
+                      <LinkSimple size={12} weight="bold" aria-hidden="true" />
+                      {tDetail(hubLinkLabelKey)}
+                    </a>
+                  )}
                   {platformEntries.map(({ key, url }) => {
                     const cfg = ODESLI_PLATFORM_CONFIG[key]
                     const Icon = cfg?.icon ?? Globe
