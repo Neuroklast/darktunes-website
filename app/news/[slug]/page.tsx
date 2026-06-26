@@ -132,13 +132,11 @@ export default async function NewsDetailPage({ params }: Props) {
           </p>
         )}
 
-        <div className="prose prose-invert prose-sm max-w-none">
-          {post.content.trimStart().startsWith('<') ? (
-            <NewsBodyClient content={post.content} />
-          ) : (
-            <MarkdownContent content={post.content} />
-          )}
-        </div>
+        {post.content.trimStart().startsWith('<') ? (
+          <NewsBodyClient content={post.content} />
+        ) : (
+          <MarkdownContent content={post.content} className="text-foreground/90 font-serif" />
+        )}
       </div>
     </div>
   )

@@ -10,6 +10,7 @@
  */
 
 import { processHtmlImages } from '@/lib/imageUtils'
+import { normalizeRichTextHtml, RICH_TEXT_CONTENT_CLASS } from '@/lib/richTextContent'
 import { sanitizeHtml } from '@/lib/sanitizeHtml'
 
 interface NewsBodyClientProps {
@@ -18,11 +19,12 @@ interface NewsBodyClientProps {
 
 export function NewsBodyClient({ content }: NewsBodyClientProps) {
   const sanitized = processHtmlImages(
-    sanitizeHtml(content, { ADD_TAGS: ['iframe'] }),
+    sanitizeHtml(normalizeRichTextHtml(content), { ADD_TAGS: ['iframe'] }),
   )
   return (
     <div
-      className="prose prose-invert prose-sm max-w-none"
+      suppressHydrationWarning
+      className={RICH_TEXT_CONTENT_CLASS}
       dangerouslySetInnerHTML={{ __html: sanitized }}
     />
   )
