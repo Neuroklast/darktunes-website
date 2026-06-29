@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import {
   getReleaseSubmissionsByArtistId,
+  getReleaseSubmissionById,
   getAllReleaseSubmissions,
   createReleaseSubmission,
   updateReleaseSubmissionStatus,
@@ -22,6 +23,7 @@ function makeBuilder(data: unknown = null, error: unknown = null) {
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     single: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockReturnThis(),
     then: p.then.bind(p),
     catch: p.catch.bind(p),
     finally: p.finally.bind(p),
@@ -77,6 +79,18 @@ describe('releaseSubmissions DAL', () => {
   it('getReleaseSubmissionsByArtistId throws on error', async () => {
     const db = makeMockDb(null, { message: 'DB error' })
     await expect(getReleaseSubmissionsByArtistId(db, 'artist-1')).rejects.toThrow('DB error')
+  })
+
+  it('getReleaseSubmissionById returns mapped submission', async () => {
+    const db = makeMockDb(row)
+    const item = await getReleaseSubmissionById(db, 'sub-1')
+    expect(item?.id).toBe('sub-1')
+  })
+
+  it('getReleaseSubmissionById returns null when not found', async () => {
+    const db = makeMockDb(null)
+    const item = await getReleaseSubmissionById(db, 'missing')
+    expect(item).toBeNull()
   })
 
   it('getAllReleaseSubmissions returns all submissions', async () => {

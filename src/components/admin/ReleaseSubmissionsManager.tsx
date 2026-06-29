@@ -49,7 +49,7 @@ export function ReleaseSubmissionsManager() {
   const [newStatus, setNewStatus] = useState<SubmissionStatus>('received')
   const [adminReply, setAdminReply] = useState('')
   const [saving, setSaving] = useState(false)
-  const [exporting, setExporting] = useState<'csv' | 'xlsx' | null>(null)
+  const [exporting, setExporting] = useState<'csv' | 'xlsx' | 'believe' | null>(null)
 
   const getToken = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -95,6 +95,36 @@ export function ReleaseSubmissionsManager() {
       }
     } catch {
       /* tracks optional in detail */
+    }
+  }
+
+  const exportBelieve = async () => {
+    if (!selected) return
+    setExporting('believe')
+    try {
+      const token = await getToken()
+      const res = await fetch(
+        `/api/admin/release-submissions/${selected.id}/export-believe?format=csv`,
+        { headers: { Authorization: 'Bearer ' + token } },
+      )
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        throw new Error(body?.error ?? 'Export failed')
+      }
+      const blob = await res.blob()
+      const stamp = new Date().toISOString().slice(0, 10)
+      const safeTitle = selected.title.replace(/[^a-zA-Z0-9-_]+/g, '-').slice(0, 40)
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `believe-export-${safeTitle}-${stamp}.csv`
+      anchor.click()
+      URL.revokeObjectURL(url)
+      toast.success('Believe export downloaded')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export failed')
+    } finally {
+      setExporting(null)
     }
   }
 
@@ -263,9 +293,19 @@ export function ReleaseSubmissionsManager() {
                 placeholder="Optional message to artist…"
               />
             </div>
-            <Button onClick={() => void saveStatus()} disabled={saving}>
-              {saving ? t('saving') : t('field_save')}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => void saveStatus()} disabled={saving}>
+                {saving ? t('saving') : t('field_save')}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => void exportBelieve()}
+                disabled={exporting !== null}
+                aria-label="Export metadata package for Believe distributor"
+              >
+                {exporting === 'believe' ? t('saving') : 'Export for Believe'}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (

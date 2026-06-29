@@ -15,11 +15,15 @@ function ResizablePanelGroup({
   orientation,
   ...props
 }: ResizablePanelGroupProps) {
+  const resolvedOrientation = orientation ?? direction ?? "horizontal"
   return (
     <Group
       data-slot="resizable-panel-group"
-      className={cn("flex h-full w-full", className)}
-      orientation={orientation ?? direction ?? "horizontal"}
+      className={cn(
+        "flex h-full w-full data-[orientation=vertical]:flex-col",
+        className
+      )}
+      orientation={resolvedOrientation}
       {...props}
     />
   )

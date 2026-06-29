@@ -3222,6 +3222,107 @@ export interface Database {
         }
         Relationships: []
       }
+      organization_branding: {
+        Row: {
+          organization_id: string
+          logo_url: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          font_family: string | null
+          favicon_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          organization_id: string
+          logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          font_family?: string | null
+          favicon_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          organization_id?: string
+          logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          font_family?: string | null
+          favicon_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_branding_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: true
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organization_users: {
+        Row: {
+          organization_id: string
+          user_id: string
+          role: Database['public']['Enums']['organization_user_role']
+          created_at: string
+        }
+        Insert: {
+          organization_id: string
+          user_id: string
+          role?: Database['public']['Enums']['organization_user_role']
+          created_at?: string
+        }
+        Update: {
+          organization_id?: string
+          user_id?: string
+          role?: Database['public']['Enums']['organization_user_role']
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_users_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'organization_users_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          status: Database['public']['Enums']['organization_status']
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          status?: Database['public']['Enums']['organization_status']
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          status?: Database['public']['Enums']['organization_status']
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       label_messages: {
         Row: {
           id: string
@@ -4490,6 +4591,14 @@ export interface Database {
     Views: Record<string, never>
     Functions: Record<string, never>
     Enums: {
+      organization_status: 'active' | 'suspended' | 'pending'
+      organization_user_role:
+        | 'owner'
+        | 'admin'
+        | 'finance'
+        | 'marketing'
+        | 'artist_manager'
+        | 'member'
       sync_status: 'success' | 'partial' | 'error'
       sync_api_source: 'itunes' | 'spotify' | 'discogs' | 'songkick' | 'odesli' | 'all'
       submission_status: 'received' | 'reviewed' | 'accepted' | 'rejected'

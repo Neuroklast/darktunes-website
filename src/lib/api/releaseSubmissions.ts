@@ -46,6 +46,19 @@ export async function getReleaseSubmissionsByArtistId(
   return (data ?? []).map(rowToSubmission)
 }
 
+export async function getReleaseSubmissionById(
+  db: DbClient,
+  id: string,
+): Promise<ReleaseSubmission | null> {
+  const { data, error } = await db
+    .from('release_submissions')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data ? rowToSubmission(data) : null
+}
+
 export async function getAllReleaseSubmissions(db: DbClient): Promise<ReleaseSubmission[]> {
   const { data, error } = await db
     .from('release_submissions')

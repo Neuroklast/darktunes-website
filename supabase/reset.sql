@@ -3854,6 +3854,109 @@ CREATE POLICY "accreditation_requests: admin all" ON public.accreditation_reques
   WITH CHECK (public.get_my_role() = 'admin');
 
 -- =============================================================================
+-- MULTI-TENANCY (organizations) — SaaS / Believe-Readiness Phase 1 foundation
+-- Sentinel UUID 00000000-0000-0000-0000-000000000000 = darkTunes (tenant 0).
+-- =============================================================================
+
+DO $$ BEGIN
+  CREATE TYPE public.organization_status AS ENUM ('active', 'suspended', 'pending');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.organization_user_role AS ENUM (
+    'owner', 'admin', 'finance', 'marketing', 'artist_manager', 'member'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS public.organizations (
+  id          UUID                        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name        TEXT                        NOT NULL,
+  slug        TEXT                        NOT NULL UNIQUE,
+  status      public.organization_status  NOT NULL DEFAULT 'active',
+  created_at  TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ                 NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_organizations_slug ON public.organizations (slug);
+CREATE INDEX IF NOT EXISTS idx_organizations_status ON public.organizations (status);
+
+DROP TRIGGER IF EXISTS trg_organizations_updated_at ON public.organizations;
+CREATE TRIGGER trg_organizations_updated_at
+  BEFORE UPDATE ON public.organizations
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.organization_users (
+  organization_id UUID                           NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  user_id         UUID                           NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
+  role            public.organization_user_role  NOT NULL DEFAULT 'member',
+  created_at      TIMESTAMPTZ                    NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (organization_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_organization_users_user_id ON public.organization_users (user_id);
+
+CREATE TABLE IF NOT EXISTS public.organization_branding (
+  organization_id UUID        PRIMARY KEY REFERENCES public.organizations (id) ON DELETE CASCADE,
+  logo_url        TEXT,
+  primary_color   TEXT,
+  secondary_color TEXT,
+  font_family     TEXT,
+  favicon_url     TEXT,
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+DROP TRIGGER IF EXISTS trg_organization_branding_updated_at ON public.organization_branding;
+CREATE TRIGGER trg_organization_branding_updated_at
+  BEFORE UPDATE ON public.organization_branding
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE OR REPLACE FUNCTION public.user_belongs_to_organization(org_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.organization_users ou
+    WHERE ou.organization_id = org_id
+      AND ou.user_id = auth.uid()
+  );
+$$;
+
+ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_branding ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "organizations: member read" ON public.organizations;
+DROP POLICY IF EXISTS "organizations: admin all" ON public.organizations;
+CREATE POLICY "organizations: member read" ON public.organizations
+  FOR SELECT USING (public.user_belongs_to_organization(id));
+CREATE POLICY "organizations: admin all" ON public.organizations
+  FOR ALL
+  USING (public.get_my_role() = 'admin')
+  WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_users: own read" ON public.organization_users;
+DROP POLICY IF EXISTS "organization_users: admin all" ON public.organization_users;
+CREATE POLICY "organization_users: own read" ON public.organization_users
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "organization_users: admin all" ON public.organization_users
+  FOR ALL
+  USING (public.get_my_role() = 'admin')
+  WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_branding: member read" ON public.organization_branding;
+DROP POLICY IF EXISTS "organization_branding: admin all" ON public.organization_branding;
+CREATE POLICY "organization_branding: member read" ON public.organization_branding
+  FOR SELECT USING (public.user_belongs_to_organization(organization_id));
+CREATE POLICY "organization_branding: admin all" ON public.organization_branding
+  FOR ALL
+  USING (public.get_my_role() = 'admin')
+  WITH CHECK (public.get_my_role() = 'admin');
+
+-- =============================================================================
 -- SEED DATA
 -- =============================================================================
 
@@ -3880,6 +3983,11 @@ INSERT INTO public.site_settings (key, value) VALUES
   ('crt_scanlines_enabled', 'true'),
   ('vignette_intensity',    '0.5')
 ON CONFLICT (key) DO NOTHING;
+
+-- Default organization (tenant 0 = darkTunes)
+INSERT INTO public.organizations (id, name, slug, status) VALUES
+  ('00000000-0000-0000-0000-000000000000', 'darkTunes Music Group', 'darktunes', 'active')
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.portal_feature_flags (id, label, enabled, target_role) VALUES
   ('artist.analytics', 'Artist Analytics Dashboard', TRUE, 'artist'),

@@ -54,6 +54,10 @@ Read the relevant file before working in that area:
 
 After introducing new patterns, update the relevant `docs/agent/*.md` file.
 
+## Strategy & roadmap
+
+Believe-readiness, valuation, and SaaS product roadmap: [docs/strategy/](docs/strategy/)
+
 ## External docs
 
 [README.md](README.md) · [DEPLOYMENT.md](DEPLOYMENT.md) · [ADMIN.md](ADMIN.md) · [SECURITY.md](SECURITY.md) · [supabase/DB_REQUIREMENTS.md](supabase/DB_REQUIREMENTS.md)
