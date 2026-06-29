@@ -29,6 +29,7 @@ import {
 } from '@/lib/rbac'
 import { isSupabaseEnvConfigured } from '@/lib/supabase/isConfigured'
 import type { UserRole } from '@/types/users'
+import { resolveOrganizationSlugFromHost } from '@/lib/organizations/resolveFromHost'
 
 function classifyRoute(pathname: string) {
   return {
@@ -86,7 +87,10 @@ export async function proxy(request: NextRequest) {
     if (protectedRoute && !route.isLoginPage && !route.isPortalAcceptInvitePage) {
       return redirectUnauthenticatedToLogin(request)
     }
-    return NextResponse.next({ request })
+    const response = NextResponse.next({ request })
+    const { organizationSlug } = resolveOrganizationSlugFromHost(request.headers.get('host'))
+    response.headers.set('x-organization-slug', organizationSlug)
+    return response
   }
 
   let supabaseResponse = NextResponse.next({ request })
@@ -276,6 +280,9 @@ export async function proxy(request: NextRequest) {
   supabaseResponse.headers.set('x-pathname', pathname)
   // Forward the full URL (including query string) so portal layout can extract ?artistId
   supabaseResponse.headers.set('x-url', request.url)
+
+  const { organizationSlug } = resolveOrganizationSlugFromHost(request.headers.get('host'))
+  supabaseResponse.headers.set('x-organization-slug', organizationSlug)
 
   return supabaseResponse
 }

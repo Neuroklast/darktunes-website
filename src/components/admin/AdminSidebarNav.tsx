@@ -135,6 +135,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Colors',        href: '/admin/colors',   icon: Palette,     adminOnly: true },
       { label: 'Settings',      href: '/admin/settings', icon: Gear,        adminOnly: true },
       { label: 'API Keys',      href: '/admin/api-keys', icon: Key,         adminOnly: true },
+      { label: 'Organizations', href: '/admin/organizations', icon: UsersThree, adminOnly: true },
       { label: 'Support',       href: '/admin/support',  icon: Lifebuoy,    adminOnly: true },
       { label: 'System',        href: '/admin/system',   icon: Cpu,         adminOnly: true },
     ],

@@ -59,6 +59,24 @@ export async function getDefaultOrganization(db: DbClient): Promise<Organization
   return getOrganizationById(db, DEFAULT_ORGANIZATION_ID)
 }
 
+export async function createOrganization(
+  db: DbClient,
+  input: { name: string; slug: string; status?: OrganizationStatus },
+): Promise<Organization> {
+  const { data, error } = await db
+    .from('organizations')
+    .insert({
+      name: input.name,
+      slug: input.slug,
+      status: input.status ?? 'pending',
+    })
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  if (!data) throw new Error('No data returned from createOrganization')
+  return rowToOrganization(data)
+}
+
 export async function listOrganizations(db: DbClient): Promise<Organization[]> {
   const { data, error } = await db
     .from('organizations')

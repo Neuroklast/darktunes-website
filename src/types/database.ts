@@ -612,6 +612,7 @@ export interface Database {
           image_position_y: number | null
           image_scale: number | null
           landing_publish_trusted: boolean
+          organization_id: string
           created_at: string
           updated_at: string
         }
@@ -659,6 +660,7 @@ export interface Database {
           image_position_y?: number | null
           image_scale?: number | null
           landing_publish_trusted?: boolean
+          organization_id?: string
           created_at?: string
           updated_at?: string
         }
@@ -706,6 +708,7 @@ export interface Database {
           image_position_y?: number | null
           image_scale?: number | null
           landing_publish_trusted?: boolean
+          organization_id?: string
           created_at?: string
           updated_at?: string
         }
@@ -1711,6 +1714,7 @@ export interface Database {
           hero_secondary_btn_action: string | null
           hero_secondary_btn_href: string | null
           guest_artists: string | null
+          organization_id: string
           created_at: string
           updated_at: string
         }
@@ -1750,6 +1754,7 @@ export interface Database {
           hero_secondary_btn_action?: string | null
           hero_secondary_btn_href?: string | null
           guest_artists?: string | null
+          organization_id?: string
           created_at?: string
           updated_at?: string
         }
@@ -1789,6 +1794,7 @@ export interface Database {
           hero_secondary_btn_action?: string | null
           hero_secondary_btn_href?: string | null
           guest_artists?: string | null
+          organization_id?: string
           created_at?: string
           updated_at?: string
         }
@@ -1819,6 +1825,7 @@ export interface Database {
           venue_lng: number | null
           venue_osm_id: string | null
           news_post_id: string | null
+          organization_id: string
         }
         Insert: {
           id?: string
@@ -1844,6 +1851,7 @@ export interface Database {
           venue_lng?: number | null
           venue_osm_id?: string | null
           news_post_id?: string | null
+          organization_id?: string
         }
         Update: {
           id?: string
@@ -1869,6 +1877,7 @@ export interface Database {
           venue_lng?: number | null
           venue_osm_id?: string | null
           news_post_id?: string | null
+          organization_id?: string
         }
         Relationships: []
       }
@@ -2441,6 +2450,7 @@ export interface Database {
           hero_secondary_btn_action: string | null
           hero_secondary_btn_href: string | null
           published_at_timezone: string | null
+          organization_id: string
         }
         Insert: {
           id?: string
@@ -2470,6 +2480,7 @@ export interface Database {
           hero_secondary_btn_label?: string | null
           hero_secondary_btn_action?: string | null
           hero_secondary_btn_href?: string | null
+          organization_id?: string
         }
         Update: {
           id?: string
@@ -2499,6 +2510,7 @@ export interface Database {
           hero_secondary_btn_label?: string | null
           hero_secondary_btn_action?: string | null
           hero_secondary_btn_href?: string | null
+          organization_id?: string
         }
         Relationships: []
       }
@@ -2578,6 +2590,7 @@ export interface Database {
           is_visible: boolean
           is_short: boolean
           published_at: string
+          organization_id: string
           created_at: string
           updated_at: string
         }
@@ -2590,6 +2603,7 @@ export interface Database {
           is_visible?: boolean
           is_short?: boolean
           published_at?: string
+          organization_id?: string
           created_at?: string
           updated_at?: string
         }
@@ -2602,6 +2616,7 @@ export interface Database {
           is_visible?: boolean
           is_short?: boolean
           published_at?: string
+          organization_id?: string
           created_at?: string
           updated_at?: string
         }
@@ -3323,6 +3338,362 @@ export interface Database {
         }
         Relationships: []
       }
+      organization_api_keys: {
+        Row: {
+          id: string
+          organization_id: string
+          name: string
+          key_prefix: string
+          key_hash: string
+          scopes: string[]
+          revoked_at: string | null
+          created_at: string
+          last_used_at: string | null
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          name: string
+          key_prefix: string
+          key_hash: string
+          scopes?: string[]
+          revoked_at?: string | null
+          created_at?: string
+          last_used_at?: string | null
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          name?: string
+          key_prefix?: string
+          key_hash?: string
+          scopes?: string[]
+          revoked_at?: string | null
+          created_at?: string
+          last_used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_api_keys_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organization_webhook_endpoints: {
+        Row: {
+          id: string
+          organization_id: string
+          url: string
+          secret: string
+          events: string[]
+          enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          url: string
+          secret: string
+          events?: string[]
+          enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          url?: string
+          secret?: string
+          events?: string[]
+          enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_webhook_endpoints_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organization_webhook_deliveries: {
+        Row: {
+          id: string
+          endpoint_id: string
+          event_type: string
+          payload: Json
+          status: string
+          response_status: number | null
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          endpoint_id: string
+          event_type: string
+          payload: Json
+          status?: string
+          response_status?: number | null
+          error_message?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          endpoint_id?: string
+          event_type?: string
+          payload?: Json
+          status?: string
+          response_status?: number | null
+          error_message?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_webhook_deliveries_endpoint_id_fkey'
+            columns: ['endpoint_id']
+            isOneToOne: false
+            referencedRelation: 'organization_webhook_endpoints'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          id: string
+          slug: string
+          name: string
+          price_monthly_cents: number
+          price_yearly_cents: number
+          stripe_price_monthly_id: string | null
+          stripe_price_yearly_id: string | null
+          is_active: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          slug: string
+          name: string
+          price_monthly_cents?: number
+          price_yearly_cents?: number
+          stripe_price_monthly_id?: string | null
+          stripe_price_yearly_id?: string | null
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          slug?: string
+          name?: string
+          price_monthly_cents?: number
+          price_yearly_cents?: number
+          stripe_price_monthly_id?: string | null
+          stripe_price_yearly_id?: string | null
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      plan_features: {
+        Row: {
+          plan_id: string
+          feature_key: string
+          value: string
+        }
+        Insert: {
+          plan_id: string
+          feature_key: string
+          value?: string
+        }
+        Update: {
+          plan_id?: string
+          feature_key?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'plan_features_plan_id_fkey'
+            columns: ['plan_id']
+            isOneToOne: false
+            referencedRelation: 'plans'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          id: string
+          organization_id: string
+          plan_id: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          status: Database['public']['Enums']['subscription_status']
+          billing_interval: string
+          current_period_end: string | null
+          cancel_at_period_end: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          plan_id: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          status?: Database['public']['Enums']['subscription_status']
+          billing_interval?: string
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          plan_id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          status?: Database['public']['Enums']['subscription_status']
+          billing_interval?: string
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'subscriptions_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: true
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'subscriptions_plan_id_fkey'
+            columns: ['plan_id']
+            isOneToOne: false
+            referencedRelation: 'plans'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organization_features: {
+        Row: {
+          organization_id: string
+          feature_key: string
+          enabled: boolean
+        }
+        Insert: {
+          organization_id: string
+          feature_key: string
+          enabled?: boolean
+        }
+        Update: {
+          organization_id?: string
+          feature_key?: string
+          enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_features_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      custom_domains: {
+        Row: {
+          id: string
+          organization_id: string
+          domain: string
+          status: Database['public']['Enums']['custom_domain_status']
+          verification_token: string
+          verified_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          domain: string
+          status?: Database['public']['Enums']['custom_domain_status']
+          verification_token: string
+          verified_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          domain?: string
+          status?: Database['public']['Enums']['custom_domain_status']
+          verification_token?: string
+          verified_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'custom_domains_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organization_audit_log: {
+        Row: {
+          id: string
+          organization_id: string
+          user_id: string | null
+          action: string
+          target_type: string | null
+          target_id: string | null
+          metadata: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          user_id?: string | null
+          action: string
+          target_type?: string | null
+          target_id?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          user_id?: string | null
+          action?: string
+          target_type?: string | null
+          target_id?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_audit_log_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       label_messages: {
         Row: {
           id: string
@@ -3892,6 +4263,7 @@ export interface Database {
           form_data: Record<string, unknown> | null
           admin_reply: string | null
           admin_reply_at: string | null
+          organization_id: string
           created_at: string
           updated_at: string
         }
@@ -3916,6 +4288,7 @@ export interface Database {
           form_data?: Record<string, unknown> | null
           admin_reply?: string | null
           admin_reply_at?: string | null
+          organization_id?: string
           created_at?: string
           updated_at?: string
         }
@@ -3940,6 +4313,7 @@ export interface Database {
           form_data?: Record<string, unknown> | null
           admin_reply?: string | null
           admin_reply_at?: string | null
+          organization_id?: string
           created_at?: string
           updated_at?: string
         }
@@ -4602,6 +4976,14 @@ export interface Database {
       sync_status: 'success' | 'partial' | 'error'
       sync_api_source: 'itunes' | 'spotify' | 'discogs' | 'songkick' | 'odesli' | 'all'
       submission_status: 'received' | 'reviewed' | 'accepted' | 'rejected'
+      subscription_status:
+        | 'trialing'
+        | 'active'
+        | 'past_due'
+        | 'canceled'
+        | 'incomplete'
+        | 'paused'
+      custom_domain_status: 'pending' | 'verified' | 'active' | 'failed'
     }
   }
 }

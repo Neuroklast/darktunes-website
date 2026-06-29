@@ -80,6 +80,7 @@ const mockConcerts: ConcertRowWithArtist[] = [
     venue_lng: null,
     venue_osm_id: null,
     news_post_id: null,
+    organization_id: '00000000-0000-0000-0000-000000000000',
   },
   {
     id: 'concert-ok',
@@ -106,6 +107,7 @@ const mockConcerts: ConcertRowWithArtist[] = [
     venue_lng: 9.9928,
     venue_osm_id: '62782',
     news_post_id: null,
+    organization_id: '00000000-0000-0000-0000-000000000000',
   },
 ]
 

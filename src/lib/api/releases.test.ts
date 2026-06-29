@@ -76,6 +76,8 @@ const mockReleaseRow: ReleaseRow = {
   hero_secondary_btn_label: null,
   hero_secondary_btn_href: null,
   hero_secondary_btn_action: null,
+  organization_id: '00000000-0000-0000-0000-000000000000',
+
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
   bandcamp_url: null,

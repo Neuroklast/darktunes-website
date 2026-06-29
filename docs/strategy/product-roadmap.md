@@ -17,12 +17,12 @@ flowchart LR
 | Phase | Ziel | Aufwand | Status |
 |-------|------|---------|--------|
 | 0 | Strategie-Dokumentation | 1–2 Wochen | ✅ |
-| 1 | Multi-Tenancy-Grundlage | 4–8 Wochen | 🔄 Gestartet |
-| 2 | Believe-Readiness (API, Export, Analytics) | 6–10 Wochen | 🔄 Gestartet |
-| 3 | Stripe Billing & Provisioning | 7–10 Wochen | Geplant |
-| 4 | Subdomains + White-Label | 4–6 Wochen | Geplant |
-| 5 | Custom Domains + SSL | 4–6 Wochen | Geplant |
-| 6 | Production SaaS Polish | 3–4 Wochen | Geplant |
+| 1 | Multi-Tenancy-Grundlage | 4–8 Wochen | ✅ MVP |
+| 2 | Believe-Readiness (API, Export, Analytics) | 6–10 Wochen | ✅ MVP |
+| 3 | Stripe Billing & Provisioning | 7–10 Wochen | ✅ MVP |
+| 4 | Subdomains + White-Label | 4–6 Wochen | ✅ MVP |
+| 5 | Custom Domains + SSL | 4–6 Wochen | ✅ MVP |
+| 6 | Production SaaS Polish | 3–4 Wochen | ✅ MVP |
 
 **Gesamt SaaS-MVP:** 6–8 Monate · **Mit Believe-Readiness:** 8–12 Monate
 

@@ -52,6 +52,8 @@ const mockNewsRow: NewsRow = {
   is_press_only: false,
   status: 'published',
   published_at: '2024-04-24T00:00:00Z',
+  organization_id: '00000000-0000-0000-0000-000000000000',
+
   created_at: '2024-04-24T00:00:00Z',
   updated_at: '2024-04-24T00:00:00Z',
   artist_id: null,

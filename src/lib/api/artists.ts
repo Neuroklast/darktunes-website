@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { Artist } from '@/types'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { sanitizeArtistWrite } from '@/lib/sanitizeTextContent'
 import { rowToArtist } from './artistRowMapper'
 import { PUBLIC_QUERY_LIMITS } from './queryLimits'
@@ -38,10 +39,14 @@ export async function getRelatedArtists(
   return (data ?? []).map(rowToArtist)
 }
 
-export async function getArtists(db: DbClient): Promise<Artist[]> {
+export async function getArtists(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Artist[]> {
   const { data, error } = await db
     .from('artists')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('name', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []).map(rowToArtist)
@@ -51,10 +56,14 @@ export async function getArtists(db: DbClient): Promise<Artist[]> {
  * Public-facing query: returns only visible artists.
  * Used by the public homepage (Server Component). The admin uses getArtists instead.
  */
-export async function getPublicArtists(db: DbClient): Promise<Artist[]> {
+export async function getPublicArtists(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Artist[]> {
   const { data, error } = await db
     .from('artists')
     .select('*')
+    .eq('organization_id', organizationId)
     .eq('is_visible', true)
     .order('featured', { ascending: false })
     .order('name', { ascending: true })
@@ -72,8 +81,17 @@ export async function getArtistById(db: DbClient, id: string): Promise<Artist | 
   return data ? rowToArtist(data) : null
 }
 
-export async function getArtistBySlug(db: DbClient, slug: string): Promise<Artist | null> {
-  const { data, error } = await db.from('artists').select('*').eq('slug', slug).maybeSingle()
+export async function getArtistBySlug(
+  db: DbClient,
+  slug: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Artist | null> {
+  const { data, error } = await db
+    .from('artists')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .eq('slug', slug)
+    .maybeSingle()
   if (error) throw new Error(error.message)
   if (data) return rowToArtist(data)
 
