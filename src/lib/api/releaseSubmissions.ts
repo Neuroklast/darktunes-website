@@ -10,6 +10,7 @@ function rowToSubmission(row: Row): ReleaseSubmission {
   return {
     id: row.id,
     artistId: row.artist_id,
+    organizationId: row.organization_id,
     status: row.status,
     title: row.title,
     releaseDate: row.release_date,

@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge'
 import { Eye, EyeSlash } from '@phosphor-icons/react'
 import type { Artist } from '@/types'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type ArtistInsert = Database['public']['Tables']['artists']['Insert']
 
@@ -123,6 +124,7 @@ function formDataToInsert(data: ArtistFormData): ArtistInsert {
     image_position_x: data.imagePositionX,
     image_position_y: data.imagePositionY,
     image_scale: data.imageScale,
+    organization_id: DEFAULT_ORGANIZATION_ID,
   }
 }
 

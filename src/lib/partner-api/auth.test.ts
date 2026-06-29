@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { ApiError } from '@/lib/errors'
 import {
+  authenticatePartnerApiKey,
   generatePartnerApiKey,
   hashPartnerApiKey,
   extractPartnerApiKey,
@@ -22,5 +24,30 @@ describe('partner API auth helpers', () => {
   it('extracts bearer token', () => {
     expect(extractPartnerApiKey('Bearer dt_live_abc')).toBe('dt_live_abc')
     expect(extractPartnerApiKey(null)).toBeNull()
+  })
+
+  it('authenticatePartnerApiKey rejects missing keys', async () => {
+    const db = { from: vi.fn() } as never
+    await expect(authenticatePartnerApiKey(db, null)).rejects.toMatchObject({
+      status: 401,
+      code: 'PARTNER_API_KEY_INVALID',
+    })
+  })
+
+  it('authenticatePartnerApiKey rejects revoked keys', async () => {
+    const key = generatePartnerApiKey()
+    const builder = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { id: 'k1', organization_id: 'org', scopes: ['read'], revoked_at: '2026-01-01' },
+        error: null,
+      }),
+      update: vi.fn().mockReturnThis(),
+    }
+    const db = { from: vi.fn().mockReturnValue(builder) } as never
+    await expect(
+      authenticatePartnerApiKey(db, `Bearer ${key.rawKey}`),
+    ).rejects.toBeInstanceOf(ApiError)
   })
 })

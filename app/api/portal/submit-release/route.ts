@@ -10,6 +10,8 @@ import { checkAndClaimIdempotencyKey, updateIdempotencyKeyResourceId } from '@/l
 import { sendSubmissionNotificationEmail } from '@/lib/email/sendSubmissionNotificationEmail'
 import { authenticatePortalBearerWithArtist } from '@/lib/portal/bearerAuth'
 import { getEmailCredentials } from '@/lib/secrets/getExternalCredentials'
+import { getArtistOrganizationId } from '@/lib/api/artists'
+import { enqueueOrganizationWebhook } from '@/lib/partner-api/webhooks'
 import { buildTrackInsert, filterArtistTrackFields } from '@/lib/submissions/trackFieldMapping'
 import { coerceReleaseDate } from '@/lib/submissions/submissionSchemaValidation'
 import { filterFieldsForType } from '@/lib/submissions/fieldTypeRules'
@@ -88,8 +90,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     ),
   )
 
+  const organizationId = await getArtistOrganizationId(serviceRole, artist.id)
+
   const submission = await createReleaseSubmission(supabase, {
     artist_id: artist.id,
+    organization_id: organizationId,
     title: body.title,
     audio_download_url: body.audioDownloadUrl,
     cover_art_url: body.coverArtUrl,
@@ -162,6 +167,13 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (body.idempotencyKey) {
     void updateIdempotencyKeyResourceId(serviceRole, body.idempotencyKey, submission.id)
   }
+
+  void enqueueOrganizationWebhook(organizationId, 'release.submitted', {
+    submissionId: submission.id,
+    artistId: submission.artistId,
+    title: submission.title,
+    status: submission.status,
+  })
 
   return NextResponse.json({ submissionId: submission.id })
 })

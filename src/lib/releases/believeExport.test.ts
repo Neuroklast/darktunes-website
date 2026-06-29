@@ -9,6 +9,7 @@ import {
 const baseSubmission: ReleaseSubmission = {
   id: 'sub-1',
   artistId: 'artist-1',
+  organizationId: '00000000-0000-0000-0000-000000000000',
   status: 'accepted',
   title: 'Dark Horizon',
   releaseDate: '2026-09-01',

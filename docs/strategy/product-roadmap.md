@@ -67,12 +67,13 @@ organization_branding  -- logo, colors, favicon per org
 
 ## Phase 2 — Believe-Readiness
 
-### 2a. Partner-API v1 (höchster Hebel)
+### 2a. Partner-API v1 ✅
 
-- `app/api/v1/*` mit API-Key-Auth
-- Endpoints: Artists, Releases, Submissions (read), Analytics-Aggregate
-- Outbound Webhooks: `release.submitted`, `release.approved`, `artist.created`
-- Doku: `docs/strategy/api-v1.md`
+- `app/api/v1/*` mit API-Key-Auth, Scope `read`, Cursor-Pagination
+- Endpoints: Artists, Releases, Submissions (list + by id), Analytics-Export
+- Admin: API-Keys + Webhook-Endpunkte in `/admin/organizations`
+- Outbound Webhooks: `artist.created`, `release.submitted`, `release.approved`, `release.rejected`
+- Doku: [`api-v1.md`](api-v1.md)
 
 ### 2b. Believe Release-Export ✅ (gestartet)
 

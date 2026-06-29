@@ -108,6 +108,17 @@ export async function getArtistBySlug(
   return null
 }
 
+export async function getArtistOrganizationId(db: DbClient, artistId: string): Promise<string> {
+  const { data, error } = await db
+    .from('artists')
+    .select('organization_id')
+    .eq('id', artistId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) throw new Error('Artist not found')
+  return data.organization_id
+}
+
 export async function createArtist(db: DbClient, artistData: ArtistInsert): Promise<Artist> {
   const { data, error } = await db.from('artists').insert(sanitizeArtistWrite(artistData)).select().single()
   if (error) throw new Error(error.message)

@@ -878,6 +878,7 @@ export type SubmissionStatus = 'received' | 'reviewed' | 'accepted' | 'rejected'
 export interface ReleaseSubmission {
   id: string
   artistId: string
+  organizationId: string
   status: SubmissionStatus
   title: string
   releaseDate: string | null

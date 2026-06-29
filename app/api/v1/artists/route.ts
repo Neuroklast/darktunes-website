@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { withPartnerAuth } from '@/lib/partner-api/withPartnerAuth'
+import { requirePartnerScope } from '@/lib/partner-api/scopes'
+import { parsePartnerListParams } from '@/lib/partner-api/listParams'
+import { listPartnerArtists } from '@/lib/partner-api/queries'
 
-export const GET = withPartnerAuth(async (_req, auth) => {
+export const GET = withPartnerAuth(async (req, auth) => {
+  requirePartnerScope(auth, 'read')
   const db = await createServiceRoleSupabaseClient()
-  const { data, error } = await db
-    .from('artists')
-    .select('id, name, slug, genres, country, is_visible, created_at')
-    .eq('organization_id', auth.organizationId)
-    .order('name', { ascending: true })
-    .limit(200)
-
-  if (error) throw new Error(error.message)
-  return NextResponse.json({ data: data ?? [] })
+  const result = await listPartnerArtists(db, auth.organizationId, parsePartnerListParams(req.url))
+  return NextResponse.json(result)
 })

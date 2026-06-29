@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { withPartnerAuth } from '@/lib/partner-api/withPartnerAuth'
+import { requirePartnerScope } from '@/lib/partner-api/scopes'
 import { buildPortalAnalyticsCsv } from '@/lib/analytics/reportExport'
 import { getStreamingStatsByArtistId } from '@/lib/api/streamingStats'
 import { getTerritoryMetricsByArtistId } from '@/lib/api/artistTerritoryMetrics'
@@ -8,6 +9,7 @@ import { getListenerMetricsByArtistId } from '@/lib/api/artistListenerMetrics'
 import { getSalesStatementsByArtistId } from '@/lib/api/salesStatements'
 
 export const GET = withPartnerAuth(async (req, auth) => {
+  requirePartnerScope(auth, 'read')
   const artistId = new URL(req.url).searchParams.get('artistId')
   const format = new URL(req.url).searchParams.get('format') ?? 'csv'
   if (!artistId) {

@@ -10,6 +10,14 @@ import { toast } from 'sonner'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import type { Organization } from '@/lib/api/organizations'
+import type { OrganizationWebhookEndpoint } from '@/lib/api/organizationWebhooks'
+
+const DEFAULT_WEBHOOK_EVENTS = [
+  'release.submitted',
+  'release.approved',
+  'release.rejected',
+  'artist.created',
+] as const
 
 async function getToken(): Promise<string> {
   const session = await createBrowserSupabaseClient().auth.getSession()
@@ -23,6 +31,9 @@ export function OrganizationsManager() {
   const [apiKeyName, setApiKeyName] = useState('Believe Integration')
   const [newDomain, setNewDomain] = useState('')
   const [createdKey, setCreatedKey] = useState<string | null>(null)
+  const [webhookUrl, setWebhookUrl] = useState('')
+  const [webhookEndpoints, setWebhookEndpoints] = useState<OrganizationWebhookEndpoint[]>([])
+  const [createdWebhookSecret, setCreatedWebhookSecret] = useState<string | null>(null)
 
   const fetchOrganizations = useCallback(async () => {
     setLoading(true)
@@ -41,9 +52,27 @@ export function OrganizationsManager() {
     }
   }, [])
 
+  const fetchWebhookEndpoints = useCallback(async (orgId: string) => {
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/admin/organization-webhooks?organizationId=${orgId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Failed to load webhooks')
+      const data = (await res.json()) as OrganizationWebhookEndpoint[]
+      setWebhookEndpoints(data)
+    } catch {
+      setWebhookEndpoints([])
+    }
+  }, [])
+
   useEffect(() => {
     void fetchOrganizations()
   }, [fetchOrganizations])
+
+  useEffect(() => {
+    void fetchWebhookEndpoints(selectedOrgId)
+  }, [selectedOrgId, fetchWebhookEndpoints])
 
   const createApiKey = async () => {
     try {
@@ -62,6 +91,48 @@ export function OrganizationsManager() {
       toast.success('Partner API key created — copy it now, it will not be shown again.')
     } catch {
       toast.error('Failed to create API key')
+    }
+  }
+
+  const createWebhookEndpoint = async () => {
+    if (!webhookUrl.trim()) return
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/admin/organization-webhooks', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          organizationId: selectedOrgId,
+          url: webhookUrl.trim(),
+          events: [...DEFAULT_WEBHOOK_EVENTS],
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to create webhook')
+      const data = (await res.json()) as { secret: string }
+      setCreatedWebhookSecret(data.secret)
+      setWebhookUrl('')
+      toast.success('Webhook endpoint created — copy the signing secret now.')
+      void fetchWebhookEndpoints(selectedOrgId)
+    } catch {
+      toast.error('Failed to create webhook endpoint')
+    }
+  }
+
+  const deleteWebhookEndpoint = async (id: string) => {
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/admin/organization-webhooks/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Failed to delete webhook')
+      toast.success('Webhook endpoint removed')
+      void fetchWebhookEndpoints(selectedOrgId)
+    } catch {
+      toast.error('Failed to delete webhook endpoint')
     }
   }
 
@@ -139,6 +210,56 @@ export function OrganizationsManager() {
             <p className="rounded-md border border-border bg-muted/30 p-3 font-mono text-xs break-all">
               {createdKey}
             </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Outbound Webhooks (v1)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="webhook-url">Receiver URL</Label>
+            <Input
+              id="webhook-url"
+              placeholder="https://partner.example.com/webhooks/darktunes"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Events: {DEFAULT_WEBHOOK_EVENTS.join(', ')}. Signed with X-DarkTunes-Signature.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => void createWebhookEndpoint()}>
+            Add webhook endpoint
+          </Button>
+          {createdWebhookSecret && (
+            <p className="rounded-md border border-border bg-muted/30 p-3 font-mono text-xs break-all">
+              Signing secret: {createdWebhookSecret}
+            </p>
+          )}
+          {webhookEndpoints.length > 0 && (
+            <ul className="space-y-2" aria-label="Webhook endpoints">
+              {webhookEndpoints.map((endpoint) => (
+                <li
+                  key={endpoint.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{endpoint.url}</p>
+                    <p className="text-xs text-muted-foreground">{endpoint.events.join(', ')}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void deleteWebhookEndpoint(endpoint.id)}
+                  >
+                    Remove
+                  </Button>
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       </Card>

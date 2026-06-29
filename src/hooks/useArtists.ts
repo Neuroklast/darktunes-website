@@ -3,6 +3,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/env'
 import * as artistsApi from '@/lib/api/artists'
 import { logEditorActivity } from '@/lib/editorActivityLogger'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import type { Artist } from '@/types'
 import type { Database } from '@/types/database'
 
@@ -33,8 +34,37 @@ export function useArtists() {
     }
   }, [supabase])
 
+  const emitPartnerWebhook = async (
+    organizationId: string,
+    event: 'artist.created',
+    payload: Record<string, unknown>,
+  ): Promise<void> => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      void fetch('/api/admin/partner-webhooks/emit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ organizationId, event, data: payload }),
+      })
+    } catch {
+      // Non-critical — partner integrations should not block CMS saves
+    }
+  }
+
   const createArtist = async (data: ArtistInsert): Promise<Artist> => {
     const createdArtist = await artistsApi.createArtist(supabase, data)
+    const organizationId = data.organization_id ?? DEFAULT_ORGANIZATION_ID
+    void emitPartnerWebhook(organizationId, 'artist.created', {
+      artistId: createdArtist.id,
+      name: createdArtist.name,
+      slug: createdArtist.slug,
+    })
     await logEditorActivity(supabase, {
       action: 'create',
       entityType: 'artist',

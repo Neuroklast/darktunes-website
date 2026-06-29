@@ -5,7 +5,6 @@ import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/l
 import { extractBearerToken, verifyAdminOrEditor } from '@/lib/adminAuth'
 import { updateReleaseSubmissionStatus } from '@/lib/api/releaseSubmissions'
 import { getTracksBySubmissionId } from '@/lib/api/releaseSubmissionTracks'
-import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { enqueueOrganizationWebhook } from '@/lib/partner-api/webhooks'
 
 function extractId(req: NextRequest): string {
@@ -59,16 +58,18 @@ export const PATCH = withErrorHandler(async (req: NextRequest) => {
   }
 
   if (body.status === 'accepted') {
-    void enqueueOrganizationWebhook(DEFAULT_ORGANIZATION_ID, 'release.approved', {
+    void enqueueOrganizationWebhook(submission.organizationId, 'release.approved', {
       submissionId: submission.id,
       artistId: submission.artistId,
       title: submission.title,
+      status: submission.status,
     })
   } else if (body.status === 'rejected') {
-    void enqueueOrganizationWebhook(DEFAULT_ORGANIZATION_ID, 'release.rejected', {
+    void enqueueOrganizationWebhook(submission.organizationId, 'release.rejected', {
       submissionId: submission.id,
       artistId: submission.artistId,
       title: submission.title,
+      status: submission.status,
     })
   }
 
