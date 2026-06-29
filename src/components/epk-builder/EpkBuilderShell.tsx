@@ -30,6 +30,7 @@ import type { Artist, ArtistAsset } from '@/types'
 import type { EpkPickerAsset } from '@/lib/epk/pickerAssets'
 import type { EpkAssetPickerMode } from './EpkPropertiesPanel'
 import { cn } from '@/lib/utils'
+import { useDefaultLayout } from 'react-resizable-panels'
 import {
   ResizableHandle,
   ResizablePanel,
@@ -84,6 +85,11 @@ export function EpkBuilderShell({
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('canvas')
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+    id: 'epk-builder-layout-v1',
+    panelIds: ['epk-left-panel', 'epk-canvas-panel', 'epk-right-panel'],
+    storage: localStorage,
+  })
 
   const openAssetPicker = (mode: EpkAssetPickerMode = 'insert') => {
     setAssetPickerMode(mode)
@@ -282,7 +288,8 @@ export function EpkBuilderShell({
         {/* Desktop: resizable three-column layout */}
         <ResizablePanelGroup
           direction="horizontal"
-          autoSaveId="epk-builder-layout-v1"
+          defaultLayout={defaultLayout}
+          onLayoutChanged={onLayoutChanged}
           className="hidden min-h-0 flex-1 lg:flex"
         >
           <ResizablePanel
