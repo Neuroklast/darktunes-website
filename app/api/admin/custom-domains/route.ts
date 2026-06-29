@@ -4,6 +4,8 @@ import { withErrorHandler } from '@/lib/errors'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
 import { createCustomDomain, listCustomDomainsByOrganization } from '@/lib/api/customDomains'
+import { organizationHasFeature } from '@/lib/organizations/features'
+import { ApiError } from '@/lib/errors'
 import { writeOrganizationAuditLog } from '@/lib/api/organizationAuditLog'
 
 const postSchema = z.object({
@@ -27,6 +29,10 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const userId = await verifyAdmin(token)
   const body = postSchema.parse(await req.json())
   const supabase = await createServerSupabaseClient()
+  const customDomainEnabled = await organizationHasFeature(supabase, body.organizationId, 'custom_domain')
+  if (!customDomainEnabled) {
+    throw new ApiError(403, 'Custom domains are not enabled for this plan', 'CUSTOM_DOMAIN_DISABLED')
+  }
   const domain = await createCustomDomain(supabase, body.organizationId, body.domain)
 
   await writeOrganizationAuditLog(supabase, {

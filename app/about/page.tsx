@@ -7,6 +7,7 @@ import { getSiteSettings } from '@/lib/api/siteSettings'
 import { getPublicArtists } from '@/lib/api/artists'
 import { getPublicNewsPosts } from '@/lib/api/news'
 import { AboutContent } from './_components/AboutContent'
+import { getPublicPageOrganizationContext } from '@/lib/organizations/pageContext'
 import { getMetadataBrand, pageTitlePipe } from '@/lib/seo/metadata'
 
 function createPublicSupabaseClient() {
@@ -16,19 +17,21 @@ function createPublicSupabaseClient() {
   )
 }
 
-const getCachedAboutData = unstable_cache(
-  async () => {
-    const client = createPublicSupabaseClient()
-    const [siteSettings, artists, news] = await Promise.all([
-      getSiteSettings(client),
-      getPublicArtists(client),
-      getPublicNewsPosts(client),
-    ])
-    return { siteSettings, artists, news }
-  },
-  ['about-page'],
-  { revalidate: 60, tags: ['artists', 'news'] },
-)
+function getCachedAboutData(organizationId: string) {
+  return unstable_cache(
+    async () => {
+      const client = createPublicSupabaseClient()
+      const [siteSettings, artists, news] = await Promise.all([
+        getSiteSettings(client),
+        getPublicArtists(client, organizationId),
+        getPublicNewsPosts(client),
+      ])
+      return { siteSettings, artists, news }
+    },
+    ['about-page', organizationId],
+    { revalidate: 60, tags: ['artists', 'news'] },
+  )
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const [t, { labelName }] = await Promise.all([
@@ -42,7 +45,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AboutPage() {
-  const { siteSettings, artists, news } = await getCachedAboutData().catch(() => ({
+  const { organizationId } = await getPublicPageOrganizationContext()
+  const { siteSettings, artists, news } = await getCachedAboutData(organizationId)().catch(() => ({
     siteSettings: null,
     artists: [],
     news: [],

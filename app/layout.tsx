@@ -15,6 +15,8 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages } from 'next-intl/server'
 import type { Locale } from '@/i18n/types'
 import { WebVitals } from './web-vitals'
+import { OrganizationBrandingInjector } from './_components/OrganizationBrandingInjector'
+import { getPublicPageOrganizationContext } from '@/lib/organizations/pageContext'
 import './globals.css'
 
 const fontVariables: CSSProperties = {
@@ -49,12 +51,16 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = (await getLocale()) as Locale
   const messages = await getMessages()
-  const settings = await getCachedSiteSettings().catch(() => null)
+  const [settings, orgContext] = await Promise.all([
+    getCachedSiteSettings().catch(() => null),
+    getPublicPageOrganizationContext().catch(() => ({ organizationId: '', branding: null })),
+  ])
   const { labelShortName } = resolveBrandFromSettings(settings ?? SITE_SETTINGS_DEFAULTS)
 
   return (
     <html lang={locale} style={fontVariables} suppressHydrationWarning data-animation-preset={settings?.themeConfig?.animation?.preset ?? 'slide-up'}>
       <head>
+        <OrganizationBrandingInjector branding={orgContext.branding} />
         {/* PWA meta — prevents white flash and styles the status bar */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

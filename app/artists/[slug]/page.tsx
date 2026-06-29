@@ -32,6 +32,7 @@ import { getPublicArtistEpkByArtistId } from '@/lib/api/publicArtistEpk'
 
 import { ArtistDetailContent } from './_components/ArtistDetailContent'
 import { buildMusicGroupSchema, serializeJsonLd } from '@/lib/seo/jsonld'
+import { getPublicPageOrganizationContext } from '@/lib/organizations/pageContext'
 import { getMetadataBrand, pageTitle, pageTitlePipe } from '@/lib/seo/metadata'
 
 interface Props {
@@ -64,14 +65,14 @@ function createPublicSupabaseClient() {
  * This allows targeted revalidation per artist slug (via revalidateTag) in
  * addition to the global 'artists' tag used by list pages.
  */
-function makeGetArtistData(slug: string) {
+function makeGetArtistData(slug: string, organizationId: string) {
   return unstable_cache(
     async () => {
       const client = createPublicSupabaseClient()
       // getArtistBySlug returns null when no artist matches the slug.
       // Any Supabase connection/auth error is allowed to throw so that Next.js
       // treats it as a server error (5xx) rather than caching it as a 404.
-      const artist = await getArtistBySlug(client, slug)
+      const artist = await getArtistBySlug(client, slug, organizationId)
       if (!artist) return null
       const [releases, concerts, videos, news, publicEpk, relatedArtists] = await Promise.all([
         getReleasesByArtistId(client, artist.id),
@@ -84,7 +85,7 @@ function makeGetArtistData(slug: string) {
       const galleryPhotos = (publicEpk?.profile.epkGalleryPhotos ?? []).filter(Boolean)
       return { artist, releases, concerts, videos, news, galleryPhotos, relatedArtists }
     },
-    [`artist-${slug}`],
+    [`artist-${slug}`, organizationId],
     // Granular tags: 'artists' invalidates all artist lists;
     // `artist-${slug}` invalidates only this specific artist page.
     { revalidate: 60, tags: ['artists', `artist-${slug}`] },
@@ -102,9 +103,10 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
+  const { organizationId } = await getPublicPageOrganizationContext()
   // Silently swallow errors only in metadata generation — a missing artist
   // just returns a generic title; the page itself will show the proper 404.
-  const data = await makeGetArtistData(slug)().catch(() => null)
+  const data = await makeGetArtistData(slug, organizationId)().catch(() => null)
   const { labelName } = await getMetadataBrand()
   if (!data) return { title: pageTitle('Artist not found', labelName) }
   const { artist } = data
@@ -124,9 +126,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArtistDetailPage({ params }: Props) {
   const { slug } = await params
+  const { organizationId } = await getPublicPageOrganizationContext()
   // Do NOT swallow errors here — a Supabase failure must propagate so that
   // Next.js returns a 500 (uncached) rather than caching a false 404 for 60s.
-  const data = await makeGetArtistData(slug)()
+  const data = await makeGetArtistData(slug, organizationId)()
   if (!data) notFound()
   const { artist, releases, concerts, videos, news, galleryPhotos, relatedArtists } = data
   return (

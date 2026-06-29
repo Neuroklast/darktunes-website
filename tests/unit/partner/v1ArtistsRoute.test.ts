@@ -5,6 +5,11 @@ import { NextRequest } from 'next/server'
 const authenticatePartnerApiKeyMock = vi.fn()
 const createServiceRoleSupabaseClientMock = vi.fn()
 const listPartnerArtistsMock = vi.fn()
+const organizationHasFeatureMock = vi.fn()
+
+vi.mock('@/lib/organizations/features', () => ({
+  organizationHasFeature: (...args: unknown[]) => organizationHasFeatureMock(...args),
+}))
 
 vi.mock('@/lib/partner-api/auth', () => ({
   authenticatePartnerApiKey: (...args: unknown[]) => authenticatePartnerApiKeyMock(...args),
@@ -33,6 +38,7 @@ describe('GET /api/v1/artists', () => {
       scopes: ['read'],
     })
     createServiceRoleSupabaseClientMock.mockResolvedValue({})
+    organizationHasFeatureMock.mockResolvedValue(true)
     listPartnerArtistsMock.mockResolvedValue({ data: [{ id: 'artist-1' }], nextCursor: null })
   })
 

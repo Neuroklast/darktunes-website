@@ -3,6 +3,7 @@ import { withErrorHandler, ApiError } from '@/lib/errors'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { getStripeClient, getStripeWebhookSecret } from '@/lib/stripe/client'
 import { writeOrganizationAuditLog } from '@/lib/api/organizationAuditLog'
+import { provisionOrganizationPlanFeatures } from '@/lib/organizations/provisionPlanFeatures'
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
   const stripe = getStripeClient()
@@ -37,6 +38,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       })
 
       await db.from('organizations').update({ status: 'active' }).eq('id', organizationId)
+      await provisionOrganizationPlanFeatures(db, organizationId, planId)
 
       await writeOrganizationAuditLog(db, {
         organizationId,
@@ -47,6 +49,30 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       })
       break
     }
+    case 'customer.subscription.updated': {
+      const sub = event.data.object as {
+        id: string
+        status: string
+        current_period_end?: number | null
+      }
+      const periodEnd =
+        typeof sub.current_period_end === 'number'
+          ? new Date(sub.current_period_end * 1000).toISOString()
+          : null
+      await db
+        .from('subscriptions')
+        .update({
+          status:
+            sub.status === 'active'
+              ? 'active'
+              : sub.status === 'trialing'
+                ? 'trialing'
+                : 'past_due',
+          current_period_end: periodEnd,
+        })
+        .eq('stripe_subscription_id', sub.id)
+      break
+    }
     case 'customer.subscription.deleted': {
       const sub = event.data.object
       const stripeSubId = sub.id
@@ -54,6 +80,22 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         .from('subscriptions')
         .update({ status: 'canceled' })
         .eq('stripe_subscription_id', stripeSubId)
+      break
+    }
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object as { subscription?: string | { id: string } | null }
+      const stripeSubId =
+        typeof invoice.subscription === 'string'
+          ? invoice.subscription
+          : invoice.subscription && typeof invoice.subscription === 'object'
+            ? invoice.subscription.id
+            : null
+      if (stripeSubId) {
+        await db
+          .from('subscriptions')
+          .update({ status: 'past_due' })
+          .eq('stripe_subscription_id', stripeSubId)
+      }
       break
     }
     default:

@@ -4262,6 +4262,15 @@ INSERT INTO public.plan_features (plan_id, feature_key, value) VALUES
   ('22222222-2222-2222-2222-222222222223', 'partner_api', 'true')
 ON CONFLICT (plan_id, feature_key) DO NOTHING;
 
+-- Tenant feature overrides (darkTunes + demo label get Business-tier integrations)
+INSERT INTO public.organization_features (organization_id, feature_key, enabled) VALUES
+  ('00000000-0000-0000-0000-000000000000', 'partner_api', TRUE),
+  ('00000000-0000-0000-0000-000000000000', 'custom_domain', TRUE),
+  ('00000000-0000-0000-0000-000000000000', 'advanced_analytics', TRUE),
+  ('11111111-1111-1111-1111-111111111111', 'partner_api', TRUE),
+  ('11111111-1111-1111-1111-111111111111', 'custom_domain', TRUE)
+ON CONFLICT (organization_id, feature_key) DO NOTHING;
+
 INSERT INTO public.portal_feature_flags (id, label, enabled, target_role) VALUES
   ('artist.analytics', 'Artist Analytics Dashboard', TRUE, 'artist'),
   ('artist.statements', 'Artist Statements', TRUE, 'artist'),

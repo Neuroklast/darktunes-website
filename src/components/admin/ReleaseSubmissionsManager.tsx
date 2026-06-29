@@ -111,6 +111,8 @@ export function ReleaseSubmissionsManager() {
         const body = (await res.json().catch(() => null)) as { error?: string } | null
         throw new Error(body?.error ?? 'Export failed')
       }
+      const warnings = res.headers.get('X-Export-Warnings')
+      if (warnings) toast.warning(warnings)
       const blob = await res.blob()
       const stamp = new Date().toISOString().slice(0, 10)
       const safeTitle = selected.title.replace(/[^a-zA-Z0-9-_]+/g, '-').slice(0, 40)
@@ -297,14 +299,16 @@ export function ReleaseSubmissionsManager() {
               <Button onClick={() => void saveStatus()} disabled={saving}>
                 {saving ? t('saving') : t('field_save')}
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => void exportBelieve()}
-                disabled={exporting !== null}
-                aria-label="Export metadata package for Believe distributor"
-              >
-                {exporting === 'believe' ? t('saving') : 'Export for Believe'}
-              </Button>
+              {(selected.status === 'accepted' || selected.status === 'reviewed') && (
+                <Button
+                  variant="outline"
+                  onClick={() => void exportBelieve()}
+                  disabled={exporting !== null}
+                  aria-label="Export metadata package for Believe distributor"
+                >
+                  {exporting === 'believe' ? t('saving') : 'Export for Believe'}
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

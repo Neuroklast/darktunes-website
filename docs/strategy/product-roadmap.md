@@ -18,11 +18,11 @@ flowchart LR
 |-------|------|---------|--------|
 | 0 | Strategie-Dokumentation | 1–2 Wochen | ✅ |
 | 1 | Multi-Tenancy-Grundlage | 4–8 Wochen | ✅ MVP |
-| 2 | Believe-Readiness (API, Export, Analytics) | 6–10 Wochen | ✅ MVP |
-| 3 | Stripe Billing & Provisioning | 7–10 Wochen | ✅ MVP |
-| 4 | Subdomains + White-Label | 4–6 Wochen | ✅ MVP |
-| 5 | Custom Domains + SSL | 4–6 Wochen | ✅ MVP |
-| 6 | Production SaaS Polish | 3–4 Wochen | ✅ MVP |
+| 2 | Believe-Readiness (API, Export, Analytics) | 6–10 Wochen | ✅ |
+| 3 | Stripe Billing & Provisioning | 7–10 Wochen | ✅ |
+| 4 | Subdomains + White-Label | 4–6 Wochen | ✅ |
+| 5 | Custom Domains + SSL | 4–6 Wochen | ✅ |
+| 6 | Production SaaS Polish | 3–4 Wochen | ✅ |
 
 **Gesamt SaaS-MVP:** 6–8 Monate · **Mit Believe-Readiness:** 8–12 Monate
 
@@ -75,21 +75,21 @@ organization_branding  -- logo, colors, favicon per org
 - Outbound Webhooks: `artist.created`, `release.submitted`, `release.approved`, `release.rejected`
 - Doku: [`api-v1.md`](api-v1.md)
 
-### 2b. Believe Release-Export ✅ (gestartet)
+### 2b. Believe Release-Export ✅
 
 - `src/lib/releases/believeExport.ts` — Validierung + JSON/CSV
 - `GET /api/admin/release-submissions/[id]/export-believe`
-- Admin-UI: Export-Button bei `accepted`/`reviewed`
+- Admin-UI: Export-Button bei `accepted`/`reviewed`, Warnungen via Toast
 
-### 2c. Analytics-Export
+### 2c. Analytics-Export ✅
 
 - Portal: CSV-Download (bereits in `AnalyticsPageClient`)
-- API: `GET /api/v1/analytics/export?format=csv`
-- Tests: `src/lib/analytics/reportExport.test.ts`
+- API: `GET /api/v1/analytics/export?format=csv|json`
+- Tests: `reportExport.test.ts`, `v1AnalyticsRoute.test.ts`
 
-### 2d. Portal Polish
+### 2d. Demo-Flow ✅
 
-- Demo-Flow für Believe-Pitch dokumentieren
+- [`demo-flow.md`](demo-flow.md) — Live-Pitch-Script für Believe
 
 **Deliverable:** API-Doku + Live-Demo + Export-Flow evaluierbar.
 

@@ -11,6 +11,8 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import type { Organization } from '@/lib/api/organizations'
 import type { OrganizationWebhookEndpoint } from '@/lib/api/organizationWebhooks'
+import type { CustomDomain } from '@/lib/api/customDomains'
+import type { AuditLogEntry } from '@/lib/api/organizationAuditLog'
 
 const DEFAULT_WEBHOOK_EVENTS = [
   'release.submitted',
@@ -34,6 +36,8 @@ export function OrganizationsManager() {
   const [webhookUrl, setWebhookUrl] = useState('')
   const [webhookEndpoints, setWebhookEndpoints] = useState<OrganizationWebhookEndpoint[]>([])
   const [createdWebhookSecret, setCreatedWebhookSecret] = useState<string | null>(null)
+  const [customDomains, setCustomDomains] = useState<CustomDomain[]>([])
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([])
 
   const fetchOrganizations = useCallback(async () => {
     setLoading(true)
@@ -70,9 +74,37 @@ export function OrganizationsManager() {
     void fetchOrganizations()
   }, [fetchOrganizations])
 
+  const fetchCustomDomains = useCallback(async (orgId: string) => {
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/admin/custom-domains?organizationId=${orgId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Failed to load domains')
+      setCustomDomains((await res.json()) as CustomDomain[])
+    } catch {
+      setCustomDomains([])
+    }
+  }, [])
+
+  const fetchAuditLogs = useCallback(async (orgId: string) => {
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/admin/organization-audit-log?organizationId=${orgId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Failed to load audit log')
+      setAuditLogs((await res.json()) as AuditLogEntry[])
+    } catch {
+      setAuditLogs([])
+    }
+  }, [])
+
   useEffect(() => {
     void fetchWebhookEndpoints(selectedOrgId)
-  }, [selectedOrgId, fetchWebhookEndpoints])
+    void fetchCustomDomains(selectedOrgId)
+    void fetchAuditLogs(selectedOrgId)
+  }, [selectedOrgId, fetchWebhookEndpoints, fetchCustomDomains, fetchAuditLogs])
 
   const createApiKey = async () => {
     try {
@@ -152,8 +184,49 @@ export function OrganizationsManager() {
       const domain = (await res.json()) as { verificationToken: string; domain: string }
       toast.success(`Add TXT record: ${domain.verificationToken}`)
       setNewDomain('')
+      void fetchCustomDomains(selectedOrgId)
     } catch {
       toast.error('Failed to add custom domain')
+    }
+  }
+
+  const verifyCustomDomain = async (domainId: string) => {
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/admin/custom-domains/verify', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ domainId }),
+      })
+      if (!res.ok) throw new Error('Verification failed')
+      toast.success('Domain marked verified')
+      void fetchCustomDomains(selectedOrgId)
+    } catch {
+      toast.error('Failed to verify domain')
+    }
+  }
+
+  const exportOrganizationData = async () => {
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/admin/organizations/${selectedOrgId}/export`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `org-export-${selectedOrgId}.json`
+      anchor.click()
+      URL.revokeObjectURL(url)
+      toast.success('Organization data exported')
+      void fetchAuditLogs(selectedOrgId)
+    } catch {
+      toast.error('Failed to export organization data')
     }
   }
 
@@ -266,19 +339,65 @@ export function OrganizationsManager() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Custom Domain</CardTitle>
+          <CardTitle>Custom Domains</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <Input
-            placeholder="label.com"
-            value={newDomain}
-            onChange={(e) => setNewDomain(e.target.value)}
-            className="max-w-sm"
-            aria-label="Custom domain"
-          />
-          <Button variant="outline" onClick={() => void addCustomDomain()}>
-            Add domain
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Input
+              placeholder="label.com"
+              value={newDomain}
+              onChange={(e) => setNewDomain(e.target.value)}
+              className="max-w-sm"
+              aria-label="Custom domain"
+            />
+            <Button variant="outline" onClick={() => void addCustomDomain()}>
+              Add domain
+            </Button>
+          </div>
+          {customDomains.length > 0 && (
+            <ul className="space-y-2" aria-label="Custom domains">
+              {customDomains.map((domain) => (
+                <li
+                  key={domain.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{domain.domain}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {domain.status}
+                      {domain.status === 'pending' && ` · TXT: ${domain.verificationToken}`}
+                    </p>
+                  </div>
+                  {domain.status === 'pending' && (
+                    <Button variant="ghost" size="sm" onClick={() => void verifyCustomDomain(domain.id)}>
+                      Mark verified
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Audit Log & GDPR Export</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button variant="outline" onClick={() => void exportOrganizationData()}>
+            Export organization data (JSON)
           </Button>
+          {auditLogs.length > 0 && (
+            <ul className="max-h-64 space-y-2 overflow-y-auto text-sm" aria-label="Audit log">
+              {auditLogs.map((entry) => (
+                <li key={entry.id} className="rounded-md border border-border px-3 py-2">
+                  <span className="font-medium">{entry.action}</span>
+                  <span className="text-muted-foreground"> · {new Date(entry.createdAt).toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

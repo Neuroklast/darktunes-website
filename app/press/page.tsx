@@ -7,6 +7,7 @@ import { getPressOnlyNewsPosts } from '@/lib/api/pressReleases'
 import { getSiteSettings, SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
 import { PressLandingClient } from './_components/PressLandingClient'
 import { buildDefaultSeoDescription } from '@/lib/brand/tenantDefaults'
+import { getPublicPageOrganizationContext } from '@/lib/organizations/pageContext'
 import { getMetadataContext, pageTitle } from '@/lib/seo/metadata'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,9 +22,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function PressPage() {
   const supabase = await createServerSupabaseClient()
+  const { organizationId } = await getPublicPageOrganizationContext()
 
   const [artists, pressReleases, siteSettings] = await Promise.all([
-    getPublicArtists(supabase).catch((err: unknown) => {
+    getPublicArtists(supabase, organizationId).catch((err: unknown) => {
       console.error('[press/page] Failed to fetch artists:', err)
       return []
     }),
