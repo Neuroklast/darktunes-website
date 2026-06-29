@@ -133,7 +133,7 @@
     "@types/react-dom": "^19.0.4",
     "@vercel/node": "^5.7.15",
     "@vitejs/plugin-react": "^6.0.3",
-    "eslint": "^9.28.0",
+    "eslint": "^10.6.0",
     "eslint-config-next": "^16.2.9",
     "eslint-plugin-react-hooks": "^7.1.1",
     "fake-indexeddb": "^6.2.5",
