@@ -5,6 +5,7 @@ import type { ReleaseSubmission, ReleaseSubmissionTrack } from '@/types'
 const submission: ReleaseSubmission = {
   id: 'sub-1',
   artistId: 'art-1',
+  organizationId: '00000000-0000-0000-0000-000000000000',
   status: 'received',
   title: 'My Album',
   releaseDate: '2024-06-01',
