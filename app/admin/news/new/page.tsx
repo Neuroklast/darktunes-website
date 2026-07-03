@@ -17,6 +17,7 @@ import { buildHeroFeatureUpdate } from '@/lib/heroFeaturedBump'
 import { featuredUntilFromDuration } from '@/lib/featuredDurationForm'
 import { HeroFeaturedBumpDialog } from '@/components/admin/HeroFeaturedBumpDialog'
 import { useHeroFeaturedBump } from '@/hooks/useHeroFeaturedBump'
+import { AdminPageShell } from '../../_components/AdminPageShell'
 
 const EMPTY_FORM: NewsFormData = {
   title: '',
@@ -130,18 +131,18 @@ export default function NewsNewPage() {
   }
 
   return (
-    <div className="w-full bg-background text-foreground p-6">
+    <AdminPageShell
+      title="New News Post"
+      actions={
+        <Button variant="ghost" size="sm" asChild>
+          <Link href={cms.home}>
+            <ArrowLeft className="mr-2 w-4 h-4" />
+            {cms.isEditor ? 'Back to Editor' : 'Back to Admin'}
+          </Link>
+        </Button>
+      }
+    >
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href={cms.home}>
-              <ArrowLeft className="mr-2 w-4 h-4" />
-              {cms.isEditor ? 'Back to Editor' : 'Back to Admin'}
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">New News Post</h1>
-        </div>
-
         <HeroFeaturedBumpDialog
           open={!!pendingAction}
           message={pendingAction?.message}
@@ -162,6 +163,6 @@ export default function NewsNewPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AdminPageShell>
   )
 }

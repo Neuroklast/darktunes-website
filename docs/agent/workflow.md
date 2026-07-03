@@ -11,8 +11,19 @@ Review and update stale sections in:
 | Agent spec | `AGENTS.md`, `docs/agent/*.md` |
 | Onboarding | `README.md`, `DEPLOYMENT.md`, `.env.example`, `scripts/vercel-install.sh` |
 | Product state | `INTEGRATION-SUMMARY.md`, `ADMIN.md`, `SECURITY.md` |
+| Living docs | `CHANGELOG.md`, `LESSONS_LEARNED.md`, `QA_CHECKLIST.md` (see below) |
 
 Mandatory even when the task did not touch docs. New public APIs, components, or utilities → update the relevant `docs/agent/*.md` topic file (or JSDoc).
+
+### Living docs (before every PR)
+
+Update when applicable — skip doc-only sessions with no product change.
+
+| File | When to update |
+|------|----------------|
+| `CHANGELOG.md` | User-facing features, API/route changes, security fixes, or breaking changes → add bullets under `[Unreleased]`. Skip internal refactors with no observable change. |
+| `LESSONS_LEARNED.md` | Session uncovered a recurring anti-pattern, non-obvious failure mode, or process gap → append a dated entry under `## Session additions`. Promote to rule tables only after the pattern recurs. Skip one-off typos. |
+| `QA_CHECKLIST.md` | New/changed user flows, auth guards, consent/i18n/PWA behavior, or E2E-covered features → add or adjust checklist items. Skip internal refactors that don't change testable behavior. |
 
 **Minimal changes:** smallest diff that fully solves the requirement; no unrelated refactors; no new dependencies unless necessary.
 

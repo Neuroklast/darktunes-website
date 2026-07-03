@@ -54,10 +54,12 @@ Read the relevant file before working in that area:
 
 After introducing new patterns, update the relevant `docs/agent/*.md` file.
 
+Before opening a PR, run the end-of-session docs review in [workflow.md](docs/agent/workflow.md) — including [CHANGELOG.md](CHANGELOG.md), [LESSONS_LEARNED.md](LESSONS_LEARNED.md), and [QA_CHECKLIST.md](QA_CHECKLIST.md) when the session changed product behavior.
+
 ## Strategy & roadmap
 
 Believe-readiness, valuation, and SaaS product roadmap: [docs/strategy/](docs/strategy/)
 
 ## External docs
 
-[README.md](README.md) · [DEPLOYMENT.md](DEPLOYMENT.md) · [ADMIN.md](ADMIN.md) · [SECURITY.md](SECURITY.md) · [supabase/DB_REQUIREMENTS.md](supabase/DB_REQUIREMENTS.md)
+[README.md](README.md) · [DEPLOYMENT.md](DEPLOYMENT.md) · [ADMIN.md](ADMIN.md) · [SECURITY.md](SECURITY.md) · [CHANGELOG.md](CHANGELOG.md) · [LESSONS_LEARNED.md](LESSONS_LEARNED.md) · [QA_CHECKLIST.md](QA_CHECKLIST.md) · [supabase/DB_REQUIREMENTS.md](supabase/DB_REQUIREMENTS.md)

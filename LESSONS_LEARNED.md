@@ -1,6 +1,6 @@
 # Lessons Learned
 
-Distilled anti-patterns from project history. **Append new findings before opening a PR** (see `docs/agent/workflow.md`).
+Distilled anti-patterns from project history. **Append session findings before opening a PR** when the session uncovered a recurring anti-pattern or process gap — see `docs/agent/workflow.md` → *Living docs*.
 
 ---
 
@@ -97,7 +97,8 @@ Distilled anti-patterns from project history. **Append new findings before openi
 
 | Anti-pattern | Rule |
 |--------------|------|
-| Feature shipped without doc update | End-of-session review: `README`, `DEPLOYMENT`, `ADMIN`, `INTEGRATION-SUMMARY`, `docs/agent/*` |
+| Feature shipped without doc update | End-of-session review: `README`, `DEPLOYMENT`, `ADMIN`, `INTEGRATION-SUMMARY`, `docs/agent/*`, `CHANGELOG`, `QA_CHECKLIST` |
+| Living docs orphaned after doc debloat | Keep `CHANGELOG`, `LESSONS_LEARNED`, `QA_CHECKLIST` in `workflow.md` docs-review table and `AGENTS.md` |
 | Size limits from memory | Derive from source constants (e.g. upload route `MAX_*_BYTES`) |
 | Bloated duplicate prose across agent docs | Progressive disclosure: `AGENTS.md` index + topic files |
 
@@ -115,6 +116,10 @@ Distilled anti-patterns from project history. **Append new findings before openi
 
 **Lessons doc: rule tables over commit archaeology:** Evidence commit lists help once; recurring rules belong in compact anti-pattern → rule tables. Update stale references when SSOT moves (CSP → `contentSecurityPolicy.ts`, modals → `frontend.md`).
 
+### 2026-07-03 — Living docs dropped from agent workflow after debloat
+
+**Debloat removed the triggers, not the files:** `LESSONS_LEARNED.md` pointed at `workflow.md`, but `workflow.md` never listed `CHANGELOG`, `LESSONS_LEARNED`, or `QA_CHECKLIST`. Agents followed the slim `AGENTS.md` review list and stopped updating living docs. Rule tables are SSOT for recurring anti-patterns; session additions and changelog/QA updates still belong in their respective files — wire all three back into `workflow.md` and `AGENTS.md`.
+
 ---
 
-*Last updated: 2026-06-25*
+*Last updated: 2026-07-03*

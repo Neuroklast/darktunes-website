@@ -20,6 +20,7 @@ import { buildHeroFeatureUpdate } from '@/lib/heroFeaturedBump'
 import { featuredDurationFromUntil, featuredUntilFromDuration } from '@/lib/featuredDurationForm'
 import { HeroFeaturedBumpDialog } from '@/components/admin/HeroFeaturedBumpDialog'
 import { useHeroFeaturedBump } from '@/hooks/useHeroFeaturedBump'
+import { AdminPageShell } from '../../_components/AdminPageShell'
 import type { NewsPost, SiteSettings } from '@/types'
 
 function newsPostToFormData(
@@ -161,23 +162,18 @@ export default function NewsEditPage() {
   }
 
   return (
-    <div
-      className="h-full w-full bg-background p-6 text-foreground"
-      data-lenis-prevent
+    <AdminPageShell
+      title={isLoading ? 'Loading…' : post ? `Edit: ${post.title}` : 'News post not found'}
+      actions={
+        <Button variant="ghost" size="sm" asChild>
+          <Link href={cms.home}>
+            <ArrowLeft className="mr-2 w-4 h-4" />
+            {cms.isEditor ? 'Back to Editor' : 'Back to Admin'}
+          </Link>
+        </Button>
+      }
     >
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href={cms.home}>
-              <ArrowLeft className="mr-2 w-4 h-4" />
-              {cms.isEditor ? 'Back to Editor' : 'Back to Admin'}
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">
-            {isLoading ? 'Loading…' : post ? `Edit: ${post.title}` : 'News post not found'}
-          </h1>
-        </div>
-
         {isLoading && (
           <Card>
             <CardContent className="space-y-4 pt-6">
@@ -218,6 +214,6 @@ export default function NewsEditPage() {
           </Card>
         )}
       </div>
-    </div>
+    </AdminPageShell>
   )
 }
