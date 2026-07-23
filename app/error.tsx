@@ -18,6 +18,7 @@ import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Warning } from '@phosphor-icons/react'
+import { reportClientError } from '@/lib/clientErrorReporter'
 
 interface ErrorPageProps {
   error: Error & { digest?: string }
@@ -45,6 +46,11 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
     if (process.env.NODE_ENV !== 'production') {
       console.error('[ErrorBoundary]', error)
     }
+
+    reportClientError('ui', error, {
+      boundary: 'app/error',
+      digest: error.digest ?? null,
+    })
   }, [error])
 
   // Nothing to render while the reload is in-flight.

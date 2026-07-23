@@ -19,6 +19,12 @@ describe('contentSecurityPolicy', () => {
     expect(connectSrc).toContain('wss://*.supabase.co')
   })
 
+  it('allows Sentry ingest hosts for optional error tracking', () => {
+    const connectSrc = CONTENT_SECURITY_POLICY_DIRECTIVES['connect-src']
+    expect(connectSrc).toContain('https://*.ingest.sentry.io')
+    expect(connectSrc).toContain('https://*.ingest.de.sentry.io')
+  })
+
   it('includes Google Fonts in style-src and font-src', () => {
     expect(CONTENT_SECURITY_POLICY_DIRECTIVES['style-src']).toContain('https://fonts.googleapis.com')
     expect(CONTENT_SECURITY_POLICY_DIRECTIVES['font-src']).toContain('https://fonts.gstatic.com')

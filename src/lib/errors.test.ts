@@ -6,8 +6,9 @@ import { getErrorMessage } from './clientErrors'
 import { ERROR_MESSAGES } from './errorCodes'
 import type { Dictionary } from '@/i18n/types'
 
-const { mockWriteAppLog } = vi.hoisted(() => ({
+const { mockWriteAppLog, mockReportException } = vi.hoisted(() => ({
   mockWriteAppLog: vi.fn().mockResolvedValue(undefined),
+  mockReportException: vi.fn(),
 }))
 
 vi.mock('@/lib/appLog', () => ({
@@ -16,6 +17,11 @@ vi.mock('@/lib/appLog', () => ({
 
 vi.mock('@/lib/routeUserContext', () => ({
   extractRouteUserContext: vi.fn().mockResolvedValue({ userId: 'user-123', userRole: 'portal' }),
+}))
+
+vi.mock('@/lib/observability/reportException', () => ({
+  reportExceptionFireAndForget: mockReportException,
+  reportException: vi.fn().mockResolvedValue(undefined),
 }))
 
 // Minimal mock dictionary with the errors namespace
@@ -128,8 +134,30 @@ describe('withErrorHandler', () => {
     const body = await res.json()
     expect(body.error).toBe('Forbidden')
     expect(body.status).toBe(403)
+    expect(typeof body.requestId).toBe('string')
+    expect(body.requestId.length).toBeGreaterThanOrEqual(8)
+    expect(res.headers.get('x-request-id')).toBe(body.requestId)
     await flushAsyncWork()
     expect(mockWriteAppLog).not.toHaveBeenCalled()
+  })
+
+  it('echoes an incoming x-request-id on success and error', async () => {
+    const id = 'client-req-id-001'
+    const req = new NextRequest('http://localhost/api/test', {
+      method: 'GET',
+      headers: { 'x-request-id': id },
+    })
+    const okHandler = withErrorHandler(async () => NextResponse.json({ ok: true }))
+    const okRes = await okHandler(req)
+    expect(okRes.headers.get('x-request-id')).toBe(id)
+
+    const errHandler = withErrorHandler(async () => {
+      throw new ApiError(400, 'bad')
+    })
+    const errRes = await errHandler(req)
+    const body = await errRes.json()
+    expect(body.requestId).toBe(id)
+    expect(errRes.headers.get('x-request-id')).toBe(id)
   })
 
   it('logs RATE_LIMITED ApiError at warn level with user context', async () => {
@@ -152,6 +180,7 @@ describe('withErrorHandler', () => {
         code: 'RATE_LIMITED',
         status: 429,
         user_role: 'portal',
+        request_id: expect.any(String),
       }),
     }))
   })

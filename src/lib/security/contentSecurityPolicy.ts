@@ -46,6 +46,9 @@ export const CONTENT_SECURITY_POLICY_DIRECTIVES: Record<string, readonly string[
     'https://fonts.gstatic.com',
     'https://darkmerch.com',
     'https://cdn.jsdelivr.net',
+    // Sentry browser SDK (optional — only used when NEXT_PUBLIC_SENTRY_DSN is set)
+    'https://*.ingest.sentry.io',
+    'https://*.ingest.de.sentry.io',
   ],
   'media-src': ["'self'", 'blob:', 'https://*.r2.dev', 'https://*.supabase.co'],
   'worker-src': ["'self'", 'blob:'],

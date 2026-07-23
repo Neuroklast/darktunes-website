@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import { withSentryConfig } from '@sentry/nextjs'
 import createNextIntlPlugin from 'next-intl/plugin'
 import withSerwistInit from '@serwist/next'
 import withBundleAnalyzerInit from '@next/bundle-analyzer'
@@ -96,4 +97,24 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default withBundleAnalyzer(withSerwist(withNextIntl(nextConfig)))
+const composed = withBundleAnalyzer(withSerwist(withNextIntl(nextConfig)))
+
+// Source-map upload only when SENTRY_AUTH_TOKEN is set (CI/prod). Runtime SDK is
+// no-op without SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN.
+export default withSentryConfig(composed, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  widenClientFileUpload: Boolean(process.env.SENTRY_AUTH_TOKEN),
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
+  // Avoid automatic tunnel route (extra API surface); CSP allows ingest hosts.
+  tunnelRoute: undefined,
+})

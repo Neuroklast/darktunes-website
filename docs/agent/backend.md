@@ -27,6 +27,18 @@ Use `src/lib/adminAuth.ts`: `extractBearerToken`, `verifyAdminOrEditor`, `verify
 
 External API calls: `withApiRetry()` + per-API profiles in `src/lib/sync/retryPolicy.ts`. Base `HttpError` in `src/lib/rateLimiter.ts`. Rate-limited (429) errors are **not** retried inside `withApiRetry` — the queue reschedules with cooldown. Transient DNS/network I/O uses `withTransientIoRetry()` (e.g. R2 `getaddrinfo EBUSY`). Odesli uses `resolveOdesliSmartLinkThrottled()` (~4 req/s).
 
+## Observability (errors & correlation)
+
+| Piece | Location |
+|-------|----------|
+| Route wrapper | `withErrorHandler` (`src/lib/errors.ts`) — always sets `x-request-id`, error JSON `requestId` |
+| Request id helpers | `src/lib/observability/requestId.ts` |
+| Sentry report helper | `src/lib/observability/reportException.ts` (no-op without DSN) |
+| Init | `instrumentation.ts`, `instrumentation-client.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts` |
+| Client UI | `reportClientError` → Sentry + `POST /api/log-error` |
+
+Env: `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN` (optional). Source maps: `SENTRY_AUTH_TOKEN` + org/project. See `DEPLOYMENT.md` / `SECURITY.md`.
+
 ## Sync service
 
 Logic in `src/lib/sync/` with injected `SyncDeps`. `syncSingleArtist` / `syncAll` never throw — errors in `SyncResult.errors`. Each run → `sync_logs`.

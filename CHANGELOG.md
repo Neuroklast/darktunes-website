@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **P1-1 Observability:** optional Sentry (`@sentry/nextjs`) via `instrumentation.ts` / client init — no-op without DSN; `x-request-id` + `requestId` on API errors; structured JSON logs; client error boundaries report to Sentry + `/api/log-error`; CSP allows Sentry ingest hosts.
 - **Portal release submission wizard:** guided multi-step flow (type → field groups → tracks → review) driven by `field_group`; track focus mode, copy/apply-all, `?step=` URL, review completeness, prefill from last submission.
 - **Server submission drafts:** `submission_form_drafts` + portal draft API (release/video); local IndexedDB cache.
 - **Cover art verification:** server JPEG 3000×3000 check with stable error codes, retries, and short-lived HMAC token so submit can skip re-download; no R2 during form.

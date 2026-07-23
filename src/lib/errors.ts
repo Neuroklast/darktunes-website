@@ -21,6 +21,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { writeAppLog } from '@/lib/appLog'
 import { extractRouteUserContext } from '@/lib/routeUserContext'
+import { reportExceptionFireAndForget } from '@/lib/observability/reportException'
+import {
+  REQUEST_ID_HEADER,
+  resolveRequestId,
+} from '@/lib/observability/requestId'
 import { type ErrorCode, ERROR_MESSAGES } from './errorCodes'
 import { SettlementPeriodNotWritableError } from '@/lib/api/settlementPeriods'
 
@@ -78,14 +83,43 @@ export interface ApiErrorResponse {
   error: string
   code?: string
   status: number
+  /** Correlation id — present on errors so clients/support can match logs. */
+  requestId?: string
 }
 
 function buildErrorResponse(
   message: string,
   status: number,
-  code?: string,
+  code: string | undefined,
+  requestId: string,
 ): NextResponse<ApiErrorResponse> {
-  return NextResponse.json({ error: message, code, status }, { status })
+  const res = NextResponse.json(
+    { error: message, code, status, requestId },
+    { status },
+  )
+  res.headers.set(REQUEST_ID_HEADER, requestId)
+  return res
+}
+
+function attachRequestId(res: NextResponse, requestId: string): NextResponse {
+  res.headers.set(REQUEST_ID_HEADER, requestId)
+  return res
+}
+
+function structuredLog(
+  level: 'error' | 'warn' | 'info',
+  message: string,
+  fields: Record<string, unknown>,
+): void {
+  const line = JSON.stringify({
+    level,
+    msg: message,
+    ts: new Date().toISOString(),
+    ...fields,
+  })
+  if (level === 'error') console.error(line)
+  else if (level === 'warn') console.warn(line)
+  else console.info(line)
 }
 
 // ---------------------------------------------------------------------------
@@ -148,71 +182,142 @@ type RouteHandler = (req: NextRequest) => Promise<NextResponse>
  *   - `ZodError`   → returns 400 with a human-readable validation message
  *   - Unknown errors → returns 500 Internal Server Error (sanitised message)
  *                      and persists the error to the `app_logs` DB table
+ *
+ * Always echoes `x-request-id` and includes `requestId` on error JSON bodies.
  */
 export function withErrorHandler(handler: RouteHandler): RouteHandler {
   return async (req) => {
-    try {
-      return await handler(req)
-    } catch (err) {
-      const routePath = (() => {
-        try { return new URL(req.url).pathname } catch { return req.url }
-      })()
+    const requestId = resolveRequestId(req.headers)
+    const routePath = (() => {
+      try {
+        return new URL(req.url).pathname
+      } catch {
+        return req.url
+      }
+    })()
 
+    try {
+      const res = await handler(req)
+      return attachRequestId(res, requestId)
+    } catch (err) {
       if (err instanceof SettlementPeriodNotWritableError) {
-        return buildErrorResponse(err.message, 409)
+        return buildErrorResponse(err.message, 409, undefined, requestId)
       }
 
       if (err instanceof ApiError) {
         const logLevel = resolveApiErrorLogLevel(err)
         if (logLevel) {
-          persistRouteError(req, err.message, {
+          structuredLog(logLevel, err.message, {
+            requestId,
             path: routePath,
             method: req.method,
             code: err.code ?? null,
             status: err.status,
-          }, logLevel)
+          })
+          persistRouteError(
+            req,
+            err.message,
+            {
+              path: routePath,
+              method: req.method,
+              code: err.code ?? null,
+              status: err.status,
+              request_id: requestId,
+            },
+            logLevel,
+          )
         }
-        return buildErrorResponse(err.message, err.status, err.code)
+        if (err.status >= 500) {
+          reportExceptionFireAndForget(err, {
+            requestId,
+            path: routePath,
+            method: req.method,
+            code: err.code ?? null,
+            source: 'api',
+          })
+        }
+        return buildErrorResponse(err.message, err.status, err.code, requestId)
       }
 
       if (err instanceof ZodError) {
         const message = err.issues.map((e) => e.message).join('; ')
-        persistRouteError(req, `Validation error: ${message}`, {
+        structuredLog('warn', 'Validation error', {
+          requestId,
           path: routePath,
           method: req.method,
-          issues: err.issues,
-        }, 'warn')
-        return buildErrorResponse(message, 400, 'VALIDATION_ERROR')
+        })
+        persistRouteError(
+          req,
+          `Validation error: ${message}`,
+          {
+            path: routePath,
+            method: req.method,
+            issues: err.issues,
+            request_id: requestId,
+          },
+          'warn',
+        )
+        return buildErrorResponse(message, 400, 'VALIDATION_ERROR', requestId)
       }
 
       if (isPostgresError(err)) {
         const message = getPostgresErrorMessage(err)
-        console.error('[withErrorHandler] Database error:', {
-          code: err.code,
-          message,
-          details: err.details ?? null,
-          path: routePath,
-        })
-        persistRouteError(req, message, {
+        structuredLog('error', 'Database error', {
+          requestId,
           path: routePath,
           method: req.method,
           code: err.code ?? null,
-          details: err.details ?? null,
-          hint: err.hint ?? null,
-        }, 'error')
-        return buildErrorResponse(ERROR_MESSAGES.SERVER_ERROR, 500, 'SERVER_ERROR')
+        })
+        persistRouteError(
+          req,
+          message,
+          {
+            path: routePath,
+            method: req.method,
+            code: err.code ?? null,
+            details: err.details ?? null,
+            hint: err.hint ?? null,
+            request_id: requestId,
+          },
+          'error',
+        )
+        reportExceptionFireAndForget(err, {
+          requestId,
+          path: routePath,
+          method: req.method,
+          code: err.code ?? null,
+          source: 'api.db',
+        })
+        return buildErrorResponse(ERROR_MESSAGES.SERVER_ERROR, 500, 'SERVER_ERROR', requestId)
       }
 
-      // Unknown error — log server-side and persist to app_logs
-      console.error('[withErrorHandler] Unhandled route error:', err)
+      // Unknown error — structured log, app_logs, Sentry
       const errMessage = err instanceof Error ? err.message : String(err)
-      persistRouteError(req, errMessage, {
+      structuredLog('error', 'Unhandled route error', {
+        requestId,
         path: routePath,
         method: req.method,
-        stack: err instanceof Error ? (err.stack ?? null) : null,
-      }, 'error')
+        error: errMessage,
+      })
+      persistRouteError(
+        req,
+        errMessage,
+        {
+          path: routePath,
+          method: req.method,
+          stack: err instanceof Error ? (err.stack ?? null) : null,
+          request_id: requestId,
+        },
+        'error',
+      )
+      reportExceptionFireAndForget(err, {
+        requestId,
+        path: routePath,
+        method: req.method,
+        source: 'api',
+      })
       // Never expose internal error details — always return a safe generic message
-      return buildErrorResponse(ERROR_MESSAGES.SERVER_ERROR, 500, 'SERVER_ERROR')
+      return buildErrorResponse(ERROR_MESSAGES.SERVER_ERROR, 500, 'SERVER_ERROR', requestId)
     }
   }
 }

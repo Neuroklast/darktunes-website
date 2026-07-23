@@ -3,8 +3,12 @@
 /**
  * src/lib/clientErrorReporter.ts
  *
- * Reports client-side errors to POST /api/log-error (authenticated users only).
+ * Reports client-side errors to:
+ *   1. Sentry (when NEXT_PUBLIC_SENTRY_DSN is set)
+ *   2. POST /api/log-error (authenticated users only)
  */
+
+import { reportExceptionFireAndForget } from '@/lib/observability/reportException'
 
 const DEBOUNCE_MS = 2_000
 const reportedFingerprints = new Set<string>()
@@ -48,15 +52,26 @@ export function reportClientError(
   if (reportedFingerprints.has(fp)) return
   reportedFingerprints.add(fp)
 
+  const path = typeof window !== 'undefined' ? window.location.pathname : null
+  const enrichedDetails: Record<string, unknown> = {
+    ...details,
+    stack: error instanceof Error ? (error.stack ?? null) : null,
+    path,
+  }
+
+  if (level === 'error') {
+    reportExceptionFireAndForget(error, {
+      source,
+      path: path ?? undefined,
+      extra: details,
+    })
+  }
+
   pendingReports.push({
     source,
     message,
     level,
-    details: {
-      ...details,
-      stack: error instanceof Error ? (error.stack ?? null) : null,
-      path: typeof window !== 'undefined' ? window.location.pathname : null,
-    },
+    details: enrichedDetails,
   })
 
   if (debounceTimer) clearTimeout(debounceTimer)

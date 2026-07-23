@@ -7,6 +7,13 @@
 - [ ] Validate newsletter submission flow and confirmation message
 - [ ] Validate media and upload features from admin/portal areas
 
+## Observability (Sentry — optional)
+- [ ] Without DSN: app builds and runs; no Sentry network calls required
+- [ ] With staging DSN: forced 500 on an API route appears in Sentry with `request_id` tag
+- [ ] API error JSON includes `requestId` and response has `x-request-id` header
+- [ ] Client UI error boundary (authenticated) still posts to `/api/log-error`
+- [ ] Sentry events do not contain `Authorization` / `Cookie` headers
+
 ## Security
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)
 - [ ] Validate protected API endpoints reject missing/invalid authentication

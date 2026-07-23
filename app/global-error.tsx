@@ -39,6 +39,18 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
     if (process.env.NODE_ENV !== 'production') {
       console.error('[GlobalError]', error)
     }
+
+    // Dynamic import: global-error must stay resilient if the main app graph fails.
+    void import('@/lib/clientErrorReporter')
+      .then(({ reportClientError }) => {
+        reportClientError('ui', error, {
+          boundary: 'app/global-error',
+          digest: error.digest ?? null,
+        })
+      })
+      .catch(() => {
+        /* best-effort */
+      })
   }, [error])
 
   // Nothing to render while the reload is in-flight.

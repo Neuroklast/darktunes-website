@@ -175,6 +175,19 @@ External integration API keys (Spotify, Discogs, Resend, YouTube, MailerLite, et
 - `LABEL_NOTIFICATION_EMAIL`: Label inbox for portal submission and health-alert emails. Leave blank to disable.
 - `HEALTH_ALERT_WEBHOOK_URL`: Configure in Admin → API Keys (encrypted in DB), not env.
 
+### Sentry error tracking (optional — no-op when unset)
+- `SENTRY_DSN`: Server/edge DSN (preferred for Route Handlers). When unset, Sentry is disabled.
+- `NEXT_PUBLIC_SENTRY_DSN`: Browser DSN (can match server). Required for client error boundaries / UI crashes.
+- `SENTRY_ENVIRONMENT`: Optional override (defaults to `VERCEL_ENV` or `NODE_ENV`).
+- `SENTRY_TRACES_SAMPLE_RATE`: Optional 0–1 (default `0.1` in production, `0` in development).
+- `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT`: Optional — enable source-map upload during `next build`. Safe to omit on local builds.
+
+**What is sent:** exception message/stack, route path, method, `request_id` tag, environment.  
+**What is scrubbed:** `Authorization`, `Cookie`, `Set-Cookie`, and other sensitive headers (`beforeSend`).  
+**Correlation:** API errors return `requestId` in JSON and `x-request-id` response header; the same id is tagged on Sentry events and written to `app_logs.details.request_id`.
+
+**Smoke test (staging):** force a 500 on a guarded route (or temporary throw) and confirm the event appears in Sentry with `request_id` matching the API response.
+
 ### Newsletter Double Opt-In
 - **Next.js routes** (contact form, portal notifications): Resend credentials from Admin → API Keys.
 - **Supabase Edge Function** `newsletter-confirm`: still uses Supabase Edge Function secrets (see below) until migrated.

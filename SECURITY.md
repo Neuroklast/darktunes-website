@@ -41,6 +41,8 @@ We will respond within 72 hours and coordinate a fix before any public disclosur
 - **Image caching** — external cover art images are downloaded server-side and uploaded to Cloudflare R2. The browser only ever loads images from R2 (via wsrv.nl proxy). External image URLs are never stored in the database or sent to the browser.
 - **Rich-text messaging sanitization** — `label_messages.body_html` and `artist_replies.body_html` store formatted content. Every render path sanitizes the HTML with `sanitizeHtml()` from `src/lib/sanitizeHtml.ts`, which applies a regex-based server-safe pass during SSR and delegates to DOMPurify on the client, before using `dangerouslySetInnerHTML`. This covers both the initial server-rendered response and the client hydration, reducing XSS risk across the admin inbox, artist portal, and all other rich-text surfaces (bio fields, privacy policy, about page).
 - Dependencies are kept up to date. Run `npm audit` before adding new packages.
+- **Error tracking (optional Sentry):** When `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` are set, unhandled route errors and client UI crashes are reported to Sentry. Sensitive headers (`Authorization`, `Cookie`, etc.) are stripped in `beforeSend`. DSNs are project-scoped; never put org auth tokens in `NEXT_PUBLIC_*`. Without DSNs the app runs with no Sentry calls (local/CI safe).
+- **Request correlation:** `withErrorHandler` assigns or reuses `x-request-id`, returns it on error JSON as `requestId`, and includes it in structured logs / `app_logs` / Sentry tags for support triage.
 
 ## CSRF Protection
 
