@@ -135,7 +135,8 @@ async function establishInviteSession(
   origin: string,
   destination: string,
 ): Promise<NextResponse> {
-  const tokenHash = new URL(request.url).searchParams.get('token_hash')
+  const requestUrl = new URL(request.url)
+  const tokenHash = requestUrl.searchParams.get('token_hash')
   if (!tokenHash) {
     return NextResponse.redirect(inviteLoginUrl(origin, { error: 'missing_code' }))
   }
@@ -150,6 +151,13 @@ async function establishInviteSession(
   })
 
   if (error) {
+    console.error('[auth/callback] invite token verification failed', {
+      message: error.message,
+      status: error.status,
+      code: error.code,
+      portal: requestUrl.searchParams.get('portal') === '1',
+      host: requestUrl.host,
+    })
     const failureResponse = NextResponse.redirect(inviteLoginUrl(origin, { error: 'auth_failed' }))
     for (const cookie of getResponse().cookies.getAll()) {
       failureResponse.cookies.set(cookie.name, cookie.value)
