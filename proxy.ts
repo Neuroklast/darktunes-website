@@ -54,6 +54,25 @@ function routeIsProtected(flags: ReturnType<typeof classifyRoute>): boolean {
   )
 }
 
+/**
+ * Builds a `NextResponse.next()` that forwards `x-pathname`/`x-url` as
+ * REQUEST headers (not just response headers), so Server Components reading
+ * them via `headers()` (e.g. `src/i18n/request.ts`, `app/portal/layout.tsx`)
+ * see the current pathname during the same request — not just in the browser
+ * response.
+ */
+function nextWithRequestContext(request: NextRequest): NextResponse {
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-pathname', request.nextUrl.pathname)
+  requestHeaders.set('x-url', request.url)
+
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
+}
+
 function redirectUnauthenticatedToLogin(request: NextRequest): NextResponse {
   const loginUrl = request.nextUrl.clone()
   loginUrl.pathname = '/login'
@@ -83,9 +102,7 @@ export async function proxy(request: NextRequest) {
   // Public routes (not protected, not login): inject x-pathname and return immediately
   // to avoid unnecessary auth overhead on every public page request.
   if (!protectedRoute && !route.isLoginPage) {
-    const res = NextResponse.next({ request })
-    res.headers.set('x-pathname', pathname)
-    return res
+    return nextWithRequestContext(request)
   }
 
   // CI placeholder credentials: enforce route redirects without calling Supabase
@@ -94,12 +111,10 @@ export async function proxy(request: NextRequest) {
     if (protectedRoute && !route.isLoginPage && !route.isPortalAcceptInvitePage) {
       return redirectUnauthenticatedToLogin(request)
     }
-    const res = NextResponse.next({ request })
-    res.headers.set('x-pathname', pathname)
-    return res
+    return nextWithRequestContext(request)
   }
 
-  let supabaseResponse = NextResponse.next({ request })
+  let supabaseResponse = nextWithRequestContext(request)
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
@@ -111,7 +126,7 @@ export async function proxy(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
+          supabaseResponse = nextWithRequestContext(request)
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           )
@@ -279,13 +294,6 @@ export async function proxy(request: NextRequest) {
       sameSite: 'lax',
     })
   }
-
-  // Forward the current pathname as a request header so Server Components
-  // (e.g. app/portal/layout.tsx) can read it without importing next/headers
-  // in a way that requires a client context.
-  supabaseResponse.headers.set('x-pathname', pathname)
-  // Forward the full URL (including query string) so portal layout can extract ?artistId
-  supabaseResponse.headers.set('x-url', request.url)
 
   return supabaseResponse
 }
