@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { MapTrifold, Plus, ListChecks } from '@phosphor-icons/react'
+import { MapTrifold, Plus, ListChecks, Path } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,26 +32,46 @@ import {
   saveTourPlannerMode,
   type TourPlannerUiMode,
 } from './TourProductionWizard'
+import { TourModeView } from './TourModeView'
 
 interface TourPlannerShellProps {
   artistId: string
   artistName: string
   initialTours: Tour[]
   concerts: Concert[]
+  /** Deep link: `tour` opens show-day mode */
+  initialViewMode?: 'tour' | null
+  initialTourId?: string | null
+  initialStopId?: string | null
 }
 
-export function TourPlannerShell({ artistId, artistName, initialTours, concerts }: TourPlannerShellProps) {
+export function TourPlannerShell({
+  artistId,
+  artistName,
+  initialTours,
+  concerts,
+  initialViewMode = null,
+  initialTourId = null,
+  initialStopId = null,
+}: TourPlannerShellProps) {
   const t = useTranslations('portal')
   const queryClient = useQueryClient()
   const [uiMode, setUiMode] = useState<TourPlannerUiMode>('chooser')
-  const [activeTourId, setActiveTourId] = useState<string | null>(initialTours[0]?.id ?? null)
+  const [tourModeOpen, setTourModeOpen] = useState(initialViewMode === 'tour')
+  const [activeTourId, setActiveTourId] = useState<string | null>(
+    initialTourId ?? initialTours[0]?.id ?? null,
+  )
   const [newTourName, setNewTourName] = useState('')
   const [newStopDate, setNewStopDate] = useState('')
   const [newStopVenue, setNewStopVenue] = useState('')
 
   useEffect(() => {
+    if (initialViewMode === 'tour') {
+      setTourModeOpen(true)
+      return
+    }
     setUiMode(loadTourPlannerMode())
-  }, [])
+  }, [initialViewMode])
 
   const { data: tours = initialTours } = useTourPlannerTours(artistId, initialTours)
   const { data: stops = [] } = useTourPlannerStops(artistId, activeTourId)
@@ -169,6 +189,41 @@ export function TourPlannerShell({ artistId, artistName, initialTours, concerts 
   const selectMode = (mode: 'assistant' | 'advanced') => {
     saveTourPlannerMode(mode)
     setUiMode(mode)
+    setTourModeOpen(false)
+  }
+
+  const openTourMode = () => {
+    setTourModeOpen(true)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('mode', 'tour')
+      if (activeTourId) url.searchParams.set('tourId', activeTourId)
+      window.history.replaceState({}, '', url.toString())
+    }
+  }
+
+  const exitTourMode = () => {
+    setTourModeOpen(false)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('mode')
+      url.searchParams.delete('stopId')
+      window.history.replaceState({}, '', url.toString())
+    }
+    if (uiMode === 'chooser') setUiMode(loadTourPlannerMode())
+  }
+
+  if (tourModeOpen) {
+    return (
+      <TourModeView
+        artistId={artistId}
+        artistName={artistName}
+        initialTours={tours}
+        initialTourId={activeTourId}
+        initialStopId={initialStopId}
+        onExit={exitTourMode}
+      />
+    )
   }
 
   if (uiMode === 'chooser') {
@@ -235,6 +290,12 @@ export function TourPlannerShell({ artistId, artistName, initialTours, concerts 
                 </SelectContent>
               </Select>
             )}
+            {tours.length > 0 && (
+              <Button type="button" variant="secondary" onClick={openTourMode}>
+                <Path size={16} className="mr-2" aria-hidden />
+                {t('tour_mode_enter')}
+              </Button>
+            )}
             <Button type="button" variant="outline" onClick={() => selectMode('advanced')}>
               {t('tour_guide_switch_advanced')}
             </Button>
@@ -276,10 +337,18 @@ export function TourPlannerShell({ artistId, artistName, initialTours, concerts 
               </p>
             </div>
           </div>
-          <Button type="button" variant="secondary" onClick={() => selectMode('assistant')}>
-            <ListChecks size={16} className="mr-2" aria-hidden />
-            {t('tour_guide_open_guide')}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {tours.length > 0 && (
+              <Button type="button" variant="default" onClick={openTourMode}>
+                <Path size={16} className="mr-2" aria-hidden />
+                {t('tour_mode_enter')}
+              </Button>
+            )}
+            <Button type="button" variant="secondary" onClick={() => selectMode('assistant')}>
+              <ListChecks size={16} className="mr-2" aria-hidden />
+              {t('tour_guide_open_guide')}
+            </Button>
+          </div>
         </div>
         <p className="text-sm text-muted-foreground max-w-2xl">{t('tour_planner_intro')}</p>
       </header>

@@ -261,7 +261,7 @@ export function PortalOverview({ artistName,
         </Link>
 
         {isEnabled('artist.tour_planner') && (
-          <Link href="/portal/tour-planner">
+          <Link href={tourCount > 0 ? '/portal/tour-planner?mode=tour' : '/portal/tour-planner'}>
             <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer glow-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -271,7 +271,9 @@ export function PortalOverview({ artistName,
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{tourCount}</p>
-                <p className="text-xs text-muted-foreground mt-1">{t('overview_tourPlanner')}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {tourCount > 0 ? t('tour_mode_overview_cta') : t('overview_tourPlanner')}
+                </p>
               </CardContent>
             </Card>
           </Link>

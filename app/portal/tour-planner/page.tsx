@@ -30,10 +30,10 @@ function TourPlannerSkeleton() {
 async function TourPlannerContent({
   searchParams,
 }: {
-  searchParams: Promise<{ artistId?: string }>
+  searchParams: Promise<{ artistId?: string; mode?: string; tourId?: string; stopId?: string }>
 }) {
   const t = await getTranslations('portal')
-  const { artistId } = await searchParams
+  const { artistId, mode, tourId, stopId } = await searchParams
   const supabase = await createServerSupabaseClient()
   const {
     data: { user },
@@ -64,6 +64,9 @@ async function TourPlannerContent({
       artistName={artist.name}
       initialTours={tours}
       concerts={concerts}
+      initialViewMode={mode === 'tour' ? 'tour' : null}
+      initialTourId={tourId ?? null}
+      initialStopId={stopId ?? null}
     />
   )
 }
@@ -71,7 +74,7 @@ async function TourPlannerContent({
 export default function TourPlannerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ artistId?: string }>
+  searchParams: Promise<{ artistId?: string; mode?: string; tourId?: string; stopId?: string }>
 }) {
   return (
     <Suspense fallback={<TourPlannerSkeleton />}>
