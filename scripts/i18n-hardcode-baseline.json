@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T11:21:51.986Z",
+  "generatedAt": "2026-07-29T12:19:23.492Z",
   "items": [
     "app/admin/_components/AdminDashboardWrapper.tsx::Loading editor dashboard",
     "app/admin/accreditations/page.tsx::Press Accreditations",
@@ -131,7 +131,6 @@
     "src/components/admin/ReleaseSubmissionsManager.tsx::Optional message to artist…",
     "src/components/admin/ReleasesManager.tsx::Delete",
     "src/components/admin/ReleasesManager.tsx::Delete releases with no linked artist",
-    "src/components/admin/ReleasesManager.tsx::Release checklist",
     "src/components/admin/ReleasesManager.tsx::Search releases…",
     "src/components/admin/ReleasesManager.tsx::Select all on this page",
     "src/components/admin/RolesManager.tsx::Next page",
@@ -384,6 +383,7 @@
     "src/components/admin/sos/fields/LabelAddressFields.tsx::Heidelberg",
     "src/components/admin/sync/SyncAdvancedJobsPanel.tsx::Filter jobs by status",
     "src/components/admin/sync/SyncAdvancedJobsPanel.tsx::Refresh job list",
+    "src/components/admin/sync/SyncAdvancedJobsPanel.tsx::Select all jobs in this list",
     "src/components/admin/sync/SyncSetupChecklist.tsx::CRON_SECRET on the site",
     "src/components/admin/sync/SyncSetupChecklist.tsx::Queue executor (process-queue)",
     "src/components/admin/sync/SyncSetupChecklist.tsx::YouTube channel sync",
