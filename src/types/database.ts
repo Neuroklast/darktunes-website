@@ -962,6 +962,45 @@ export interface Database {
         }
         Relationships: []
       }
+      tour_share_links: {
+        Row: {
+          id: string
+          tour_id: string
+          artist_id: string
+          token: string
+          label: string | null
+          is_active: boolean
+          expires_at: string | null
+          created_by: string | null
+          created_at: string
+          revoked_at: string | null
+        }
+        Insert: {
+          id?: string
+          tour_id: string
+          artist_id: string
+          token: string
+          label?: string | null
+          is_active?: boolean
+          expires_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          revoked_at?: string | null
+        }
+        Update: {
+          id?: string
+          tour_id?: string
+          artist_id?: string
+          token?: string
+          label?: string | null
+          is_active?: boolean
+          expires_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          revoked_at?: string | null
+        }
+        Relationships: []
+      }
       epk_download_events: {
         Row: {
           id: string

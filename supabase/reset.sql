@@ -1398,6 +1398,44 @@ CREATE TABLE IF NOT EXISTS public.tours (
 CREATE INDEX IF NOT EXISTS idx_tours_artist_id ON public.tours (artist_id);
 CREATE INDEX IF NOT EXISTS idx_tours_archived  ON public.tours (artist_id, archived);
 
+-- Public read-only share links for tours (logistics + deal framework)
+CREATE TABLE IF NOT EXISTS public.tour_share_links (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tour_id     UUID        NOT NULL REFERENCES public.tours (id) ON DELETE CASCADE,
+  artist_id   UUID        NOT NULL REFERENCES public.artists (id) ON DELETE CASCADE,
+  token       TEXT        NOT NULL UNIQUE,
+  label       TEXT,
+  is_active   BOOLEAN     NOT NULL DEFAULT TRUE,
+  expires_at  TIMESTAMPTZ,
+  created_by  UUID        REFERENCES auth.users (id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  revoked_at  TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_tour_share_links_tour_id ON public.tour_share_links (tour_id);
+CREATE INDEX IF NOT EXISTS idx_tour_share_links_token ON public.tour_share_links (token);
+CREATE INDEX IF NOT EXISTS idx_tour_share_links_artist_id ON public.tour_share_links (artist_id);
+
+ALTER TABLE public.tour_share_links ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "tour_share_links: artist manage" ON public.tour_share_links;
+CREATE POLICY "tour_share_links: artist manage" ON public.tour_share_links
+  FOR ALL TO authenticated
+  USING (
+    artist_id IN (SELECT am.artist_id FROM public.artist_members am WHERE am.user_id = auth.uid())
+    OR public.has_permission(auth.uid(), 'can_view_admin_panel')
+  )
+  WITH CHECK (
+    artist_id IN (SELECT am.artist_id FROM public.artist_members am WHERE am.user_id = auth.uid())
+    OR public.has_permission(auth.uid(), 'can_view_admin_panel')
+  );
+
+DROP POLICY IF EXISTS "tour_share_links: admin all" ON public.tour_share_links;
+CREATE POLICY "tour_share_links: admin all" ON public.tour_share_links
+  FOR ALL TO authenticated
+  USING (public.has_permission(auth.uid(), 'can_view_admin_panel'))
+  WITH CHECK (public.has_permission(auth.uid(), 'can_view_admin_panel'));
+
 CREATE TABLE IF NOT EXISTS public.tour_stops (
   id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   tour_id             UUID        NOT NULL REFERENCES public.tours (id) ON DELETE CASCADE,

@@ -19,6 +19,7 @@ import { dbStopToTrack } from '@/lib/tour-planner/mappers'
 import {
   downloadMerchSettlementPdf,
   downloadSettlementPdf,
+  downloadTourItineraryPdf,
   type TourPlannerPdfLabels,
 } from '@/lib/tour-planner/pdf'
 import {
@@ -75,6 +76,11 @@ export function buildTourPlannerPdfLabels(t: PortalTranslator): TourPlannerPdfLa
     itemsSold: t('tour_planner_merch_items_sold'),
     signedAt: t('tour_planner_pdf_signed_at'),
     signature: t('tour_planner_pdf_signature'),
+    itinerary: t('tour_guide_export_itinerary'),
+    status: t('tour_planner_show_status_label'),
+    hotel: t('tour_planner_hotel_name'),
+    travelDay: t('tour_planner_travel_day_label'),
+    deal: t('tour_planner_deal_type'),
   }
 }
 
@@ -160,6 +166,14 @@ export function MapRoutePanel({ artistId, activeTour, stops }: { artistId: strin
           <>
             <Button variant="outline" onClick={exportCsv}>{t('tour_planner_export_csv')}</Button>
             <Button variant="outline" onClick={exportText}>{t('tour_planner_export_text')}</Button>
+            {activeTour && (
+              <Button
+                variant="outline"
+                onClick={() => downloadTourItineraryPdf(activeTour, stops, buildTourPlannerPdfLabels(t))}
+              >
+                {t('tour_guide_export_itinerary')}
+              </Button>
+            )}
           </>
         )}
       </div>

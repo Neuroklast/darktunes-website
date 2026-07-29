@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { MapTrifold, Plus } from '@phosphor-icons/react'
+import { MapTrifold, Plus, ListChecks } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PortalEmptyState } from '@/components/portal/PortalEmptyState'
+import { GuidedModeChooser } from '@/components/guided/GuidedModeChooser'
 import { parseTourPlannerJson, tourPlannerFetch, wasQueuedOffline } from '@/lib/tour-planner/clientApi'
 import { useTourPlannerStops, useTourPlannerTours } from '@/lib/tour-planner/hooks'
 import { tourPlannerKeys } from '@/lib/tour-planner/keys'
@@ -25,6 +26,12 @@ import { DEFAULT_TOUR_PLANNER_SETTINGS } from '@/lib/tour-planner/types'
 import type { Concert, Tour } from '@/types'
 import { TourPlannerTabs } from './TourPlannerPanels'
 import { TourPlannerOfflineBanner } from './TourPlannerOfflineBanner'
+import {
+  TourProductionWizard,
+  loadTourPlannerMode,
+  saveTourPlannerMode,
+  type TourPlannerUiMode,
+} from './TourProductionWizard'
 
 interface TourPlannerShellProps {
   artistId: string
@@ -36,10 +43,15 @@ interface TourPlannerShellProps {
 export function TourPlannerShell({ artistId, artistName, initialTours, concerts }: TourPlannerShellProps) {
   const t = useTranslations('portal')
   const queryClient = useQueryClient()
+  const [uiMode, setUiMode] = useState<TourPlannerUiMode>('chooser')
   const [activeTourId, setActiveTourId] = useState<string | null>(initialTours[0]?.id ?? null)
   const [newTourName, setNewTourName] = useState('')
   const [newStopDate, setNewStopDate] = useState('')
   const [newStopVenue, setNewStopVenue] = useState('')
+
+  useEffect(() => {
+    setUiMode(loadTourPlannerMode())
+  }, [])
 
   const { data: tours = initialTours } = useTourPlannerTours(artistId, initialTours)
   const { data: stops = [] } = useTourPlannerStops(artistId, activeTourId)
@@ -118,56 +130,18 @@ export function TourPlannerShell({ artistId, artistName, initialTours, concerts 
           tourId: activeTourId,
           stopDate: newStopDate,
           venueName: newStopVenue || null,
-          sortOrder: stops.length,
         }),
       })
       if (!res.ok) throw new Error('Failed to create stop')
-      return wasQueuedOffline(res)
+      const offline = wasQueuedOffline(res)
+      const json = offline ? null : await parseTourPlannerJson<{ stop: import('@/types').TourStop }>(res)
+      return { stop: json?.stop ?? null, offline }
     },
-    onSuccess: (offline) => {
-      if (offline && activeTourId) {
-        appendStopToCache(queryClient, artistId, activeTourId, {
-          id: `offline-${crypto.randomUUID()}`,
-          tourId: activeTourId,
-          artistId,
-          concertId: null,
-          stopDate: newStopDate,
-          isTravelDay: false,
-          sortOrder: stops.length,
-          venueName: newStopVenue || null,
-          venueAddress: null,
-          venueCity: null,
-          venueCountry: null,
-          venueLat: null,
-          venueLng: null,
-          venueValidated: false,
-          hotelName: null,
-          hotelAddress: null,
-          hotelCity: null,
-          hotelCountry: null,
-          hotelLat: null,
-          hotelLng: null,
-          hotelValidated: false,
-          arrivalTime: null,
-          showStatus: 'option',
-          daySchedule: null,
-          deal: null,
-          settlement: null,
-          perDiems: [],
-          rooming: [],
-          travelManifest: [],
-          venueDetails: null,
-          venueContactInfo: null,
-          guestList: [],
-          guestListLimit: null,
-          notes: null,
-          externalGuestNotes: null,
-          performingArtistIds: [],
-          privateDataVersion: null,
-          privateDataUpdatedAt: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        })
+    onSuccess: ({ stop, offline }) => {
+      if (offline && stop && activeTourId) {
+        appendStopToCache(queryClient, artistId, activeTourId, stop)
+      } else if (stop && activeTourId) {
+        appendStopToCache(queryClient, artistId, activeTourId, stop)
       } else {
         invalidateStops()
       }
@@ -192,17 +166,120 @@ export function TourPlannerShell({ artistId, artistName, initialTours, concerts 
     toast.success(t('tour_planner_tour_deleted'))
   }, [invalidateTours, t])
 
+  const selectMode = (mode: 'assistant' | 'advanced') => {
+    saveTourPlannerMode(mode)
+    setUiMode(mode)
+  }
+
+  if (uiMode === 'chooser') {
+    return (
+      <div className="space-y-6">
+        <TourPlannerOfflineBanner />
+        <header className="space-y-2">
+          <div className="flex items-center gap-3">
+            <MapTrifold size={28} className="text-primary" aria-hidden />
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">{t('tour_planner_heading')}</h1>
+              <p className="text-muted-foreground text-sm">
+                {t('tour_planner_subheading', { artist: artistName })}
+              </p>
+            </div>
+          </div>
+        </header>
+        <GuidedModeChooser
+          title={t('tour_guide_mode_title')}
+          subtitle={t('tour_guide_mode_subtitle')}
+          recommendedLabel={t('tour_guide_recommended')}
+          assistantTitle={t('tour_guide_mode_assistant_title')}
+          assistantDesc={t('tour_guide_mode_assistant_desc')}
+          assistantButton={t('tour_guide_mode_assistant_btn')}
+          advancedTitle={t('tour_guide_mode_advanced_title')}
+          advancedDesc={t('tour_guide_mode_advanced_desc')}
+          advancedButton={t('tour_guide_mode_advanced_btn')}
+          whatNextTitle={t('tour_guide_mode_what_next')}
+          whatNextSteps={[
+            t('tour_guide_mode_next_1'),
+            t('tour_guide_mode_next_2'),
+            t('tour_guide_mode_next_3'),
+          ]}
+          onSelect={selectMode}
+        />
+      </div>
+    )
+  }
+
+  if (uiMode === 'assistant') {
+    return (
+      <div className="space-y-6">
+        <TourPlannerOfflineBanner />
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <ListChecks size={28} className="text-primary" aria-hidden />
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">{t('tour_guide_heading')}</h1>
+              <p className="text-muted-foreground text-sm">{t('tour_guide_subheading')}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {tours.length > 0 && (
+              <Select value={activeTourId ?? undefined} onValueChange={setActiveTourId}>
+                <SelectTrigger className="w-[200px]" aria-label={t('tour_planner_select_tour')}>
+                  <SelectValue placeholder={t('tour_planner_select_tour')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {tours.map((tour) => (
+                    <SelectItem key={tour.id} value={tour.id}>
+                      {tour.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button type="button" variant="outline" onClick={() => selectMode('advanced')}>
+              {t('tour_guide_switch_advanced')}
+            </Button>
+          </div>
+        </header>
+        <TourProductionWizard
+          artistId={artistId}
+          artistName={artistName}
+          initialTours={tours}
+          concerts={concerts}
+          activeTour={activeTour}
+          stops={stops}
+          onTourCreated={(id) => {
+            setActiveTourId(id)
+            invalidateTours()
+          }}
+          onOpenAdvanced={() => selectMode('advanced')}
+          onRefresh={() => {
+            invalidateTours()
+            invalidateStops()
+          }}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
       <TourPlannerOfflineBanner />
 
       <header className="space-y-2">
-        <div className="flex items-center gap-3">
-          <MapTrifold size={28} className="text-primary" aria-hidden />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{t('tour_planner_heading')}</h1>
-            <p className="text-muted-foreground text-sm">{t('tour_planner_subheading', { artist: artistName })}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <MapTrifold size={28} className="text-primary" aria-hidden />
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">{t('tour_planner_heading')}</h1>
+              <p className="text-muted-foreground text-sm">
+                {t('tour_planner_subheading', { artist: artistName })}
+              </p>
+            </div>
           </div>
+          <Button type="button" variant="secondary" onClick={() => selectMode('assistant')}>
+            <ListChecks size={16} className="mr-2" aria-hidden />
+            {t('tour_guide_open_guide')}
+          </Button>
         </div>
         <p className="text-sm text-muted-foreground max-w-2xl">{t('tour_planner_intro')}</p>
       </header>
@@ -236,7 +313,8 @@ export function TourPlannerShell({ artistId, artistName, initialTours, concerts 
               </SelectTrigger>
               <SelectContent>
                 {tours.map((tour) => {
-                  const coTour = (tour.collaborators?.length ?? 0) > 0 || tour.accessRole === 'collaborator'
+                  const coTour =
+                    (tour.collaborators?.length ?? 0) > 0 || tour.accessRole === 'collaborator'
                   const label = [
                     tour.name,
                     tour.archived ? `(${t('tour_planner_archived_label')})` : null,
@@ -244,7 +322,9 @@ export function TourPlannerShell({ artistId, artistName, initialTours, concerts 
                     tour.accessRole === 'collaborator' && tour.ownerArtistName
                       ? `(${tour.ownerArtistName})`
                       : null,
-                  ].filter(Boolean).join(' ')
+                  ]
+                    .filter(Boolean)
+                    .join(' ')
                   return (
                     <SelectItem key={tour.id} value={tour.id}>
                       {label}
