@@ -71,6 +71,7 @@ export function ReleaseSubmissionsManager() {
   const [tracks, setTracks] = useState<ReleaseSubmissionTrack[]>([])
   const [newStatus, setNewStatus] = useState<SubmissionStatus>('received')
   const [adminReply, setAdminReply] = useState('')
+  const [progressNote, setProgressNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null)
   const [exporting, setExporting] = useState<string | null>(null)
@@ -114,6 +115,7 @@ export function ReleaseSubmissionsManager() {
     setSelected(sub)
     setNewStatus(sub.status)
     setAdminReply(sub.adminReply ?? '')
+    setProgressNote(sub.progressNote ?? '')
     setTracks([])
     try {
       const token = await getToken()
@@ -129,7 +131,12 @@ export function ReleaseSubmissionsManager() {
     }
   }
 
-  const patchStatus = async (id: string, status: SubmissionStatus, reply?: string) => {
+  const patchStatus = async (
+    id: string,
+    status: SubmissionStatus,
+    reply?: string,
+    progress?: string | null,
+  ) => {
     const token = await getToken()
     const res = await fetch('/api/admin/release-submissions/' + id, {
       method: 'PATCH',
@@ -140,6 +147,7 @@ export function ReleaseSubmissionsManager() {
       body: JSON.stringify({
         status,
         ...(reply !== undefined ? { adminReply: reply || undefined } : {}),
+        ...(progress !== undefined ? { progressNote: progress } : {}),
       }),
     })
     if (!res.ok) throw new Error('Failed')
@@ -214,7 +222,7 @@ export function ReleaseSubmissionsManager() {
     if (!selected) return
     setSaving(true)
     try {
-      await patchStatus(selected.id, newStatus, adminReply)
+      await patchStatus(selected.id, newStatus, adminReply, progressNote)
       toast.success(tToast('submission_updated'))
       setSelected(null)
       await fetchSubmissions()
@@ -573,6 +581,17 @@ export function ReleaseSubmissionsManager() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="submission-progress-note">{t('submission_progress_note')}</Label>
+              <Textarea
+                id="submission-progress-note"
+                value={progressNote}
+                onChange={(e) => setProgressNote(e.target.value)}
+                placeholder={t('submission_progress_note_hint')}
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">{t('submission_progress_note_hint')}</p>
             </div>
             <div className="space-y-2">
               <Label>{t('submission_reply')}</Label>

@@ -4158,6 +4158,7 @@ export interface Database {
           form_data: Record<string, unknown> | null
           admin_reply: string | null
           admin_reply_at: string | null
+          progress_note: string | null
           release_id: string | null
           created_at: string
           updated_at: string
@@ -4183,6 +4184,7 @@ export interface Database {
           form_data?: Record<string, unknown> | null
           admin_reply?: string | null
           admin_reply_at?: string | null
+          progress_note?: string | null
           release_id?: string | null
           created_at?: string
           updated_at?: string
@@ -4208,6 +4210,7 @@ export interface Database {
           form_data?: Record<string, unknown> | null
           admin_reply?: string | null
           admin_reply_at?: string | null
+          progress_note?: string | null
           release_id?: string | null
           created_at?: string
           updated_at?: string

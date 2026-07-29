@@ -169,7 +169,6 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         route: '/portal/releases',
         sections: [
           section('overview', 'overview', 'topic_releases_overview_title', 'topic_releases_overview_body'),
-          section('checklist', 'subfeature', 'topic_releases_checklist_title', 'topic_releases_checklist_body'),
           section('troubleshoot', 'troubleshoot', 'topic_releases_troubleshoot_title', 'topic_releases_troubleshoot_body'),
         ],
       },
@@ -182,6 +181,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           section('fields', 'subfeature', 'topic_release_submission_fields_title', 'topic_release_submission_fields_body', ['isrc', 'catalog']),
           section('cover-art', 'subfeature', 'topic_release_submission_cover_title', 'topic_release_submission_cover_body', ['3000x3000', 'jpeg']),
           section('workflow', 'workflow', 'topic_release_submission_workflow_title', 'topic_release_submission_workflow_body'),
+          section('status', 'workflow', 'topic_release_submission_status_title', 'topic_release_submission_status_body'),
           section('troubleshoot', 'troubleshoot', 'topic_release_submission_troubleshoot_title', 'topic_release_submission_troubleshoot_body'),
         ],
       },

@@ -916,6 +916,8 @@ export interface ReleaseSubmission {
   formData: Record<string, unknown> | null
   adminReply: string | null
   adminReplyAt: string | null
+  /** Label progress note visible to the artist (pipeline update, not a formal decision). */
+  progressNote: string | null
   /** Catalog release created from this submission (draft), if any */
   releaseId?: string | null
   /** Admin list enrichment (not a DB column). */

@@ -23,7 +23,7 @@ interface PortalOverviewProps {
   totalStreams: number
   releaseCount: number
   upcomingShowCount: number
-  openChecklistCount: number
+  openSubmissionCount: number
   statementCount: number
   assetCount: number
   tourCount: number
@@ -39,7 +39,7 @@ export function PortalOverview({ artistName,
   totalStreams,
   releaseCount,
   upcomingShowCount,
-  openChecklistCount,
+  openSubmissionCount,
   statementCount,
   assetCount,
   tourCount,
@@ -236,7 +236,11 @@ export function PortalOverview({ artistName,
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{releaseCount}</p>
-              <p className="text-xs text-muted-foreground mt-1">{openChecklistCount} open checklist items</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {openSubmissionCount > 0
+                  ? t('overview_open_submissions', { count: openSubmissionCount })
+                  : t('overview_no_open_submissions')}
+              </p>
             </CardContent>
           </Card>
         </Link>

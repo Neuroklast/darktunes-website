@@ -42,7 +42,7 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
     stats,
     releases,
     concerts,
-    openChecklistCount,
+    openSubmissionCount,
     artistProfile,
     statementCount,
     assetCount,
@@ -57,10 +57,10 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
         getConcertsByArtistId(supabase, artist.id).catch(() => []),
         safeHeadCount(
           supabase
-            .from('release_checklists')
+            .from('release_submissions')
             .select('id', { count: 'exact', head: true })
             .eq('artist_id', artist.id)
-            .eq('is_completed', false),
+            .in('status', ['received', 'reviewed']),
         ),
         getArtistProfileByArtistId(supabase, artist.id).catch(() => null),
         safeHeadCount(
@@ -107,7 +107,7 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
       totalStreams={totalStreams}
       releaseCount={releases.length}
       upcomingShowCount={concerts.length}
-      openChecklistCount={openChecklistCount}
+      openSubmissionCount={openSubmissionCount}
       statementCount={statementCount}
       assetCount={assetCount}
       tourCount={tourCount}

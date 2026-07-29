@@ -4909,6 +4909,8 @@ CREATE TABLE IF NOT EXISTS public.release_submissions (
   form_data           JSONB,
   admin_reply         TEXT,
   admin_reply_at      TIMESTAMPTZ,
+  -- Label-facing progress text shown to the artist (e.g. "Cover approved, DSP delivery pending")
+  progress_note       TEXT,
   -- Linked catalog release when label creates a draft from this submission
   release_id          UUID                      REFERENCES public.releases (id) ON DELETE SET NULL,
   created_at          TIMESTAMPTZ               NOT NULL DEFAULT NOW(),
@@ -4916,6 +4918,7 @@ CREATE TABLE IF NOT EXISTS public.release_submissions (
 );
 
 ALTER TABLE public.release_submissions ADD COLUMN IF NOT EXISTS release_id UUID REFERENCES public.releases (id) ON DELETE SET NULL;
+ALTER TABLE public.release_submissions ADD COLUMN IF NOT EXISTS progress_note TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_release_submissions_artist_id ON public.release_submissions (artist_id);
 CREATE INDEX IF NOT EXISTS idx_release_submissions_status    ON public.release_submissions (status);

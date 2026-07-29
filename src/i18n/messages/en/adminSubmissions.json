@@ -35,6 +35,8 @@
   "release_submissions_heading": "Release Submissions",
   "video_submissions_heading": "Video Submissions",
   "submission_status_update": "Update Status",
+  "submission_progress_note": "Progress note (visible to artist)",
+  "submission_progress_note_hint": "Short update on pipeline status, e.g. “Cover approved — waiting for DSP delivery”.",
   "submission_reply": "Reply to Artist",
   "submission_reply_send": "Send Reply",
   "submission_artist": "Artist",

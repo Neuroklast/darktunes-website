@@ -18,6 +18,8 @@ function extractId(req: NextRequest): string {
 const patchSchema = z.object({
   status: z.enum(['received', 'reviewed', 'accepted', 'rejected']),
   adminReply: z.string().optional(),
+  /** Free-text pipeline note shown to the artist. Empty string clears. */
+  progressNote: z.string().max(2000).optional().nullable(),
 })
 
 const postSchema = z.object({
@@ -41,11 +43,19 @@ export const PATCH = withErrorHandler(async (req: NextRequest) => {
   const id = extractId(req)
   const body = patchSchema.parse(await req.json())
 
+  const progressNote =
+    body.progressNote === undefined
+      ? undefined
+      : body.progressNote === null || body.progressNote.trim() === ''
+        ? null
+        : body.progressNote.trim()
+
   const submission = await updateReleaseSubmissionStatus(
     supabase,
     id,
     body.status,
     body.adminReply,
+    progressNote,
   )
 
   if (body.status === 'accepted' || body.status === 'rejected') {

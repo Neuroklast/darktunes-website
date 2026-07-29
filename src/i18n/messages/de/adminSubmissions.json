@@ -35,6 +35,8 @@
   "release_submissions_heading": "Release-Einreichungen",
   "video_submissions_heading": "Video-Einreichungen",
   "submission_status_update": "Status aktualisieren",
+  "submission_progress_note": "Fortschrittsnotiz (sichtbar für Künstler)",
+  "submission_progress_note_hint": "Kurzer Pipeline-Stand, z. B. „Cover freigegeben — warte auf DSP-Delivery“.",
   "submission_reply": "Antwort an Künstler",
   "submission_reply_send": "Antwort senden",
   "submission_artist": "Künstler",

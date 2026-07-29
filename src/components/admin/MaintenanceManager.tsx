@@ -57,7 +57,6 @@ type LoadingKey =
   | 'clear-admin-logs'
   | 'clean-orphaned'
   | 'purge-releases'
-  | 'reset-checklists'
   | 'clear-accreditations'
   | 'reset-accreditations'
   | 'clear-streaming-stats'
@@ -73,7 +72,6 @@ type ConfirmDialog =
   | 'clear-admin-logs'
   | 'purge-step1'
   | 'purge-step2'
-  | 'reset-checklists'
   | 'clear-accreditations'
   | 'reset-accreditations'
   | 'clear-streaming-stats'
@@ -191,20 +189,6 @@ export function MaintenanceManager() {
       )
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to purge releases')
-    } finally {
-      setLoading(null)
-      setConfirmDialog(null)
-    }
-  }
-
-  async function handleResetChecklists() {
-    setLoading('reset-checklists')
-    try {
-      const result = await callMaintenanceApi('/api/admin/maintenance/reset-checklists')
-      const updated = result.updated as number
-      toast.success(`${updated} checklist item(s) reset`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to reset checklists')
     } finally {
       setLoading(null)
       setConfirmDialog(null)
@@ -434,16 +418,6 @@ export function MaintenanceManager() {
             <Spinner active={loading === 'purge-releases'} />
             <Warning size={14} aria-hidden="true" />
             Purge ALL Releases
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={loading !== null}
-            onClick={() => setConfirmDialog('reset-checklists')}
-            className="gap-2"
-          >
-            <Spinner active={loading === 'reset-checklists'} />
-            Reset Release Checklists
           </Button>
         </CardContent>
       </Card>
@@ -817,29 +791,6 @@ export function MaintenanceManager() {
               className="bg-destructive hover:bg-destructive/90"
             >
               Purge All Releases
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Reset Release Checklists */}
-      <AlertDialog
-        open={confirmDialog === 'reset-checklists'}
-        onOpenChange={(open) => !open && setConfirmDialog(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reset Release Checklists?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will set{' '}
-              <code className="font-mono text-xs">is_completed = false</code>{' '}
-              for all release checklist items across all artists.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleResetChecklists()}>
-              Reset All Checklists
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

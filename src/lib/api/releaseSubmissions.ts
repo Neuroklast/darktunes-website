@@ -29,6 +29,7 @@ function rowToSubmission(row: Row): ReleaseSubmission {
     formData: row.form_data as Record<string, unknown> | null,
     adminReply: row.admin_reply,
     adminReplyAt: row.admin_reply_at,
+    progressNote: row.progress_note ?? null,
     releaseId: row.release_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -150,12 +151,14 @@ export async function updateReleaseSubmissionStatus(
   id: string,
   status: SubmissionStatus,
   adminReply?: string,
+  progressNote?: string | null,
 ): Promise<ReleaseSubmission> {
   const patch: Partial<Row> = {
     status,
     ...(adminReply !== undefined
       ? { admin_reply: adminReply, admin_reply_at: new Date().toISOString() }
       : {}),
+    ...(progressNote !== undefined ? { progress_note: progressNote } : {}),
   }
   const { data, error } = await db
     .from('release_submissions')

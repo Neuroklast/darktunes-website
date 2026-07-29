@@ -53,6 +53,8 @@ const row = {
   form_data: null,
   admin_reply: null,
   admin_reply_at: null,
+  progress_note: null,
+  release_id: null,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 }
