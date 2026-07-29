@@ -20,6 +20,7 @@ import {
   ReferenceLine,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { PLATFORM_COLORS, formatPlatformLabel } from './streamingChartUtils'
 import type { StreamingChartInnerProps } from './StreamingChart'
 
@@ -30,7 +31,15 @@ export function StreamingChartInner({ platforms, monthlyData, aggregates, eventM
 
   return (
     <div className="space-y-8">
-      <h2 className="text-xl font-semibold">{t('analytics_heading')}</h2>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-xl font-semibold">{t('analytics_heading')}</h2>
+          <p className="text-sm text-muted-foreground mt-1">{t('analytics_streaming_hint')}</p>
+        </div>
+        <Badge variant="outline" className="text-xs font-normal">
+          {t('analytics_streaming_source_badge')}
+        </Badge>
+      </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

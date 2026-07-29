@@ -87,7 +87,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
           section('overview', 'overview', 'topic_analytics_overview_title', 'topic_analytics_overview_body', ['streaming', 'earnings', 'territories', 'analytics']),
           section('toolbar', 'subfeature', 'topic_analytics_toolbar_title', 'topic_analytics_toolbar_body', ['filter', 'export', 'csv', 'schnellsuche']),
           section('tab_streaming', 'subfeature', 'topic_analytics_tab_streaming_title', 'topic_analytics_tab_streaming_body'),
-          section('tab_listeners', 'subfeature', 'topic_analytics_tab_listeners_title', 'topic_analytics_tab_listeners_body', ['lastfm', 'soundcharts']),
+          section('tab_listeners', 'subfeature', 'topic_analytics_tab_listeners_title', 'topic_analytics_tab_listeners_body', ['spotify', 'listeners', 'followers']),
           section('tab_territories', 'subfeature', 'topic_analytics_tab_territories_title', 'topic_analytics_tab_territories_body', ['country', 'land']),
           section('tab_events', 'subfeature', 'topic_analytics_tab_events_title', 'topic_analytics_tab_events_body', ['concert impact', 'promo']),
           section('tab_earnings', 'subfeature', 'topic_analytics_tab_earnings_title', 'topic_analytics_tab_earnings_body', ['revenue', 'umsatz']),

@@ -10,6 +10,11 @@ import type { ArtistTerritoryMetric } from '@/lib/api/artistTerritoryMetrics'
 import { aggregateMetricsByCountry } from '@/lib/api/artistTerritoryMetrics'
 import type { EventImpact } from '@/lib/api/eventImpact'
 import type { ArtistListenerMetric } from '@/lib/api/artistListenerMetrics'
+import type { SpotifyTrackPlaySnapshot } from '@/lib/api/spotifyTrackPlaySnapshots'
+import {
+  buildPublicSpotifyPresenceModel,
+  filterTrackPlaySnapshots,
+} from '@/lib/analytics/publicSpotifyPresence'
 import type { ArtistBillingProfile } from '@/lib/api/artistBillingProfiles'
 import type { SalesStatement } from '@/lib/api/salesStatements'
 import type { ArtistLineItemWithContext } from '@/lib/api/salesStatementLineItems'
@@ -50,7 +55,7 @@ import { EarningsChart } from './EarningsChart'
 import { EarningsStatementsPanel } from './EarningsStatementsPanel'
 import { TerritoriesChart } from './TerritoriesChart'
 import { EventImpactChart } from './EventImpactChart'
-import { ListenersChart } from './ListenersChart'
+import { SpotifyPresencePanel } from './SpotifyPresencePanel'
 import { ReleasePerformanceChart } from './ReleasePerformanceChart'
 import { RevenueMixChart } from './RevenueMixChart'
 import { EpkPressTab } from './EpkPressTab'
@@ -70,6 +75,8 @@ interface AnalyticsPageClientProps {
   territoryMetrics: ArtistTerritoryMetric[]
   eventImpacts: EventImpact[]
   listenerMetrics: ArtistListenerMetric[]
+  trackSnapshots: SpotifyTrackPlaySnapshot[]
+  releaseTitles: Record<string, string>
   concerts: Concert[]
   lineItems: ArtistLineItemWithContext[]
   epkStats: EpkDownloadStats
@@ -93,6 +100,8 @@ export function AnalyticsPageClient({
   territoryMetrics,
   eventImpacts,
   listenerMetrics,
+  trackSnapshots,
+  releaseTitles,
   concerts,
   lineItems,
   epkStats,
@@ -147,6 +156,11 @@ export function AnalyticsPageClient({
     )
   }, [listenerMetrics, filters, searchQuery])
 
+  const filteredTrackSnapshots = useMemo(
+    () => filterTrackPlaySnapshots(trackSnapshots, filters.periodFrom, filters.periodTo),
+    [trackSnapshots, filters.periodFrom, filters.periodTo],
+  )
+
   const aggregates = useMemo(
     () => getAggregatedStreamsByPlatform(filteredStats),
     [filteredStats],
@@ -186,18 +200,32 @@ export function AnalyticsPageClient({
     [filteredTerritory],
   )
 
+  const publicPresence = useMemo(
+    () =>
+      buildPublicSpotifyPresenceModel({
+        listenerMetrics: filteredListeners,
+        trackSnapshots: filteredTrackSnapshots,
+        releaseTitles,
+        sosStats: filteredStats,
+      }),
+    [filteredListeners, filteredTrackSnapshots, releaseTitles, filteredStats],
+  )
+
   const insights = useMemo(
-    () => computeAnalyticsInsights({
-      stats: filteredStats,
-      territoryMetrics: filteredTerritory,
-      listenerMetrics: filteredListeners,
-      eventImpacts: filteredEventImpacts,
-      promoImpacts,
-      releaseRows,
-      epkStats,
-      pressStats,
-    }),
-    [filteredStats, filteredTerritory, filteredListeners, filteredEventImpacts, promoImpacts, releaseRows, epkStats, pressStats],
+    () => [
+      ...computeAnalyticsInsights({
+        stats: filteredStats,
+        territoryMetrics: filteredTerritory,
+        listenerMetrics: filteredListeners,
+        eventImpacts: filteredEventImpacts,
+        promoImpacts,
+        releaseRows,
+        epkStats,
+        pressStats,
+      }),
+      ...publicPresence.insights,
+    ],
+    [filteredStats, filteredTerritory, filteredListeners, filteredEventImpacts, promoImpacts, releaseRows, epkStats, pressStats, publicPresence.insights],
   )
 
   const visibleTabs = useMemo(() => visibleTabIds(tabVisibility), [tabVisibility])
@@ -297,7 +325,12 @@ export function AnalyticsPageClient({
 
         {visibleTabs.includes('listeners') && (
           <TabsContent value="listeners" className="mt-0">
-            <ListenersChart metrics={filteredListeners} />
+            <SpotifyPresencePanel
+              metrics={filteredListeners}
+              trackSnapshots={filteredTrackSnapshots}
+              releaseTitles={releaseTitles}
+              sosStats={filteredStats}
+            />
           </TabsContent>
         )}
 

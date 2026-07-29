@@ -81,6 +81,7 @@ export function StreamingChart({ stats, aggregates, concerts }: StreamingChartPr
     return (
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">{t('analytics_heading')}</h2>
+        <p className="text-sm text-muted-foreground">{t('analytics_streaming_hint')}</p>
         <p className="text-muted-foreground">{t('analytics_noData')}</p>
       </div>
     )

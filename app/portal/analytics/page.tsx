@@ -16,6 +16,8 @@ import { getStreamingStatsByArtistId } from '@/lib/api/streamingStats'
 import { getTerritoryMetricsByArtistId } from '@/lib/api/artistTerritoryMetrics'
 import { getEventImpactByArtistId } from '@/lib/api/eventImpact'
 import { getListenerMetricsByArtistId } from '@/lib/api/artistListenerMetrics'
+import { getTrackPlaySnapshotsByArtistId } from '@/lib/api/spotifyTrackPlaySnapshots'
+import { getReleasesByArtistId } from '@/lib/api/releases'
 import { getConcertsByArtistId } from '@/lib/api/concerts'
 import { getBillingProfile, isBillingProfileComplete } from '@/lib/api/artistBillingProfiles'
 import { listArtistInvoices } from '@/lib/api/artistInvoices'
@@ -97,6 +99,8 @@ async function AnalyticsContent({
     settlementSummary,
     engagementStats,
     merchOrders,
+    trackSnapshots,
+    releases,
   ] = await Promise.all([
     artist ? getStreamingStatsByArtistId(supabase, artist.id).catch(() => []) : Promise.resolve([]),
     artist ? getSalesStatementsByArtistId(supabase, artist.id).catch(() => []) : Promise.resolve([]),
@@ -164,9 +168,17 @@ async function AnalyticsContent({
           dailyViews: [],
         }),
     artist ? getMerchOrdersByArtistId(supabase, artist.id).catch(() => []) : Promise.resolve([]),
+    artist
+      ? getTrackPlaySnapshotsByArtistId(supabase, artist.id).catch(() => [])
+      : Promise.resolve([]),
+    artist ? getReleasesByArtistId(supabase, artist.id).catch(() => []) : Promise.resolve([]),
   ])
 
   const merchStats = computeMerchOrderStats(merchOrders)
+  const releaseTitles: Record<string, string> = {}
+  for (const r of releases) {
+    releaseTitles[r.id] = r.title
+  }
 
   const validTabs = new Set([
     'streaming',
@@ -197,6 +209,8 @@ async function AnalyticsContent({
       territoryMetrics={territoryMetrics}
       eventImpacts={eventImpacts}
       listenerMetrics={listenerMetrics}
+      trackSnapshots={trackSnapshots}
+      releaseTitles={releaseTitles}
       concerts={concerts}
       lineItems={lineItems}
       epkStats={epkStats}
