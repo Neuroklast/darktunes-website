@@ -63,15 +63,15 @@ export function AnalyticsKpiGrid({ kpis }: AnalyticsKpiGridProps) {
   ]
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
       {cards.map((card) => (
-        <Card key={card.label} className="border-border bg-card/80">
-          <CardContent className="p-4 space-y-1">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <card.icon size={14} aria-hidden="true" />
-              <span>{card.label}</span>
+        <Card key={card.label} className="border-border bg-card/80 min-w-0">
+          <CardContent className="p-4 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+              <card.icon size={14} className="shrink-0" aria-hidden="true" />
+              <span className="truncate">{card.label}</span>
             </div>
-            <p className="text-lg font-semibold tabular-nums truncate">{card.value}</p>
+            <p className="text-base sm:text-lg font-semibold tabular-nums truncate">{card.value}</p>
             {card.sub && (
               <p className="text-xs text-muted-foreground tabular-nums">{card.sub}</p>
             )}

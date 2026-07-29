@@ -198,6 +198,7 @@ async function AnalyticsContent({
   return (
     <AnalyticsPageClient
       artistId={artist?.id ?? ''}
+      artistName={artist?.name ?? ''}
       billingProfile={billingProfile}
       billingProfileComplete={isBillingProfileComplete(billingProfile)}
       defaultTab={defaultTab}

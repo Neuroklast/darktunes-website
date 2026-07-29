@@ -7,6 +7,7 @@ import {
   topTracksForPeriod,
   playsByReleaseForPeriod,
   aggregateTrackPlaysByPeriod,
+  normalizeTrackName,
 } from './publicSpotifyPresence'
 
 function metric(
@@ -33,7 +34,8 @@ function snap(
     releaseId: partial.releaseId ?? 'rel-1',
     spotifyTrackId: partial.spotifyTrackId,
     spotifyAlbumId: 'alb-1',
-    trackName: partial.trackName ?? 'Track',
+    // Default name unique per id so unrelated tests are not collapsed by waterfall dedupe
+    trackName: partial.trackName ?? `Track ${partial.spotifyTrackId}`,
     playCount: partial.playCount,
     period: partial.period,
     scrapedAt: partial.scrapedAt ?? '2026-07-01T00:00:00.000Z',
@@ -41,16 +43,44 @@ function snap(
 }
 
 describe('aggregateTrackPlaysByPeriod', () => {
-  it('sums play counts per period', () => {
+  it('sums play counts per period for distinct songs', () => {
     const points = aggregateTrackPlaysByPeriod([
-      snap({ spotifyTrackId: 't1', playCount: 100, period: '2026-06' }),
-      snap({ spotifyTrackId: 't2', playCount: 50, period: '2026-06' }),
-      snap({ spotifyTrackId: 't1', playCount: 200, period: '2026-07' }),
+      snap({ spotifyTrackId: 't1', trackName: 'A', playCount: 100, period: '2026-06' }),
+      snap({ spotifyTrackId: 't2', trackName: 'B', playCount: 50, period: '2026-06' }),
+      snap({ spotifyTrackId: 't1', trackName: 'A', playCount: 200, period: '2026-07' }),
     ])
     expect(points).toEqual([
       { period: '2026-06', value: 150 },
       { period: '2026-07', value: 200 },
     ])
+  })
+
+  it('does not double-count waterfall re-releases of the same song', () => {
+    const points = aggregateTrackPlaysByPeriod([
+      snap({
+        spotifyTrackId: 'single-uri',
+        trackName: 'Hit Song',
+        playCount: 1_000_000,
+        period: '2026-07',
+        releaseId: 'r-single',
+      }),
+      snap({
+        spotifyTrackId: 'album-uri',
+        trackName: 'Hit Song',
+        playCount: 1_050_000,
+        period: '2026-07',
+        releaseId: 'r-album',
+      }),
+      snap({
+        spotifyTrackId: 'other',
+        trackName: 'B-Side',
+        playCount: 10_000,
+        period: '2026-07',
+        releaseId: 'r-album',
+      }),
+    ])
+    // max(Hit Song) + B-Side — not sum of both Hit Song rows
+    expect(points).toEqual([{ period: '2026-07', value: 1_060_000 }])
   })
 })
 
@@ -69,6 +99,40 @@ describe('topTracksForPeriod', () => {
     expect(rows[0]?.trackName).toBe('A')
     expect(rows[0]?.sharePct).toBe(75)
     expect(rows[0]?.releaseTitle).toBe('Album X')
+  })
+
+  it('shows each song once by name and keeps max plays only', () => {
+    const rows = topTracksForPeriod(
+      [
+        snap({
+          spotifyTrackId: 's1',
+          trackName: 'Waterfall Hit',
+          playCount: 500,
+          period: '2026-07',
+          releaseId: 'r1',
+        }),
+        snap({
+          spotifyTrackId: 's2',
+          trackName: 'Waterfall Hit (feat. Guest)',
+          playCount: 520,
+          period: '2026-07',
+          releaseId: 'r2',
+        }),
+        snap({
+          spotifyTrackId: 's3',
+          trackName: 'Other Song',
+          playCount: 100,
+          period: '2026-07',
+          releaseId: 'r2',
+        }),
+      ],
+      '2026-07',
+      { r1: 'Single', r2: 'Album' },
+    )
+    expect(rows).toHaveLength(2)
+    expect(rows[0]?.playCount).toBe(520)
+    expect(rows[0]?.sharePct).toBe(83.9) // 520/620
+    expect(rows.filter((r) => normalizeTrackName(r.trackName) === 'waterfall hit')).toHaveLength(1)
   })
 })
 

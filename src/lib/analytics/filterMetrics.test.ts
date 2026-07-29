@@ -4,6 +4,7 @@ import {
   filterStreamingStats,
   filterTerritoryMetrics,
   filterListenerMetrics,
+  resolvePeriodPreset,
 } from './filterMetrics'
 import type { ArtistListenerMetric } from '@/lib/api/artistListenerMetrics'
 import type { StreamingStat } from '@/lib/api/streamingStats'
@@ -40,6 +41,18 @@ describe('filterMetrics', () => {
       [baseMetric({ period: '2024-02' })],
     )
     expect(periods).toEqual(['2024-01', '2024-02', '2024-03'])
+  })
+
+  it('resolves rolling period presets from available periods', () => {
+    const periods = ['2024-01', '2024-02', '2024-03', '2024-04', '2024-05']
+    expect(resolvePeriodPreset(periods, '3m')).toEqual({
+      periodFrom: '2024-03',
+      periodTo: '2024-05',
+    })
+    expect(resolvePeriodPreset(periods, 'all')).toEqual({
+      periodFrom: '',
+      periodTo: '',
+    })
   })
 
   it('filters streaming stats by period range and platform', () => {

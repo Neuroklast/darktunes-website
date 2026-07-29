@@ -30,39 +30,43 @@ export function StreamingChartInner({ platforms, monthlyData, aggregates, eventM
   const totalStreams = aggregates.reduce((sum, a) => sum + a.totalStreams, 0)
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
           <h2 className="text-xl font-semibold">{t('analytics_heading')}</h2>
-          <p className="text-sm text-muted-foreground mt-1">{t('analytics_streaming_hint')}</p>
+          <p className="text-sm text-muted-foreground">{t('analytics_streaming_hint')}</p>
         </div>
-        <Badge variant="outline" className="text-xs font-normal">
+        <Badge variant="outline" className="text-xs font-normal shrink-0">
           {t('analytics_streaming_source_badge')}
         </Badge>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-card border-border col-span-2 md:col-span-1">
-          <CardHeader className="pb-2">
+      {/* Summary cards — scroll when many platforms */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        <Card className="bg-card border-border min-w-0">
+          <CardHeader className="pb-2 px-4 pt-4">
             <CardTitle className="text-xs text-muted-foreground uppercase tracking-widest">
               {t('analytics_totalStreams')}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{totalStreams.toLocaleString()}</p>
+          <CardContent className="px-4 pb-4">
+            <p className="text-xl sm:text-2xl font-bold tabular-nums truncate">
+              {totalStreams.toLocaleString()}
+            </p>
           </CardContent>
         </Card>
 
         {aggregates.map((agg) => (
-          <Card key={agg.platform} className="bg-card border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs text-muted-foreground uppercase tracking-widest">
+          <Card key={agg.platform} className="bg-card border-border min-w-0">
+            <CardHeader className="pb-2 px-4 pt-4">
+              <CardTitle className="text-xs text-muted-foreground uppercase tracking-widest truncate">
                 {formatPlatformLabel(agg.platform)}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{agg.totalStreams.toLocaleString()}</p>
+            <CardContent className="px-4 pb-4">
+              <p className="text-lg sm:text-xl font-bold tabular-nums truncate">
+                {agg.totalStreams.toLocaleString()}
+              </p>
             </CardContent>
           </Card>
         ))}

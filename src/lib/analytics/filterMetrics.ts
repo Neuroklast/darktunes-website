@@ -27,11 +27,34 @@ function inPeriodRange(period: string, from: string, to: string): boolean {
 export function collectAvailablePeriods(
   stats: StreamingStat[],
   territoryMetrics: ArtistTerritoryMetric[],
+  extraPeriods: string[] = [],
 ): string[] {
   const periods = new Set<string>()
   for (const s of stats) periods.add(s.period)
   for (const m of territoryMetrics) periods.add(m.period)
+  for (const p of extraPeriods) if (p) periods.add(p)
   return Array.from(periods).sort()
+}
+
+export type PeriodPreset = 'all' | '3m' | '6m' | '12m' | 'custom'
+
+/**
+ * Resolve a rolling preset against sorted available periods (YYYY-MM).
+ * Uses the last N distinct periods present in data (not calendar months).
+ */
+export function resolvePeriodPreset(
+  periodsSortedAsc: string[],
+  preset: PeriodPreset,
+): Pick<AnalyticsFilterState, 'periodFrom' | 'periodTo'> {
+  if (preset === 'all' || preset === 'custom' || periodsSortedAsc.length === 0) {
+    return { periodFrom: '', periodTo: '' }
+  }
+  const n = preset === '3m' ? 3 : preset === '6m' ? 6 : 12
+  const slice = periodsSortedAsc.slice(-n)
+  return {
+    periodFrom: slice[0] ?? '',
+    periodTo: slice[slice.length - 1] ?? '',
+  }
 }
 
 export function collectAvailablePlatforms(

@@ -14,7 +14,17 @@
 
 **Billing & invoices:** `artist_billing_profiles` at `/portal/billing`. `isBillingProfileComplete()` required before PDF generation. `InlineBillingProfileStep` gates: `/portal/invoices` (`InvoiceForm`, `FreeInvoiceGenerator`), `/portal/analytics` (Earnings), `/portal/statements` (quick invoice). SOS-linked flow: `/portal/invoices?statement={id}` → `artist_invoice_number` + `sales_statements.status = 'invoiced'`.
 
-**Key routes:** profile, analytics (11 tabs + intelligence), statements, billing, invoices, releases, tour (events), **tour-planner** (TRACK production), calendar, marketing, documents, messages, interviews, epk-builder, onboarding, help.
+**Key routes:** profile, analytics (11 tabs + intelligence + dual-axis Spotify presence, period presets, CSV/PDF export), statements, billing, invoices, releases, tour (events), **tour-planner** (TRACK production), calendar, marketing, documents, messages, interviews, epk-builder, onboarding, help.
+
+### Portal analytics hub (`/portal/analytics`)
+
+| Topic | Rule |
+|-------|------|
+| Sources | SOS **statement streams** vs public **Spotify presence** never mixed into one total |
+| Waterfall | Top tracks / album play totals dedupe by normalized track name (`publicSpotifyPresence.ts`) — max plays, no double-count |
+| Trends | Dual Y-axis (audience left, plays right) or index-100 mode; series toggles in Customize |
+| Prefs | `viewPreferences.ts` localStorage: tabs + chart mode + series + period preset |
+| Export | CSV (`reportExport.ts`) + PDF summary (`analyticsReportPdf.ts`, jsPDF) |
 
 ### Messaging (M0 hardening)
 

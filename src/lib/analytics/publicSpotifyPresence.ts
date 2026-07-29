@@ -123,16 +123,72 @@ export function filterTrackPlaySnapshots(
   })
 }
 
+/**
+ * Normalize a track title for waterfall dedupe (single re-released on album).
+ * Strips common feature/version noise so "Song (feat. X)" ≈ "Song".
+ */
+export function normalizeTrackName(name: string | null | undefined): string {
+  if (!name) return ''
+  let n = name.trim().toLowerCase()
+  n = n.replace(/\s+/g, ' ')
+  // Drop parenthetical / bracket feature and version markers
+  n = n.replace(/\s*[\(\[]\s*(feat\.?|ft\.?|featuring|with)\b[^\)\]]*[\)\]]/gi, '')
+  n = n.replace(/\s*[\(\[]\s*(remaster(ed)?|radio edit|single version|album version|explicit|clean)\b[^\)\]]*[\)\]]/gi, '')
+  // Trailing " - Remastered" / " - feat. X"
+  n = n.replace(/\s+-\s+(feat\.?|ft\.?|featuring|with|remaster(ed)?|radio edit|single version|album version).*$/i, '')
+  n = n.replace(/\s+/g, ' ').trim()
+  return n
+}
+
+/**
+ * Name-based key for waterfall collapse. Empty when no usable title.
+ */
+export function trackDedupeKey(
+  snapshot: Pick<SpotifyTrackPlaySnapshot, 'spotifyTrackId' | 'trackName'>,
+): string {
+  const byName = normalizeTrackName(snapshot.trackName)
+  if (byName) return `name:${byName}`
+  return `id:${snapshot.spotifyTrackId}`
+}
+
+/**
+ * Collapse waterfall duplicates within a period (or any list).
+ * 1) Same Spotify track id → max(playCount)
+ * 2) Same normalized title (single re-released on album) → max(playCount)
+ * Never sums play counts across duplicates.
+ */
+export function dedupeTrackSnapshotsBySong(
+  snapshots: SpotifyTrackPlaySnapshot[],
+): SpotifyTrackPlaySnapshot[] {
+  const byId = new Map<string, SpotifyTrackPlaySnapshot>()
+  for (const s of snapshots) {
+    const prev = byId.get(s.spotifyTrackId)
+    if (!prev || s.playCount > prev.playCount) byId.set(s.spotifyTrackId, s)
+  }
+  const bySong = new Map<string, SpotifyTrackPlaySnapshot>()
+  for (const s of byId.values()) {
+    const key = trackDedupeKey(s)
+    const prev = bySong.get(key)
+    if (!prev || s.playCount > prev.playCount) bySong.set(key, s)
+  }
+  return [...bySong.values()]
+}
+
 export function aggregateTrackPlaysByPeriod(
   snapshots: SpotifyTrackPlaySnapshot[],
 ): PeriodPoint[] {
-  const map = new Map<string, number>()
+  const byPeriod = new Map<string, SpotifyTrackPlaySnapshot[]>()
   for (const s of snapshots) {
-    map.set(s.period, (map.get(s.period) ?? 0) + s.playCount)
+    const list = byPeriod.get(s.period) ?? []
+    list.push(s)
+    byPeriod.set(s.period, list)
   }
-  return [...map.entries()]
+  return [...byPeriod.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([period, value]) => ({ period, value }))
+    .map(([period, rows]) => ({
+      period,
+      value: dedupeTrackSnapshotsBySong(rows).reduce((sum, r) => sum + r.playCount, 0),
+    }))
 }
 
 /** Prefer the most recent period that has snapshot rows. */
@@ -154,7 +210,7 @@ export function topTracksForPeriod(
   limit = TOP_TRACKS_LIMIT,
 ): TopTrackRow[] {
   if (!period) return []
-  const rows = snapshots.filter((s) => s.period === period)
+  const rows = dedupeTrackSnapshotsBySong(snapshots.filter((s) => s.period === period))
   const total = rows.reduce((sum, r) => sum + r.playCount, 0)
   const sorted = [...rows].sort((a, b) => b.playCount - a.playCount).slice(0, limit)
   return sorted.map((r) => ({
@@ -174,21 +230,35 @@ export function playsByReleaseForPeriod(
 ): ReleasePlayRow[] {
   if (!period) return []
   const rows = snapshots.filter((s) => s.period === period)
-  const byRelease = new Map<string, { playCount: number; trackCount: number; releaseId: string | null }>()
+
+  // Within each release: unique songs by dedupe key, max playCount per song
+  const byReleaseTracks = new Map<string, Map<string, number>>()
+  const releaseIdByKey = new Map<string, string | null>()
   for (const r of rows) {
-    const key = r.releaseId ?? '__none__'
-    const prev = byRelease.get(key) ?? { playCount: 0, trackCount: 0, releaseId: r.releaseId }
-    prev.playCount += r.playCount
-    prev.trackCount += 1
-    byRelease.set(key, prev)
+    const relKey = r.releaseId ?? '__none__'
+    releaseIdByKey.set(relKey, r.releaseId)
+    const trackMap = byReleaseTracks.get(relKey) ?? new Map<string, number>()
+    const tKey = trackDedupeKey(r)
+    const prev = trackMap.get(tKey) ?? 0
+    if (r.playCount > prev) trackMap.set(tKey, r.playCount)
+    byReleaseTracks.set(relKey, trackMap)
   }
-  const total = rows.reduce((sum, r) => sum + r.playCount, 0)
-  return [...byRelease.values()]
+
+  const releaseRows = [...byReleaseTracks.entries()].map(([relKey, trackMap]) => {
+    let playCount = 0
+    for (const v of trackMap.values()) playCount += v
+    const releaseId = releaseIdByKey.get(relKey) ?? null
+    return {
+      releaseId,
+      releaseTitle: releaseId ? (releaseTitles[releaseId] ?? null) : null,
+      playCount,
+      trackCount: trackMap.size,
+    }
+  })
+  const total = releaseRows.reduce((s, r) => s + r.playCount, 0)
+  return releaseRows
     .map((v) => ({
-      releaseId: v.releaseId,
-      releaseTitle: v.releaseId ? (releaseTitles[v.releaseId] ?? null) : null,
-      playCount: v.playCount,
-      trackCount: v.trackCount,
+      ...v,
       sharePct: total > 0 ? Math.round((v.playCount / total) * 1000) / 10 : 0,
     }))
     .sort((a, b) => b.playCount - a.playCount)
@@ -439,7 +509,9 @@ export function buildPublicSpotifyPresenceModel(input: {
     latestPeriodOf(albumTrackPlays)
 
   const trackCountLatest = latestSnapPeriod
-    ? trackSnapshots.filter((s) => s.period === latestSnapPeriod).length
+    ? dedupeTrackSnapshotsBySong(
+        trackSnapshots.filter((s) => s.period === latestSnapPeriod),
+      ).length
     : 0
   const releaseCountLatest = byRelease.filter((r) => r.releaseId).length
 

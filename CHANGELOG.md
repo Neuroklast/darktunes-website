@@ -8,8 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Portal analytics hub polish:** Dual-axis Spotify presence trends (audience vs plays) + index-100 mode; donut share charts; period presets; chart series prefs in Customize; PDF + CSV export; in-page “How to read this hub” assistant; denser layout spacing fixes.
 - **Sync control plane (Guided / Advanced):** Admin → System Health — Guided setup checklist (Supabase Cron only, no Vercel Cron), plain-language scheduler issues, Advanced live `sync_queue` table with cancel (pending immediate; running cooperative) and retry. APIs: `GET/POST /api/admin/sync/jobs`. Schema: `cancel_requested_at`, `cancelled_at`, status `cancelled`.
 - **Apify Spotify public play counts:** Admin → API Keys (`apify_token`) + Accounting panel dry-run/sync. Scrapes visible artists/releases with Spotify IDs via `beatanalytics/spotify-play-count-scraper` (monthly listeners, followers, track play snapshots). Hard cap 1200 URLs/month (`apify_usage_months`). Portal Listeners chart shows Spotify (public) series. Never writes SOS `streaming_stats`.
+
+### Fixed
+- **Waterfall top tracks:** Public Spotify top tracks / album play totals no longer double-count the same song across single + album scrapes (dedupe by normalized name, keep max plays).
 
 ### Changed
 - **GitHub Actions speed (phases A–C):** Deduplicated PR checks (QA is E2E-only; security/perf live in their own workflows). Parallel CI jobs (lint+contracts+tsc · unit · build). Concurrency cancel-in-progress on all workflows. Next.js + ESLint + Playwright browser caches. PR E2E runs Desktop Chrome only (full matrix on `main`); Playwright CI workers default to 2. Path filters for Lighthouse/budget/security; Playwright performance suite no longer on every PR (main paths + weekly + manual).
