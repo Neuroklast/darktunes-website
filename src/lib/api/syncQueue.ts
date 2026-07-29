@@ -284,6 +284,7 @@ export async function enqueueSpotifySyncJobs(db: DbClient): Promise<number> {
 
 /**
  * Re-schedules a completed job when more work remains (e.g. Odesli batch).
+ * Honours admin cancel requests set while the job was running.
  */
 export async function rescheduleSyncJob(
   db: DbClient,
@@ -291,6 +292,11 @@ export async function rescheduleSyncJob(
   cooldownMs: number,
   options?: { undoAttemptIncrement?: boolean; currentAttemptCount?: number },
 ): Promise<void> {
+  if (await isSyncJobCancelRequested(db, jobId)) {
+    await markSyncJobCancelled(db, jobId)
+    return
+  }
+
   const scheduledAt = new Date(Date.now() + cooldownMs).toISOString()
   const attemptCount =
     options?.undoAttemptIncrement && options.currentAttemptCount !== undefined
@@ -388,6 +394,10 @@ export async function isSyncJobCancelRequested(
 /**
  * Cancel a pending job immediately, or request cancel for a running job.
  * Returns the resulting status label for UI feedback.
+ *
+ * Running jobs are cooperative: we set `cancel_requested_at` and the executor
+ * finalises as cancelled instead of done/reschedule when the current unit of
+ * work finishes (or before starting the next claim).
  */
 export async function cancelSyncJob(
   db: DbClient,
@@ -408,7 +418,7 @@ export async function cancelSyncJob(
   const now = new Date().toISOString()
 
   if (existing.status === 'pending') {
-    const { error } = await db
+    const { data: cancelledRow, error } = await db
       .from('sync_queue')
       .update({
         status: 'cancelled',
@@ -421,25 +431,67 @@ export async function cancelSyncJob(
       })
       .eq('id', jobId)
       .eq('status', 'pending')
+      .select('id')
+      .maybeSingle()
 
     if (error) throw new Error(`Failed to cancel sync job: ${error.message}`)
-    return 'cancelled'
+    if (cancelledRow) return 'cancelled'
+
+    // Race: job was claimed between read and update — fall through to running path
   }
 
-  // running — cooperative cancel; executor checks between jobs
-  if (existing.cancel_requested_at) return 'cancel_requested'
+  // running (or just claimed) — cooperative cancel
+  if (existing.status === 'running' || existing.status === 'pending') {
+    const { data: current, error: reReadError } = await db
+      .from('sync_queue')
+      .select('id, status, cancel_requested_at')
+      .eq('id', jobId)
+      .maybeSingle()
 
-  const { error } = await db
-    .from('sync_queue')
-    .update({
-      cancel_requested_at: now,
-      error_message: 'Cancel requested by admin',
-    })
-    .eq('id', jobId)
-    .eq('status', 'running')
+    if (reReadError) throw new Error(`Failed to load sync job: ${reReadError.message}`)
+    if (!current) throw new Error('Sync job not found')
+    if (current.status === 'cancelled') return 'cancelled'
+    if (current.status === 'done' || current.status === 'failed') return 'noop'
+    if (current.cancel_requested_at) return 'cancel_requested'
 
-  if (error) throw new Error(`Failed to request cancel: ${error.message}`)
-  return 'cancel_requested'
+    if (current.status === 'pending') {
+      // Rare: still pending after lost race above — try cancel once more
+      const { data: secondTry, error: secondErr } = await db
+        .from('sync_queue')
+        .update({
+          status: 'cancelled',
+          cancelled_at: now,
+          finished_at: now,
+          locked_until: null,
+          started_at: null,
+          cancel_requested_at: now,
+          error_message: 'Cancelled by admin',
+        })
+        .eq('id', jobId)
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle()
+      if (secondErr) throw new Error(`Failed to cancel sync job: ${secondErr.message}`)
+      if (secondTry) return 'cancelled'
+    }
+
+    const { data: requested, error } = await db
+      .from('sync_queue')
+      .update({
+        cancel_requested_at: now,
+        error_message: 'Cancel requested by admin',
+      })
+      .eq('id', jobId)
+      .eq('status', 'running')
+      .select('id')
+      .maybeSingle()
+
+    if (error) throw new Error(`Failed to request cancel: ${error.message}`)
+    if (requested) return 'cancel_requested'
+    return 'noop'
+  }
+
+  return 'noop'
 }
 
 /** Finalize a running job that observed cancel_requested_at. */
@@ -558,8 +610,15 @@ export async function listSyncJobs(
 
 /**
  * Mark a job as done.
+ * If an admin requested cancel while the job was running, finalise as cancelled
+ * instead — otherwise cancel appears to "do nothing" after a long sync finishes.
  */
 export async function markSyncJobDone(db: DbClient, jobId: string): Promise<void> {
+  if (await isSyncJobCancelRequested(db, jobId)) {
+    await markSyncJobCancelled(db, jobId)
+    return
+  }
+
   const { error } = await db
     .from('sync_queue')
     .update({
@@ -584,6 +643,11 @@ export async function markSyncJobFailed(
   currentAttemptCount: number,
   options?: { rateLimited?: boolean },
 ): Promise<void> {
+  if (await isSyncJobCancelRequested(db, jobId)) {
+    await markSyncJobCancelled(db, jobId)
+    return
+  }
+
   const rateLimited = options?.rateLimited ?? false
   const willRetry = rateLimited || currentAttemptCount < MAX_ATTEMPTS
 

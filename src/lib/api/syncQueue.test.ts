@@ -153,7 +153,7 @@ describe('cancelSyncJob', () => {
   it('cancels pending jobs immediately', async () => {
     const db = makeSequentialMockDb([
       { data: { id: 'job-1', status: 'pending', cancel_requested_at: null } },
-      { data: null },
+      { data: { id: 'job-1' } }, // update … select maybeSingle
     ])
     await expect(cancelSyncJob(db, 'job-1')).resolves.toBe('cancelled')
   })
@@ -161,7 +161,8 @@ describe('cancelSyncJob', () => {
   it('requests cancel for running jobs', async () => {
     const db = makeSequentialMockDb([
       { data: { id: 'job-1', status: 'running', cancel_requested_at: null } },
-      { data: null },
+      { data: { id: 'job-1', status: 'running', cancel_requested_at: null } }, // re-read
+      { data: { id: 'job-1' } }, // cancel_requested update
     ])
     await expect(cancelSyncJob(db, 'job-1')).resolves.toBe('cancel_requested')
   })
@@ -171,6 +172,29 @@ describe('cancelSyncJob', () => {
       { data: { id: 'job-1', status: 'done', cancel_requested_at: null } },
     ])
     await expect(cancelSyncJob(db, 'job-1')).resolves.toBe('noop')
+  })
+
+  it('falls through to cancel_requested when pending claim races', async () => {
+    const db = makeSequentialMockDb([
+      { data: { id: 'job-1', status: 'pending', cancel_requested_at: null } },
+      { data: null }, // pending update lost race
+      { data: { id: 'job-1', status: 'running', cancel_requested_at: null } }, // re-read
+      { data: { id: 'job-1' } }, // cancel_requested update
+    ])
+    await expect(cancelSyncJob(db, 'job-1')).resolves.toBe('cancel_requested')
+  })
+})
+
+describe('markSyncJobDone', () => {
+  it('marks cancelled when cancel was requested while running', async () => {
+    const db = makeSequentialMockDb([
+      { data: { status: 'running', cancel_requested_at: '2026-07-29T12:00:00.000Z' } },
+      { data: null }, // markSyncJobCancelled update
+    ])
+    await markSyncJobDone(db, 'job-1')
+    expect(db.from).toHaveBeenCalledWith('sync_queue')
+    // First call is cancel check; second is cancelled finalisation — never "done"
+    expect(db.from).toHaveBeenCalledTimes(2)
   })
 })
 

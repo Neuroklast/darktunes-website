@@ -157,6 +157,12 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
 
           try {
             const tags = await processSyncJob(db, job, uploadFn, syncCredentials)
+            // processSyncJob finalises via markSyncJobDone/rescheduleSyncJob, both
+            // of which honour cancel_requested_at. Re-check so we never leave a
+            // cancel request stranded if finalisation was skipped.
+            if (await isSyncJobCancelRequested(db, job.id)) {
+              await markSyncJobCancelled(db, job.id)
+            }
             for (const tag of tags) tagsToRevalidate.add(tag)
             jobsProcessed += 1
           } catch (err) {

@@ -5,9 +5,10 @@
  * Not shown in Guided mode.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Select,
@@ -75,6 +76,14 @@ function shortId(id: string): string {
   return id.slice(0, 8)
 }
 
+function canCancelJob(job: SyncJobRow): boolean {
+  return job.status === 'pending' || job.status === 'running'
+}
+
+function canRetryJob(job: SyncJobRow): boolean {
+  return job.status === 'failed' || job.status === 'cancelled'
+}
+
 export function SyncAdvancedJobsPanel({
   bearerToken,
   activeWork = false,
@@ -98,6 +107,13 @@ export function SyncAdvancedJobsPanel({
       }
       const list = Array.isArray(data.jobs) ? (data.jobs as SyncJobRow[]) : []
       setJobs(list)
+      // Drop selections that disappeared from the list after poll/filter
+      setSelected((prev) => {
+        if (prev.size === 0) return prev
+        const visible = new Set(list.map((j) => j.id))
+        const next = new Set([...prev].filter((id) => visible.has(id)))
+        return next.size === prev.size ? prev : next
+      })
     } catch (err) {
       reportClientError('admin.sync.jobs', err, {}, 'warn')
       toast.error(err instanceof Error ? err.message : 'Failed to load sync jobs')
@@ -144,8 +160,27 @@ export function SyncAdvancedJobsPanel({
     }
   }, [load, activeWork, filter])
 
+  const jobById = useMemo(() => new Map(jobs.map((j) => [j.id, j])), [jobs])
+  const allSelected = jobs.length > 0 && jobs.every((j) => selected.has(j.id))
+  const someSelected = jobs.some((j) => selected.has(j.id))
+  const selectedCancellable = [...selected].filter((id) => {
+    const job = jobById.get(id)
+    return job ? canCancelJob(job) : false
+  })
+  const selectedRetryable = [...selected].filter((id) => {
+    const job = jobById.get(id)
+    return job ? canRetryJob(job) : false
+  })
+
   const act = async (action: 'cancel' | 'retry', ids: string[]) => {
-    if (ids.length === 0) return
+    if (ids.length === 0) {
+      toast.message(
+        action === 'cancel'
+          ? 'No pending/running jobs in selection'
+          : 'No failed/cancelled jobs in selection',
+      )
+      return
+    }
     setBusyId(ids[0] ?? 'bulk')
     try {
       const res = await fetch('/api/admin/sync/jobs', {
@@ -161,11 +196,31 @@ export function SyncAdvancedJobsPanel({
         throw new Error(typeof data.error === 'string' ? data.error : `Action failed (${res.status})`)
       }
       const changed = typeof data.changed === 'number' ? data.changed : 0
-      toast.success(
-        action === 'cancel'
-          ? `${changed} job(s) cancelled or cancel-requested`
-          : `${changed} job(s) re-queued`,
-      )
+      const results = Array.isArray(data.results)
+        ? (data.results as Array<{ id: string; ok: boolean; result: string }>)
+        : []
+      const cancelRequested = results.filter((r) => r.result === 'cancel_requested').length
+      const cancelledNow = results.filter((r) => r.result === 'cancelled').length
+
+      if (action === 'cancel') {
+        if (changed === 0) {
+          toast.message('No jobs were cancelled (already finished or not cancellable)')
+        } else if (cancelRequested > 0 && cancelledNow === 0) {
+          toast.success(
+            `${cancelRequested} running job(s) marked cancel — they stop after the current step`,
+          )
+        } else if (cancelRequested > 0) {
+          toast.success(
+            `${cancelledNow} cancelled immediately; ${cancelRequested} running job(s) stop after current step`,
+          )
+        } else {
+          toast.success(`${changed} job(s) cancelled`)
+        }
+      } else if (changed === 0) {
+        toast.message('No jobs were re-queued')
+      } else {
+        toast.success(`${changed} job(s) re-queued`)
+      }
       setSelected(new Set())
       await load()
     } catch (err) {
@@ -185,6 +240,18 @@ export function SyncAdvancedJobsPanel({
     })
   }
 
+  const toggleSelectAll = (checked: boolean | 'indeterminate') => {
+    if (checked === true) {
+      setSelected(new Set(jobs.map((j) => j.id)))
+      return
+    }
+    setSelected(new Set())
+  }
+
+  const selectCancellableVisible = () => {
+    setSelected(new Set(jobs.filter(canCancelJob).map((j) => j.id)))
+  }
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -192,8 +259,9 @@ export function SyncAdvancedJobsPanel({
           <div>
             <CardTitle className="text-sm">Sync jobs (Advanced)</CardTitle>
             <CardDescription>
-              Live queue transparency. Cancel pending immediately; running jobs finish the current
-              step then stop. Retry failed or cancelled jobs.
+              Live queue transparency. Pending jobs cancel immediately. Running jobs finish the
+              current artist/step, then stop (they will not be marked done if cancel was requested).
+              Retry failed or cancelled jobs.
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -224,28 +292,62 @@ export function SyncAdvancedJobsPanel({
             </Button>
           </div>
         </div>
-        {selected.size > 0 && (
-          <div className="flex flex-wrap gap-2 pt-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              disabled={busyId !== null}
-              onClick={() => void act('cancel', [...selected])}
-            >
-              Cancel selected ({selected.size})
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={busyId !== null}
-              onClick={() => void act('retry', [...selected])}
-            >
-              Retry selected ({selected.size})
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2 pt-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8"
+            disabled={jobs.length === 0 || busyId !== null}
+            onClick={() => toggleSelectAll(true)}
+          >
+            Select all ({jobs.length})
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8"
+            disabled={jobs.filter(canCancelJob).length === 0 || busyId !== null}
+            onClick={selectCancellableVisible}
+          >
+            Select cancellable
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-8"
+            disabled={selected.size === 0 || busyId !== null}
+            onClick={() => setSelected(new Set())}
+          >
+            Clear selection
+          </Button>
+          {selected.size > 0 && (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                className="h-8"
+                disabled={busyId !== null || selectedCancellable.length === 0}
+                onClick={() => void act('cancel', selectedCancellable)}
+              >
+                Cancel selected ({selectedCancellable.length})
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-8"
+                disabled={busyId !== null || selectedRetryable.length === 0}
+                onClick={() => void act('retry', selectedRetryable)}
+              >
+                Retry selected ({selectedRetryable.length})
+              </Button>
+            </>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {loading && jobs.length === 0 ? (
@@ -260,8 +362,12 @@ export function SyncAdvancedJobsPanel({
             <table className="w-full text-xs min-w-[720px]">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left">
-                  <th className="p-2 w-8" scope="col">
-                    <span className="sr-only">Select</span>
+                  <th className="p-2 w-10" scope="col">
+                    <Checkbox
+                      checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all jobs in this list"
+                    />
                   </th>
                   <th className="p-2 font-medium" scope="col">
                     Status
@@ -285,17 +391,15 @@ export function SyncAdvancedJobsPanel({
               </thead>
               <tbody>
                 {jobs.map((job) => {
-                  const canCancel = job.status === 'pending' || job.status === 'running'
-                  const canRetry = job.status === 'failed' || job.status === 'cancelled'
+                  const canCancel = canCancelJob(job)
+                  const canRetry = canRetryJob(job)
                   const rowBusy = busyId === job.id
                   return (
                     <tr key={job.id} className="border-b border-border/60 align-top">
                       <td className="p-2">
-                        <input
-                          type="checkbox"
-                          className="rounded border-border"
+                        <Checkbox
                           checked={selected.has(job.id)}
-                          onChange={() => toggle(job.id)}
+                          onCheckedChange={() => toggle(job.id)}
                           aria-label={`Select job ${shortId(job.id)}`}
                         />
                       </td>
