@@ -1423,18 +1423,20 @@ CREATE POLICY "tour_share_links: artist manage" ON public.tour_share_links
   FOR ALL TO authenticated
   USING (
     artist_id IN (SELECT am.artist_id FROM public.artist_members am WHERE am.user_id = auth.uid())
-    OR public.has_permission(auth.uid(), 'can_view_admin_panel')
+    OR public.has_permission('can_view_admin_panel')
+    OR public.get_my_role() = 'admin'
   )
   WITH CHECK (
     artist_id IN (SELECT am.artist_id FROM public.artist_members am WHERE am.user_id = auth.uid())
-    OR public.has_permission(auth.uid(), 'can_view_admin_panel')
+    OR public.has_permission('can_view_admin_panel')
+    OR public.get_my_role() = 'admin'
   );
 
 DROP POLICY IF EXISTS "tour_share_links: admin all" ON public.tour_share_links;
 CREATE POLICY "tour_share_links: admin all" ON public.tour_share_links
   FOR ALL TO authenticated
-  USING (public.has_permission(auth.uid(), 'can_view_admin_panel'))
-  WITH CHECK (public.has_permission(auth.uid(), 'can_view_admin_panel'));
+  USING (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+  WITH CHECK (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin');
 
 CREATE TABLE IF NOT EXISTS public.tour_stops (
   id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),

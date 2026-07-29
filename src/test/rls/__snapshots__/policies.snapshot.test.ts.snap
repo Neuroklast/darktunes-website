@@ -248,6 +248,8 @@ exports[`RLS Policies – supabase/reset.sql > snapshot: all CREATE POLICY names
   "tour_merch_items: artist manage",
   "tour_merch_settlements: admin all",
   "tour_merch_settlements: artist manage",
+  "tour_share_links: admin all",
+  "tour_share_links: artist manage",
   "tour_stop_artist_private: admin all",
   "tour_stop_artist_private: own artist",
   "tour_stop_performing_artists: admin all",
@@ -379,6 +381,7 @@ exports[`RLS Policies – supabase/reset.sql > snapshot: all tables with RLS ena
   "tour_crew_members",
   "tour_merch_items",
   "tour_merch_settlements",
+  "tour_share_links",
   "tour_stop_artist_private",
   "tour_stop_performing_artists",
   "tour_stops",
@@ -835,6 +838,10 @@ exports[`RLS Policies – supabase/reset.sql > snapshot: policies per table (ext
   "tour_merch_settlements": [
     "tour_merch_settlements: admin all",
     "tour_merch_settlements: artist manage",
+  ],
+  "tour_share_links": [
+    "tour_share_links: admin all",
+    "tour_share_links: artist manage",
   ],
   "tour_stop_artist_private": [
     "tour_stop_artist_private: admin all",
