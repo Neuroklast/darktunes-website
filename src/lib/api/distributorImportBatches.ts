@@ -112,6 +112,76 @@ export async function getImportBatchById(
   return data ? rowToBatch(data as Row) : null
 }
 
+/** Load multiple bronze batches by id (e.g. statement provenance). */
+export async function getImportBatchesByIds(
+  db: DbClient,
+  ids: string[],
+): Promise<DistributorImportBatch[]> {
+  const unique = [...new Set(ids.filter(Boolean))]
+  if (unique.length === 0) return []
+
+  const { data, error } = await db
+    .from('distributor_import_batches')
+    .select('*')
+    .in('id', unique)
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => rowToBatch(row as Row))
+}
+
+/**
+ * Artist-safe provenance for a statement-linked bronze batch.
+ * Omits R2 keys — downloads go through portal/admin routes only.
+ */
+export interface StatementSourceProvenance {
+  batchId: string
+  distributor: string
+  periodStart: string
+  periodEnd: string
+  fileHash: string | undefined
+  rowCount: number
+  uploadedAt: string
+  batchStatus: DistributorImportBatch['status']
+  /** True when a SHA-256 hash is stored and the bronze object is downloadable. */
+  canDownloadSource: boolean
+}
+
+export function toStatementSourceProvenance(
+  batch: DistributorImportBatch,
+): StatementSourceProvenance {
+  return {
+    batchId: batch.id,
+    distributor: batch.distributor,
+    periodStart: batch.periodStart,
+    periodEnd: batch.periodEnd,
+    fileHash: batch.fileHash,
+    rowCount: batch.rowCount,
+    uploadedAt: batch.createdAt,
+    batchStatus: batch.status,
+    canDownloadSource: Boolean(batch.fileHash) && batch.status !== 'failed',
+  }
+}
+
+/** Map statement id → provenance for statements that have a batch_id. */
+export async function getStatementProvenanceByStatementIds(
+  db: DbClient,
+  statements: Array<{ id: string; batchId?: string }>,
+): Promise<Record<string, StatementSourceProvenance>> {
+  const batchIds = statements
+    .map((s) => s.batchId)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0)
+  const batches = await getImportBatchesByIds(db, batchIds)
+  const byBatchId = new Map(batches.map((b) => [b.id, toStatementSourceProvenance(b)]))
+
+  const out: Record<string, StatementSourceProvenance> = {}
+  for (const s of statements) {
+    if (!s.batchId) continue
+    const prov = byBatchId.get(s.batchId)
+    if (prov) out[s.id] = prov
+  }
+  return out
+}
+
 export async function listImportBatches(
   db: DbClient,
   limit = 50,

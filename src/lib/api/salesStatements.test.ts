@@ -469,6 +469,7 @@ function baseStatement(overrides: Partial<SalesStatement> = {}): SalesStatement 
     documentType: 'original',
     correctionOfId: undefined,
     isArchived: false,
+    batchId: undefined,
     createdAt: '2024-04-01T00:00:00Z',
     ...overrides,
   }

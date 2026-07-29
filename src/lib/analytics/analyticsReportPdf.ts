@@ -33,6 +33,7 @@ export interface AnalyticsReportPdfInput {
     colPlatform: string
     colStreams: string
     noData: string
+    disclaimer: string
   }
 }
 
@@ -49,7 +50,8 @@ export async function buildAnalyticsReportPdf(
     jsPDF: new (opts?: { orientation?: string; unit?: string; format?: string }) => {
       setFontSize: (n: number) => void
       setFont: (name: string, style?: string) => void
-      text: (t: string, x: number, y: number, opts?: { maxWidth?: number }) => void
+      text: (t: string | string[], x: number, y: number, opts?: { maxWidth?: number }) => void
+      splitTextToSize: (text: string, maxWidth: number) => string[]
       addPage: () => void
       setPage: (n: number) => void
       getNumberOfPages: () => number
@@ -158,6 +160,15 @@ export async function buildAnalyticsReportPdf(
   ) {
     body(labels.noData)
   }
+
+  line()
+  h2('Disclaimer')
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  const discLines = doc.splitTextToSize(labels.disclaimer, pageW - margin * 2)
+  ensureSpace(discLines.length * 4 + 4)
+  doc.text(discLines, margin, y)
+  y += discLines.length * 4 + 2
 
   // Footer page numbers
   const pages = doc.getNumberOfPages()

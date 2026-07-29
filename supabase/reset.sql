@@ -3875,6 +3875,23 @@ CREATE POLICY "distributor_import_batches: admin all" ON public.distributor_impo
   USING (public.get_my_role() IN ('admin', 'editor'))
   WITH CHECK (public.get_my_role() IN ('admin', 'editor'));
 
+-- Artists may read metadata for bronze batches linked to their visible statements
+-- (hash, distributor, period — chain-of-custody / provenance UI). No write access.
+DROP POLICY IF EXISTS "distributor_import_batches: artist read linked" ON public.distributor_import_batches;
+CREATE POLICY "distributor_import_batches: artist read linked" ON public.distributor_import_batches
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM public.sales_statements ss
+      WHERE ss.batch_id = distributor_import_batches.id
+        AND ss.status IN ('label_approved', 'artist_notified', 'viewed', 'invoiced', 'paid', 'acknowledged')
+        AND EXISTS (
+          SELECT 1 FROM public.artist_members am
+          WHERE am.artist_id = ss.artist_id AND am.user_id = auth.uid()
+        )
+    )
+  );
+
 -- ---------------------------------------------------------------------------
 -- RLS: artist_territory_metrics
 -- ---------------------------------------------------------------------------

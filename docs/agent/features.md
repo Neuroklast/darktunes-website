@@ -21,6 +21,7 @@
 | Topic | Rule |
 |-------|------|
 | Sources | SOS **statement streams** vs public **Spotify presence** never mixed into one total |
+| Disclaimer | Presence tab: high-visibility non-binding / liability notice (`PublicMetricsDisclaimer`) — public/third-party figures approximate & unreconciled; statements + settlement only for payouts. PDF includes same disclaimer. Never name scrape vendors in UI. |
 | Waterfall | Top tracks / album play totals dedupe by normalized track name (`publicSpotifyPresence.ts`) — max plays, no double-count |
 | Trends | Dual Y-axis (audience left, plays right) or index-100 mode; series toggles in Customize |
 | Prefs | `viewPreferences.ts` localStorage: tabs + chart mode + series + period preset |
@@ -119,6 +120,8 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 **Admin APIs:** `GET /api/admin/settlements/register`, periods lock/archive, bulk-approve, correction, invoice received/payment.
 
 **Bronze CSV:** Never browser `fetch()` to presigned R2. Upload ≤45 MB via `…/upload`; 45–200 MB via `…/multipart/*`; download via `…/download`. Limits: `bronzeUploadLimits.ts`. UI: `ImportBatchesPanel`.
+
+**Portal statement provenance (chain of custody):** `/portal/statements` shows a trust banner + per-statement “source proof” (distributor, period, SHA-256, batch id, archive time). Download via `GET /api/portal/statements/[id]/source-csv?artistId=` (membership + stream from R2, never browser→presigned). DAL: `getStatementProvenanceByStatementIds` / `toStatementSourceProvenance`. Statements map `batch_id`; RLS `distributor_import_batches: artist read linked` in `reset.sql`. Manual PDF-only statements show “no batch linked”.
 
 ## Document vault
 

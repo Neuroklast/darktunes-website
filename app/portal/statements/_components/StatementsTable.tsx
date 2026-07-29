@@ -1,7 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,9 +18,12 @@ import {
 import { DownloadSimple, FileText, Spinner } from '@phosphor-icons/react'
 import type { ArtistBillingProfile } from '@/lib/api/artistBillingProfiles'
 import type { SalesStatement } from '@/lib/api/salesStatements'
+import type { StatementSourceProvenance } from '@/lib/api/distributorImportBatches'
 import { getStatementPresignedUrl } from '../_actions/presignedUrl'
 import { InlineBillingProfileStep } from '../../invoices/_components/InlineBillingProfileStep'
 import { QuickInvoiceButton } from '../../analytics/_components/QuickInvoiceButton'
+import { StatementProvenanceCard } from './StatementProvenanceCard'
+import { StatementsTrustBanner } from './StatementsTrustBanner'
 
 interface StatementsTableProps {
   artistId?: string
@@ -28,6 +31,7 @@ interface StatementsTableProps {
   billingProfileComplete: boolean
   invoicedStatementIds: string[]
   statements: SalesStatement[]
+  provenanceByStatementId?: Record<string, StatementSourceProvenance>
 }
 
 function formatAmountEur(amount: number | undefined): string {
@@ -129,13 +133,19 @@ export function StatementsTable({
   billingProfileComplete: initialBillingProfileComplete,
   invoicedStatementIds,
   statements,
+  provenanceByStatementId = {},
 }: StatementsTableProps) {
   const t = useTranslations('portal')
 
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [expandedProvenanceId, setExpandedProvenanceId] = useState<string | null>(null)
   const [billingProfile, setBillingProfile] = useState(initialBillingProfile)
   const [billingProfileComplete, setBillingProfileComplete] = useState(initialBillingProfileComplete)
   const linkedStatementIds = new Set(invoicedStatementIds)
+
+  const toggleProvenance = (id: string) => {
+    setExpandedProvenanceId((prev) => (prev === id ? null : id))
+  }
 
   const hasInvoiceableStatement = statements.some(
     (statement) =>
@@ -167,6 +177,8 @@ export function StatementsTable({
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">{t('statements_heading')}</h1>
 
+      <StatementsTrustBanner />
+
       {statements.length === 0 ? (
         <PortalEmptyState icon={FileText} heading={t('statements_noData')} description={t('statements_heading')} />
       ) : (
@@ -189,6 +201,7 @@ export function StatementsTable({
           <CardContent className="p-4 pt-0 space-y-3 md:hidden">
             {statements.map((statement) => {
               const hasInvoice = linkedStatementIds.has(statement.id)
+              const prov = provenanceByStatementId[statement.id]
               return (
                 <div
                   key={statement.id}
@@ -206,6 +219,14 @@ export function StatementsTable({
                     {hasInvoice && (
                       <Badge variant="secondary" className="mt-2">{t('analytics_invoice_exists')}</Badge>
                     )}
+                    {prov?.fileHash && (
+                      <Badge
+                        variant="outline"
+                        className="mt-2 border-emerald-600/40 text-emerald-900 dark:text-emerald-100"
+                      >
+                        {t('statements_provenance_badge')}
+                      </Badge>
+                    )}
                   </div>
                   <StatementActions
                     artistId={artistId}
@@ -215,6 +236,26 @@ export function StatementsTable({
                     onDownload={handleDownload}
                     statement={statement}
                   />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="justify-start min-h-[44px] text-xs"
+                    onClick={() => toggleProvenance(statement.id)}
+                    aria-expanded={expandedProvenanceId === statement.id}
+                  >
+                    {expandedProvenanceId === statement.id
+                      ? t('statements_provenance_hide')
+                      : t('statements_provenance_show')}
+                  </Button>
+                  {expandedProvenanceId === statement.id && artistId && (
+                    <StatementProvenanceCard
+                      artistId={artistId}
+                      statementId={statement.id}
+                      statementPeriod={statement.period}
+                      provenance={prov}
+                    />
+                  )}
                 </div>
               )
             })}
@@ -233,29 +274,71 @@ export function StatementsTable({
               <TableBody>
                 {statements.map((statement) => {
                   const hasInvoice = linkedStatementIds.has(statement.id)
+                  const prov = provenanceByStatementId[statement.id]
+                  const open = expandedProvenanceId === statement.id
                   return (
-                    <TableRow key={statement.id} className="border-border hover:bg-muted/50">
-                      <TableCell className="whitespace-nowrap font-mono text-sm">{statement.period}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{statement.filename}</TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariant(statement.status)}>
-                          {statusLabel(statement.status, t)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-right font-mono text-sm">
-                        {formatAmountEur(statement.amountEur)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <StatementActions
-                          artistId={artistId}
-                          billingProfileComplete={billingProfileComplete}
-                          hasInvoice={hasInvoice}
-                          loadingId={loadingId}
-                          onDownload={handleDownload}
-                          statement={statement}
-                        />
-                      </TableCell>
-                    </TableRow>
+                    <Fragment key={statement.id}>
+                      <TableRow className="border-border hover:bg-muted/50">
+                        <TableCell className="whitespace-nowrap font-mono text-sm">{statement.period}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          <div className="space-y-1">
+                            <span>{statement.filename}</span>
+                            {prov?.fileHash && (
+                              <Badge
+                                variant="outline"
+                                className="border-emerald-600/40 text-emerald-900 dark:text-emerald-100 text-[10px]"
+                              >
+                                {t('statements_provenance_badge')}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusVariant(statement.status)}>
+                            {statusLabel(statement.status, t)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-right font-mono text-sm">
+                          {formatAmountEur(statement.amountEur)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-col items-end gap-2">
+                            <StatementActions
+                              artistId={artistId}
+                              billingProfileComplete={billingProfileComplete}
+                              hasInvoice={hasInvoice}
+                              loadingId={loadingId}
+                              onDownload={handleDownload}
+                              statement={statement}
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="text-xs h-8"
+                              onClick={() => toggleProvenance(statement.id)}
+                              aria-expanded={open}
+                            >
+                              {open
+                                ? t('statements_provenance_hide')
+                                : t('statements_provenance_show')}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {open && artistId && (
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableCell colSpan={5} className="p-3 bg-muted/20">
+                            <StatementProvenanceCard
+                              artistId={artistId}
+                              statementId={statement.id}
+                              statementPeriod={statement.period}
+                              provenance={prov}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
                   )
                 })}
               </TableBody>

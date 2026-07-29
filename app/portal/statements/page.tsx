@@ -2,11 +2,12 @@ export const dynamic = 'force-dynamic'
 
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { getBillingProfile, isBillingProfileComplete } from '@/lib/api/artistBillingProfiles'
 import { listArtistInvoices } from '@/lib/api/artistInvoices'
 import { resolvePortalArtist } from '@/lib/api/artistProfiles'
 import { getSalesStatementsByArtistId } from '@/lib/api/salesStatements'
+import { getStatementProvenanceByStatementIds } from '@/lib/api/distributorImportBatches'
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatementsTable } from './_components/StatementsTable'
@@ -68,6 +69,15 @@ async function StatementsContent({ searchParams }: { searchParams: Promise<{ art
     artist ? getBillingProfile(supabase, artist.id).catch(() => null) : Promise.resolve(null),
   ])
 
+  // Bronze batches are label infrastructure; load provenance after membership via service role
+  // (RLS also allows artist SELECT on linked batches once reset.sql is applied).
+  const provenanceByStatementId =
+    artist && statements.length > 0
+      ? await createServiceRoleSupabaseClient()
+          .then((adminDb) => getStatementProvenanceByStatementIds(adminDb, statements))
+          .catch(() => ({}))
+      : {}
+
   return (
     <StatementsTable
       artistId={artist?.id}
@@ -77,6 +87,7 @@ async function StatementsContent({ searchParams }: { searchParams: Promise<{ art
         invoice.statementId ? [invoice.statementId] : [],
       )}
       statements={statements}
+      provenanceByStatementId={provenanceByStatementId}
     />
   )
 }

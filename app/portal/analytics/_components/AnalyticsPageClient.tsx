@@ -324,6 +324,7 @@ export function AnalyticsPageClient({
           colPlatform: t('analytics_filter_platform'),
           colStreams: t('analytics_totalStreams'),
           noData: t('analytics_presence_noData'),
+          disclaimer: t('analytics_pdf_disclaimer'),
         },
       })
       const stamp = new Date().toISOString().slice(0, 10)

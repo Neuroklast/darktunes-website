@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/scroll-panel'
 import { cn } from '@/lib/utils'
 import { portalKey } from '@/i18n/portalKey'
+import { PublicMetricsDisclaimer } from './PublicMetricsDisclaimer'
 
 export interface SpotifyPresencePanelInnerProps {
   model: PublicSpotifyPresenceModel
@@ -97,6 +98,7 @@ export function SpotifyPresencePanel({
           <h2 className="text-xl font-semibold">{t('analytics_presence_heading')}</h2>
           <p className="text-sm text-muted-foreground mt-1">{t('analytics_presence_hint')}</p>
         </div>
+        <PublicMetricsDisclaimer />
         <p className="text-muted-foreground">{t('analytics_presence_noData')}</p>
       </div>
     )
@@ -104,17 +106,22 @@ export function SpotifyPresencePanel({
 
   const { kpis } = model
 
-return (
+  return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <h2 className="text-xl font-semibold">{t('analytics_presence_heading')}</h2>
           <p className="text-sm text-muted-foreground">{t('analytics_presence_hint')}</p>
         </div>
-        <Badge variant="outline" className="text-xs font-normal shrink-0">
+        <Badge
+          variant="outline"
+          className="text-xs font-normal shrink-0 border-amber-500/50 text-amber-900 dark:text-amber-100 bg-amber-500/10"
+        >
           {t('analytics_presence_source_badge')}
         </Badge>
       </div>
+
+      <PublicMetricsDisclaimer />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card className="bg-card border-border min-w-0">

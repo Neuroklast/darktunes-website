@@ -29,6 +29,8 @@ export interface SalesStatement {
   documentType: SalesStatementDocumentType
   correctionOfId: string | undefined
   isArchived: boolean
+  /** Linked bronze distributor CSV batch (chain of custody). */
+  batchId: string | undefined
   createdAt: string
 }
 
@@ -110,6 +112,7 @@ function rowToSalesStatement(row: SalesStatementRow): SalesStatement {
     documentType: row.document_type ?? 'original',
     correctionOfId: row.correction_of_id ?? undefined,
     isArchived: row.is_archived ?? false,
+    batchId: row.batch_id ?? undefined,
     createdAt: row.created_at,
   }
 }
