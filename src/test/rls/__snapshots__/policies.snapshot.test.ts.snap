@@ -88,6 +88,7 @@ exports[`RLS Policies – supabase/reset.sql > snapshot: all CREATE POLICY names
   "custom_roles: admin write",
   "custom_roles: assigned read",
   "distributor_import_batches: admin all",
+  "distributor_import_batches: artist read linked",
   "editor_activity_log: admin read",
   "editor_activity_log: editor insert own",
   "editor_activity_log: editor read own",
@@ -538,6 +539,7 @@ exports[`RLS Policies – supabase/reset.sql > snapshot: policies per table (ext
   ],
   "distributor_import_batches": [
     "distributor_import_batches: admin all",
+    "distributor_import_batches: artist read linked",
   ],
   "editor_activity_log": [
     "editor_activity_log: admin read",
