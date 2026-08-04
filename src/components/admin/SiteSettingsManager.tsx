@@ -1575,7 +1575,7 @@ export function SiteSettingsManager({ value: settings, onChange: saveSettings, i
                   </Field>
                 </div>
                 <Field id="labelBillingCountry" label="Land" error={errors.labelBillingCountry?.message}>
-                  <Input id="labelBillingCountry" placeholder="Germany" {...register('labelBillingCountry')} disabled={isSubmitting} />
+                  <Input id="labelBillingCountry" placeholder="DE" {...register('labelBillingCountry')} disabled={isSubmitting} />
                 </Field>
               </CardContent>
             </Card>
@@ -1606,7 +1606,7 @@ export function SiteSettingsManager({ value: settings, onChange: saveSettings, i
                         value={field.value ?? ''}
                         onChange={field.onChange}
                         disabled={isSubmitting}
-                        placeholder="AGB mit {{labelName}}, {{address}}, …"
+                        placeholder="{{labelName}} {{address}} {{email}}"
                         grow
                       />
                     )}
@@ -1621,7 +1621,7 @@ export function SiteSettingsManager({ value: settings, onChange: saveSettings, i
                         value={field.value ?? ''}
                         onChange={field.onChange}
                         disabled={isSubmitting}
-                        placeholder="Terms with {{labelName}}, {{address}}, …"
+                        placeholder="{{labelName}} {{address}} {{email}}"
                         grow
                       />
                     )}
