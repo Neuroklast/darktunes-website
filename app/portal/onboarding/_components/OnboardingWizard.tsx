@@ -24,7 +24,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
 import { Camera, ArrowRight, ArrowLeft, CheckCircle, MusicNote } from '@phosphor-icons/react'
+import { Checkbox } from '@/components/ui/checkbox'
 import { TiptapEditor } from '@/components/admin/TiptapEditor'
 import { saveOnboardingStep, completeOnboarding, skipOnboarding } from '../_actions/onboarding'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
@@ -39,9 +41,9 @@ interface OnboardingWizardProps {
   artistId: string
 }
 
-type StepId = 'welcome' | 'photo' | 'bio' | 'links' | 'release'
+type StepId = 'welcome' | 'photo' | 'bio' | 'links' | 'release' | 'terms'
 
-const STEPS: StepId[] = ['welcome', 'photo', 'bio', 'links', 'release']
+const STEPS: StepId[] = ['welcome', 'photo', 'bio', 'links', 'release', 'terms']
 
 function StepIndicator({
   steps,
@@ -58,6 +60,7 @@ function StepIndicator({
     bio: t('onboarding_step_bio'),
     links: t('onboarding_step_links'),
     release: t('onboarding_step_release'),
+    terms: t('onboarding_step_terms'),
   }
   return (
     <div className="space-y-3">
@@ -96,6 +99,9 @@ export function OnboardingWizard({ artistId }: OnboardingWizardProps) {
   const [instagramUrl, setInstagramUrl] = useState('')
   const [spotifyUrl, setSpotifyUrl] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
+
+  // Step 6: Terms
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   const isUploading = uploadProgress !== null && uploadProgress < 100
 
@@ -166,8 +172,31 @@ export function OnboardingWizard({ artistId }: OnboardingWizardProps) {
   }
 
   const handleFinish = async () => {
+    if (!termsAccepted) {
+      toast.error(t('onboarding_terms_checkbox'))
+      return
+    }
     setSaving(true)
     try {
+      const supabase = createBrowserSupabaseClient()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session) {
+        const termsRes = await fetch('/api/portal/accept-terms', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ artist_id: artistId, accepted: true }),
+        })
+        if (!termsRes.ok) {
+          toast.error(t('onboarding_save_error'))
+          return
+        }
+      }
+
       const result = await completeOnboarding(artistId)
       if (!result.ok) {
         toast.error(t('onboarding_save_error'))
@@ -180,6 +209,7 @@ export function OnboardingWizard({ artistId }: OnboardingWizardProps) {
   }
 
   const handleSkip = async () => {
+    // Skip profile steps but still land on portal; terms gate will force AGB accept.
     await skipOnboarding(artistId)
     router.push(`/portal?artistId=${artistId}`)
   }
@@ -351,19 +381,39 @@ export function OnboardingWizard({ artistId }: OnboardingWizardProps) {
               </CardHeader>
               <CardContent className="flex flex-col items-center gap-4 py-4">
                 <MusicNote size={48} className="text-primary" aria-hidden="true" />
-                <Button
-                  type="button"
-                  variant="default"
-                  className="gap-2"
-                  onClick={() => {
-                    void completeOnboarding(artistId).then(() =>
-                      router.push(`/portal/releases/new?artistId=${artistId}`),
-                    )
-                  }}
-                >
+                <p className="text-sm text-muted-foreground text-center">
                   {t('onboarding_release_cta')}
-                  <ArrowRight size={16} aria-hidden="true" />
-                </Button>
+                </p>
+              </CardContent>
+            </>
+          )}
+
+          {/* ── Step 6: Terms ────────────────────────────────────────────── */}
+          {currentStepId === 'terms' && (
+            <>
+              <CardHeader>
+                <CardTitle>{t('onboarding_terms_title')}</CardTitle>
+                <CardDescription>{t('onboarding_terms_body')}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Link
+                  href="/agb"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-accent underline underline-offset-2"
+                >
+                  {t('onboarding_terms_link')}
+                </Link>
+                <div className="flex items-start gap-3 rounded-lg border border-border p-4">
+                  <Checkbox
+                    id="onboarding-terms"
+                    checked={termsAccepted}
+                    onCheckedChange={(c) => setTermsAccepted(c === true)}
+                  />
+                  <Label htmlFor="onboarding-terms" className="text-sm leading-snug cursor-pointer">
+                    {t('onboarding_terms_checkbox')}
+                  </Label>
+                </div>
               </CardContent>
             </>
           )}
@@ -401,7 +451,7 @@ export function OnboardingWizard({ artistId }: OnboardingWizardProps) {
               <Button
                 type="button"
                 onClick={handleFinish}
-                disabled={saving}
+                disabled={saving || !termsAccepted}
                 className="gap-1.5"
               >
                 <CheckCircle size={16} aria-hidden="true" />

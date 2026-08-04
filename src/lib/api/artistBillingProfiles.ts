@@ -1,5 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import {
+  isSmallBusinessStatus,
+  parseTaxStatus,
+  taxStatusFromLegacy,
+  type TaxStatus,
+} from '@/lib/legal/taxStatus'
+import type { ViesCheckResult } from '@/lib/legal/viesVat'
 
 type DbClient = SupabaseClient<Database>
 type ArtistBillingProfileRow = Database['public']['Tables']['artist_billing_profiles']['Row']
@@ -15,10 +22,16 @@ export interface ArtistBillingProfile {
   country: string
   taxNumber: string | undefined
   vatId: string | undefined
+  /** @deprecated prefer taxStatus */
   isSmallBusiness: boolean
+  taxStatus: TaxStatus
   iban: string | undefined
   bic: string | undefined
   paypalEmail: string | undefined
+  vatViesValid: boolean | null
+  vatViesCheckedAt: string | null
+  vatViesTraderName: string | null
+  vatViesRequestId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -31,13 +44,29 @@ export interface UpsertBillingProfileData {
   country: string
   taxNumber?: string
   vatId?: string
-  isSmallBusiness: boolean
+  taxStatus: TaxStatus
+  /** @deprecated mapped to taxStatus when taxStatus omitted by older clients */
+  isSmallBusiness?: boolean
   iban?: string
   bic?: string
   paypalEmail?: string
+  /**
+   * Optional VIES snapshot from server-side check on save.
+   * - `undefined`: leave existing vat_vies_* columns unchanged
+   * - `null`: clear VIES snapshot (e.g. VAT ID removed)
+   * - object: store definitive result (`valid` / `invalid` only)
+   */
+  vies?: Pick<
+    ViesCheckResult,
+    'valid' | 'status' | 'traderName' | 'requestIdentifier'
+  > | null
 }
 
 function rowToArtistBillingProfile(row: ArtistBillingProfileRow): ArtistBillingProfile {
+  const taxStatus = parseTaxStatus(
+    row.tax_status,
+    taxStatusFromLegacy(row.is_small_business),
+  )
   return {
     id: row.id,
     artistId: row.artist_id,
@@ -48,10 +77,15 @@ function rowToArtistBillingProfile(row: ArtistBillingProfileRow): ArtistBillingP
     country: row.country,
     taxNumber: row.tax_number ?? undefined,
     vatId: row.vat_id ?? undefined,
-    isSmallBusiness: row.is_small_business,
+    isSmallBusiness: isSmallBusinessStatus(taxStatus),
+    taxStatus,
     iban: row.iban ?? undefined,
     bic: row.bic ?? undefined,
     paypalEmail: row.paypal_email ?? undefined,
+    vatViesValid: row.vat_vies_valid ?? null,
+    vatViesCheckedAt: row.vat_vies_checked_at ?? null,
+    vatViesTraderName: row.vat_vies_trader_name ?? null,
+    vatViesRequestId: row.vat_vies_request_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -92,6 +126,12 @@ export async function upsertBillingProfile(
   artistId: string,
   data: UpsertBillingProfileData,
 ): Promise<ArtistBillingProfile> {
+  const taxStatus =
+    data.taxStatus ??
+    (data.isSmallBusiness !== undefined
+      ? taxStatusFromLegacy(data.isSmallBusiness)
+      : 'standard')
+
   const payload: ArtistBillingProfileInsert = {
     artist_id: artistId,
     legal_name: data.legalName.trim(),
@@ -101,10 +141,25 @@ export async function upsertBillingProfile(
     country: data.country.trim() || 'DE',
     tax_number: normaliseOptional(data.taxNumber),
     vat_id: normaliseOptional(data.vatId),
-    is_small_business: data.isSmallBusiness,
+    tax_status: taxStatus,
+    is_small_business: isSmallBusinessStatus(taxStatus),
     iban: normaliseOptional(data.iban),
     bic: normaliseOptional(data.bic),
     paypal_email: normaliseOptional(data.paypalEmail),
+  }
+
+  if (data.vies !== undefined) {
+    if (data.vies === null) {
+      payload.vat_vies_valid = null
+      payload.vat_vies_checked_at = null
+      payload.vat_vies_trader_name = null
+      payload.vat_vies_request_id = null
+    } else {
+      payload.vat_vies_valid = data.vies.valid
+      payload.vat_vies_checked_at = new Date().toISOString()
+      payload.vat_vies_trader_name = data.vies.traderName?.trim() || null
+      payload.vat_vies_request_id = data.vies.requestIdentifier?.trim() || null
+    }
   }
 
   const { data: row, error } = await db
@@ -130,9 +185,14 @@ export function isBillingProfileComplete(profile: ArtistBillingProfile | null): 
     profile.country,
   ].every((value) => value.trim().length > 0)
 
-  const hasTaxIdentity = Boolean(profile.taxNumber?.trim() || profile.vatId?.trim())
+  if (!hasRequiredAddress) return false
 
-  return hasRequiredAddress && hasTaxIdentity
+  if (profile.taxStatus === 'reverse_charge') {
+    // Reverse charge needs a VAT ID that passed VIES (re-checked live at invoice time).
+    return Boolean(profile.vatId?.trim()) && profile.vatViesValid === true
+  }
+
+  return Boolean(profile.taxNumber?.trim() || profile.vatId?.trim())
 }
 
 /**
@@ -146,4 +206,37 @@ export function isBillingProfileSepaReady(
   if (!profile?.legalName?.trim() || !profile.iban?.trim()) return false
   if (options?.ibanValid === false) return false
   return true
+}
+
+/** Audit payload with IBAN/BIC masked (last 4 chars only). */
+export function toBillingProfileAuditSnapshot(
+  profile: ArtistBillingProfile | null,
+): Record<string, unknown> | null {
+  if (!profile) return null
+  return {
+    id: profile.id,
+    artistId: profile.artistId,
+    legalName: profile.legalName,
+    street: profile.street,
+    postalCode: profile.postalCode,
+    city: profile.city,
+    country: profile.country,
+    taxNumber: profile.taxNumber ?? null,
+    vatId: profile.vatId ?? null,
+    taxStatus: profile.taxStatus,
+    isSmallBusiness: profile.isSmallBusiness,
+    iban: maskIban(profile.iban),
+    bic: profile.bic ? '***' : null,
+    paypalEmail: profile.paypalEmail ?? null,
+    vatViesValid: profile.vatViesValid,
+    vatViesCheckedAt: profile.vatViesCheckedAt,
+    updatedAt: profile.updatedAt,
+  }
+}
+
+function maskIban(iban: string | undefined): string | null {
+  if (!iban?.trim()) return null
+  const compact = iban.replace(/\s+/g, '')
+  if (compact.length <= 4) return '****'
+  return `****${compact.slice(-4)}`
 }

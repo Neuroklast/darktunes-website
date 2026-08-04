@@ -86,6 +86,9 @@ const mockArtist: ArtistRow = {
   image_position_y: null,
   image_scale: null,
   landing_publish_trusted: false,
+  portal_terms_version: null,
+  portal_terms_accepted_at: null,
+  portal_terms_accepted_by: null,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 }

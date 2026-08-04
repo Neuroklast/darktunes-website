@@ -22,11 +22,6 @@ import {
   DEFAULT_INVOICE_DUE_DAYS,
   DEFAULT_TAX_RATE_PCT,
 } from '@/lib/analytics/constants'
-import {
-  LABEL_CLIENT_ADDRESS,
-  LABEL_CLIENT_EMAIL,
-  LABEL_CLIENT_NAME,
-} from '@/lib/portal/labelBilling'
 import type { SalesStatement } from '@/lib/api/salesStatements'
 
 interface QuickInvoiceButtonProps {
@@ -77,9 +72,10 @@ export function QuickInvoiceButton({
         body: JSON.stringify({
           artist_id: artistId,
           artist_invoice_number: defaultArtistInvoiceNumber(statement.period),
-          client_name: LABEL_CLIENT_NAME,
-          client_email: LABEL_CLIENT_EMAIL,
-          client_address: LABEL_CLIENT_ADDRESS,
+          // Server overrides label client fields for SOS-linked invoices.
+          client_name: 'Label',
+          client_email: 'label@localhost',
+          client_address: '',
           statement_id: statement.id,
           line_items: [{
             description: `Musikalische Dienstleistungen gemäß Statement of Sales ${statement.period}`,

@@ -4,6 +4,10 @@
  * Pure IBAN validation implementing the ISO 7064 Modulo 97 algorithm
  * (as specified in ISO 13616 / ECBS EBS204).
  *
+ * **DSGVO / privacy:** Bank account numbers MUST be validated only with this
+ * local implementation (or equivalent in-process library). Never send IBAN/BIC
+ * to third-party “IBAN validation” SaaS APIs.
+ *
  * No external dependencies are used. BigInt is required for the Modulo 97
  * check to avoid floating-point precision loss when working with the
  * numeric representation of long IBANs (up to 34 digits).

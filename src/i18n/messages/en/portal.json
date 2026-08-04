@@ -2026,5 +2026,21 @@
   "tour_mode_all_stops": "All stops",
   "tour_mode_prev": "Previous",
   "tour_mode_next": "Next",
-  "tour_mode_overview_cta": "Open tour mode (offline-ready)"
+  "tour_mode_overview_cta": "Open tour mode (offline-ready)",
+  "billing_tax_status": "Tax status",
+  "billing_tax_standard": "Standard VAT (show tax)",
+  "billing_tax_small_business": "Small business (§ 19 UStG)",
+  "billing_tax_reverse_charge": "Reverse charge (international)",
+  "billing_tax_status_hint": "Controls VAT presentation on generated invoices (§ 14 UStG).",
+  "onboarding_step_terms": "Terms",
+  "onboarding_terms_title": "Terms of use and settlement",
+  "onboarding_terms_body": "Please read and accept the Artist Portal terms before continuing.",
+  "onboarding_terms_checkbox": "I have read and accept the terms.",
+  "onboarding_terms_link": "Open terms",
+  "portal_terms_gate_title": "Updated terms",
+  "portal_terms_gate_body": "Please accept the current terms of use and settlement to continue using the portal.",
+  "portal_terms_accept": "Accept terms",
+  "billing_vies_valid": "VAT ID confirmed in EU VIES",
+  "billing_vies_invalid": "VAT ID is invalid in VIES",
+  "billing_vies_unavailable": "VIES service temporarily unavailable"
 }

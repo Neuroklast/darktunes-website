@@ -31,6 +31,7 @@ const generatePdfSchema = z.object({
   currency: z.string().length(3).default('EUR'),
   taxRatePct: z.number().min(0).max(100).default(19),
   isSmallBusiness: z.boolean().default(false),
+  taxStatus: z.enum(['standard', 'small_business', 'reverse_charge']).optional(),
   notes: z.string().max(4000).optional(),
 })
 
@@ -80,16 +81,20 @@ export async function generateFreePdf(
   }
 
   try {
+    const taxStatus =
+      data.taxStatus ?? (data.isSmallBusiness ? 'small_business' : 'standard')
     const pdfBytes = await generateInvoicePdf({
       invoiceNumber: data.invoiceNumber,
       issuedDate: data.issuedDate,
       dueDate: data.dueDate,
       artist: sender,
       label: recipient,
+      labelDisplayName: recipient.name,
       lineItems: data.lineItems,
       currency: data.currency,
-      taxRatePct: data.isSmallBusiness ? 0 : data.taxRatePct,
-      isSmallBusiness: data.isSmallBusiness,
+      taxRatePct: taxStatus === 'standard' ? data.taxRatePct : 0,
+      taxStatus,
+      isSmallBusiness: taxStatus === 'small_business',
       notes: data.notes,
     })
 

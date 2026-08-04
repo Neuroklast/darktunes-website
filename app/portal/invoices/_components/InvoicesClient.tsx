@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils'
 import type { ArtistBillingProfile } from '@/lib/api/artistBillingProfiles'
 import type { ArtistInvoice } from '@/lib/api/artistInvoices'
 import type { SalesStatement } from '@/lib/api/salesStatements'
+import type { LabelClientInfo } from '@/lib/portal/labelBilling'
 import { FreeInvoiceGenerator } from './FreeInvoiceGenerator'
 import { InvoiceForm } from './InvoiceForm'
 import { InvoiceFromStatementAssistant } from './InvoiceFromStatementAssistant'
@@ -29,6 +30,7 @@ interface InvoicesClientProps {
   artistId: string
   billingProfile: ArtistBillingProfile | null
   billingProfileComplete: boolean
+  labelClient: LabelClientInfo
   invoices: ArtistInvoice[]
   statement: SalesStatement | null
 }
@@ -67,6 +69,7 @@ export function InvoicesClient({
   artistId,
   billingProfile,
   billingProfileComplete,
+  labelClient,
   invoices: initialInvoices,
   statement,
 }: InvoicesClientProps) {
@@ -177,6 +180,7 @@ export function InvoicesClient({
                 statement={statement}
                 billingProfile={billingProfile}
                 billingProfileComplete={billingProfileComplete}
+                labelClient={labelClient}
                 onCancel={handleCancel}
                 onSuccess={handleNewInvoice}
               />
@@ -186,6 +190,7 @@ export function InvoicesClient({
                 artistId={artistId}
                 billingProfile={billingProfile}
                 billingProfileComplete={billingProfileComplete}
+                labelClient={labelClient}
                 onCancel={handleCancel}
                 onSuccess={handleNewInvoice}
               />

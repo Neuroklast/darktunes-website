@@ -125,6 +125,17 @@ Release/video submit also fires `sendSubmissionNotificationEmail()` (env `LABEL_
 
 Health: `GET /api/health` defaults to **lite** (DB liveness); full dashboard snapshot only via `?mode=full` (admin widget uses this). `buildHealthSnapshot` powers full mode + `/api/health/alert`. Sync logs, app errors, maintenance routes. Cron heartbeats + optional alert webhook.
 
+## Portal billing compliance
+
+| Topic | Implementation |
+|-------|----------------|
+| Tax status | `artist_billing_profiles.tax_status` → PDF VAT lines (§19 / reverse charge) |
+| VIES | `src/lib/legal/viesVat.ts` → EC REST; required for reverse charge on save + invoice create |
+| IBAN | Local only `src/lib/sos/iban-validator.ts` on billing POST |
+| FX | Frankfurter via `getEcbRateForCurrency` / `/api/exchange-rates`; non-EUR invoice footnotes |
+| PDF immutability | `pdf_sha256` + write-once update guard; R2 key `invoices/{artistId}/{invoiceId}.pdf` |
+| AGB | `/agb` + `portal_terms_*` on `artists` + `POST /api/portal/accept-terms` |
+
 ## Scheduled news publishing
 
 No Vercel Cron. Due posts (`status = scheduled`, `published_at <= now`) are promoted to `published` when `getCachedPublicNews()` revalidates (public homepage, `/news`, etc.). Admin saves trigger `revalidateTag('news')` via `useNews`.

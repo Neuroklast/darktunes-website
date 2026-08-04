@@ -97,6 +97,13 @@ const schema = z.object({
   impressumEmail: z.string().email('Must be a valid email').or(z.literal('')),
   datenschutzContent: z.string().optional().default(''),
   datenschutzContentEn: z.string().optional().default(''),
+  agbContent: z.string().optional().default(''),
+  agbContentEn: z.string().optional().default(''),
+  portalTermsVersion: z.string().optional().default(''),
+  labelBillingStreet: z.string().optional().default(''),
+  labelBillingPostalCode: z.string().optional().default(''),
+  labelBillingCity: z.string().optional().default(''),
+  labelBillingCountry: z.string().optional().default(''),
   consentPlaceholderUrl: z.string().url('Must be a valid URL').or(z.literal('')),
   carouselAutoplayMs: z.number().int().min(0).default(0),
   videosPerPage: z.number().int().min(1).max(50).default(9),
@@ -1388,7 +1395,7 @@ export function SiteSettingsManager({ value: settings, onChange: saveSettings, i
                   disabled={isSubmitting}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Fallback description shown beneath the hero title. Used when the featured Release or News post has no excerpt.
+                  Only shown when the featured item has no own text. Releases use Promo Text; news uses Excerpt. If those are set, this fallback is never mixed in.
                 </p>
               </Field>
             </CardContent>
@@ -1548,10 +1555,88 @@ export function SiteSettingsManager({ value: settings, onChange: saveSettings, i
 
             <Card>
               <CardHeader>
+                <CardTitle>Label-Rechnungsadresse (PDF)</CardTitle>
+                <CardDescription>
+                  Strukturierte Adresse für SOS-Rechnungen (Leistungsempfänger). Optional — sonst
+                  Freitext aus dem Impressum. Platzhalter in AGB: {'{{labelName}}'}, {'{{address}}'},{' '}
+                  {'{{vatId}}'}, …
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Field id="labelBillingStreet" label="Straße / Hausnummer" error={errors.labelBillingStreet?.message}>
+                  <Input id="labelBillingStreet" {...register('labelBillingStreet')} disabled={isSubmitting} />
+                </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field id="labelBillingPostalCode" label="PLZ" error={errors.labelBillingPostalCode?.message}>
+                    <Input id="labelBillingPostalCode" {...register('labelBillingPostalCode')} disabled={isSubmitting} />
+                  </Field>
+                  <Field id="labelBillingCity" label="Ort" error={errors.labelBillingCity?.message}>
+                    <Input id="labelBillingCity" {...register('labelBillingCity')} disabled={isSubmitting} />
+                  </Field>
+                </div>
+                <Field id="labelBillingCountry" label="Land" error={errors.labelBillingCountry?.message}>
+                  <Input id="labelBillingCountry" placeholder="Germany" {...register('labelBillingCountry')} disabled={isSubmitting} />
+                </Field>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>AGB Artist Portal</CardTitle>
+                <CardDescription>
+                  Nutzungs- und Abrechnungsbedingungen (/agb). Leer = Standardvorlage mit Platzhaltern.
+                  Version steuert erneute Opt-in-Pflicht im Portal.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Field id="portalTermsVersion" label="AGB-Version" error={errors.portalTermsVersion?.message}>
+                  <Input
+                    id="portalTermsVersion"
+                    placeholder="2026-08-01"
+                    {...register('portalTermsVersion')}
+                    disabled={isSubmitting}
+                  />
+                </Field>
+                <Field id="agbContent" label="AGB (Deutsch)" error={errors.agbContent?.message}>
+                  <Controller
+                    name="agbContent"
+                    control={control}
+                    render={({ field }) => (
+                      <TiptapEditor
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        disabled={isSubmitting}
+                        placeholder="AGB mit {{labelName}}, {{address}}, …"
+                        grow
+                      />
+                    )}
+                  />
+                </Field>
+                <Field id="agbContentEn" label="Terms (English)" error={errors.agbContentEn?.message}>
+                  <Controller
+                    name="agbContentEn"
+                    control={control}
+                    render={({ field }) => (
+                      <TiptapEditor
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        disabled={isSubmitting}
+                        placeholder="Terms with {{labelName}}, {{address}}, …"
+                        grow
+                      />
+                    )}
+                  />
+                </Field>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>Datenschutzerklärung</CardTitle>
                 <CardDescription>
                   Volltext der Datenschutzerklärung. Erscheint auf /datenschutz.
-                  Leer lassen für Standard-Boilerplate.
+                  Leer lassen für Standard-Boilerplate (inkl. Artist-Portal-Abschnitt).
+                  Platzhalter: {'{{labelName}}'}, {'{{address}}'}, {'{{email}}'}.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

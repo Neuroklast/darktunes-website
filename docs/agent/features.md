@@ -12,7 +12,14 @@
 | Bearer auth | Portal route handlers use `authenticatePortalBearer()` from `src/lib/portal/bearerAuth.ts` |
 | Writes | Membership first; many routes then use **service role** (pragmatic). Target: user JWT + RLS — see [portal-write-auth.md](portal-write-auth.md) |
 
-**Billing & invoices:** `artist_billing_profiles` at `/portal/billing`. `isBillingProfileComplete()` required before PDF generation. `InlineBillingProfileStep` gates: `/portal/invoices` (`InvoiceForm`, `FreeInvoiceGenerator`), `/portal/analytics` (Earnings), `/portal/statements` (quick invoice). SOS-linked flow: `/portal/invoices?statement={id}` → `artist_invoice_number` + `sales_statements.status = 'invoiced'`.
+**Billing & invoices:** `artist_billing_profiles` at `/portal/billing`. `tax_status` (`standard` | `small_business` | `reverse_charge`) drives §14 UStG PDF tax lines. `isBillingProfileComplete()` required before PDF generation. `InlineBillingProfileStep` gates: `/portal/invoices` (`InvoiceForm`, `FreeInvoiceGenerator`), `/portal/analytics` (Earnings), `/portal/statements` (quick invoice). SOS-linked flow: `/portal/invoices?statement={id}` → `artist_invoice_number` + `sales_statements.status = 'invoiced'`. Label recipient party from `site_settings` via `resolveLabelBillingParty()` (never hardcode). Issued PDFs are write-once (`pdf_sha256`, stable R2 key `invoices/{artistId}/{invoiceId}.pdf`). Billing profile changes log to `financial_audit_events` (IBAN masked).
+
+**VIES / IBAN / FX (compliance helpers):**
+- **EU VAT (VIES):** `checkVatWithVies()` → Commission REST API on billing save; reverse-charge requires live valid VIES at save **and** invoice create. Snapshot: `vat_vies_*` columns.
+- **IBAN:** local only — `src/lib/sos/iban-validator.ts` (ISO 7064). Enforced on `POST /api/portal/billing-profile`. **Never** call third-party IBAN APIs (DSGVO).
+- **ECB FX:** Frankfurter already powers SOS (`/api/exchange-rates`). Non-EUR invoices fetch `getEcbRateForCurrency()` and store `fx_rate` / `fx_rate_date` / `fx_rate_source` + PDF footnote.
+
+**Legal (multi-tenant):** Public `/impressum`, `/datenschutz`, `/agb`. CMS keys `agb_content` / `agb_content_en`, `portal_terms_version`, label billing address fields. Templates support `{{labelName}}`, `{{address}}`, `{{vatId}}`, … via `renderLegalTemplate`. Portal AGB opt-in per **artist** (`portal_terms_*` on `artists`); onboarding terms step + layout gate when version mismatches.
 
 **Key routes:** profile, analytics (11 tabs + intelligence + dual-axis Spotify presence, period presets, CSV/PDF export), statements, billing, invoices, releases, tour (events), **tour-planner** (TRACK production), calendar, marketing, documents, messages, interviews, epk-builder, onboarding, help.
 

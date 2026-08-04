@@ -93,6 +93,10 @@ WHERE id = (
 
 ## ☁️ Cloudflare R2 Setup
 
+### GoBD / invoice immutability (ops)
+
+Enable **bucket versioning** on the production R2 bucket (or at least for prefixes `invoices/` and `statements/`). The app stores a stable key `invoices/{artistId}/{invoiceId}.pdf` and refuses to overwrite `pdf_url` / `pdf_sha256` once set. Versioning provides an extra recovery trail if objects are replaced outside the app.
+
 ### 1. Create R2 Bucket
 1. Go to Cloudflare Dashboard
 2. Navigate to R2 Object Storage

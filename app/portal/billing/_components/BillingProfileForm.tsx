@@ -6,12 +6,12 @@ import { CheckCircle, WarningCircle } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import type { ArtistBillingProfile } from '@/lib/api/artistBillingProfiles'
+import type { TaxStatus } from '@/lib/legal/taxStatus'
 
 interface BillingProfileFormProps {
   artistId: string
@@ -30,7 +30,7 @@ export function BillingProfileForm({ artistId, billingProfile, isComplete }: Bil
     country: billingProfile?.country ?? 'DE',
     taxNumber: billingProfile?.taxNumber ?? '',
     vatId: billingProfile?.vatId ?? '',
-    isSmallBusiness: billingProfile?.isSmallBusiness ?? false,
+    taxStatus: (billingProfile?.taxStatus ?? 'standard') as TaxStatus,
     iban: billingProfile?.iban ?? '',
     bic: billingProfile?.bic ?? '',
     paypalEmail: billingProfile?.paypalEmail ?? '',
@@ -69,20 +69,36 @@ export function BillingProfileForm({ artistId, billingProfile, isComplete }: Bil
           country: form.country,
           tax_number: form.taxNumber,
           vat_id: form.vatId,
-          is_small_business: form.isSmallBusiness,
+          tax_status: form.taxStatus,
+          is_small_business: form.taxStatus === 'small_business',
           iban: form.iban,
           bic: form.bic,
           paypal_email: form.paypalEmail,
         }),
       })
 
-      const json = (await response.json().catch(() => null)) as { error?: string; isComplete?: boolean } | null
+      const json = (await response.json().catch(() => null)) as {
+        error?: string
+        isComplete?: boolean
+        vies?: { status?: string; valid?: boolean; traderName?: string; message?: string } | null
+      } | null
       if (!response.ok) {
         throw new Error(json?.error ?? t('billing_error'))
       }
 
       setComplete(Boolean(json?.isComplete))
       toast.success(t('billing_saved'))
+      if (json?.vies?.status === 'valid') {
+        toast.message(
+          json.vies.traderName
+            ? `${t('billing_vies_valid')}: ${json.vies.traderName}`
+            : t('billing_vies_valid'),
+        )
+      } else if (json?.vies?.status === 'invalid') {
+        toast.warning(json.vies.message ?? t('billing_vies_invalid'))
+      } else if (json?.vies?.status === 'service_unavailable') {
+        toast.warning(t('billing_vies_unavailable'))
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('billing_error'))
     } finally {
@@ -159,15 +175,19 @@ export function BillingProfileForm({ artistId, billingProfile, isComplete }: Bil
               </div>
             </div>
 
-            <div className="flex items-center gap-3 rounded-lg border border-border p-4">
-              <Checkbox
-                id="billing-small-business"
-                checked={form.isSmallBusiness}
-                onCheckedChange={(checked) => updateField('isSmallBusiness', checked === true)}
-              />
-              <Label className="cursor-pointer text-sm leading-6" htmlFor="billing-small-business">
-                {t('billing_small_business')}
-              </Label>
+            <div className="space-y-2">
+              <Label htmlFor="billing-tax-status">{t('billing_tax_status')}</Label>
+              <select
+                id="billing-tax-status"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={form.taxStatus}
+                onChange={(event) => updateField('taxStatus', event.target.value as TaxStatus)}
+              >
+                <option value="standard">{t('billing_tax_standard')}</option>
+                <option value="small_business">{t('billing_tax_small_business')}</option>
+                <option value="reverse_charge">{t('billing_tax_reverse_charge')}</option>
+              </select>
+              <p className="text-xs text-muted-foreground">{t('billing_tax_status_hint')}</p>
             </div>
 
             <div className="flex justify-end">

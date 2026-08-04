@@ -20,11 +20,8 @@ import {
 } from '@/lib/api/artistBillingProfiles'
 import type { ArtistInvoice } from '@/lib/api/artistInvoices'
 import type { SalesStatement } from '@/lib/api/salesStatements'
-import {
-  LABEL_CLIENT_ADDRESS,
-  LABEL_CLIENT_EMAIL,
-  LABEL_CLIENT_NAME,
-} from '@/lib/portal/labelBilling'
+import type { LabelClientInfo } from '@/lib/portal/labelBilling'
+import { taxRateForStatus } from '@/lib/legal/taxStatus'
 import { isInvoiceableStatementStatus, type GuidedStepDef } from '@/lib/guided/guidedSteps'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { InlineBillingProfileStep } from './InlineBillingProfileStep'
@@ -52,6 +49,7 @@ export interface InvoiceFromStatementAssistantProps {
   statement: SalesStatement
   billingProfile: ArtistBillingProfile | null
   billingProfileComplete: boolean
+  labelClient: LabelClientInfo
   onSuccess: (invoice: ArtistInvoice) => void
   onCancel: () => void
 }
@@ -61,6 +59,7 @@ export function InvoiceFromStatementAssistant({
   statement,
   billingProfile: initialBilling,
   billingProfileComplete: initialComplete,
+  labelClient,
   onSuccess,
   onCancel,
 }: InvoiceFromStatementAssistantProps) {
@@ -78,7 +77,10 @@ export function InvoiceFromStatementAssistant({
   const amountEur = statement.amountEur ?? 0
   const amountCents = Math.round(amountEur * 100)
   const invoiceable = isInvoiceableStatementStatus(statement.status) && amountEur > 0
-  const taxRate = billingProfile?.isSmallBusiness ? 0 : DEFAULT_TAX_RATE_PCT
+  const taxRate = taxRateForStatus(
+    billingProfile?.taxStatus ?? (billingProfile?.isSmallBusiness ? 'small_business' : 'standard'),
+    DEFAULT_TAX_RATE_PCT,
+  )
 
   const stepComplete = useMemo(() => {
     if (stepId === 'confirm') return invoiceable
@@ -149,9 +151,9 @@ export function InvoiceFromStatementAssistant({
         body: JSON.stringify({
           artist_id: artistId,
           artist_invoice_number: invoiceNumber.trim(),
-          client_name: LABEL_CLIENT_NAME,
-          client_email: LABEL_CLIENT_EMAIL,
-          client_address: LABEL_CLIENT_ADDRESS,
+          client_name: labelClient.name,
+          client_email: labelClient.email,
+          client_address: labelClient.address,
           statement_id: statement.id,
           line_items: [
             {
@@ -311,7 +313,7 @@ export function InvoiceFromStatementAssistant({
             </div>
             <p className="text-sm">
               <span className="text-muted-foreground">{t('invoice_assistant_client')}: </span>
-              {LABEL_CLIENT_NAME}
+              {labelClient.name}
             </p>
             <p className="text-sm">
               <span className="text-muted-foreground">{t('invoice_assistant_amount')}: </span>

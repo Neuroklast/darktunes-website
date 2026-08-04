@@ -52,6 +52,10 @@ export interface Artist {
   imagePositionY?: number | null
   /** Zoom scale for the portrait image (≥1, default 1). */
   imageScale?: number | null
+  /** Portal AGB version last accepted for this artist (billing terms). */
+  portalTermsVersion?: string | null
+  portalTermsAcceptedAt?: string | null
+  portalTermsAcceptedBy?: string | null
 }
 
 export interface SyncLog {
@@ -504,6 +508,17 @@ export interface SiteSettings {
   datenschutzContent: string
   /** English privacy policy text (Markdown or HTML). Displayed on /datenschutz for the EN locale. */
   datenschutzContentEn?: string
+  /** Portal AGB / terms body (Markdown or HTML) — DE. Empty → code default with placeholders. */
+  agbContent: string
+  /** Portal AGB / terms body (Markdown or HTML) — EN. */
+  agbContentEn: string
+  /** Version string for portal terms acceptance (e.g. 2026-08-01). */
+  portalTermsVersion: string
+  /** Structured label billing address for invoice PDFs (optional; falls back to impressum). */
+  labelBillingStreet: string
+  labelBillingPostalCode: string
+  labelBillingCity: string
+  labelBillingCountry: string
   /** URL of the placeholder image shown in ConsentGate before the user opts in. */
   consentPlaceholderUrl: string
   /** Visual overlay: animated noise/grain opacity (0–1). Default 0.04. */

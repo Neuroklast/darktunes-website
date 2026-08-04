@@ -7,7 +7,6 @@ import { CheckCircle, WarningCircle } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { GuidedStepShell } from '@/components/guided/GuidedStepShell'
@@ -17,6 +16,7 @@ import {
   isBillingProfileSepaReady,
   type ArtistBillingProfile,
 } from '@/lib/api/artistBillingProfiles'
+import type { TaxStatus } from '@/lib/legal/taxStatus'
 import { isValidIBAN, sanitiseIBAN } from '@/lib/sos/iban-validator'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import type { GuidedMode, GuidedStepDef } from '@/lib/guided/guidedSteps'
@@ -61,7 +61,7 @@ export function BillingProfileAssistant({
     country: initial?.country ?? 'DE',
     taxNumber: initial?.taxNumber ?? '',
     vatId: initial?.vatId ?? '',
-    isSmallBusiness: initial?.isSmallBusiness ?? false,
+    taxStatus: (initial?.taxStatus ?? 'standard') as TaxStatus,
     iban: initial?.iban ?? '',
     bic: initial?.bic ?? '',
     paypalEmail: initial?.paypalEmail ?? '',
@@ -82,10 +82,15 @@ export function BillingProfileAssistant({
           country: form.country,
           taxNumber: form.taxNumber || undefined,
           vatId: form.vatId || undefined,
-          isSmallBusiness: form.isSmallBusiness,
+          isSmallBusiness: form.taxStatus === 'small_business',
+          taxStatus: form.taxStatus,
           iban: form.iban || undefined,
           bic: form.bic || undefined,
           paypalEmail: form.paypalEmail || undefined,
+          vatViesValid: null,
+          vatViesCheckedAt: null,
+          vatViesTraderName: null,
+          vatViesRequestId: null,
           createdAt: '',
           updatedAt: '',
         },
@@ -98,7 +103,10 @@ export function BillingProfileAssistant({
     form.postalCode.trim() &&
     form.city.trim() &&
     form.country.trim()
-  const taxOk = Boolean(form.taxNumber.trim() || form.vatId.trim())
+  const taxOk =
+    form.taxStatus === 'reverse_charge'
+      ? Boolean(form.vatId.trim())
+      : Boolean(form.taxNumber.trim() || form.vatId.trim())
   const payoutOk = ibanClean.length === 0 || ibanValid
 
   const stepComplete = useMemo(() => {
@@ -140,7 +148,8 @@ export function BillingProfileAssistant({
           country: form.country,
           tax_number: form.taxNumber,
           vat_id: form.vatId,
-          is_small_business: form.isSmallBusiness,
+          tax_status: form.taxStatus,
+          is_small_business: form.taxStatus === 'small_business',
           iban: form.iban ? sanitiseIBAN(form.iban) : '',
           bic: form.bic,
           paypal_email: form.paypalEmail,
@@ -150,6 +159,7 @@ export function BillingProfileAssistant({
         error?: string
         profile?: ArtistBillingProfile
         isComplete?: boolean
+        vies?: { status?: string; valid?: boolean; traderName?: string; message?: string } | null
       } | null
       if (!response.ok || !json?.profile) {
         throw new Error(json?.error ?? t('billing_error'))
@@ -157,6 +167,17 @@ export function BillingProfileAssistant({
       setProfile(json.profile)
       setComplete(json.isComplete ?? isBillingProfileComplete(json.profile))
       toast.success(t('billing_saved'))
+      if (json.vies?.status === 'valid') {
+        toast.message(
+          json.vies.traderName
+            ? `${t('billing_vies_valid')}: ${json.vies.traderName}`
+            : t('billing_vies_valid'),
+        )
+      } else if (json.vies?.status === 'invalid') {
+        toast.warning(json.vies.message ?? t('billing_vies_invalid'))
+      } else if (json.vies?.status === 'service_unavailable') {
+        toast.warning(t('billing_vies_unavailable'))
+      }
       return json.profile
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('billing_error'))
@@ -332,15 +353,22 @@ export function BillingProfileAssistant({
               value={form.vatId}
               onChange={(v) => setForm((f) => ({ ...f, vatId: v }))}
             />
-            <div className="flex items-center gap-2 sm:col-span-2">
-              <Checkbox
-                id="smallBiz"
-                checked={form.isSmallBusiness}
-                onCheckedChange={(c) => setForm((f) => ({ ...f, isSmallBusiness: c === true }))}
-              />
-              <Label htmlFor="smallBiz">{t('billing_small_business')}</Label>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="taxStatus">{t('billing_tax_status')}</Label>
+              <select
+                id="taxStatus"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={form.taxStatus}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, taxStatus: e.target.value as TaxStatus }))
+                }
+              >
+                <option value="standard">{t('billing_tax_standard')}</option>
+                <option value="small_business">{t('billing_tax_small_business')}</option>
+                <option value="reverse_charge">{t('billing_tax_reverse_charge')}</option>
+              </select>
             </div>
-            <p className="text-xs text-muted-foreground sm:col-span-2">{t('billing_assistant_tax_hint')}</p>
+            <p className="text-xs text-muted-foreground sm:col-span-2">{t('billing_tax_status_hint')}</p>
           </CardContent>
         </Card>
       )}

@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 import type { ArtistBillingProfile } from '@/lib/api/artistBillingProfiles'
 import type { ArtistInvoice } from '@/lib/api/artistInvoices'
 import type { SalesStatement } from '@/lib/api/salesStatements'
-import { LABEL_CLIENT_ADDRESS, LABEL_CLIENT_EMAIL, LABEL_CLIENT_NAME } from '@/lib/portal/labelBilling'
+import type { LabelClientInfo } from '@/lib/portal/labelBilling'
 import { InlineBillingProfileStep } from './InlineBillingProfileStep'
 
 interface LineItem {
@@ -28,6 +28,7 @@ interface InvoiceFormProps {
   artistId: string
   billingProfile: ArtistBillingProfile | null
   billingProfileComplete: boolean
+  labelClient: LabelClientInfo
   onSuccess: (invoice: ArtistInvoice) => void
   onCancel: () => void
   statement?: SalesStatement
@@ -49,6 +50,7 @@ export function InvoiceForm({
   artistId,
   billingProfile: initialBillingProfile,
   billingProfileComplete: initialBillingComplete,
+  labelClient,
   onSuccess,
   onCancel,
   statement,
@@ -59,12 +61,18 @@ export function InvoiceForm({
   const [billingProfileComplete, setBillingProfileComplete] = useState(initialBillingComplete)
   const isStatementLinked = Boolean(statement)
   const [artistInvoiceNumber, setArtistInvoiceNumber] = useState('')
-  const [clientName, setClientName] = useState(isStatementLinked ? LABEL_CLIENT_NAME : '')
-  const [clientEmail, setClientEmail] = useState(isStatementLinked ? LABEL_CLIENT_EMAIL : '')
-  const [clientAddress, setClientAddress] = useState(isStatementLinked ? LABEL_CLIENT_ADDRESS : '')
+  const [clientName, setClientName] = useState(isStatementLinked ? labelClient.name : '')
+  const [clientEmail, setClientEmail] = useState(isStatementLinked ? labelClient.email : '')
+  const [clientAddress, setClientAddress] = useState(isStatementLinked ? labelClient.address : '')
   const [dueDate, setDueDate] = useState('')
   const [currency, setCurrency] = useState('EUR')
-  const [taxRatePct, setTaxRatePct] = useState(billingProfile?.isSmallBusiness ? 0 : 19)
+  const [taxRatePct, setTaxRatePct] = useState(
+    billingProfile?.taxStatus && billingProfile.taxStatus !== 'standard'
+      ? 0
+      : billingProfile?.isSmallBusiness
+        ? 0
+        : 19,
+  )
   const [notes, setNotes] = useState('')
   const [sendEmail, setSendEmail] = useState(true)
   const [sendToLabel, setSendToLabel] = useState(true)

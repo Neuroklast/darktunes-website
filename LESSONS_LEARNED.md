@@ -112,6 +112,10 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-04 — Legal billing / VIES / IBAN / FX
+
+**Reverse charge without a hard VIES gate is a tax risk:** Do not allow `tax_status = reverse_charge` without a VAT ID, and do not store VIES downtime as `valid: false` (keep the last good snapshot). Re-check VIES at invoice create. **IBAN stays local-only** (ISO 7064) — never third-party bank APIs (DSGVO). Label recipient party and invoice email brand must come from `site_settings`. SOS-linked invoices should 422 if label contact email/address is missing in CMS.
+
 ### 2026-07-23 — Cover art CORS vs client-side checks
 
 **Never verify remote cover URLs in the browser when artists use Drive/Dropbox:** `Image` + CORS `fetch` fail silently on hosts without ACAO → submit permanently blocked. Run dimension/format checks **server-side** (allowlist + SSRF guards), normalize Drive share URLs to download endpoints, and re-verify on submit so clients cannot spoof `coverArtVerified`.

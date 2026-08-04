@@ -8,7 +8,8 @@ Built with **Next.js 15 (App Router)**, React, Supabase, Cloudflare R2, and Tail
 ## 🎵 Features
 
 - **Public site** – Hero, Releases (iTunes sync), Artists, Videos, News, Tour dates, Spotify Player
-- **Artist Portal** – Secure multi-tenant dashboard at `/portal` for signed-in artists (responsive mobile sidebar, legacy EPK presets + canvas EPK Builder at `/portal/epk-builder` with server PDF export, share links, download analytics, and admin starter templates, **enterprise analytics** at `/portal/analytics` — streaming, territories, releases, revenue mix, EPK & press, settlement ledger, website engagement, merch orders — plus overview intelligence hub, release submission + checklist, video submission, tour manager, marketing assets, document vault, label inbox with rich-text replies + realtime updates, billing profile management, SOS statement downloads, SOS-linked invoice creation, interview requests, onboarding wizard, calendar, help FAQ, account settings)
+- **Artist Portal** – Secure multi-tenant dashboard at `/portal` for signed-in artists (responsive mobile sidebar, legacy EPK presets + canvas EPK Builder at `/portal/epk-builder` with server PDF export, share links, download analytics, and admin starter templates, **enterprise analytics** at `/portal/analytics` — streaming, territories, releases, revenue mix, EPK & press, settlement ledger, website engagement, merch orders — plus overview intelligence hub, release submission + checklist, video submission, tour manager, marketing assets, document vault, label inbox with rich-text replies + realtime updates, billing profile management (tax status, local IBAN check, EU VIES for reverse charge), SOS statement downloads, SOS-linked invoice creation (§14 UStG PDF, write-once), interview requests, onboarding wizard with AGB opt-in, calendar, help FAQ, account settings)
+- **Legal pages** – CMS-backed `/impressum`, `/datenschutz`, `/agb` with multi-tenant placeholders (`{{labelName}}`, …); portal terms acceptance gated by version
 - **Internationalisation (i18n)** – EN/DE support via custom dictionary pattern (`src/i18n/`), locale auto-detected from `Accept-Language` header, locale switcher in Header
 - **CRT scanline aesthetic** – immersive dark atmosphere with animated overlays
 - **Smooth scrolling** – powered by Lenis
@@ -256,8 +257,11 @@ app/                          # Next.js App Router entry points
 │   ├── press/                # Press portal management (photos, promo tracks, applications)
 │   ├── colors/               # CI Color Theme editor
 │   ├── features/             # Feature flags (global toggles + portal/journalist flags)
-│   ├── settings/             # Site settings CMS (global, social, SEO, hero, legal)
+│   ├── settings/             # Site settings CMS (global, social, SEO, hero, legal/AGB)
 │   └── users/                # User management + artist linking (admin-only)
+├── impressum/page.tsx        # Legal notice (site_settings)
+├── datenschutz/page.tsx      # Privacy policy (+ portal/billing retention defaults)
+├── agb/page.tsx              # Portal terms (multi-tenant templates + placeholders)
 ├── portal/                   # Multi-tenant Artist Portal routes (/portal/*)
 │   ├── layout.tsx            # Portal layout (server, renders sidebar)
 │   ├── page.tsx              # Dashboard overview
@@ -270,8 +274,9 @@ app/                          # Next.js App Router entry points
 │   │   ├── submissions/      # Track own submission status
 │   │   └── videos/new/       # Submit new video
 │   ├── statements/           # Royalty statements (presigned R2 download)
-│   ├── billing/              # Billing profile (invoice master data)
+│   ├── billing/              # Billing profile (tax status, VIES, IBAN, payout)
 │   ├── invoices/             # Create + download invoices (SOS-linked or manual)
+│   ├── onboarding/           # First-run wizard + AGB acceptance
 │   ├── tour/                 # Tour date management
 │   ├── marketing/            # Promo log view + artist-owned asset uploads
 │   ├── messages/             # Label inbox + rich-text replies
@@ -308,7 +313,7 @@ app/                          # Next.js App Router entry points
     ├── revalidate-site-settings/route.ts  # Site-settings ISR revalidation
     ├── newsletter/                        # DOI subscribe / verify / unsubscribe
     ├── contact/route.ts                   # Contact form (Resend delivery)
-    ├── exchange-rates/route.ts            # Live EUR exchange rates for invoices
+    ├── exchange-rates/route.ts            # ECB/Frankfurter FX proxy (SOS + non-EUR invoices)
     ├── health/route.ts                    # Health check endpoint
     ├── log-error/route.ts                 # Client-side error reporting (app_logs)
     ├── vitals/route.ts                    # Core Web Vitals RUM ingestion
@@ -348,7 +353,8 @@ app/                          # Next.js App Router entry points
         ├── upload-asset/route.ts          # Artist-owned asset upload/delete (max 20 MB)
         ├── upload-rider/route.ts          # Technical rider upload
         ├── profile/route.ts               # Upsert artist EPK profile
-        ├── billing-profile/route.ts       # Billing profile upsert
+        ├── billing-profile/route.ts       # Billing profile upsert + VIES + local IBAN
+        ├── accept-terms/route.ts          # Versioned portal AGB acceptance
         ├── checklist/route.ts             # Release checklist item toggle
         ├── concerts/                      # Artist concert CRUD + ICS export
         ├── documents/                     # Document Vault upload/download/delete
@@ -377,7 +383,8 @@ src/
 │   │   ├── artistDocuments.ts# Document Vault DAL
 │   │   └── artistRowMapper.ts# Shared ArtistRow → Artist domain mapper
 │   ├── sync/                 # Multi-API sync engine (iTunes, Spotify, Discogs, Odesli, …)
-│   ├── portal/               # Portal utilities (presigned URLs)
+│   ├── portal/               # Portal utilities (presigned URLs, label billing, terms gate)
+│   ├── legal/                # VIES VAT check, ECB FX helpers, legal template placeholders
 │   ├── email/                # Email sending utilities (Resend)
 │   ├── sos/                  # SOS validation + CSV processor
 │   ├── supabase/

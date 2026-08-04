@@ -42,9 +42,14 @@ const mockRow: BillingProfileRow = {
   tax_number: 'DE123456789',
   vat_id: null,
   is_small_business: false,
+  tax_status: 'standard',
   iban: 'DE89370400440532013000',
   bic: 'COBADEFFXXX',
   paypal_email: null,
+  vat_vies_valid: null,
+  vat_vies_checked_at: null,
+  vat_vies_trader_name: null,
+  vat_vies_request_id: null,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 }
@@ -64,6 +69,7 @@ describe('getBillingProfile', () => {
     expect(result!.taxNumber).toBe('DE123456789')
     expect(result!.vatId).toBeUndefined()
     expect(result!.isSmallBusiness).toBe(false)
+    expect(result!.taxStatus).toBe('standard')
     expect(result!.iban).toBe('DE89370400440532013000')
     expect(result!.bic).toBe('COBADEFFXXX')
     expect(result!.paypalEmail).toBeUndefined()
@@ -109,6 +115,7 @@ describe('upsertBillingProfile', () => {
       city: 'Berlin',
       country: 'DE',
       taxNumber: 'DE123456789',
+      taxStatus: 'standard',
       isSmallBusiness: false,
       iban: 'DE89370400440532013000',
       bic: 'COBADEFFXXX',
@@ -125,6 +132,7 @@ describe('upsertBillingProfile', () => {
       postalCode: '12345',
       city: 'City',
       country: 'DE',
+      taxStatus: 'standard',
       isSmallBusiness: false,
     })
     expect(result.legalName).toBe('Max Mustermann') // mapped from mockRow
@@ -139,6 +147,7 @@ describe('upsertBillingProfile', () => {
         postalCode: '12345',
         city: 'City',
         country: 'DE',
+        taxStatus: 'standard',
         isSmallBusiness: false,
       }),
     ).rejects.toThrow('constraint violation')
@@ -153,6 +162,7 @@ describe('upsertBillingProfile', () => {
         postalCode: '12345',
         city: 'City',
         country: 'DE',
+        taxStatus: 'standard',
         isSmallBusiness: false,
       }),
     ).rejects.toThrow('No data returned from upsertBillingProfile')
@@ -171,9 +181,14 @@ describe('isBillingProfileComplete', () => {
     taxNumber: 'DE123456789',
     vatId: undefined,
     isSmallBusiness: false,
+    taxStatus: 'standard',
     iban: undefined,
     bic: undefined,
     paypalEmail: undefined,
+    vatViesValid: null,
+    vatViesCheckedAt: null,
+    vatViesTraderName: null,
+    vatViesRequestId: null,
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
   }
@@ -216,5 +231,19 @@ describe('isBillingProfileComplete', () => {
       vatId: undefined,
     }
     expect(isBillingProfileComplete(profile)).toBe(false)
+  })
+
+  it('requires VIES-valid VAT for reverse_charge', () => {
+    const base: ArtistBillingProfile = {
+      ...completeProfile,
+      taxNumber: undefined,
+      vatId: 'ESB12345678',
+      taxStatus: 'reverse_charge',
+      isSmallBusiness: false,
+      vatViesValid: null,
+    }
+    expect(isBillingProfileComplete(base)).toBe(false)
+    expect(isBillingProfileComplete({ ...base, vatViesValid: false })).toBe(false)
+    expect(isBillingProfileComplete({ ...base, vatViesValid: true })).toBe(true)
   })
 })

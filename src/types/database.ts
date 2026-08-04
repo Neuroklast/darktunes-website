@@ -674,6 +674,9 @@ export interface Database {
           image_position_y: number | null
           image_scale: number | null
           landing_publish_trusted: boolean
+          portal_terms_version: string | null
+          portal_terms_accepted_at: string | null
+          portal_terms_accepted_by: string | null
           created_at: string
           updated_at: string
         }
@@ -721,6 +724,9 @@ export interface Database {
           image_position_y?: number | null
           image_scale?: number | null
           landing_publish_trusted?: boolean
+          portal_terms_version?: string | null
+          portal_terms_accepted_at?: string | null
+          portal_terms_accepted_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -768,6 +774,9 @@ export interface Database {
           image_position_y?: number | null
           image_scale?: number | null
           landing_publish_trusted?: boolean
+          portal_terms_version?: string | null
+          portal_terms_accepted_at?: string | null
+          portal_terms_accepted_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -1076,9 +1085,14 @@ export interface Database {
           tax_number: string | null
           vat_id: string | null
           is_small_business: boolean
+          tax_status: string
           iban: string | null
           bic: string | null
           paypal_email: string | null
+          vat_vies_valid: boolean | null
+          vat_vies_checked_at: string | null
+          vat_vies_trader_name: string | null
+          vat_vies_request_id: string | null
           created_at: string
           updated_at: string
         }
@@ -1093,9 +1107,14 @@ export interface Database {
           tax_number?: string | null
           vat_id?: string | null
           is_small_business?: boolean
+          tax_status?: string
           iban?: string | null
           bic?: string | null
           paypal_email?: string | null
+          vat_vies_valid?: boolean | null
+          vat_vies_checked_at?: string | null
+          vat_vies_trader_name?: string | null
+          vat_vies_request_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -1110,9 +1129,14 @@ export interface Database {
           tax_number?: string | null
           vat_id?: string | null
           is_small_business?: boolean
+          tax_status?: string
           iban?: string | null
           bic?: string | null
           paypal_email?: string | null
+          vat_vies_valid?: boolean | null
+          vat_vies_checked_at?: string | null
+          vat_vies_trader_name?: string | null
+          vat_vies_request_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -1136,6 +1160,12 @@ export interface Database {
           issued_date: string
           notes: string | null
           pdf_url: string | null
+          pdf_sha256: string | null
+          service_period_start: string | null
+          service_period_end: string | null
+          fx_rate: number | null
+          fx_rate_date: string | null
+          fx_rate_source: string | null
           received_at: string | null
           received_by: string | null
           paid_at: string | null
@@ -1165,6 +1195,12 @@ export interface Database {
           issued_date?: string
           notes?: string | null
           pdf_url?: string | null
+          pdf_sha256?: string | null
+          service_period_start?: string | null
+          service_period_end?: string | null
+          fx_rate?: number | null
+          fx_rate_date?: string | null
+          fx_rate_source?: string | null
           received_at?: string | null
           received_by?: string | null
           paid_at?: string | null
@@ -1194,6 +1230,12 @@ export interface Database {
           issued_date?: string
           notes?: string | null
           pdf_url?: string | null
+          pdf_sha256?: string | null
+          service_period_start?: string | null
+          service_period_end?: string | null
+          fx_rate?: number | null
+          fx_rate_date?: string | null
+          fx_rate_source?: string | null
           received_at?: string | null
           received_by?: string | null
           paid_at?: string | null

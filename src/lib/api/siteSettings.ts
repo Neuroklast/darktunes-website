@@ -17,6 +17,7 @@ import {
   INVITE_LINK_EXPIRY_HOURS_DEFAULT,
   normalizeInviteLinkExpiryHours,
 } from '@/lib/auth/inviteLinkExpiry'
+import { DEFAULT_PORTAL_TERMS_VERSION } from '@/lib/legal/defaults'
 
 type DbClient = SupabaseClient<Database>
 
@@ -31,7 +32,7 @@ function createSiteSettingsDefaults(): SiteSettings {
   labelTagline: "We don't follow trends—we create them.",
   contactEmail: tenant.contactEmail,
   privacyPolicyUrl: '/datenschutz',
-  termsUrl: '/impressum',
+  termsUrl: '/agb',
   instagramUrl: '',
   youtubeUrl: '',
   spotifyUrl: '',
@@ -55,6 +56,13 @@ function createSiteSettingsDefaults(): SiteSettings {
   impressumPhone: '',
   impressumEmail: tenant.contactEmail,
   datenschutzContent: '',
+  agbContent: '',
+  agbContentEn: '',
+  portalTermsVersion: DEFAULT_PORTAL_TERMS_VERSION,
+  labelBillingStreet: '',
+  labelBillingPostalCode: '',
+  labelBillingCity: '',
+  labelBillingCountry: '',
   consentPlaceholderUrl: '',
   noiseOpacity: 0.04,
   crtScanlinesEnabled: true,
@@ -204,6 +212,16 @@ function rowsToSettings(rows: { key: string; value: string }[]): SiteSettings {
     impressumEmail: map['impressum_email'] ?? SITE_SETTINGS_DEFAULTS.impressumEmail,
     datenschutzContent: map['datenschutz_content'] ?? SITE_SETTINGS_DEFAULTS.datenschutzContent,
     datenschutzContentEn: map['datenschutz_content_en'] ?? '',
+    agbContent: map['agb_content'] ?? SITE_SETTINGS_DEFAULTS.agbContent,
+    agbContentEn: map['agb_content_en'] ?? SITE_SETTINGS_DEFAULTS.agbContentEn,
+    portalTermsVersion:
+      map['portal_terms_version']?.trim() || SITE_SETTINGS_DEFAULTS.portalTermsVersion,
+    labelBillingStreet: map['label_billing_street'] ?? SITE_SETTINGS_DEFAULTS.labelBillingStreet,
+    labelBillingPostalCode:
+      map['label_billing_postal_code'] ?? SITE_SETTINGS_DEFAULTS.labelBillingPostalCode,
+    labelBillingCity: map['label_billing_city'] ?? SITE_SETTINGS_DEFAULTS.labelBillingCity,
+    labelBillingCountry:
+      map['label_billing_country'] ?? SITE_SETTINGS_DEFAULTS.labelBillingCountry,
     consentPlaceholderUrl: map['consent_placeholder_url'] ?? SITE_SETTINGS_DEFAULTS.consentPlaceholderUrl,
     noiseOpacity: parseFloat(map['noise_opacity'] ?? '') || SITE_SETTINGS_DEFAULTS.noiseOpacity,
     crtScanlinesEnabled:

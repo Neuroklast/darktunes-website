@@ -67,6 +67,7 @@ export default async function ImpressumPage() {
             <h2 id="impr-angaben" className="text-lg font-bold uppercase tracking-wider mb-3 text-foreground">
               Angaben gemäß § 5 DDG
             </h2>
+            <p className="text-sm text-muted-foreground mb-1">Betreiber der Website</p>
             <p className="font-semibold">{settings.impressumCompanyName}</p>
             {settings.impressumLegalForm && (
               <p className="text-muted-foreground">{settings.impressumLegalForm}</p>
@@ -80,7 +81,7 @@ export default async function ImpressumPage() {
           {settings.impressumRepresentative && (
             <section aria-labelledby="impr-vertreten">
               <h2 id="impr-vertreten" className="text-lg font-bold uppercase tracking-wider mb-3 text-foreground">
-                Vertreten durch
+                Vertreten durch (Geschäftsführer/Inhaber)
               </h2>
               <p>{settings.impressumRepresentative}</p>
             </section>
@@ -120,7 +121,8 @@ export default async function ImpressumPage() {
                 Umsatzsteuer-Identifikationsnummer
               </h2>
               <p>
-                Gemäß § 27a Umsatzsteuergesetz: <span className="font-mono">{settings.impressumVatId}</span>
+                Umsatzsteuer-Identifikationsnummer gemäß § 27 a Umsatzsteuergesetz:{' '}
+                <span className="font-mono">{settings.impressumVatId}</span>
               </p>
             </section>
           )}

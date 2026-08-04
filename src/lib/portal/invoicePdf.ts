@@ -60,19 +60,27 @@ export interface BillingParty {
   email?: string
 }
 
+export type InvoiceTaxStatus = 'standard' | 'small_business' | 'reverse_charge'
+
 export interface InvoicePdfOptions {
   invoiceNumber: string
   issuedDate: string
   dueDate?: string
   artist: BillingParty
   label: BillingParty
+  /** Shown in PDF header under RECHNUNG (tenant brand). */
+  labelDisplayName?: string
   sosReference?: string
   sosPeriod?: string
   lineItems: InvoiceLineItem[]
   currency: string
   taxRatePct: number
-  isSmallBusiness: boolean
+  /** @deprecated use taxStatus */
+  isSmallBusiness?: boolean
+  taxStatus?: InvoiceTaxStatus
   notes?: string
+  /** Optional ECB reference rate footnote when currency ≠ EUR. */
+  fxNote?: string
 }
 
 function formatCurrency(cents: number, currency: string): string {
@@ -156,7 +164,11 @@ export async function generateInvoicePdf(options: InvoicePdfOptions): Promise<Ui
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(muted)
-  doc.text('darkTunes Music Group — Artist Portal', margin, 30)
+  const headerBrand =
+    options.labelDisplayName?.trim() ||
+    options.label.name?.trim() ||
+    'Artist Portal'
+  doc.text(`${headerBrand} — Artist Portal`, margin, 30)
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
@@ -255,21 +267,30 @@ export async function generateInvoicePdf(options: InvoicePdfOptions): Promise<Ui
   doc.setTextColor(fg)
   doc.text(formatCurrency(subtotalCents, options.currency), totalsValueX, tableBottom, { align: 'right' })
 
-  doc.setTextColor(muted)
-  doc.text(`Umsatzsteuer (${options.taxRatePct.toFixed(2)}%)`, totalsLabelX, tableBottom + 6)
-  doc.setTextColor(fg)
-  doc.text(formatCurrency(taxCents, options.currency), totalsValueX, tableBottom + 6, { align: 'right' })
+  const taxStatus: InvoiceTaxStatus =
+    options.taxStatus ??
+    (options.isSmallBusiness ? 'small_business' : 'standard')
+  const showVatLine = taxStatus === 'standard'
+
+  let totalsY = tableBottom
+  if (showVatLine) {
+    doc.setTextColor(muted)
+    doc.text(`Umsatzsteuer (${options.taxRatePct.toFixed(2)}%)`, totalsLabelX, totalsY + 6)
+    doc.setTextColor(fg)
+    doc.text(formatCurrency(taxCents, options.currency), totalsValueX, totalsY + 6, { align: 'right' })
+    totalsY += 6
+  }
 
   doc.setDrawColor(line)
-  doc.line(totalsLabelX, tableBottom + 9, totalsValueX, tableBottom + 9)
+  doc.line(totalsLabelX, totalsY + 3, totalsValueX, totalsY + 3)
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.setTextColor(fg)
-  doc.text('Gesamtbetrag', totalsLabelX, tableBottom + 15)
-  doc.text(formatCurrency(totalCents, options.currency), totalsValueX, tableBottom + 15, { align: 'right' })
+  doc.text('Gesamtbetrag', totalsLabelX, totalsY + 9)
+  doc.text(formatCurrency(totalCents, options.currency), totalsValueX, totalsY + 9, { align: 'right' })
 
-  let footerY = tableBottom + 28
+  let footerY = totalsY + 22
 
   if (options.notes?.trim()) {
     doc.setFont('helvetica', 'bold')
@@ -284,11 +305,29 @@ export async function generateInvoicePdf(options: InvoicePdfOptions): Promise<Ui
     footerY += 16
   }
 
-  if (options.isSmallBusiness) {
+  if (taxStatus === 'small_business') {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
     doc.setTextColor(muted)
     doc.text('Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.', margin, footerY)
+    footerY += 6
+  } else if (taxStatus === 'reverse_charge') {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(muted)
+    doc.text(
+      'Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge).',
+      margin,
+      footerY,
+    )
+    footerY += 6
+  }
+
+  if (options.fxNote?.trim()) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.setTextColor(muted)
+    doc.text(options.fxNote.trim(), margin, footerY)
     footerY += 6
   }
 

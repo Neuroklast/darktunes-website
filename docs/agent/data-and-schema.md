@@ -43,6 +43,7 @@ Store key in DB `r2_key` column for cleanup via `deleteObjectFromR2`.
 | `profile-photos/{artistId}/` | Portal photos |
 | `release-covers/{artistId}/` | Portal release covers |
 | `statements/{artistId}/` | SOS PDFs |
+| `invoices/{artistId}/{invoiceId}.pdf` | Issued invoice PDFs (write-once; store `pdf_sha256`) |
 | `artist-assets/{artistId}/` | Marketing uploads |
 | `artist-documents/{artistId}/` | Document vault |
 | `press-kit/{category}/` | EPK assets |

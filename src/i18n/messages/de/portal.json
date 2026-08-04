@@ -2026,5 +2026,21 @@
   "tour_mode_all_stops": "Alle Stops",
   "tour_mode_prev": "Zurück",
   "tour_mode_next": "Weiter",
-  "tour_mode_overview_cta": "Tour-Modus öffnen (offline-ready)"
+  "tour_mode_overview_cta": "Tour-Modus öffnen (offline-ready)",
+  "billing_tax_status": "Steuerstatus",
+  "billing_tax_standard": "Regelbesteuert (USt. ausweisen)",
+  "billing_tax_small_business": "Kleinunternehmer (§ 19 UStG)",
+  "billing_tax_reverse_charge": "Reverse Charge (Ausland)",
+  "billing_tax_status_hint": "Steuert den USt-Ausweis auf generierten Rechnungen (§ 14 UStG).",
+  "onboarding_step_terms": "AGB",
+  "onboarding_terms_title": "Nutzungs- und Abrechnungsbedingungen",
+  "onboarding_terms_body": "Bitte lesen und akzeptieren Sie die AGB des Artist Portals, bevor Sie fortfahren.",
+  "onboarding_terms_checkbox": "Ich habe die AGB gelesen und akzeptiere sie.",
+  "onboarding_terms_link": "AGB öffnen",
+  "portal_terms_gate_title": "Aktualisierte AGB",
+  "portal_terms_gate_body": "Bitte akzeptieren Sie die aktuellen Nutzungs- und Abrechnungsbedingungen, um das Portal weiter zu nutzen.",
+  "portal_terms_accept": "AGB akzeptieren",
+  "billing_vies_valid": "USt-IdNr. bei VIES (EU) bestätigt",
+  "billing_vies_invalid": "USt-IdNr. ist bei VIES ungültig",
+  "billing_vies_unavailable": "VIES-Dienst vorübergehend nicht erreichbar"
 }

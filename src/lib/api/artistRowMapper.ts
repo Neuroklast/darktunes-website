@@ -58,5 +58,8 @@ export function rowToArtist(row: ArtistRow): Artist {
     imagePositionX: row.image_position_x ?? null,
     imagePositionY: row.image_position_y ?? null,
     imageScale: row.image_scale ?? null,
+    portalTermsVersion: row.portal_terms_version ?? null,
+    portalTermsAcceptedAt: row.portal_terms_accepted_at ?? null,
+    portalTermsAcceptedBy: row.portal_terms_accepted_by ?? null,
   }
 }

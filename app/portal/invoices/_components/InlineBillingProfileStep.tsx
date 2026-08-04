@@ -6,7 +6,6 @@ import { CheckCircle, WarningCircle } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
@@ -14,6 +13,7 @@ import {
   isBillingProfileComplete,
   type ArtistBillingProfile,
 } from '@/lib/api/artistBillingProfiles'
+import type { TaxStatus } from '@/lib/legal/taxStatus'
 
 interface InlineBillingProfileStepProps {
   artistId: string
@@ -36,7 +36,7 @@ export function InlineBillingProfileStep({
     country: billingProfile?.country ?? 'DE',
     taxNumber: billingProfile?.taxNumber ?? '',
     vatId: billingProfile?.vatId ?? '',
-    isSmallBusiness: billingProfile?.isSmallBusiness ?? false,
+    taxStatus: (billingProfile?.taxStatus ?? 'standard') as TaxStatus,
   })
   const [saving, setSaving] = useState(false)
 
@@ -70,7 +70,8 @@ export function InlineBillingProfileStep({
           country: form.country,
           tax_number: form.taxNumber,
           vat_id: form.vatId,
-          is_small_business: form.isSmallBusiness,
+          tax_status: form.taxStatus,
+          is_small_business: form.taxStatus === 'small_business',
         }),
       })
 
@@ -171,13 +172,19 @@ export function InlineBillingProfileStep({
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={form.isSmallBusiness}
-              onCheckedChange={(checked) => updateField('isSmallBusiness', checked === true)}
-            />
-            <span>{t('billing_small_business')}</span>
-          </label>
+          <div className="space-y-2">
+            <Label htmlFor="inline-billing-tax-status">{t('billing_tax_status')}</Label>
+            <select
+              id="inline-billing-tax-status"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={form.taxStatus}
+              onChange={(event) => updateField('taxStatus', event.target.value as TaxStatus)}
+            >
+              <option value="standard">{t('billing_tax_standard')}</option>
+              <option value="small_business">{t('billing_tax_small_business')}</option>
+              <option value="reverse_charge">{t('billing_tax_reverse_charge')}</option>
+            </select>
+          </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <p className="text-xs text-muted-foreground">{t('billing_completeness_hint')}</p>

@@ -19,7 +19,9 @@ function buildInvoiceEmailHtml(
   invoiceNumber: string,
   clientName: string,
   pdfUrl: string,
+  labelName: string,
 ): string {
+  const brand = escapeHtml(labelName)
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,7 +36,7 @@ function buildInvoiceEmailHtml(
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#1a1a1a;border-radius:8px;overflow:hidden;border:1px solid #2a2a2a;">
           <tr>
             <td style="background-color:#000000;padding:24px 32px;border-bottom:1px solid #ffffff;">
-              <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:0.05em;">darkTunes</p>
+              <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:0.05em;">${brand}</p>
             </td>
           </tr>
           <tr>
@@ -59,7 +61,7 @@ function buildInvoiceEmailHtml(
           <tr>
             <td style="padding:20px 32px;border-top:1px solid #2a2a2a;">
               <p style="margin:0;font-size:12px;color:#666666;line-height:1.6;">
-                This invoice was generated via the darkTunes Artist Portal.<br />
+                This invoice was generated via the ${brand} Artist Portal.<br />
                 If you have any questions please reply to this email.
               </p>
             </td>
@@ -84,6 +86,8 @@ export interface InvoiceEmailData {
   clientEmail: string
   clientName: string
   pdfUrl: string
+  /** Multi-tenant label brand for From-prefix and footer. */
+  labelName?: string
 }
 
 export async function sendInvoiceEmail(
@@ -95,7 +99,14 @@ export async function sendInvoiceEmail(
     return { success: false, error: 'RESEND_API_KEY not configured' }
   }
 
-  const html = buildInvoiceEmailHtml(data.artistName, data.invoiceNumber, data.clientName, data.pdfUrl)
+  const labelName = data.labelName?.trim() || 'Music Label'
+  const html = buildInvoiceEmailHtml(
+    data.artistName,
+    data.invoiceNumber,
+    data.clientName,
+    data.pdfUrl,
+    labelName,
+  )
 
   let res: Response
   try {
@@ -107,7 +118,7 @@ export async function sendInvoiceEmail(
         Authorization: authHeader,
       },
       body: JSON.stringify({
-        from: `${data.artistName} via darkTunes <${deps.resendFromEmail}>`,
+        from: `${data.artistName} via ${labelName} <${deps.resendFromEmail}>`,
         to: [data.clientEmail],
         subject: `Invoice ${data.invoiceNumber} from ${data.artistName}`,
         html,

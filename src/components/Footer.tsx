@@ -202,6 +202,12 @@ export function Footer({ siteSettings }: FooterProps) {
             >
               {t('privacyPolicy')}
             </Link>
+            <Link
+              href={siteSettings.termsUrl || '/agb'}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {t('terms')}
+            </Link>
           </div>
           <p className="w-full text-center mt-1 text-xs text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors select-none">
             Built by{' '}

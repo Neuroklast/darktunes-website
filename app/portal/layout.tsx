@@ -24,6 +24,10 @@ import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getArtistsByUserId, getArtistProfileByArtistId } from '@/lib/api/artistProfiles'
 import { shouldRedirectToOnboarding } from '@/lib/portal/onboardingGate'
+import { needsPortalTermsAcceptance } from '@/lib/portal/termsGate'
+import { getSiteSettings } from '@/lib/api/siteSettings'
+import { DEFAULT_PORTAL_TERMS_VERSION } from '@/lib/legal/defaults'
+import { PortalTermsGate } from './_components/PortalTermsGate'
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
 import { getPortalBadgeCounts } from '@/lib/api/portalBadgeCounts'
 import { PortalSidebar } from './_components/PortalSidebar'
@@ -173,7 +177,7 @@ async function PortalLayoutContent({ children }: { children: ReactNode }) {
     ? artists.find((a) => a.id === requestedArtistId)
     : null) ?? artists[0] ?? null
 
-  const [featureFlags, badgeCounts, artistProfile, faqTree] = await Promise.all([
+  const [featureFlags, badgeCounts, artistProfile, faqTree, siteSettings] = await Promise.all([
     getFeatureFlagsForRole(supabase, 'artist').catch(() => ({} as Record<string, boolean>)),
     artist
       ? getPortalBadgeCounts(supabase, artist.id, user.id).catch(() => ({
@@ -187,12 +191,21 @@ async function PortalLayoutContent({ children }: { children: ReactNode }) {
       ? getArtistProfileByArtistId(supabase, artist.id).catch(() => null)
       : Promise.resolve(null),
     getCachedPortalFaq(),
+    getSiteSettings(supabase).catch(() => null),
   ])
 
   if (shouldRedirectToOnboarding(artist, artistProfile, currentPath)) {
     const onboardingUrl = artist ? `/portal/onboarding?artistId=${artist.id}` : '/portal/onboarding'
     redirect(onboardingUrl)
   }
+
+  const termsVersion =
+    siteSettings?.portalTermsVersion?.trim() || DEFAULT_PORTAL_TERMS_VERSION
+  const skipTermsGate =
+    currentPath.startsWith('/portal/onboarding') ||
+    currentPath.startsWith('/portal/accept-invite')
+  const showTermsGate =
+    !skipTermsGate && Boolean(artist) && needsPortalTermsAcceptance(artist, termsVersion)
 
   const isEpkBuilder = currentPath.includes('/portal/epk-builder')
 
@@ -217,6 +230,9 @@ async function PortalLayoutContent({ children }: { children: ReactNode }) {
           <PortalQueryProvider>
             <PortalOfflineBanner />
             <PortalHelpPalette faqTree={faqTree} />
+            {showTermsGate && artist ? (
+              <PortalTermsGate artistId={artist.id} termsVersion={termsVersion} />
+            ) : null}
             {children}
           </PortalQueryProvider>
         </PortalOfflineProvider>

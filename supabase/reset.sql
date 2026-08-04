@@ -623,6 +623,10 @@ ALTER TABLE public.artists ADD COLUMN IF NOT EXISTS image_position_x FLOAT DEFAU
 ALTER TABLE public.artists ADD COLUMN IF NOT EXISTS image_position_y FLOAT DEFAULT 50;
 ALTER TABLE public.artists ADD COLUMN IF NOT EXISTS image_scale      FLOAT DEFAULT 1;
 ALTER TABLE public.artists ADD COLUMN IF NOT EXISTS bandsintown_api_key TEXT;
+-- Portal AGB acceptance (per artist, multi-tenant terms version from site_settings)
+ALTER TABLE public.artists ADD COLUMN IF NOT EXISTS portal_terms_version TEXT;
+ALTER TABLE public.artists ADD COLUMN IF NOT EXISTS portal_terms_accepted_at TIMESTAMPTZ;
+ALTER TABLE public.artists ADD COLUMN IF NOT EXISTS portal_terms_accepted_by UUID REFERENCES auth.users (id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_artists_slug     ON public.artists (slug);
 CREATE INDEX IF NOT EXISTS idx_artists_featured ON public.artists (featured);
@@ -5687,10 +5691,21 @@ CREATE TABLE IF NOT EXISTS public.artist_invoices (
   issued_date            DATE         NOT NULL DEFAULT CURRENT_DATE,
   notes                  TEXT,
   pdf_url                TEXT,
+  pdf_sha256             TEXT,
+  service_period_start   DATE,
+  service_period_end     DATE,
   created_at             TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   updated_at             TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   UNIQUE (artist_id, invoice_number)
 );
+
+ALTER TABLE public.artist_invoices ADD COLUMN IF NOT EXISTS pdf_sha256 TEXT;
+ALTER TABLE public.artist_invoices ADD COLUMN IF NOT EXISTS service_period_start DATE;
+ALTER TABLE public.artist_invoices ADD COLUMN IF NOT EXISTS service_period_end DATE;
+-- ECB reference rate when invoice currency ≠ EUR (units of currency per 1 EUR)
+ALTER TABLE public.artist_invoices ADD COLUMN IF NOT EXISTS fx_rate NUMERIC(18, 8);
+ALTER TABLE public.artist_invoices ADD COLUMN IF NOT EXISTS fx_rate_date DATE;
+ALTER TABLE public.artist_invoices ADD COLUMN IF NOT EXISTS fx_rate_source TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_artist_invoices_artist_id ON public.artist_invoices (artist_id);
 
@@ -5746,12 +5761,35 @@ CREATE TABLE IF NOT EXISTS public.artist_billing_profiles (
   tax_number         TEXT,
   vat_id             TEXT,
   is_small_business  BOOLEAN      NOT NULL DEFAULT FALSE,
+  -- standard | small_business | reverse_charge (§ 14 UStG tax presentation)
+  tax_status         TEXT         NOT NULL DEFAULT 'standard',
   iban               TEXT,
   bic                TEXT,
   paypal_email       TEXT,
+  -- EU VIES (MIAS) validation snapshot for reverse-charge safety
+  vat_vies_valid         BOOLEAN,
+  vat_vies_checked_at    TIMESTAMPTZ,
+  vat_vies_trader_name   TEXT,
+  vat_vies_request_id    TEXT,
   created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   updated_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.artist_billing_profiles ADD COLUMN IF NOT EXISTS tax_status TEXT NOT NULL DEFAULT 'standard';
+ALTER TABLE public.artist_billing_profiles ADD COLUMN IF NOT EXISTS vat_vies_valid BOOLEAN;
+ALTER TABLE public.artist_billing_profiles ADD COLUMN IF NOT EXISTS vat_vies_checked_at TIMESTAMPTZ;
+ALTER TABLE public.artist_billing_profiles ADD COLUMN IF NOT EXISTS vat_vies_trader_name TEXT;
+ALTER TABLE public.artist_billing_profiles ADD COLUMN IF NOT EXISTS vat_vies_request_id TEXT;
+
+UPDATE public.artist_billing_profiles
+SET tax_status = CASE WHEN is_small_business THEN 'small_business' ELSE 'standard' END
+WHERE tax_status IS NULL
+   OR tax_status NOT IN ('standard', 'small_business', 'reverse_charge');
+
+ALTER TABLE public.artist_billing_profiles DROP CONSTRAINT IF EXISTS artist_billing_profiles_tax_status_check;
+ALTER TABLE public.artist_billing_profiles
+  ADD CONSTRAINT artist_billing_profiles_tax_status_check
+  CHECK (tax_status IN ('standard', 'small_business', 'reverse_charge'));
 
 CREATE INDEX IF NOT EXISTS idx_artist_billing_profiles_artist_id ON public.artist_billing_profiles (artist_id);
 

@@ -46,12 +46,26 @@
 - [ ] Expense date = calendar picker; period = month picker; track owner % = percent field
 
 ## Portal / admin DAU assistants (1–5)
-- [ ] `/portal/billing` assistant: legal → tax → optional IBAN → invoice-ready / SEPA status
+- [ ] `/portal/billing` assistant: legal → tax (3 statuses) → optional IBAN → invoice-ready / SEPA status
 - [ ] Statement CTA opens `/portal/invoices?statement=` assistant; quick-send shows confirm dialog
 - [ ] Analytics + Statements invoice status parity (`label_approved` \| `artist_notified` \| `viewed`)
 - [ ] `/portal/epk-builder` mode chooser → template → PDF/share → advanced editor
 - [ ] `/portal/fan-page` mode chooser → template picker → checks → publish/review
 - [ ] `/admin/release-submissions` assistant: queue → checklist → decision → optional draft
+
+## Legal / billing compliance (DE/EU)
+- [ ] Public `/impressum` shows company, representative, VAT-ID when set in Admin → Legal
+- [ ] Public `/datenschutz` includes Artist Portal / 10-year retention section (default or CMS)
+- [ ] Public `/agb` renders CMS or default templates with label placeholders filled
+- [ ] Footer links: Impressum, Datenschutz, AGB/Terms
+- [ ] Onboarding: AGB checkbox required before finish; skip still hits portal terms gate
+- [ ] Existing artist with outdated `portal_terms_version` sees non-dismissible accept gate
+- [ ] Billing: invalid IBAN rejected (local checksum only; no external bank API)
+- [ ] Billing: EU VAT ID triggers VIES toast; reverse charge blocked without valid VIES
+- [ ] Reverse-charge invoice blocked when VIES invalid or unavailable (422/503)
+- [ ] Invoice PDF: §19 note / reverse-charge note / optional ECB FX footnote for non-EUR
+- [ ] Re-issuing same invoice PDF is rejected (write-once)
+- [ ] Admin Legal: AGB editors + version + label billing street/city fields save and revalidate
 
 ## Corporate Identity
 - [ ] Validate only approved CI colors are hardcoded in components

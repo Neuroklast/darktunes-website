@@ -12,6 +12,8 @@ import { unstable_cache } from 'next/cache'
 import Link from 'next/link'
 import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
 import { getSiteSettings, SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
+import { getLabelLegalVars } from '@/lib/legal/labelLegalContext'
+import { renderLegalTemplate } from '@/lib/legal/placeholders'
 import type { SiteSettings } from '@/types'
 import { DatenschutzContent } from './_components/DatenschutzContent'
 import { getLocale, getTranslations } from 'next-intl/server'
@@ -95,6 +97,22 @@ Akkreditierte Journalisten können Pressefotos und Promo-Tracks herunterladen. W
 
 ### Schriftarten (Google Fonts)
 Diese Website verwendet für die einheitliche Darstellung von Schriftarten Web Fonts. Je nach im CMS ausgewählter Theme-Konfiguration können diese Schriftarten von Google Fonts nachgeladen werden. Dabei kann es zu einer Verbindung mit Servern von Google kommen, wobei insbesondere Ihre IP-Adresse und technische Metadaten an Google übermittelt werden können. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einer konsistenten und ansprechenden Darstellung der Website) beziehungsweise – sofern eine entsprechende Einwilligungslösung eingesetzt wird – Ihre Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO.
+
+## 9. Artist Portal und Abrechnung
+
+Wenn Sie als Künstler unser Artist Portal nutzen, verarbeiten wir zusätzliche personenbezogene Daten, die für die Vertragsabwicklung und die Auszahlung von Tantiemen (SOS Statements) erforderlich sind.
+
+### Welche Daten werden verarbeitet?
+Zur Verwaltung Ihres Accounts und zur Durchführung der Abrechnung ("Billing Profile Management") erfassen wir sensible Finanzdaten. Dazu gehören Ihr vollständiger Name, Ihre Anschrift, Steuernummer bzw. USt-IdNr., Bankverbindungen (IBAN/BIC), Ihr Steuerstatus sowie historische Abrechnungsdaten ("settlement ledger").
+
+### Zweck und Rechtsgrundlage
+Die Verarbeitung erfolgt zur Erfüllung unserer vertraglichen Pflichten (Art. 6 Abs. 1 lit. b DSGVO) sowie zur Erfüllung gesetzlicher Vorgaben, insbesondere handels- und steuerrechtlicher Aufbewahrungspflichten (Art. 6 Abs. 1 lit. c DSGVO).
+
+### Speicherung und Technologie
+Ihre Daten werden in unserer Datenbank (Supabase) gespeichert. Rechnungen und SOS Statements werden als PDF-Dokumente bei Cloudflare R2 revisionssicher abgelegt. Änderungen an Abrechnungsprofilen (z. B. IBAN) werden in Audit-Logs mit Zeitstempel dokumentiert (GoBD-orientierte Nachvollziehbarkeit).
+
+### Speicherdauer
+Steuer- und abrechnungsrelevante Daten sowie generierte Rechnungen und Statements werden gemäß den gesetzlichen Vorgaben in Deutschland in der Regel **10 Jahre** aufbewahrt — auch nach Löschung des Artist-Kontos.
 `.trim()
 }
 
@@ -161,6 +179,22 @@ Accredited journalists may download press photos and promo tracks. We store down
 
 ### Web Fonts
 This website uses web fonts for uniform font rendering. Depending on the theme configuration selected in the CMS, fonts may be loaded from Google Fonts. This may result in a connection to Google servers and the transmission of your IP address and technical metadata to Google. The legal basis is Art. 6(1)(f) GDPR (legitimate interest in a consistent and visually appealing presentation of the website) or, if a consent solution is used for this purpose, your consent pursuant to Art. 6(1)(a) GDPR.
+
+## 9. Artist Portal and Settlement
+
+When you use our Artist Portal as an artist, we process additional personal data required for contract performance and royalty payouts (SOS statements).
+
+### What data is processed?
+For billing profile management we process sensitive financial data including full legal name, address, tax number or VAT ID, bank details (IBAN/BIC), tax status, and historical settlement ledger data.
+
+### Purpose and legal basis
+Processing is necessary to perform our contract with you (Art. 6(1)(b) GDPR) and to meet legal obligations, including commercial and tax retention duties (Art. 6(1)(c) GDPR).
+
+### Storage and technology
+Data is stored in our database (Supabase). Invoices and SOS statements are stored as PDFs with Cloudflare R2. Billing profile changes (e.g. IBAN updates) are recorded in timestamped audit logs for GoBD-oriented traceability.
+
+### Retention
+Tax- and settlement-relevant data as well as generated invoices and statements are retained for **10 years** under German legal requirements, including after you request deletion of your artist account.
 `.trim()
 }
 
@@ -175,9 +209,10 @@ export default async function DatenschutzPage() {
   ])
 
   const isEn = locale === 'en'
-  const content = isEn
+  const raw = isEn
     ? (settings.datenschutzContentEn || getDefaultContentEn(settings))
     : (settings.datenschutzContent || getDefaultContentDe(settings))
+  const content = renderLegalTemplate(raw, getLabelLegalVars(settings))
 
   const dateLabel = tDatenschutz('dateLabel')
   const formattedDate = new Date().toLocaleDateString(isEn ? 'en-GB' : 'de-DE', {

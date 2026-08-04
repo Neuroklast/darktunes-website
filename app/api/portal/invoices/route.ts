@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto'
+import { createHash } from 'crypto'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -17,11 +17,18 @@ import {
   SettlementPeriodNotWritableError,
 } from '@/lib/api/settlementPeriods'
 import { getSalesStatementById, updateSalesStatementStatus } from '@/lib/api/salesStatements'
+import { getSiteSettings } from '@/lib/api/siteSettings'
 import { sendInvoiceEmail } from '@/lib/email/sendInvoiceEmail'
 import { ApiError, withErrorHandler } from '@/lib/errors'
+import { taxRateForStatus } from '@/lib/legal/taxStatus'
+import { formatEcbRateNote, getEcbRateForCurrency } from '@/lib/legal/serverFx'
+import {
+  checkVatWithVies,
+  isViesValidForReverseCharge,
+} from '@/lib/legal/viesVat'
 import { generateInvoiceNumber } from '@/lib/portal/invoiceNumber'
 import { generateInvoicePdf } from '@/lib/portal/invoicePdf'
-import { LABEL_BILLING_PARTY, LABEL_CLIENT_EMAIL } from '@/lib/portal/labelBilling'
+import { resolveLabelClientInfo } from '@/lib/portal/labelBilling'
 import { createR2Client } from '@/lib/r2Utils'
 import { portalMemberWrite, withPortalMembershipWrite } from '@/lib/portal/withPortalMembership'
 import { getEmailCredentials } from '@/lib/secrets/getExternalCredentials'
@@ -91,6 +98,30 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     throw new ApiError(422, 'Billing profile is incomplete')
   }
 
+  // Reverse charge: re-check VAT ID against EU VIES at invoice time.
+  if (billingProfile.taxStatus === 'reverse_charge') {
+    if (!billingProfile.vatId?.trim()) {
+      throw new ApiError(422, 'Reverse charge requires a valid EU VAT ID')
+    }
+    const vies = await checkVatWithVies(billingProfile.vatId)
+    if (!isViesValidForReverseCharge(vies)) {
+      throw new ApiError(
+        vies.status === 'service_unavailable' ? 503 : 422,
+        vies.message ??
+          'VAT ID failed EU VIES validation — reverse-charge invoice blocked',
+      )
+    }
+  }
+
+  const siteSettings = await write('site_settings', 'select', (db) => getSiteSettings(db))
+  const labelClient = resolveLabelClientInfo(siteSettings)
+
+  // Non-EUR invoices: attach ECB reference rate (Frankfurter, no API key).
+  const currency = input.currency.toUpperCase()
+  const fxQuote =
+    currency !== 'EUR' ? await getEcbRateForCurrency(currency) : null
+  const fxNote = fxQuote ? formatEcbRateNote(fxQuote) : undefined
+
   const { serverEnv } = await import('@/lib/env.server')
   const emailCredentials = await getEmailCredentials(serviceDb)
 
@@ -131,17 +162,38 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const internalInvoiceNumber = await write('artist_invoices', 'select', (db) =>
     generateInvoiceNumber(db, artist.id),
   )
-  const effectiveTaxRate = billingProfile.isSmallBusiness ? 0 : input.tax_rate_pct
+  const taxStatus = billingProfile.taxStatus
+  const effectiveTaxRate = taxRateForStatus(taxStatus, input.tax_rate_pct)
+
+  // SOS-linked invoices always bill the label (self-billing / Gutschrift).
+  const clientName = statement ? labelClient.name : input.client_name
+  const clientEmail = statement ? labelClient.email : input.client_email
+  const clientAddress = (statement ? labelClient.address : input.client_address) ?? ''
+
+  if (statement) {
+    if (!clientEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+      throw new ApiError(
+        422,
+        'Label contact email is missing or invalid — configure Impressum / contact email in site settings',
+      )
+    }
+    if (!labelClient.billingParty.street?.trim() && !clientAddress.trim()) {
+      throw new ApiError(
+        422,
+        'Label billing address is incomplete — configure label billing or Impressum address in site settings',
+      )
+    }
+  }
 
   const invoicePayload = {
     artistId: artist.id,
     invoiceNumber: internalInvoiceNumber,
     artistInvoiceNumber: input.artist_invoice_number,
-    clientName: input.client_name,
-    clientEmail: input.client_email,
-    clientAddress: input.client_address,
+    clientName,
+    clientEmail,
+    clientAddress,
     lineItems: input.line_items,
-    currency: input.currency,
+    currency,
     taxRatePct: effectiveTaxRate,
     dueDate: input.due_date,
     issuedDate,
@@ -199,7 +251,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       vatId: billingProfile.vatId,
       email: billingProfile.paypalEmail,
     },
-    label: LABEL_BILLING_PARTY,
+    label: labelClient.billingParty,
+    labelDisplayName: labelClient.name,
     sosReference: statement ? statement.period : undefined,
     sosPeriod: statement?.period,
     lineItems: input.line_items.map((lineItem) => ({
@@ -207,18 +260,23 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       qty: lineItem.qty,
       unitPriceCents: lineItem.unit_price_cents,
     })),
-    currency: input.currency,
+    currency,
     taxRatePct: effectiveTaxRate,
-    isSmallBusiness: billingProfile.isSmallBusiness,
+    taxStatus,
+    isSmallBusiness: taxStatus === 'small_business',
     notes: input.notes,
+    fxNote,
   })
+
+  const pdfSha256 = createHash('sha256').update(pdfBytes).digest('hex')
 
   const s3 = createR2Client(
     serverEnv.CLOUDFLARE_R2_ACCOUNT_ID,
     serverEnv.CLOUDFLARE_R2_ACCESS_KEY_ID,
     serverEnv.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
   )
-  const key = `invoices/${artist.id}/${randomUUID()}.pdf`
+  // Stable key per invoice id — one immutable object (enable R2 versioning in ops).
+  const key = `invoices/${artist.id}/${invoice.id}.pdf`
   await s3.send(
     new PutObjectCommand({
       Bucket: serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
@@ -233,6 +291,12 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const updatedInvoice = await write('artist_invoices', 'update', (db) =>
     updateInvoice(db, invoice.id, artist.id, {
       pdf_url: pdfUrl,
+      pdf_sha256: pdfSha256,
+      service_period_start: statement?.periodStart ?? null,
+      service_period_end: statement?.periodEnd ?? null,
+      fx_rate: fxQuote?.rate ?? null,
+      fx_rate_date: fxQuote?.date ?? null,
+      fx_rate_source: fxQuote?.source ?? null,
       status: input.send_email ? 'sent' : 'draft',
     }),
   )
@@ -255,7 +319,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         settlementPeriodId,
         entryType: 'invoice_liability',
         amountEur: -invoiceTotalEur,
-        currency: input.currency,
+        currency,
         referenceType: 'artist_invoice',
         referenceId: invoice.id,
         description: `Invoice liability ${input.artist_invoice_number}`,
@@ -268,9 +332,10 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       {
         artistName: artist.name,
         invoiceNumber: input.artist_invoice_number,
-        clientEmail: input.client_email,
-        clientName: input.client_name,
+        clientEmail,
+        clientName,
         pdfUrl,
+        labelName: labelClient.name,
       },
       {
         resendApiKey: emailCredentials.resendApiKey ?? '',
@@ -280,14 +345,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     )
   }
 
-  if (input.send_to_label && input.client_email !== LABEL_CLIENT_EMAIL) {
+  if (input.send_to_label && clientEmail !== labelClient.email) {
     await sendInvoiceEmail(
       {
         artistName: artist.name,
         invoiceNumber: input.artist_invoice_number,
-        clientEmail: LABEL_CLIENT_EMAIL,
-        clientName: LABEL_BILLING_PARTY.name,
+        clientEmail: labelClient.email,
+        clientName: labelClient.name,
         pdfUrl,
+        labelName: labelClient.name,
       },
       {
         resendApiKey: emailCredentials.resendApiKey ?? '',

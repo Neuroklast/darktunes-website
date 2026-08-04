@@ -29,6 +29,12 @@ export interface ArtistInvoice {
   issuedDate: string
   notes: string | undefined
   pdfUrl: string | undefined
+  pdfSha256: string | undefined
+  servicePeriodStart: string | undefined
+  servicePeriodEnd: string | undefined
+  fxRate: number | undefined
+  fxRateDate: string | undefined
+  fxRateSource: string | undefined
   receivedAt: string | undefined
   receivedBy: string | undefined
   paidAt: string | undefined
@@ -80,6 +86,12 @@ function rowToArtistInvoice(row: InvoiceRow): ArtistInvoice {
     issuedDate: row.issued_date ?? '',
     notes: row.notes ?? undefined,
     pdfUrl: row.pdf_url ?? undefined,
+    pdfSha256: row.pdf_sha256 ?? undefined,
+    servicePeriodStart: row.service_period_start ?? undefined,
+    servicePeriodEnd: row.service_period_end ?? undefined,
+    fxRate: row.fx_rate != null ? Number(row.fx_rate) : undefined,
+    fxRateDate: row.fx_rate_date ?? undefined,
+    fxRateSource: row.fx_rate_source ?? undefined,
     receivedAt: row.received_at ?? undefined,
     receivedBy: row.received_by ?? undefined,
     paidAt: row.paid_at ?? undefined,
@@ -227,10 +239,24 @@ export async function updateInvoice(
   updates: Partial<{
     status: InvoiceStatus
     pdf_url: string
+    pdf_sha256: string
+    service_period_start: string | null
+    service_period_end: string | null
+    fx_rate: number | null
+    fx_rate_date: string | null
+    fx_rate_source: string | null
     notes: string | null
     artist_invoice_number: string | null
   }>,
 ): Promise<ArtistInvoice> {
+  // GoBD write-once: never replace an issued PDF artifact.
+  if (updates.pdf_url !== undefined || updates.pdf_sha256 !== undefined) {
+    const existing = await getArtistInvoice(supabase, id, artistId)
+    if (existing?.pdfUrl || existing?.pdfSha256) {
+      throw new Error('Invoice PDF is immutable once issued')
+    }
+  }
+
   const { data: row, error } = await supabase
     .from('artist_invoices')
     .update({ ...updates, updated_at: new Date().toISOString() })
