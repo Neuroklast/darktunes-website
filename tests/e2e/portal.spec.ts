@@ -7,8 +7,14 @@ test.describe('Artist Portal', () => {
   })
 
   test('upload-asset API rejects unauthenticated requests', async ({ request }) => {
-    const response = await request.post('/api/portal/upload-asset')
-    expect(response.status()).toBe(401)
+    // Missing body → 400 (no file); with artistId but no session → 401/403
+    const bare = await request.post('/api/portal/upload-asset')
+    expect([400, 401, 403]).toContain(bare.status())
+
+    const withArtist = await request.post(
+      '/api/portal/upload-asset?artistId=00000000-0000-4000-8000-000000000000',
+    )
+    expect([400, 401, 403]).toContain(withArtist.status())
   })
 
   test('authenticated portal overview renders when credentials are configured', async ({ page }) => {

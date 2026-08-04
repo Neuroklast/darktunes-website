@@ -44,9 +44,11 @@ test.describe('Feature completeness', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' })
 
     await expect(page.locator('#hero')).toBeVisible()
-    await expect(page.locator('section#releases').first()).toBeVisible()
-    await expect(page.locator('section#news').first()).toBeVisible()
-    await expect(page.locator('section#artists').first()).toBeVisible()
+    await expect(page.locator('section#releases, #releases').first()).toBeVisible()
+    await expect(page.locator('section#news, #news').first()).toBeVisible()
+    // Artists live on /artists (not a homepage section id in DEFAULT_SECTION_ORDER)
+    await page.goto('/artists', { waitUntil: 'domcontentloaded' })
+    await expect(page.locator('main, h1').first()).toBeVisible()
   })
 
   test('artist detail shows bio, releases, and concerts sections', async ({ page }) => {

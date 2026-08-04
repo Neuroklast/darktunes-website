@@ -1,6 +1,18 @@
 import { test, expect } from '@playwright/test'
 
-const PUBLIC_ROUTES = ['/', '/about', '/artists', '/releases', '/news', '/contact', '/press', '/offline']
+const PUBLIC_ROUTES = [
+  '/',
+  '/about',
+  '/artists',
+  '/releases',
+  '/news',
+  '/contact',
+  '/press',
+  '/offline',
+  '/impressum',
+  '/datenschutz',
+  '/agb',
+]
 const PROTECTED_PREFIXES = ['/admin/', '/portal/', '/press/dashboard/', '/promo-pool/']
 const MAX_CRAWL_PAGES = 100
 
