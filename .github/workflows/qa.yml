@@ -38,6 +38,8 @@ env:
   CLOUDFLARE_R2_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY != '' && secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY || 'placeholder-r2-secret-key' }}
   CLOUDFLARE_R2_BUCKET_NAME: ${{ secrets.CLOUDFLARE_R2_BUCKET_NAME != '' && secrets.CLOUDFLARE_R2_BUCKET_NAME || 'placeholder-bucket' }}
   CLOUDFLARE_R2_PUBLIC_URL: ${{ secrets.CLOUDFLARE_R2_PUBLIC_URL != '' && secrets.CLOUDFLARE_R2_PUBLIC_URL || 'https://cdn.placeholder.example' }}
+  # 32-byte hex placeholder so env.server validation succeeds in CI (not a real secret)
+  API_CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.API_CREDENTIALS_ENCRYPTION_KEY != '' && secrets.API_CREDENTIALS_ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' }}
 
 jobs:
   e2e-tests:
