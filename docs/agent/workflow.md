@@ -51,3 +51,5 @@ Prefer separate GitHub Issues per independent module (schema → DAL → UI). Ma
 ## Living spec
 
 New conventions → update the matching `docs/agent/*.md` file. New topic → add file and link from `AGENTS.md`.
+
+**Session closeout (non-negotiable):** code complete → mandatory checks → **docs/markdown update** → only then commit/PR or report done.

@@ -16,6 +16,17 @@ Run in order until all pass:
 
 No PR with failing checks. No `as any`, `@ts-ignore`, or `eslint-disable` to silence errors.
 
+## Mandatory docs update (end of every agent session)
+
+**Always** refresh documentation and markdown before you declare work done, open a PR, or hand off — not only when the user asks. Treat docs as part of the deliverable, same as code.
+
+1. Update every **stale** markdown that describes what you changed (agent specs, product docs, living docs).
+2. Run the full end-of-session review in [workflow.md](docs/agent/workflow.md) (checklist of files).
+3. When product behavior changed: [CHANGELOG.md](CHANGELOG.md), [QA_CHECKLIST.md](QA_CHECKLIST.md); when a reusable lesson appeared: [LESSONS_LEARNED.md](LESSONS_LEARNED.md).
+4. New/changed patterns → matching `docs/agent/*.md`. Public surface / ops → `README.md`, `ADMIN.md`, `DEPLOYMENT.md`, `SECURITY.md` as applicable.
+
+Skipping docs because “the task was only code” is a process failure.
+
 ## Critical rules (always apply)
 
 - **Schema:** Only `supabase/reset.sql` + `src/types/database.ts` — no `supabase/migrations/`
@@ -25,6 +36,7 @@ No PR with failing checks. No `as any`, `@ts-ignore`, or `eslint-disable` to sil
 - **Route handlers:** `withErrorHandler`; admin routes use `src/lib/adminAuth.ts`
 - **WCAG 2.1 AA** on all public UI
 - **Minimal changes:** Smallest diff that fully solves the task
+- **Docs:** Always update documentation/markdown at session end (see above)
 - **Bronze CSV (SOS):** Never browser `fetch()` to presigned R2 URLs — use `/api/admin/sos/import-batches/*` routes; limits in `src/lib/sos/bronzeUploadLimits.ts`
 
 ## Scroll — decision tree (read before touching any layout)
@@ -55,7 +67,7 @@ Read the relevant file before working in that area:
 
 After introducing new patterns, update the relevant `docs/agent/*.md` file.
 
-Before opening a PR, run the end-of-session docs review in [workflow.md](docs/agent/workflow.md) — including [CHANGELOG.md](CHANGELOG.md), [LESSONS_LEARNED.md](LESSONS_LEARNED.md), and [QA_CHECKLIST.md](QA_CHECKLIST.md) when the session changed product behavior.
+**Before finishing any session or opening a PR:** complete the mandatory docs update above and the end-of-session review in [workflow.md](docs/agent/workflow.md) — including [CHANGELOG.md](CHANGELOG.md), [LESSONS_LEARNED.md](LESSONS_LEARNED.md), and [QA_CHECKLIST.md](QA_CHECKLIST.md) when the session changed product behavior.
 
 ## External docs
 

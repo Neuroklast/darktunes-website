@@ -31,6 +31,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 | PR without full check sequence | `lint` → `tsc` → `test` → `build` — all green in one run |
 | Lockfile not updated after dep change | Run `npm install`; commit `package-lock.json` |
 | `as any` / `@ts-ignore` / `eslint-disable` to silence CI | Fix root cause |
+| Code shipped without docs/markdown refresh | Agents **always** update docs at session end (`AGENTS.md` + `docs/agent/workflow.md`); stale README/agent/living docs = incomplete work |
 
 ## Lenis & scroll
 
