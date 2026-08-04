@@ -14,6 +14,7 @@ import logoImage from '@/assets/images/logo_(1).png'
 import { useTranslations } from 'next-intl'
 import type { Release, NewsPost, SiteSettings } from '@/types'
 import type { SectionProps } from '@/lib/component-contracts'
+import { resolveHeroItemDescription } from '@/lib/heroPromoTeaser'
 
 interface HeroProps extends SectionProps {
   heroItem?: Release | NewsPost
@@ -98,9 +99,21 @@ export function Hero({ heroItem, siteSettings, artistSlug }: HeroProps) {
         ? heroItem.artists.map((a) => a.name).join(', ')
         : heroItem.artistName)
     : undefined
-  const heroDescription = itemIsRelease
-    ? (heroItem.promoText || siteSettings.heroDescription)
-    : (heroItem.excerpt || siteSettings.heroDescription)
+  // Item promo/excerpt always wins. Global heroDescription is only used when
+  // the featured release/news has no own body text (never mixed with promo).
+  const heroDescription = resolveHeroItemDescription(
+    itemIsRelease
+      ? {
+          kind: 'release',
+          promoText: heroItem.promoText,
+          fallback: siteSettings.heroDescription,
+        }
+      : {
+          kind: 'news',
+          excerpt: heroItem.excerpt,
+          fallback: siteSettings.heroDescription,
+        },
+  )
   const heroLink = itemIsRelease
     ? `/releases/${heroItem.id}`
     : `/news/${heroItem.slug}`
@@ -179,9 +192,11 @@ export function Hero({ heroItem, siteSettings, artistSlug }: HeroProps) {
               )}
             </div>
 
-            <p className="text-lg md:text-xl text-muted-foreground max-w-xl font-serif leading-relaxed">
-              {heroDescription}
-            </p>
+            {heroDescription && (
+              <p className="text-lg md:text-xl text-muted-foreground max-w-xl font-serif leading-relaxed line-clamp-4">
+                {heroDescription}
+              </p>
+            )}
 
             <div className="flex flex-wrap gap-4 items-center">
               {primaryAction !== 'none' && (

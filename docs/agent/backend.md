@@ -51,7 +51,7 @@ Logic in `src/lib/sync/` with injected `SyncDeps`. `syncSingleArtist` / `syncAll
 
 **Cover art / R2:** `uploadUrlToR2` retries transient DNS errors and caps process-wide upload concurrency at 2. iTunes release processing concurrency is 2. iTunes lookup is capped at 200 collections (logged when truncated).
 
-**YouTube videos** are **not** part of the artist queue. Channel sync: `POST /api/sync-youtube` (or `sync-api` with `apiSource: youtube`). Cron type `youtube` → that route.
+**YouTube videos** are **not** part of the artist queue. Channel sync: `POST /api/sync-youtube` (or `sync-api` with `apiSource: youtube`). Cron type `youtube` → that route. Prefer `/api/sync-youtube` for cron (max **500** newest channel videos/run, full `sync_logs` + early `sync_youtube` heartbeat). Both paths use `videoAttribution` + `isYouTubeShort` and omit `is_visible` on upsert so admin-hidden rows stay hidden.
 
 **Public cache after sync:** `revalidatePublicContent()` (`src/lib/sync/revalidatePublicContent.ts`) runs `revalidateTag` + `revalidatePath` for list routes (`/`, `/releases`, `/videos`, …). Queue executor revalidates once per batch end inside `waitUntil`. Admin hooks also call `POST /api/revalidate-content` after mutations and after queue drain.
 
@@ -123,7 +123,7 @@ Release/video submit also fires `sendSubmissionNotificationEmail()` (env `LABEL_
 
 ## Admin system (`/admin/system`)
 
-Health: `GET /api/health` defaults to **lite** (DB liveness); full dashboard snapshot only via `?mode=full` (admin widget uses this). `buildHealthSnapshot` powers full mode + `/api/health/alert`. Sync logs, app errors, maintenance routes. Cron heartbeats + optional alert webhook.
+Health: `GET /api/health` defaults to **lite** (DB liveness); full dashboard snapshot only via `?mode=full` (admin widget uses this). `buildHealthSnapshot` powers full mode + `/api/health/alert`: **latest sync per API** is `limit(1)` per `api_source` (no global lookback — chatty sources must not bury others as “Never”); 24h SLA stats are a separate capped query (`HEALTH_LOG_STATS_*`). Sync logs, app errors, maintenance routes. Cron heartbeats (`recordHealthHeartbeat`, read-modify-write + retry) on `sync_execute` (awaited, mid-drain refresh) and `sync_youtube` (start of `/api/sync-youtube` and youtube branch of `/api/sync-api`). YouTube channel sync caps at 500 newest videos per run and always writes `sync_logs`. Optional alert webhook.
 
 ## Portal billing compliance
 

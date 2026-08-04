@@ -4,11 +4,15 @@
  * SLA and monitoring thresholds for enterprise health dashboard.
  */
 
-/** How far back to query sync_logs for latest-per-API and 24h stats. */
-export const HEALTH_LOG_LOOKBACK_MS = 48 * 60 * 60 * 1000
+/**
+ * How far back to aggregate 24h SLA stats from sync_logs.
+ * Latest-per-API status is loaded separately (limit 1 per source, no lookback)
+ * so a flood of one API cannot hide others or make last runs look like "Never".
+ */
+export const HEALTH_LOG_STATS_LOOKBACK_MS = 24 * 60 * 60 * 1000
 
-/** Cap rows fetched — prevents unbounded reads on high-volume deployments. */
-export const HEALTH_LOG_FETCH_LIMIT = 200
+/** Cap rows for 24h SLA aggregation across all sources. */
+export const HEALTH_LOG_STATS_FETCH_LIMIT = 500
 
 /** Database round-trip latency (ms) above which status is degraded. */
 export const DB_LATENCY_WARN_MS = 500

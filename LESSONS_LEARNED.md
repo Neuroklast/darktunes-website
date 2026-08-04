@@ -183,6 +183,14 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 **Local sanitize wrappers that no-op on SSR defeat the SSOT:** MessagesInbox returned raw HTML when `window` was undefined; always use `@/lib/sanitizeHtml`.
 
+### 2026-08-04 — Health last-run buried by chatty APIs; void heartbeats
+
+**Global recent-N `sync_logs` is not “latest per API”:** Taking the first row per source from a lookback/limit window makes quiet APIs show “Never” when one source floods the table. Query `order created_at desc limit 1` **per** `api_source` for last-run cards; keep 24h stats as a separate capped aggregation.
+
+**`void recordHealthHeartbeat` + early return drops evidence:** Fire-and-forget heartbeats race isolate freeze after `alreadyRunning` responses. Await heartbeats at kick, refresh during long drains, and write again in `finally`. Concurrent RMW heartbeat upserts need a short retry so cron keys do not clobber each other.
+
+**Item promo must not mix with site hero copy:** Release `promoText` / news `excerpt` always wins for the homepage hero teaser; global `heroDescription` is fallback only when the featured item has no body text.
+
 ---
 
-*Last updated: 2026-07-21*
+*Last updated: 2026-08-04*

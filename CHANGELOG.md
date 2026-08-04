@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Health “Never” / buried last-runs:** Full health snapshot loads latest `sync_logs` per API (`limit(1)` per source) instead of a global recent-N window, so a chatty source no longer hides other APIs.
+- **Cron heartbeats reliability:** `sync_execute` awaits heartbeats (incl. mid-drain + finally); YouTube path records `sync_youtube` at start; concurrent heartbeat upserts retry once.
+- **YouTube sync ops:** Cap 500 newest videos/run, structured `sync_logs` on success/error/empty, shared artist attribution + `is_short`, preserve admin-hidden `is_visible` on upsert via `sync-api`.
+- **Hero promo vs site description:** Featured release/news promo/excerpt always wins (teaser + ellipsis); global `heroDescription` only when the item has no own text.
+
 ### Added
 - **VIES + local IBAN + ECB FX on invoices:** EU VAT IDs checked via official VIES REST on billing save; reverse-charge blocked without live-valid VIES (re-checked at invoice create). IBAN validated only with local ISO 7064 (`iban-validator` — no third-party bank APIs). Non-EUR invoices attach ECB/Frankfurter reference rate on PDF + `fx_rate*` columns. SOS already used Frankfurter via `/api/exchange-rates`.
 - **Legal multi-tenant + §14 UStG / GoBD hardening:** Public `/agb` with CMS templates and `{{placeholders}}`; Datenschutz portal/settlement section (10-year retention); label billing party from `site_settings` (no hardcoded label address); billing `tax_status` (standard / small_business / reverse_charge) on PDF; portal AGB opt-in per artist + onboarding step + layout gate; billing-profile audit logs (masked IBAN); invoice PDF write-once + `pdf_sha256` + stable R2 keys. Ops: enable R2 versioning for `invoices/` and `statements/`.

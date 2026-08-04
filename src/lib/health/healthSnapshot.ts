@@ -24,7 +24,7 @@ import {
   sortApiSources,
   type ApiOperationalState,
 } from './apiStatus'
-import { HEALTH_LOG_FETCH_LIMIT, HEALTH_LOG_LOOKBACK_MS } from './thresholds'
+import { HEALTH_LOG_STATS_FETCH_LIMIT, HEALTH_LOG_STATS_LOOKBACK_MS } from './thresholds'
 import { checkDatabaseLiveness, deriveDatabaseHealth } from './healthLiveness'
 import type { CronHealthSummary } from './cronHeartbeat'
 import type {
@@ -34,6 +34,15 @@ import type {
   SyncQueueHealth,
 } from './types'
 import { getKnownApiConfiguration } from '@/lib/secrets/getExternalCredentials'
+
+const SYNC_LOG_HEALTH_SELECT =
+  'api_source, created_at, status, rate_limited, errors, duration_ms, releases_synced, metadata' as const
+
+/** DB api_source values that map onto a single health card key. */
+export function dbApiSourcesForHealthKey(api: string): string[] {
+  if (api === 'apify') return ['apify', 'apify_spotify']
+  return [api]
+}
 
 /** Fallback when DB is unavailable — only always-on APIs marked configured. */
 export function getKnownApisFallback(): Record<string, boolean> {
@@ -121,6 +130,80 @@ function buildUnavailableApis(knownApis: Record<string, boolean>): Record<string
   return apis
 }
 
+/**
+ * Latest sync_logs row per health card — one limit(1) query per source (no lookback).
+ * Avoids a global recent-N query where a chatty API buries others as "Never".
+ */
+export async function fetchLatestSyncLogsByApi(
+  db: SupabaseClient<Database>,
+  apiKeys: string[],
+): Promise<Map<string, ReturnType<typeof parseSyncLogSnapshot>>> {
+  const latestPerApi = new Map<string, ReturnType<typeof parseSyncLogSnapshot>>()
+
+  await Promise.all(
+    apiKeys.map(async (api) => {
+      if (api === 'all') return
+
+      let bestRow: SyncLogRow | null = null
+
+      for (const source of dbApiSourcesForHealthKey(api)) {
+        const { data, error } = await db
+          .from('sync_logs')
+          .select(SYNC_LOG_HEALTH_SELECT)
+          .eq('api_source', source)
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (error) {
+          throw new Error(`Failed to read latest sync_logs for ${source}: ${error.message}`)
+        }
+
+        const row = ((data ?? []) as SyncLogRow[])[0]
+        if (!row) continue
+        if (!bestRow || row.created_at > bestRow.created_at) {
+          bestRow = row
+        }
+      }
+
+      if (bestRow) {
+        latestPerApi.set(api, parseSyncLogSnapshot(bestRow))
+      }
+    }),
+  )
+
+  return latestPerApi
+}
+
+/** Aggregate 24h success/partial/error counts for SLA KPIs. */
+export async function fetchSyncLogStats24h(
+  db: SupabaseClient<Database>,
+  cutoff24hIso: string,
+  cutoff24hMs: number,
+): Promise<Map<string, ApiRunStats24h>> {
+  const { data: logs, error } = await db
+    .from('sync_logs')
+    .select('api_source, created_at, status')
+    .gte('created_at', cutoff24hIso)
+    .order('created_at', { ascending: false })
+    .limit(HEALTH_LOG_STATS_FETCH_LIMIT)
+
+  if (error) {
+    throw new Error(`Failed to read sync_logs stats: ${error.message}`)
+  }
+
+  const statsAccumulator = new Map<string, ApiRunStats24h>()
+  for (const row of (logs ?? []) as Pick<SyncLogRow, 'api_source' | 'created_at' | 'status'>[]) {
+    accumulateStats24h(
+      statsAccumulator,
+      normalizeHealthApiSource(row.api_source),
+      row.status,
+      cutoff24hMs,
+      new Date(row.created_at).getTime(),
+    )
+  }
+  return finalizeStats24h(statsAccumulator)
+}
+
 export interface BuildHealthSnapshotDeps {
   db: SupabaseClient<Database> | null
   knownApis?: Record<string, boolean>
@@ -135,8 +218,8 @@ export async function buildHealthSnapshot(
   const knownApis =
     deps.knownApis ??
     (deps.db ? await getKnownApiConfiguration(deps.db) : getKnownApisFallback())
-  const cutoffLookback = new Date(nowMs - HEALTH_LOG_LOOKBACK_MS).toISOString()
-  const cutoff24hMs = nowMs - 24 * 60 * 60 * 1000
+  const cutoff24hMs = nowMs - HEALTH_LOG_STATS_LOOKBACK_MS
+  const cutoff24hIso = new Date(cutoff24hMs).toISOString()
 
   let database = deriveDatabaseHealth(false, null)
   let apis: Record<string, ApiHealthStatus> = buildUnavailableApis(knownApis)
@@ -149,40 +232,23 @@ export async function buildHealthSnapshot(
       const dbOnline = database.status !== 'offline'
 
       if (dbOnline) {
-        const { data: logs } = await deps.db
-          .from('sync_logs')
-          .select(
-            'api_source, created_at, status, rate_limited, errors, duration_ms, releases_synced, metadata',
-          )
-          .gte('created_at', cutoffLookback)
-          .order('created_at', { ascending: false })
-          .limit(HEALTH_LOG_FETCH_LIMIT)
+        const knownKeys = sortApiSources(Object.keys(knownApis))
+        const [latestPerApi, stats24h, queueStats, stuckRunning] = await Promise.all([
+          fetchLatestSyncLogsByApi(deps.db, knownKeys),
+          fetchSyncLogStats24h(deps.db, cutoff24hIso, cutoff24hMs),
+          getSyncQueueStats(deps.db),
+          countStuckSyncJobs(deps.db),
+        ])
 
-        const latestPerApi = new Map<string, ReturnType<typeof parseSyncLogSnapshot>>()
-        const statsAccumulator = new Map<string, ApiRunStats24h>()
-
-        for (const row of (logs ?? []) as SyncLogRow[]) {
-          const apiSource = normalizeHealthApiSource(row.api_source)
-          if (!latestPerApi.has(apiSource)) {
-            latestPerApi.set(apiSource, parseSyncLogSnapshot(row))
-          }
-          accumulateStats24h(
-            statsAccumulator,
-            apiSource,
-            row.status,
-            cutoff24hMs,
-            new Date(row.created_at).getTime(),
-          )
-        }
-
-        const stats24h = finalizeStats24h(statsAccumulator)
+        // Include any api_source seen in stats that is not in knownApis (legacy keys).
         const allApis = sortApiSources([
-          ...new Set([...Object.keys(knownApis), ...latestPerApi.keys()]),
+          ...new Set([...knownKeys, ...latestPerApi.keys(), ...stats24h.keys()]),
         ])
 
         const builtApis: Record<string, ApiHealthStatus> = {}
 
         for (const api of allApis) {
+          if (api === 'all') continue
           const snapshot = latestPerApi.get(api) ?? null
           const configured = knownApis[api] ?? false
           const derived = deriveApiHealth(api, configured, snapshot, nowMs)
@@ -208,10 +274,6 @@ export async function buildHealthSnapshot(
 
         apis = builtApis
 
-        const [queueStats, stuckRunning] = await Promise.all([
-          getSyncQueueStats(deps.db),
-          countStuckSyncJobs(deps.db),
-        ])
         const queueDerived = deriveSyncQueueHealth({ ...queueStats, stuckRunning })
         syncQueueHealth = {
           ...queueStats,

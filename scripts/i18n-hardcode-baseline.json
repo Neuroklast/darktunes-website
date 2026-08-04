@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T12:19:23.492Z",
+  "generatedAt": "2026-08-04T10:27:47.253Z",
   "items": [
     "app/admin/_components/AdminDashboardWrapper.tsx::Loading editor dashboard",
     "app/admin/accreditations/page.tsx::Press Accreditations",
@@ -298,11 +298,11 @@
     "src/components/admin/forms/NewsForm.tsx::press@darktunes.com",
     "src/components/admin/forms/ReleaseForm.tsx::Default (go to release page)",
     "src/components/admin/forms/ReleaseForm.tsx::Default (scroll to releases)",
+    "src/components/admin/forms/ReleaseForm.tsx::Full promo copy — hero shows the opening with …; full text on the release page",
     "src/components/admin/forms/ReleaseForm.tsx::Leave empty to use cover art as background",
     "src/components/admin/forms/ReleaseForm.tsx::Select section…",
     "src/components/admin/forms/ReleaseForm.tsx::Select section…",
     "src/components/admin/forms/ReleaseForm.tsx::Select type",
-    "src/components/admin/forms/ReleaseForm.tsx::Short teaser text for the hero section…",
     "src/components/admin/forms/ReleaseForm.tsx::e.g. /artists/xyz or https://…",
     "src/components/admin/forms/ReleaseForm.tsx::e.g. Explore Artist",
     "src/components/admin/forms/ReleaseForm.tsx::e.g. Listen Now",

@@ -119,7 +119,9 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
 
   const syncCredentials = await getSyncCredentials(db)
 
-  void recordHealthHeartbeat(db, 'sync_execute')
+  // Await so health UI never loses the kick (void + early alreadyRunning return
+  // previously dropped heartbeats when the isolate froze after the response).
+  await recordHealthHeartbeat(db, 'sync_execute')
 
   // Single-flight: overlapping admin poll kicks must not spawn parallel workers.
   // force=1 still requires a lease (avoids DNS storms) but retries once after a short wait is not needed.
@@ -141,9 +143,16 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
       const startTime = Date.now()
       const tagsToRevalidate = new Set<PublicContentTag>()
       let jobsProcessed = 0
+      let lastHeartbeatAt = startTime
 
       try {
         while (Date.now() - startTime < TIME_BUDGET_MS || force === '1') {
+          // Keep cron health "active" during long drains (miss window is 15m).
+          if (Date.now() - lastHeartbeatAt >= 4 * 60_000) {
+            await recordHealthHeartbeat(db, 'sync_execute')
+            lastHeartbeatAt = Date.now()
+          }
+
           const job = await claimNextSyncJob(db)
           if (!job) break
 
@@ -187,6 +196,11 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
           revalidatePublicContent([...tagsToRevalidate])
         }
       } finally {
+        try {
+          await recordHealthHeartbeat(db, 'sync_execute')
+        } catch (hbErr) {
+          console.error('[sync] failed to refresh executor heartbeat:', hbErr)
+        }
         try {
           await releaseSyncExecutorLease(db)
         } catch (leaseErr) {

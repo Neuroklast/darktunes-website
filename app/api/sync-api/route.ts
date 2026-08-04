@@ -24,7 +24,9 @@ import { isValidCronSecret } from '@/lib/cronAuth'
 import { enqueueOdesliSyncJob, enqueueSpotifySyncJobs } from '@/lib/api/syncQueue'
 import { syncAll } from '@/lib/sync/syncAll'
 import { createR2Client, uploadUrlToR2 } from '@/lib/r2Utils'
-import { fetchYouTubeChannelVideos } from '@/lib/api/youtubeApi'
+import { fetchYouTubeChannelVideos, isYouTubeShort } from '@/lib/api/youtubeApi'
+import { createArtistMatcher, resolveVideoArtist } from '@/lib/api/videoAttribution'
+import { recordHealthHeartbeat } from '@/lib/health/heartbeats'
 import {
   getSyncCredentials,
   getYouTubeCredentials,
@@ -71,8 +73,11 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
 
   const db = createClient<Database>(supabaseUrl, serviceKey, { auth: { persistSession: false } })
 
-  // 4. YouTube — handled separately (no R2 needed)
+  // 4. YouTube — channel sync (not artist queue). Prefer /api/sync-youtube for cron.
   if (apiSource === 'youtube') {
+    // Same heartbeat key as /api/sync-youtube so Health → Cron reflects this path too.
+    await recordHealthHeartbeat(db, 'sync_youtube')
+
     const { apiKey: youtubeApiKey, channelId: youtubeChannelId } =
       await getYouTubeCredentials(db)
     if (!youtubeApiKey) throw buildApiError('CONFIG_ERROR', 500)
@@ -81,11 +86,30 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     let videos
     try {
       videos = await fetchYouTubeChannelVideos(youtubeChannelId, youtubeApiKey, 20)
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'YouTube fetch failed'
+      await db.from('sync_logs').insert({
+        artist_id: null,
+        status: 'error',
+        message: msg,
+        releases_synced: 0,
+        errors: [msg],
+        api_source: 'youtube',
+        rate_limited: /quota|429|rate/i.test(msg),
+      })
       throw buildApiError('EXTERNAL_API_ERROR', 502)
     }
 
     if (videos.length === 0) {
+      await db.from('sync_logs').insert({
+        artist_id: null,
+        status: 'success',
+        message: 'No videos returned from YouTube',
+        releases_synced: 0,
+        errors: [],
+        api_source: 'youtube',
+        rate_limited: false,
+      })
       return NextResponse.json({ synced: 0, message: 'No videos returned from YouTube' })
     }
 
@@ -95,25 +119,21 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
       .eq('is_visible', true)
 
     const artistMatchers = (artists ?? [])
-      .map((a) => ({
-        id: a.id,
-        pattern: a.name.trim()
-          ? new RegExp(
-              `(^|\\W)${a.name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\W|$)`,
-              'i',
-            )
-          : null,
-      }))
-      .filter((a): a is { id: string; pattern: RegExp } => Boolean(a.pattern))
+      .map(createArtistMatcher)
+      .filter((m): m is NonNullable<typeof m> => Boolean(m))
 
-    const rows = videos.map((v) => ({
-      artist_id: artistMatchers.find((a) => a.pattern.test(v.title))?.id ?? null,
-      youtube_id: v.youtubeId,
-      title: v.title,
-      thumbnail_url: v.thumbnailUrl,
-      published_at: v.publishedAt,
-      is_visible: true,
-    }))
+    const rows = videos.map((v) => {
+      const { artistId } = resolveVideoArtist(v.title, v.channelTitle, artistMatchers)
+      return {
+        artist_id: artistId,
+        youtube_id: v.youtubeId,
+        title: v.title,
+        thumbnail_url: v.thumbnailUrl,
+        published_at: v.publishedAt,
+        is_short: isYouTubeShort(v.durationSeconds, v.title),
+        // is_visible omitted — preserve admin-hidden rows (same as /api/sync-youtube)
+      }
+    })
 
     const { error } = await db
       .from('videos')

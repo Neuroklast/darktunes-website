@@ -57,17 +57,24 @@ export async function recordHealthHeartbeat(
   key: HealthHeartbeatKey,
   at: string = new Date().toISOString(),
 ): Promise<void> {
-  try {
-    const existing = await getHealthHeartbeats(db)
-    const updated: HealthHeartbeats = { ...existing, [key]: at }
-    const { error } = await db.from('site_settings').upsert(
-      { key: HEARTBEATS_SETTINGS_KEY, value: JSON.stringify(updated) },
-      { onConflict: 'key' },
-    )
-    if (error) {
-      console.error(`[recordHealthHeartbeat] upsert failed for ${key}:`, error.message)
+  // Read-modify-write with one retry so concurrent cron keys do not wipe each other.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const existing = await getHealthHeartbeats(db)
+      const updated: HealthHeartbeats = { ...existing, [key]: at }
+      const { error } = await db.from('site_settings').upsert(
+        { key: HEARTBEATS_SETTINGS_KEY, value: JSON.stringify(updated) },
+        { onConflict: 'key' },
+      )
+      if (error) {
+        console.error(`[recordHealthHeartbeat] upsert failed for ${key}:`, error.message)
+        return
+      }
+      return
+    } catch (err) {
+      if (attempt === 1) {
+        console.error(`[recordHealthHeartbeat] failed for ${key}:`, err)
+      }
     }
-  } catch (err) {
-    console.error(`[recordHealthHeartbeat] failed for ${key}:`, err)
   }
 }

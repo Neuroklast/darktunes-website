@@ -218,15 +218,18 @@ export function ReleaseForm({ value, onChange, isLoading }: Props) {
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="promoText">Promo Text (optional, shown in Hero section)</Label>
+        <Label htmlFor="promoText">Promo Text (optional)</Label>
         <Textarea
           id="promoText"
           {...register('promoText')}
           onPaste={stripEmojisOnPaste}
-          rows={2}
+          rows={3}
           disabled={isLoading}
-          placeholder="Short teaser text for the hero section…"
+          placeholder="Full promo copy — hero shows the opening with …; full text on the release page"
         />
+        <p className="text-xs text-muted-foreground">
+          On the homepage hero, the start of this text is shown with an ellipsis when longer. The full text appears on the release detail page.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

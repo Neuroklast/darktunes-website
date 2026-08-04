@@ -4,6 +4,7 @@
 - [ ] Validate all public routes load successfully (`/`, `/about`, `/artists`, `/releases`, `/news`, `/contact`, `/press`, `/offline`)
 - [ ] Crawl internal links and confirm no broken links / 404 pages
 - [ ] Validate dynamic routes for artist and release detail pages
+- [ ] Homepage hero: featured release with long `promoText` shows teaser + ellipsis (not site-wide hero description); full promo on release detail; empty promo uses site `heroDescription` only
 - [ ] Validate newsletter submission flow and confirmation message
 - [ ] Validate media and upload features from admin/portal areas
 
@@ -12,6 +13,8 @@
 - [ ] Validate protected API endpoints reject missing/invalid authentication
 - [ ] Confirm editor JWT cannot call finance APIs (`/api/admin/sales-statements/*`, `/api/admin/settlements/*`, `/api/admin/invoices/*`, `/api/admin/sos/*`) — expect 403
 - [ ] Confirm `GET /api/health?mode=full` without auth returns 401; admin System Health widget still loads with Bearer token
+- [ ] Admin System Health: a chatty API (many recent logs) does not force quieter configured APIs to “Awaiting first sync” / Never when they have older successful `sync_logs`
+- [ ] After YouTube cron (or manual `/api/sync-youtube`), Health shows a youtube last-run + `sync_youtube` heartbeat; large channels do not OOM (cap 500)
 - [ ] Confirm press-only news is absent from public `/news` and `/news/[slug]` but visible in press dashboard when published
 - [ ] Confirm theme custom CSS cannot inject `</style><script>` breakout (sanitized to empty)
 - [ ] Confirm `SUPABASE_SERVICE_ROLE_KEY` is never exposed in client HTML
