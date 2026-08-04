@@ -40,8 +40,10 @@ function normalizeInternalPath(href: string, baseURL: string): string | null {
 
 test.describe('Route completeness', () => {
   test('all known public static routes respond without 404', async ({ request }) => {
+    // Legal pages + homepage SSR can be cold in CI; allow headroom beyond default 30s.
+    test.setTimeout(90_000)
     for (const route of PUBLIC_ROUTES) {
-      const response = await request.get(route)
+      const response = await request.get(route, { timeout: 20_000 })
       expect(response.status(), `${route} should return HTTP 200`).toBe(200)
     }
   })
