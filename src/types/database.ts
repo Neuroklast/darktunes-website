@@ -4683,6 +4683,53 @@ export interface Database {
         }
         Relationships: []
       }
+      portal_feedback: {
+        Row: {
+          id: string
+          artist_id: string
+          user_id: string
+          category: 'bug' | 'feature' | 'ux' | 'general' | 'praise'
+          rating: number | null
+          subject: string | null
+          message: string
+          status: 'new' | 'reviewed' | 'archived'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          artist_id: string
+          user_id: string
+          category: 'bug' | 'feature' | 'ux' | 'general' | 'praise'
+          rating?: number | null
+          subject?: string | null
+          message: string
+          status?: 'new' | 'reviewed' | 'archived'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          artist_id?: string
+          user_id?: string
+          category?: 'bug' | 'feature' | 'ux' | 'general' | 'praise'
+          rating?: number | null
+          subject?: string | null
+          message?: string
+          status?: 'new' | 'reviewed' | 'archived'
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_feedback_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       support_known_errors: {
         Row: {
           id: string

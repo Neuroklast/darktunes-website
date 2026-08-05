@@ -19,6 +19,14 @@
 - [ ] Review CSP and security headers in production deployment
 - [ ] Run vulnerability scan (`npm audit --production --audit-level=high`)
 
+## Portal product feedback
+- [ ] `/portal/feedback?artistId=` loads form + empty/history list; nav Account → Feedback
+- [ ] Submit requires category + message ≥20 chars; optional rating/subject; success toast + history refresh
+- [ ] History expands message; status badges Received / Reviewed / Archived
+- [ ] Admin `/admin/feedback` lists new by default; filters + search work; open row → mark reviewed / archive / reopen
+- [ ] Unauthenticated `POST /api/portal/feedback` rejected; non-member artistId → 403
+- [ ] Apply `portal_feedback` from `supabase/reset.sql` on live DB
+
 ## Portal release submission
 - [ ] `/portal/releases/new` stepped wizard; `?step=` updates; progress + Back/Continue work
 - [ ] Cover: public Drive JPEG 3000×3000 verifies; private/wrong size/format show clear errors

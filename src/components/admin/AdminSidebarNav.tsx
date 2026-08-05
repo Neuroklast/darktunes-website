@@ -50,6 +50,7 @@ import {
   SlidersHorizontal,
   Globe,
   Question,
+  ChatTeardropDots,
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -72,7 +73,7 @@ interface NavItem {
   editorHref?: string
   icon: React.ElementType
   adminOnly: boolean
-  badgeKey?: 'messages' | 'releaseSubmissions' | 'videoSubmissions' | 'fanPageReviews'
+  badgeKey?: 'messages' | 'releaseSubmissions' | 'videoSubmissions' | 'fanPageReviews' | 'portalFeedback'
 }
 
 interface NavGroup {
@@ -106,6 +107,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Release Submissions', href: '/admin/release-submissions', editorHref: getCmsTabPath('editor', 'release-submissions'), icon: UploadSimple, adminOnly: false, badgeKey: 'releaseSubmissions' },
       { label: 'Video Submissions',   href: '/admin/video-submissions',   editorHref: getCmsTabPath('editor', 'video-submissions'),   icon: VideoCamera,  adminOnly: false, badgeKey: 'videoSubmissions' },
       { label: 'Fan Page Reviews',    href: '/admin/fan-page-reviews',    editorHref: getCmsTabPath('editor', 'fan-page-reviews'),    icon: Globe,        adminOnly: false, badgeKey: 'fanPageReviews' },
+      { label: 'Artist Feedback',     href: '/admin/feedback',            icon: ChatTeardropDots,                              adminOnly: false, badgeKey: 'portalFeedback' },
       { label: 'Submission Form',     href: '/admin/submission-form',     icon: SlidersHorizontal,                              adminOnly: true  },
     ],
   },

@@ -5887,6 +5887,66 @@ CREATE POLICY "artist_documents: admin all" ON public.artist_documents
   FOR ALL USING (public.get_my_role() = 'admin')
   WITH CHECK (public.get_my_role() = 'admin');
 
+-- ---------------------------------------------------------------------------
+-- TABLE: portal_feedback  (artist product feedback about portal / site)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.portal_feedback (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id   UUID        NOT NULL REFERENCES public.artists (id) ON DELETE CASCADE,
+  user_id     UUID        NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  category    TEXT        NOT NULL CHECK (category IN ('bug', 'feature', 'ux', 'general', 'praise')),
+  rating      SMALLINT    CHECK (rating IS NULL OR (rating >= 1 AND rating <= 5)),
+  subject     TEXT,
+  message     TEXT        NOT NULL,
+  status      TEXT        NOT NULL DEFAULT 'new'
+                CHECK (status IN ('new', 'reviewed', 'archived')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_portal_feedback_status_created
+  ON public.portal_feedback (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_portal_feedback_artist_created
+  ON public.portal_feedback (artist_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_portal_feedback_created
+  ON public.portal_feedback (created_at DESC);
+
+DROP TRIGGER IF EXISTS trg_portal_feedback_updated_at ON public.portal_feedback;
+CREATE TRIGGER trg_portal_feedback_updated_at
+  BEFORE UPDATE ON public.portal_feedback
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+ALTER TABLE public.portal_feedback ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "portal_feedback: artist insert own" ON public.portal_feedback;
+CREATE POLICY "portal_feedback: artist insert own" ON public.portal_feedback
+  FOR INSERT WITH CHECK (
+    user_id = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM public.artist_members am
+      WHERE am.artist_id = portal_feedback.artist_id
+        AND am.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "portal_feedback: artist read own" ON public.portal_feedback;
+CREATE POLICY "portal_feedback: artist read own" ON public.portal_feedback
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.artist_members am
+      WHERE am.artist_id = portal_feedback.artist_id
+        AND am.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "portal_feedback: editor+ read all" ON public.portal_feedback;
+CREATE POLICY "portal_feedback: editor+ read all" ON public.portal_feedback
+  FOR SELECT USING (public.get_my_role() IN ('admin', 'editor'));
+
+DROP POLICY IF EXISTS "portal_feedback: editor+ update" ON public.portal_feedback;
+CREATE POLICY "portal_feedback: editor+ update" ON public.portal_feedback
+  FOR UPDATE USING (public.get_my_role() IN ('admin', 'editor'));
+
 -- ===========================================================================
 -- USER ROLES (multi-role junction table)  — added 2026-06
 -- ===========================================================================

@@ -21,7 +21,18 @@
 
 **Legal (multi-tenant):** Public `/impressum`, `/datenschutz`, `/agb`. CMS keys `agb_content` / `agb_content_en`, `portal_terms_version`, label billing address fields. Templates support `{{labelName}}`, `{{address}}`, `{{vatId}}`, … via `renderLegalTemplate`. Portal AGB opt-in per **artist** (`portal_terms_*` on `artists`); onboarding terms step + layout gate when version mismatches.
 
-**Key routes:** profile, analytics (11 tabs + intelligence + dual-axis Spotify presence, period presets, CSV/PDF export), statements, billing, invoices, releases, tour (events), **tour-planner** (TRACK production), calendar, marketing, documents, messages, interviews, epk-builder, onboarding, help.
+**Key routes:** profile, analytics (11 tabs + intelligence + dual-axis Spotify presence, period presets, CSV/PDF export), statements, billing, invoices, releases, tour (events), **tour-planner** (TRACK production), calendar, marketing, documents, messages, interviews, epk-builder, onboarding, help, **feedback**.
+
+### Portal product feedback (`/portal/feedback`)
+
+| Topic | Rule |
+|-------|------|
+| Purpose | Product feedback about portal/site — **not** Zammad tech support (`/admin/support`) |
+| Form | Category (`bug` \| `feature` \| `ux` \| `general` \| `praise`), optional 1–5 rating, optional subject, required message (≥20 chars) |
+| History | Artist sees own submissions with status (`new` / `reviewed` / `archived`) |
+| API | `GET/POST /api/portal/feedback?artistId=` — membership + `portalMemberWrite`; rate limit 10/h |
+| Table | `portal_feedback` — RLS: artist insert/read own; editor+ read/update status |
+| Admin | `/admin/feedback` list + status actions; nav badge for `status = new`; DAL `src/lib/api/portalFeedback.ts` |
 
 ### Portal analytics hub (`/portal/analytics`)
 

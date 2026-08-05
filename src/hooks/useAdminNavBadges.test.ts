@@ -23,17 +23,33 @@ vi.mock('@/lib/supabase/client', () => ({
 describe('useAdminNavBadges', () => {
   it('returns zero badges when disabled', () => {
     const { result } = renderHook(() => useAdminNavBadges('user-1', false))
-    expect(result.current).toEqual({ messages: 0, releaseSubmissions: 0, videoSubmissions: 0, fanPageReviews: 0 })
+    expect(result.current).toEqual({
+      messages: 0,
+      releaseSubmissions: 0,
+      videoSubmissions: 0,
+      fanPageReviews: 0,
+      portalFeedback: 0,
+    })
   })
 
   it('loads all badge counters when enabled', async () => {
     getIncomingToLabelUnreadCount.mockResolvedValue(3)
-    safeCount.mockResolvedValueOnce(5).mockResolvedValueOnce(7).mockResolvedValueOnce(2)
+    safeCount
+      .mockResolvedValueOnce(5)
+      .mockResolvedValueOnce(7)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(4)
 
     const { result } = renderHook(() => useAdminNavBadges('user-1', true))
 
     await waitFor(() => {
-      expect(result.current).toEqual({ messages: 3, releaseSubmissions: 5, videoSubmissions: 7, fanPageReviews: 2 })
+      expect(result.current).toEqual({
+        messages: 3,
+        releaseSubmissions: 5,
+        videoSubmissions: 7,
+        fanPageReviews: 2,
+        portalFeedback: 4,
+      })
     })
   })
 })

@@ -62,6 +62,7 @@ Membership verified with bearer client, then **service role** for writes on
 - Checklist toggle
 - Submit release / video + submission drafts + list submissions
 - Interview request PATCH
+- Portal feedback `GET/POST /api/portal/feedback`
 - Tour Planner (all routes via `authenticateTourPlannerRequest` → membership write)
 
 R2 uploads stay server-side with env credentials (not RLS).
