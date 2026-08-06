@@ -34,8 +34,9 @@ const getCachedSettings = unstable_cache(
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale()
+  const title = locale === 'de' ? 'AGB' : locale === 'fr' ? 'Conditions' : 'Terms'
   return {
-    title: locale === 'en' ? 'Terms' : 'AGB',
+    title,
     robots: { index: false },
   }
 }
@@ -48,14 +49,17 @@ export default async function AgbPage() {
   ])
 
   const vars = getLabelLegalVars(settings)
-  const isEn = locale === 'en'
+  // CMS has DE + EN only; FR falls back to English templates
+  const useGerman = locale === 'de'
   const raw =
-    (isEn
-      ? settings.agbContentEn?.trim() || settings.agbContent?.trim()
-      : settings.agbContent?.trim()) ||
-    (isEn ? getDefaultAgbEn() : getDefaultAgbDe())
+    (useGerman
+      ? settings.agbContent?.trim()
+      : settings.agbContentEn?.trim() || settings.agbContent?.trim()) ||
+    (useGerman ? getDefaultAgbDe() : getDefaultAgbEn())
 
   const content = renderLegalTemplate(raw, vars)
+  const heading = locale === 'de' ? 'AGB' : locale === 'fr' ? 'Conditions' : 'Terms'
+  const versionLabel = locale === 'de' ? 'Version' : locale === 'fr' ? 'Version' : 'Version'
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -68,10 +72,10 @@ export default async function AgbPage() {
         </Link>
 
         <h1 className="text-4xl lg:text-5xl font-bold mb-4 tracking-tight uppercase">
-          {isEn ? 'Terms' : 'AGB'}
+          {heading}
         </h1>
         <p className="text-xs text-muted-foreground mb-10 font-mono">
-          {isEn ? 'Version' : 'Version'}: {settings.portalTermsVersion}
+          {versionLabel}: {settings.portalTermsVersion}
         </p>
 
         <DatenschutzContent content={content} />

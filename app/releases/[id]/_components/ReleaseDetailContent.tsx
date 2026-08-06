@@ -28,6 +28,7 @@ import { BandcampIcon } from '@/components/icons/BandcampIcon'
 import { ShareButton } from '@/components/ShareButton'
 import { trackSmartLinkClick } from '@/lib/analytics/trackPageEvent'
 import { useLocale, useTranslations } from 'next-intl'
+import { toBcp47 } from '@/i18n/locales'
 import type { Release, Artist } from '@/types'
 import { getOptimizedImageUrl, getSquareThumbnail } from '@/lib/imageUtils'
 
@@ -50,7 +51,7 @@ interface ReleaseDetailContentProps {
 export function ReleaseDetailContent({ release, artist }: ReleaseDetailContentProps) {
   const t = useTranslations('releaseDetail')
   const locale = useLocale()
-  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
+  const dateLocale = toBcp47(locale)
   const prefersReducedMotion = useReducedMotion()
   const formattedDate = new Date(release.releaseDate).toLocaleDateString(dateLocale, {
     year: 'numeric',

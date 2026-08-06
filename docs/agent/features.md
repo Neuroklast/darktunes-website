@@ -282,7 +282,7 @@ Serwist (`app/sw.ts`). SW excludes `/api/*`, `/admin/*`, `/portal/*`, `/press/*`
 
 ## Locale switcher
 
-`LocaleFlagSwitcher` (`src/components/LocaleFlagSwitcher.tsx`) shows the **current** language as a flag (🇩🇪/🇬🇧) and opens a DE/EN menu. Sets `NEXT_LOCALE` cookie + `router.refresh()`. Placed on public Header, Admin/Portal sidebars, Press dashboard nav.
+`LocaleFlagSwitcher` (`src/components/LocaleFlagSwitcher.tsx`) shows the **current** language as a flag (🇩🇪/🇬🇧/🇫🇷) and opens a DE/EN/FR menu. Sets `NEXT_LOCALE` cookie + `router.refresh()`. Locales SSOT: `src/i18n/locales.ts`. Placed on public Header, Admin/Portal sidebars, Press dashboard nav. Message trees under `src/i18n/messages/{en,de,fr}/`.
 
 ## Website tracking
 

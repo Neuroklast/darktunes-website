@@ -1,0 +1,18 @@
+{
+  "heading": "Newsletter",
+  "description": "Restez informé — nouvelles sorties, dates de tournée et contenus exclusifs dans votre boîte mail.",
+  "namePlaceholder": "Nom (facultatif)",
+  "emailLabel": "Adresse e-mail",
+  "emailPlaceholder": "votre@email.com",
+  "submit": "S'abonner",
+  "submitting": "Inscription…",
+  "successTitle": "Vérifiez votre boîte mail ! 📬",
+  "successMessage": "Nous vous avons envoyé un e-mail de confirmation. Cliquez sur le lien pour finaliser votre abonnement.",
+  "consentText": "En vous abonnant, vous acceptez de recevoir occasionnellement des e-mails de {labelShortName}. Vous pouvez vous désabonner à tout moment.",
+  "privacyLink": "Politique de confidentialité",
+  "validationEmail": "Veuillez saisir une adresse e-mail valide",
+  "confirmSuccessTitle": "Abonnement confirmé ! 🎉",
+  "confirmSuccessMessage": "Vous êtes maintenant abonné à la newsletter {labelShortName}. Bienvenue dans la communauté !",
+  "confirmErrorTitle": "Lien invalide ou expiré",
+  "confirmErrorMessage": "Ce lien de confirmation est invalide ou a déjà été utilisé. Veuillez vous réinscrire."
+}

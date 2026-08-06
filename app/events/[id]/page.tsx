@@ -8,6 +8,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getLocale } from 'next-intl/server'
+import { toBcp47 } from '@/i18n/locales'
 import { getCachedPublicConcerts } from '@/lib/cache/publicQueries'
 
 import { EventDetailContent } from './_components/EventDetailContent'
@@ -27,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!concert) return { title: pageTitle('Event not found', labelName) }
 
   const locale = await getLocale()
-  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
+  const dateLocale = toBcp47(locale)
   const formattedDate = new Date(concert.concertDate).toLocaleDateString(dateLocale, {
     year: 'numeric',
     month: 'long',
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   })
 
   const title = entityTitle(concert.eventName, concert.artistName, labelName)
-  const description = `${concert.artistName} live ${locale === 'de' ? 'am' : 'on'} ${formattedDate}${concert.venueCity ? ` in ${concert.venueCity}` : ''}`
+  const description = `${concert.artistName} live · ${formattedDate}${concert.venueCity ? ` · ${concert.venueCity}` : ''}`
 
   return {
     title,

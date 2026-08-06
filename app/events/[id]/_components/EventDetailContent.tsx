@@ -17,6 +17,7 @@ import {
 import { ConsentGate } from '@/components/ConsentGate'
 import { ShareButton } from '@/components/ShareButton'
 import { useLocale, useTranslations } from 'next-intl'
+import { toBcp47 } from '@/i18n/locales'
 import type { Concert } from '@/types'
 
 interface EventDetailContentProps {
@@ -78,7 +79,7 @@ export function EventDetailContent({ concert }: EventDetailContentProps) {
   const locale = useLocale()
   const prefersReducedMotion = useReducedMotion()
 
-  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
+  const dateLocale = toBcp47(locale)
   const isCancelled = concert.status === 'cancelled'
 
   const formattedDate = new Date(concert.concertDate).toLocaleDateString(dateLocale, {
@@ -247,7 +248,7 @@ export function EventDetailContent({ concert }: EventDetailContentProps) {
               {/* Share button */}
               <ShareButton
                 title={`${concert.eventName} – ${concert.artistName}`}
-                text={`${concert.artistName} live ${locale === 'de' ? 'am' : 'on'} ${new Date(concert.concertDate).toLocaleDateString(dateLocale, { year: 'numeric', month: 'long', day: 'numeric' })}${concert.venueCity ? ` in ${concert.venueCity}` : ''}`}
+                text={`${concert.artistName} live ${new Date(concert.concertDate).toLocaleDateString(dateLocale, { year: 'numeric', month: 'long', day: 'numeric' })}${concert.venueCity ? ` · ${concert.venueCity}` : ''}`}
                 size="lg"
                 labels={{
                   share: tConcerts('eventDetail.share'),

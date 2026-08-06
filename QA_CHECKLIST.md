@@ -146,10 +146,11 @@
 - [ ] Admin/portal/press routes are excluded from page-event tracking
 
 ## Internationalisation (i18n)
-- [ ] Flag language switcher in public header shows current language; choosing DE/EN persists via NEXT_LOCALE cookie
+- [ ] Flag language switcher in public header shows current language; choosing DE/EN/FR persists via NEXT_LOCALE cookie
 - [ ] Same flag switcher works in admin sidebar, portal sidebar, and press dashboard
-- [ ] All UI strings use dictionary keys (no hard-coded EN strings visible in DE mode)
-- [ ] Locale-specific legal pages (/impressum, /datenschutz, /agb) reflect correct language (Impressum body fully EN when locale=en)
+- [ ] French UI: public shell + portal/admin strings load from `messages/fr`
+- [ ] All UI strings use dictionary keys (no hard-coded EN strings visible in DE/FR mode)
+- [ ] Locale-specific legal pages (/impressum, /datenschutz, /agb) reflect correct language (Impressum labels DE/EN/FR; CMS body DE/EN with FR→EN fallback)
 
 ## PWA
 - [ ] /manifest.webmanifest is accessible and valid

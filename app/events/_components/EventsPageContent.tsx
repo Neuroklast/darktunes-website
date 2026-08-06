@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Calendar, MapPin, Ticket, FunnelSimple, NavigationArrow } from '@phosphor-icons/react'
 import { useLocale, useTranslations } from 'next-intl'
+import { toBcp47 } from '@/i18n/locales'
 import type { Concert } from '@/types'
 
 interface EventsPageContentProps {
@@ -17,7 +18,7 @@ interface EventsPageContentProps {
 export function EventsPageContent({ concerts }: EventsPageContentProps) {
   const t = useTranslations('concerts')
   const locale = useLocale()
-  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
+  const dateLocale = toBcp47(locale)
   const prefersReducedMotion = useReducedMotion()
 
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null)

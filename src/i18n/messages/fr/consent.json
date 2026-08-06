@@ -1,0 +1,15 @@
+{
+  "bannerAriaLabel": "Consentement aux cookies",
+  "bannerTitle": "Contenus externes et confidentialité",
+  "bannerText": "Ce site souhaite intégrer des contenus de prestataires externes (Spotify, YouTube). En cliquant sur « Accepter », vous consentez à la transmission de données à ces tiers (RGPD art. 6 § 1 lit. a).",
+  "privacyLink": "Politique de confidentialité",
+  "reject": "Refuser",
+  "accept": "Accepter",
+  "gateText": "Ce contenu est hébergé par Spotify (prestataire externe). Son chargement entraîne un transfert de données vers Spotify, comme décrit dans notre politique de confidentialité.",
+  "spotifyTitle": "Écouter sur Spotify",
+  "spotifyBtnLabel": "Charger le lecteur Spotify",
+  "loadExternal": "Charger le contenu externe",
+  "loadExternalAlt": "Contenu externe — cliquez pour charger",
+  "loadSpotify": "Charger le lecteur Spotify",
+  "loadYouTube": "Charger YouTube"
+}

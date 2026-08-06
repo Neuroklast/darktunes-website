@@ -69,12 +69,16 @@ const warnings = []
 // ── 1. Parity ──────────────────────────────────────────────────────────────
 const portalEn = loadJson('src/i18n/messages/en/portal.json')
 const portalDe = loadJson('src/i18n/messages/de/portal.json')
+const portalFr = loadJson('src/i18n/messages/fr/portal.json')
 const adminEn = loadJson('src/i18n/messages/en/admin.json')
 const adminDe = loadJson('src/i18n/messages/de/admin.json')
+const adminFr = loadJson('src/i18n/messages/fr/admin.json')
 
 const pairs = [
-  ['portal', portalEn, portalDe],
-  ['admin', adminEn, adminDe],
+  ['portal.de', portalEn, portalDe],
+  ['portal.fr', portalEn, portalFr],
+  ['admin.de', adminEn, adminDe],
+  ['admin.fr', adminEn, adminFr],
 ]
 
 for (const [name, en, de] of pairs) {

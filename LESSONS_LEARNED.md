@@ -26,6 +26,8 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Logo via `getOptimizedImageUrl(..., 200)` in chrome | Use `getOptimizedLogoUrl` + source ≥2–3× display size; small PNGs stay soft on Retina |
 | Permanent PWA dismiss with no re-entry | Store dismiss, but always expose `requestPwaInstallPrompt()` from Footer/Settings |
 | Legal page body only in one language | Labels/boilerplate via `next-intl`; CMS fields stay bilingual when needed |
+| Hard-coded `locale === 'de' ? 'de-DE' : 'en-US'` | Use `toBcp47(locale)` from `src/i18n/locales.ts` so FR (and future locales) format correctly |
+| New locale without full message tree | Add `messages/<locale>/*` with key parity vs EN; extend `loadMessages` loaders + `LOCALES` + parity tests |
 
 ## CI & TypeScript
 

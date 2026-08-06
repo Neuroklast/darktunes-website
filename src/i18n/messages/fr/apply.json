@@ -1,0 +1,24 @@
+{
+  "heading": "Demander un accès presse",
+  "subheading": "Demandez l'accès au tableau de bord presse {labelShortName} — titres promo, press kits et sorties exclusives.",
+  "fields": {
+    "name": "Nom complet",
+    "email": "Adresse e-mail",
+    "password": "Mot de passe",
+    "publication": "Publication / média",
+    "website": "Site web (facultatif)",
+    "reason": "Pourquoi demandez-vous un accès presse ?"
+  },
+  "submit": "Envoyer la candidature",
+  "submitting": "Envoi…",
+  "success": {
+    "heading": "Candidature envoyée",
+    "message": "Merci ! Nous examinerons votre candidature et vous répondrons par e-mail.",
+    "login": "Déjà approuvé ? Se connecter"
+  },
+  "applicationsDisabled": "Les candidatures presse ne sont pas acceptées pour le moment. Revenez plus tard ou contactez le label.",
+  "errors": {
+    "emailInUse": "Un compte avec cet e-mail existe déjà. Veuillez vous connecter.",
+    "generic": "Échec de l'envoi. Veuillez réessayer."
+  }
+}

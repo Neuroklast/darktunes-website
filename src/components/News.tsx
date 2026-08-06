@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { ArrowRight, Calendar } from '@phosphor-icons/react'
 import { getOptimizedImageUrl } from '@/lib/imageUtils'
 import { useLocale, useTranslations } from 'next-intl'
+import { toBcp47 } from '@/i18n/locales'
 import type { NewsPost } from '@/types'
 import type { SectionProps } from '@/lib/component-contracts'
 
@@ -26,7 +27,7 @@ const DEFAULT_SNEAK_PEEK_COUNT = 3
 export function News({ news, heading, subheading, sneakPeekCount }: NewsProps) {
   const t = useTranslations('news')
   const locale = useLocale()
-  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
+  const dateLocale = toBcp47(locale)
   const sectionHeading = heading ?? t('heading')
   const sectionSubheading = subheading ?? t('subheading')
   const count = sneakPeekCount && sneakPeekCount > 0 ? sneakPeekCount : DEFAULT_SNEAK_PEEK_COUNT

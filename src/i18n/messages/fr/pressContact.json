@@ -1,0 +1,16 @@
+{
+  "heading": "Demande presse",
+  "subjectLabel": "Sujet",
+  "subjects": {
+    "interview": "Demande d'interview",
+    "reviewCopy": "Exemplaire de review",
+    "accreditation": "Accréditation événement",
+    "general": "Demande générale"
+  },
+  "messagePlaceholder": "Écrivez votre message ici…",
+  "send": "Envoyer la demande",
+  "sending": "Envoi…",
+  "sent": "Votre message a été envoyé.",
+  "backToInbox": "Retour à la boîte de réception",
+  "messageLabel": "Message"
+}

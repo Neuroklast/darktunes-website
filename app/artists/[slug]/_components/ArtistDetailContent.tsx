@@ -34,6 +34,7 @@ import { ODESLI_PLATFORM_CONFIG } from '@/lib/platforms/odesliPlatformConfig'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { BandcampIcon } from '@/components/icons/BandcampIcon'
 import { useLocale, useTranslations } from 'next-intl'
+import { toBcp47 } from '@/i18n/locales'
 import type { Artist, Release, Concert, Video, NewsPost } from '@/types'
 import { trackShopClick, trackSmartLinkClick } from '@/lib/analytics/trackPageEvent'
 import { ShareButton } from './ShareButton'
@@ -105,7 +106,7 @@ export function ArtistDetailContent({
   const tConsent = useTranslations('consent')
   const locale = useLocale()
   const prefersReducedMotion = useReducedMotion()
-  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
+  const dateLocale = toBcp47(locale)
   const youtubeId = artist.youtubeUrl ? extractYouTubeId(artist.youtubeUrl) : null
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)

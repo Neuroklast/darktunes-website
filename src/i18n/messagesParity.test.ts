@@ -13,24 +13,37 @@ function collectKeys(value: unknown, prefix = ''): string[] {
 
 const messagesDir = path.join(import.meta.dirname, 'messages')
 
+const LOCALES = ['en', 'de', 'fr'] as const
+
 describe('i18n message parity', () => {
-  it('en and de namespaces match', () => {
+  it('all locales expose the same namespaces', () => {
     const enNamespaces = readdirSync(path.join(messagesDir, 'en'))
       .filter((file) => file.endsWith('.json'))
       .sort()
-    const deNamespaces = readdirSync(path.join(messagesDir, 'de'))
-      .filter((file) => file.endsWith('.json'))
-      .sort()
-    expect(deNamespaces).toEqual(enNamespaces)
+    for (const locale of LOCALES) {
+      if (locale === 'en') continue
+      const other = readdirSync(path.join(messagesDir, locale))
+        .filter((file) => file.endsWith('.json'))
+        .sort()
+      expect(other, `${locale} namespaces`).toEqual(enNamespaces)
+    }
   })
 
-  it('en and de namespace contents expose the same key paths', () => {
-    const enNamespaces = readdirSync(path.join(messagesDir, 'en')).filter((file) => file.endsWith('.json'))
+  it('all locales expose the same key paths per namespace', () => {
+    const enNamespaces = readdirSync(path.join(messagesDir, 'en')).filter((file) =>
+      file.endsWith('.json'),
+    )
 
     for (const namespaceFile of enNamespaces) {
       const en = JSON.parse(readFileSync(path.join(messagesDir, 'en', namespaceFile), 'utf8'))
-      const de = JSON.parse(readFileSync(path.join(messagesDir, 'de', namespaceFile), 'utf8'))
-      expect(collectKeys(de).sort()).toEqual(collectKeys(en).sort())
+      const enKeys = collectKeys(en).sort()
+      for (const locale of LOCALES) {
+        if (locale === 'en') continue
+        const other = JSON.parse(
+          readFileSync(path.join(messagesDir, locale, namespaceFile), 'utf8'),
+        )
+        expect(collectKeys(other).sort(), `${locale}/${namespaceFile}`).toEqual(enKeys)
+      }
     }
   })
 })

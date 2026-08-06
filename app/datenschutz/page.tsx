@@ -250,17 +250,21 @@ export default async function DatenschutzPage() {
     getTranslations('pages'),
   ])
 
-  const isEn = locale === 'en'
-  const raw = isEn
-    ? (settings.datenschutzContentEn || getDefaultContentEn(settings))
-    : (settings.datenschutzContent || getDefaultContentDe(settings))
+  // CMS has DE + EN only; FR falls back to English defaults
+  const useGerman = locale === 'de'
+  const raw = useGerman
+    ? (settings.datenschutzContent || getDefaultContentDe(settings))
+    : (settings.datenschutzContentEn || getDefaultContentEn(settings))
   const content = renderLegalTemplate(raw, getLabelLegalVars(settings))
 
   const dateLabel = tDatenschutz('dateLabel')
-  const formattedDate = new Date().toLocaleDateString(isEn ? 'en-GB' : 'de-DE', {
-    year: 'numeric',
-    month: 'long',
-  })
+  const formattedDate = new Date().toLocaleDateString(
+    locale === 'de' ? 'de-DE' : locale === 'fr' ? 'fr-FR' : 'en-GB',
+    {
+      year: 'numeric',
+      month: 'long',
+    },
+  )
 
   return (
     <div className="min-h-screen bg-background text-foreground">

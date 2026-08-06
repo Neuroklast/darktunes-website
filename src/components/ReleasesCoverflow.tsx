@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { getSquareThumbnail } from '@/lib/imageUtils'
 import { cn } from '@/lib/utils'
 import { useLocale, useTranslations } from 'next-intl'
+import { toBcp47 } from '@/i18n/locales'
 import type { Release } from '@/types'
 import 'swiper/css'
 import 'swiper/css/effect-coverflow'
@@ -128,7 +129,7 @@ export function ReleasesCoverflow({ releases, autoplayMs = 0 }: ReleasesCoverflo
 
   // Formatierte Daten
   useEffect(() => {
-    const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
+    const dateLocale = toBcp47(locale)
     setFormattedDates(
       releases.map((release) =>
         new Date(release.releaseDate).toLocaleDateString(dateLocale, {

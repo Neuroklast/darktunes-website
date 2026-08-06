@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Play, ArrowLeft, ArrowRight, MagnifyingGlass } from '@phosphor-icons/react'
 import { getOptimizedImageUrl } from '@/lib/imageUtils'
 import { useLocale, useTranslations } from 'next-intl'
+import { toBcp47 } from '@/i18n/locales'
 import type { Video } from '@/types'
 import type { SectionProps } from '@/lib/component-contracts'
 
@@ -107,7 +108,7 @@ export function Videos({ videos, placeholderUrl, heading, subheading, videosPerP
   const t = useTranslations('videos')
   const tConsent = useTranslations('consent')
   const locale = useLocale()
-  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
+  const dateLocale = toBcp47(locale)
   const sectionHeading = heading ?? t('heading')
   const sectionSubheading = subheading ?? t('subheading')
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)

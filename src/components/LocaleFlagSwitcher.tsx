@@ -2,7 +2,7 @@
 
 /**
  * LocaleFlagSwitcher — flag button showing the active locale; opens a menu
- * to pick Deutsch (🇩🇪) or English (🇬🇧). Sets NEXT_LOCALE and refreshes RSC tree.
+ * to pick Deutsch / English / Français. Sets NEXT_LOCALE and refreshes RSC tree.
  */
 
 import { useLocale } from 'next-intl'
@@ -17,16 +17,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { SECONDS_PER_YEAR } from '@/lib/datetime/constants'
 import { cn } from '@/lib/utils'
+import { LOCALES, LOCALE_META, type AppLocale } from '@/i18n/locales'
 import type { Locale } from '@/i18n/types'
-
-const LOCALE_OPTIONS: ReadonlyArray<{
-  code: Locale
-  flag: string
-  label: string
-}> = [
-  { code: 'de', flag: '🇩🇪', label: 'Deutsch' },
-  { code: 'en', flag: '🇬🇧', label: 'English' },
-]
 
 function setLocaleCookie(locale: Locale) {
   document.cookie = `NEXT_LOCALE=${locale}; path=/; max-age=${SECONDS_PER_YEAR}; samesite=lax`
@@ -34,7 +26,6 @@ function setLocaleCookie(locale: Locale) {
 
 interface LocaleFlagSwitcherProps {
   className?: string
-  /** Compact icon-only trigger (default) vs slightly larger shell placement */
   size?: 'sm' | 'md'
   align?: 'start' | 'center' | 'end'
 }
@@ -46,7 +37,7 @@ export function LocaleFlagSwitcher({
 }: LocaleFlagSwitcherProps) {
   const locale = useLocale() as Locale
   const router = useRouter()
-  const current = LOCALE_OPTIONS.find((o) => o.code === locale) ?? LOCALE_OPTIONS[0]
+  const currentMeta = LOCALE_META[locale as AppLocale] ?? LOCALE_META.de
 
   const selectLocale = (next: Locale) => {
     if (next === locale) return
@@ -66,21 +57,22 @@ export function LocaleFlagSwitcher({
             size === 'md' && 'px-2.5',
             className,
           )}
-          aria-label={`Language: ${current.label}. Open language menu`}
+          aria-label={`Language: ${currentMeta.label}. Open language menu`}
         >
           <span aria-hidden="true" className="text-lg leading-none">
-            {current.flag}
+            {currentMeta.flag}
           </span>
-          <span className="sr-only">{current.label}</span>
+          <span className="sr-only">{currentMeta.label}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="min-w-[10rem]">
-        {LOCALE_OPTIONS.map((option) => {
-          const selected = option.code === locale
+        {LOCALES.map((code) => {
+          const option = LOCALE_META[code]
+          const selected = code === locale
           return (
             <DropdownMenuItem
-              key={option.code}
-              onSelect={() => selectLocale(option.code)}
+              key={code}
+              onSelect={() => selectLocale(code)}
               className="cursor-pointer gap-2"
               aria-checked={selected}
               role="menuitemradio"

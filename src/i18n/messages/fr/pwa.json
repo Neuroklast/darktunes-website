@@ -1,0 +1,10 @@
+{
+  "install_aria_label": "Installer {labelShortName} comme application",
+  "install_title": "Installer {labelShortName} comme application",
+  "install_subtitle": "Accès rapide · Fonctionne hors ligne",
+  "install_button": "Installer",
+  "install_ios_hint_prefix": "Appuyez sur",
+  "install_ios_hint_suffix": "puis sur « Sur l'écran d'accueil ».",
+  "install_manual_fallback": "Ouvrez le menu du navigateur et choisissez « Installer l'application » ou « Sur l'écran d'accueil ».",
+  "dismiss_aria_label": "Fermer la bannière d'installation"
+}

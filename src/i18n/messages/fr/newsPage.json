@@ -1,0 +1,11 @@
+{
+  "heading": "ACTUALITÉS",
+  "subheading": "Les dernières nouvelles de {labelName}",
+  "readMore": "Lire la suite",
+  "backToNews": "← Retour aux actualités",
+  "noNews": "Aucun article pour le moment.",
+  "share": "Partager",
+  "shareSuccess": "Partagé !",
+  "shareLinkCopied": "Lien copié !",
+  "shareError": "Impossible de partager"
+}

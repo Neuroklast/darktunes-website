@@ -10,6 +10,7 @@ import { unstable_cache } from 'next/cache'
 import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
 import { getPublicNewsPostBySlug, getPublicNewsPosts } from '@/lib/api/news'
 import { getLocale, getTranslations } from 'next-intl/server'
+import { toBcp47 } from '@/i18n/locales'
 import { MarkdownContent } from '@/components/MarkdownContent'
 import { buildNewsArticleSchema, serializeJsonLd } from '@/lib/seo/jsonld'
 import { getMetadataContext, pageTitle } from '@/lib/seo/metadata'
@@ -83,7 +84,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 function formatDate(dateStr: string, locale: string): string {
-  return new Date(dateStr).toLocaleDateString(locale === 'de' ? 'de-DE' : 'en-GB', {
+  return new Date(dateStr).toLocaleDateString(toBcp47(locale), {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

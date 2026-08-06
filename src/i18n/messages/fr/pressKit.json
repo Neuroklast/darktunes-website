@@ -1,0 +1,14 @@
+{
+  "heading": "Press Kit",
+  "tabs": {
+    "all": "Tout",
+    "photo": "Photos",
+    "logo": "Logos",
+    "social": "Social",
+    "document": "Documents"
+  },
+  "downloadZip": "Télécharger le ZIP",
+  "downloadZipAll": "Tout télécharger en ZIP",
+  "preparingZip": "Préparation du ZIP…",
+  "noAssets": "Aucun élément disponible dans cette catégorie."
+}

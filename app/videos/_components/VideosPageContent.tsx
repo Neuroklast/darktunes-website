@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Play, ArrowLeft, ArrowRight, MagnifyingGlass } from '@phosphor-icons/react'
 import { useLocale, useTranslations } from 'next-intl'
+import { toBcp47 } from '@/i18n/locales'
 import type { Video } from '@/types'
 import { getOptimizedImageUrl } from '@/lib/imageUtils'
 
@@ -41,7 +42,7 @@ export function VideosPageContent({
   const t = useTranslations('videos')
   const tConsent = useTranslations('consent')
   const locale = useLocale()
-  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
+  const dateLocale = toBcp47(locale)
   const [query, setQuery] = useState('')
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null)
   const [modalOpen, setModalOpen] = useState(false)

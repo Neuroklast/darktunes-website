@@ -1,0 +1,17 @@
+{
+  "heading": "SORTIES",
+  "subheading": "Découvrez la dernière musique de notre roster",
+  "featured": "À la une",
+  "searchPlaceholder": "Rechercher des sorties…",
+  "noResults": "Aucune sortie trouvée.",
+  "viewFullPage": "Voir la page complète",
+  "streamingLinks": "Liens de streaming",
+  "previewTitle": "Aperçu",
+  "viewAll": "Toutes les sorties",
+  "coverflowRegionLabel": "Carrousel des sorties",
+  "openReleaseAriaSuffix": "ouvrir la sortie",
+  "previousReleaseAriaLabel": "Sortie précédente",
+  "nextReleaseAriaLabel": "Sortie suivante",
+  "releaseDotsAriaLabel": "Points de navigation des sorties",
+  "goToReleaseAriaLabelTemplate": "Aller à la sortie {index} : {title}"
+}

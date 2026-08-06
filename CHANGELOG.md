@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **French locale (`fr`):** Selectable alongside DE/EN via flag switcher; full `src/i18n/messages/fr/*` dictionaries; Accept-Language + cookie detection.
+
 #### Product & compliance
 - **Portal analytics split:** Dashboard nav now has **Spotify Trends** (`/portal/spotify-trends`) and **SOS Analytics** (`/portal/sos-analytics`) instead of one overloaded hub. Legacy `/portal/analytics` redirects. Empty states when a source has no data (no misleading zero grids).
 - **Portal Bandsintown credentials:** Profile → Integrations — artists set per-project Bandsintown ID + API key and can sync concerts (`/api/portal/integrations/bandsintown`).
@@ -43,10 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ISR + loading skeletons + metadata** for previously cold public/admin routes.
 
 ### Changed
-- **Locale UX:** Flag-based language switcher (`LocaleFlagSwitcher`) on public header, admin, portal, and press dashboard (current flag → pick DE/EN).
+- **Locale UX:** Flag-based language switcher (`LocaleFlagSwitcher`) on public header, admin, portal, and press dashboard (current flag → pick DE/EN/FR).
 - **PWA install:** Generic offline/quick-access copy; install banner re-openable anytime via Footer, portal Settings, and admin sidebar (`requestPwaInstallPrompt`).
-- **Legal i18n:** Impressum section labels/boilerplate fully DE/EN; default Datenschutz expanded (Vercel/Cloudflare/Supabase, cookies/PWA storage, rights, contact/auth, retention).
-- **Logo delivery:** Higher-res wsrv logo proxy (`getOptimizedLogoUrl`, q=90, wider widths). Replace bundled `logo_(1).png` with HQ asset when available (currently 341×81 fallback is limited).
+- **Legal i18n:** Impressum labels DE/EN/FR; default Datenschutz expanded; CMS legal body DE/EN with FR→EN fallback.
+- **Logo delivery:** Higher-res wsrv logo proxy (`getOptimizedLogoUrl`, q=90, wider widths).
 
 ### Fixed
 - **Portal notification bell read state:** “Mark all” / open-as-read now writes per-user `message_receipts` (same source as badge counts). Feed + badges stay aligned after refresh.

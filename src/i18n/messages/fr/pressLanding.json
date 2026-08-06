@@ -1,0 +1,28 @@
+{
+  "tabs": {
+    "roster": "Roster artistes",
+    "releases": "Communiqués de presse",
+    "contact": "Contact"
+  },
+  "heroBadge": "Presse et médias",
+  "heroDescription": "Demandes éditoriales, interviews, exemplaires de review et assets haute résolution pour le roster {labelShortName}.",
+  "rosterSearch": "Rechercher des artistes…",
+  "rosterSort": {
+    "label": "Trier par",
+    "nameAsc": "Nom A–Z",
+    "nameDesc": "Nom Z–A",
+    "genreAsc": "Genre A–Z"
+  },
+  "noResults": "Aucun artiste ne correspond à votre recherche.",
+  "contact": {
+    "title": "Contact presse",
+    "description": "Pour les demandes d'interview, exemplaires de review, accréditations ou press kits sur mesure, contactez-nous directement.",
+    "emailLabel": "E-mail",
+    "phoneLabel": "Téléphone",
+    "applyButton": "Demander un accès presse",
+    "dashboardButton": "Ouvrir le tableau de bord presse"
+  },
+  "releasesButton": "Ouvrir le tableau de bord",
+  "readRelease": "Lire le communiqué",
+  "artistRoster": "Roster artistes"
+}

@@ -1,0 +1,26 @@
+{
+  "heading": "ÉVÉNEMENTS",
+  "subheading": "Dates live, concerts et prochains shows",
+  "ticketLink": "Billets",
+  "opensInNewTab": "s'ouvre dans un nouvel onglet",
+  "cancelled": "Annulé",
+  "noShows": "Aucun événement à venir pour le moment.",
+  "checkBack": "Revenez bientôt pour de nouvelles dates.",
+  "viewAll": "Tous les événements",
+  "filterArtist": "Tous les artistes",
+  "filterCountry": "Tous les pays",
+  "navLink": "Itinéraire",
+  "searchPlaceholder": "Rechercher par artiste ou lieu…",
+  "noResults": "Aucun événement ne correspond à votre recherche.",
+  "eventDetail": {
+    "backToEvents": "← Tous les événements",
+    "addToCalendar": "Ajouter au calendrier",
+    "relatedNews": "Actualités liées",
+    "readMore": "Lire l'article",
+    "featuredArtists": "Line-up",
+    "share": "Partager",
+    "shareSuccess": "Partagé !",
+    "shareLinkCopied": "Lien copié !",
+    "shareError": "Impossible de partager"
+  }
+}

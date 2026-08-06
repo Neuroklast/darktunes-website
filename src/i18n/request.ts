@@ -6,14 +6,8 @@ import { brandI18nValues } from '@/lib/brand/i18nValues'
 import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
 import { resolveBrandPlaceholders } from '@/i18n/resolveBrandPlaceholders'
 import type { Locale } from './types'
+import { isAppLocale, parseAcceptLanguage } from './locales'
 import { routing } from './routing'
-
-function parseAcceptLanguage(header: string): Locale | null {
-  const primary = header.split(',')[0]?.split(';')[0]?.trim().split('-')[0]?.toLowerCase()
-  if (primary === 'de') return 'de'
-  if (primary === 'en') return 'en'
-  return null
-}
 
 export default getRequestConfig(async () => {
   const cookieStore = await cookies()
@@ -24,8 +18,8 @@ export default getRequestConfig(async () => {
 
   const pathname = headerStore.get('x-pathname') ?? ''
 
-  if (cookieLocale && (routing.locales as readonly string[]).includes(cookieLocale)) {
-    locale = cookieLocale as Locale
+  if (isAppLocale(cookieLocale)) {
+    locale = cookieLocale
   } else {
     const fromHeader = parseAcceptLanguage(headerStore.get('accept-language') ?? '')
     if (fromHeader) {

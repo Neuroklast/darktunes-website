@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Calendar, MapPin, Ticket, ArrowRight, ArrowLeft, MagnifyingGlass } from '@phosphor-icons/react'
 import { useLocale, useTranslations } from 'next-intl'
+import { toBcp47 } from '@/i18n/locales'
 import type { Concert } from '@/types'
 import type { SectionProps } from '@/lib/component-contracts'
 
@@ -25,7 +26,7 @@ interface ConcertsProps extends SectionProps {
 export function Concerts({ concerts, heading, subheading, concertsPerPage = 8, concertsLinkToPage = false }: ConcertsProps) {
   const t = useTranslations('concerts')
   const locale = useLocale()
-  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US'
+  const dateLocale = toBcp47(locale)
   const sectionHeading = heading ?? t('heading')
   const sectionSubheading = subheading ?? t('subheading')
   const [page, setPage] = useState(1)

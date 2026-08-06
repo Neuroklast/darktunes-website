@@ -1,0 +1,55 @@
+{
+  "heading": "Promo Pool",
+  "description": "Titres exclusifs en avant-première pour les professionnels des médias vérifiés.",
+  "releasesHeading": "Sorties promo",
+  "noReleases": "Aucune sortie promo disponible.",
+  "tracksHeading": "Titres promo",
+  "noTracks": "Aucun titre promo disponible.",
+  "streamTrack": "Écouter",
+  "loading": "Chargement du stream sécurisé…",
+  "streamError": "Échec du chargement du stream. Réessayez.",
+  "accessDenied": "Accès restreint",
+  "accessDeniedMessage": "Vous devez disposer d'un accès journaliste pour voir ce contenu.",
+  "applicationPending": "Votre candidature est en cours d'examen. Nous vous informerons dès son approbation.",
+  "applicationApply": "Demandez un accès ci-dessous.",
+  "login": {
+    "title": "Connexion Promo Pool",
+    "description": "Connectez-vous pour accéder aux contenus exclusifs en avant-première.",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "submitting": "Connexion…",
+    "error": "E-mail ou mot de passe incorrect.",
+    "applyHeading": "Demander un accès",
+    "applyDescription": "Vous êtes journaliste ou professionnel des médias ? Soumettez une demande ci-dessous.",
+    "applyName": "Nom complet",
+    "applyOutlet": "Publication / média",
+    "applyMessage": "Message (facultatif)",
+    "applySubmit": "Envoyer la candidature",
+    "applySubmitting": "Envoi…",
+    "applySuccess": "Candidature envoyée ! Nous l'examinerons bientôt.",
+    "applyError": "Échec de l'envoi de la candidature. Réessayez.",
+    "applyEmailPlaceholder": "votre@email.com"
+  },
+  "metadata": {
+    "genre": "Genre",
+    "bpm": "BPM",
+    "key": "Tonalité",
+    "duration": "Durée",
+    "releaseDate": "Date de sortie"
+  },
+  "player": {
+    "preview": "Aperçu",
+    "pause": "Pause",
+    "download": "Télécharger",
+    "preparing": "Préparation…"
+  },
+  "nda": {
+    "badge": "NDA requis",
+    "title": "NDA requis",
+    "description": "Ce titre est soumis à un accord de confidentialité. En téléchargeant, vous vous engagez à ne pas partager ni publier ce matériel avant la date de sortie officielle.",
+    "confirm": "J'accepte les conditions du NDA",
+    "proceed": "Continuer le téléchargement",
+    "cancel": "Annuler"
+  }
+}

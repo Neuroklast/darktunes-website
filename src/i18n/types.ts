@@ -1,11 +1,12 @@
 import type enDict from './messages/en/index'
+import type { AppLocale } from './locales'
 
-/** Supported locales */
-export type Locale = 'en' | 'de'
+/** Supported locales (en, de, fr) */
+export type Locale = AppLocale
 
 /**
  * Full dictionary type — structurally derived from the English baseline.
- * This guarantees that the German dictionary has every key the English one has.
+ * Other locales must expose the same key tree (parity tests).
  */
 export type Dictionary = typeof enDict
 

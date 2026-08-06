@@ -1,0 +1,12 @@
+{
+  "title": "Connexion espace presse",
+  "description": "Connectez-vous en tant que journaliste ou admin pour accéder aux outils presse.",
+  "emailLabel": "E-mail",
+  "passwordLabel": "Mot de passe",
+  "signIn": "Se connecter",
+  "signingIn": "Connexion…",
+  "errorInvalid": "E-mail ou mot de passe incorrect.",
+  "errorUnauthorized": "Votre compte n'est pas autorisé pour l'espace presse.",
+  "applyLink": "Demander un accès presse",
+  "forgotPassword": "Mot de passe oublié ? Écrire à"
+}

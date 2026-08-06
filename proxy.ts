@@ -275,10 +275,12 @@ export async function proxy(request: NextRequest) {
   // Locale detection — set NEXT_LOCALE cookie from Accept-Language if missing
   // -------------------------------------------------------------------------
   const cookieLocale = request.cookies.get('NEXT_LOCALE')?.value
-  if (!cookieLocale || (cookieLocale !== 'en' && cookieLocale !== 'de')) {
+  const validLocales = new Set(['en', 'de', 'fr'])
+  if (!cookieLocale || !validLocales.has(cookieLocale)) {
     const acceptLanguage = request.headers.get('accept-language') ?? ''
     const primary = acceptLanguage.split(',')[0]?.split(';')[0]?.trim().split('-')[0]?.toLowerCase()
-    const detectedLocale = primary === 'en' ? 'en' : primary === 'de' ? 'de' : 'en'
+    const detectedLocale =
+      primary === 'en' ? 'en' : primary === 'de' ? 'de' : primary === 'fr' ? 'fr' : 'en'
     supabaseResponse.cookies.set('NEXT_LOCALE', detectedLocale, {
       path: '/',
       maxAge: 60 * 60 * 24 * 365, // 1 year

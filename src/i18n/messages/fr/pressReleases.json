@@ -1,0 +1,20 @@
+{
+  "heading": "Communiqués de presse",
+  "detail": {
+    "backLink": "Retour aux communiqués",
+    "mediaContact": "Contact médias",
+    "category": "Catégorie",
+    "embargo": "Embargo jusqu'au"
+  },
+  "categories": {
+    "albumAnnouncement": "Annonce d'album",
+    "tour": "Tournée",
+    "labelNews": "Actualité label",
+    "other": "Autre"
+  },
+  "filterAll": "Tout",
+  "search": "Rechercher des communiqués…",
+  "noResults": "Aucun communiqué trouvé.",
+  "embargoBadge": "Embargo",
+  "openRelease": "Ouvrir le communiqué"
+}
