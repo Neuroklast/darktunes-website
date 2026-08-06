@@ -2,11 +2,14 @@
 
 /**
  * LocaleFlagSwitcher — flag button showing the active locale; opens a menu
- * to pick Deutsch / English / Français. Sets NEXT_LOCALE and refreshes RSC tree.
+ * to pick Deutsch / English / Français. Sets NEXT_LOCALE and reloads.
+ *
+ * Uses SVG flags (not emoji) so Windows does not show "DE"/"GB"/"FR" letters.
+ * Uses full reload so admin/portal shells always pick up the new locale cookie
+ * (router.refresh() is slow/unreliable on force-dynamic dashboards).
  */
 
 import { useLocale } from 'next-intl'
-import { useRouter } from 'next/navigation'
 import { Check } from '@phosphor-icons/react'
 import {
   DropdownMenu,
@@ -15,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
+import { LocaleFlagIcon } from '@/components/LocaleFlagIcon'
 import { SECONDS_PER_YEAR } from '@/lib/datetime/constants'
 import { cn } from '@/lib/utils'
 import { LOCALES, LOCALE_META, type AppLocale } from '@/i18n/locales'
@@ -36,13 +40,15 @@ export function LocaleFlagSwitcher({
   align = 'end',
 }: LocaleFlagSwitcherProps) {
   const locale = useLocale() as Locale
-  const router = useRouter()
-  const currentMeta = LOCALE_META[locale as AppLocale] ?? LOCALE_META.de
+  const currentCode = (LOCALES.includes(locale as AppLocale) ? locale : 'de') as AppLocale
+  const currentMeta = LOCALE_META[currentCode]
 
   const selectLocale = (next: Locale) => {
     if (next === locale) return
     setLocaleCookie(next)
-    router.refresh()
+    // Full reload: cookie-based next-intl + heavy portal/admin RSC trees need a
+    // hard navigation for a snappy, reliable language change.
+    window.location.reload()
   }
 
   return (
@@ -53,33 +59,33 @@ export function LocaleFlagSwitcher({
           variant="ghost"
           size="sm"
           className={cn(
-            'min-w-[44px] min-h-[44px] gap-1.5 border border-border/40 px-2 py-1 text-base leading-none hover:border-accent/40',
+            'min-w-[44px] min-h-[44px] gap-1.5 border border-border/40 px-2 py-1 hover:border-accent/40',
             size === 'md' && 'px-2.5',
             className,
           )}
           aria-label={`Language: ${currentMeta.label}. Open language menu`}
         >
-          <span aria-hidden="true" className="text-lg leading-none">
-            {currentMeta.flag}
-          </span>
+          <LocaleFlagIcon locale={currentCode} className="h-4 w-6" title={currentMeta.label} />
           <span className="sr-only">{currentMeta.label}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="min-w-[10rem]">
+      <DropdownMenuContent align={align} className="min-w-[11rem]">
         {LOCALES.map((code) => {
           const option = LOCALE_META[code]
-          const selected = code === locale
+          const selected = code === currentCode
           return (
             <DropdownMenuItem
               key={code}
-              onSelect={() => selectLocale(code)}
-              className="cursor-pointer gap-2"
+              onSelect={(event) => {
+                // Keep menu from swallowing the navigation on slow shells
+                event.preventDefault()
+                selectLocale(code)
+              }}
+              className="cursor-pointer gap-2.5"
               aria-checked={selected}
               role="menuitemradio"
             >
-              <span aria-hidden="true" className="text-base leading-none">
-                {option.flag}
-              </span>
+              <LocaleFlagIcon locale={code} className="h-3.5 w-[21px]" />
               <span className="flex-1">{option.label}</span>
               {selected ? (
                 <Check size={16} weight="bold" className="text-accent" aria-hidden="true" />

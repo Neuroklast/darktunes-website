@@ -59,7 +59,7 @@ Public images via `getOptimizedImageUrl` / `getSquareThumbnail` (`imageUtils.ts`
 
 `en.json` / `de.json`; type from English baseline. RSC loads dict → props to clients. Locale: cookie → Accept-Language → `de`. New strings: both JSON files + prop chain.
 
-**Locale UI:** `LocaleFlagSwitcher` — current flag + DE/EN/FR menu; sets `NEXT_LOCALE`. Locales: `en` | `de` | `fr` (`src/i18n/locales.ts`). Use on every shell (public, admin, portal, press). Date formatting: `toBcp47(locale)`. Legal CMS fields are DE/EN only — FR falls back to English body text; Impressum labels use `next-intl`.
+**Locale UI:** `LocaleFlagSwitcher` — SVG flags (not emoji; Windows otherwise shows DE/GB/FR letters) + DE/EN/FR menu; sets `NEXT_LOCALE` and **reloads** (not `router.refresh()` — unreliable/slow on force-dynamic admin/portal). Locales: `en` | `de` | `fr` (`src/i18n/locales.ts`). One switcher per shell chrome (header), not also in sidebar footers. Date formatting: `toBcp47(locale)`. Legal CMS fields are DE/EN only — FR falls back to English body text; Impressum labels use `next-intl`.
 
 **Enterprise contract (mandatory):** `npm run check:i18n` — en/de parity, static key existence, zero hardcoded `toast.*`/`confirm` in portal/admin, admin/editor must load `portal` bundle, residual UI hardcodes only via shrinkable baseline (`scripts/i18n-hardcode-baseline.json`). See [i18n-audit-notes.md](./i18n-audit-notes.md).
 

@@ -29,6 +29,7 @@ import {
 } from '@phosphor-icons/react'
 import { useBrand } from '@/components/brand/BrandProvider'
 import { LocaleFlagSwitcher } from '@/components/LocaleFlagSwitcher'
+import { requestPwaInstallPrompt } from '@/lib/pwa/installPrompt'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
@@ -301,11 +302,15 @@ export function PortalSidebar({ artists, featureFlags }: PortalSidebarProps) {
       {artistBlock}
       {renderNav(onNavigate)}
       <Separator className="bg-border" />
-      <div className="p-4 space-y-2">
-        <div className="flex items-center justify-between gap-2 px-1">
-          <span className="text-xs text-muted-foreground">{t('settings_language')}</span>
-          <LocaleFlagSwitcher align="end" />
-        </div>
+      <div className="p-4 space-y-1">
+        {/* Language switcher lives only in the portal header — avoid duplicates. */}
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
+          onClick={() => requestPwaInstallPrompt()}
+        >
+          {t('settings_pwa_show')}
+        </Button>
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"

@@ -186,7 +186,9 @@ export function SettingsPanel({ email, displayName: initialDisplayName }: Settin
           </p>
         </CardHeader>
         <CardContent>
-          {!isInstalled && (
+          {isInstalled ? (
+            <p className="text-sm text-muted-foreground">{t('settings_pwa_installed')}</p>
+          ) : (
             <Button
               type="button"
               variant="outline"

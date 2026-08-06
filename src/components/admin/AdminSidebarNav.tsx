@@ -252,10 +252,8 @@ export function AdminSidebarNav() {
 
   const renderFooter = () => (
     <div className="border-t border-border px-3 py-3 space-y-2">
-      <div className="flex items-center justify-between gap-2 px-1">
-        <p className="text-xs text-muted-foreground truncate min-w-0">{user?.email}</p>
-        <LocaleFlagSwitcher align="end" />
-      </div>
+      {/* Language switcher lives only in the brand header — avoid duplicates. */}
+      <p className="text-xs text-muted-foreground truncate px-1">{user?.email}</p>
       <button
         type="button"
         onClick={() => requestPwaInstallPrompt()}

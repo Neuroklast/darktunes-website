@@ -28,6 +28,9 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Legal page body only in one language | Labels/boilerplate via `next-intl`; CMS fields stay bilingual when needed |
 | Hard-coded `locale === 'de' ? 'de-DE' : 'en-US'` | Use `toBcp47(locale)` from `src/i18n/locales.ts` so FR (and future locales) format correctly |
 | New locale without full message tree | Add `messages/<locale>/*` with key parity vs EN; extend `loadMessages` loaders + `LOCALES` + parity tests |
+| Flag emoji in locale switcher | On Windows, regional-indicator emoji show as letters (DE/GB/FR) — use SVG flags |
+| `router.refresh()` for locale cookie change | Force-dynamic portal/admin often lag or ignore; use cookie + `window.location.reload()` |
+| Locale switcher in header *and* sidebar footer | One chrome control per surface; dedicated Settings card may still host one |
 
 ## CI & TypeScript
 
