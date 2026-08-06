@@ -647,6 +647,98 @@ CREATE TRIGGER trg_artists_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ---------------------------------------------------------------------------
+-- TABLE: artist_private_data
+-- Staff/member-only secrets and PII. Never granted to anon.
+-- Public pages must not select these columns (see PUBLIC_ARTIST_COLUMNS).
+-- After backfill, secrets on public.artists are cleared so select(*) cannot leak.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.artist_private_data (
+  artist_id            UUID PRIMARY KEY REFERENCES public.artists(id) ON DELETE CASCADE,
+  email                TEXT,
+  vat_number           TEXT,
+  notes                TEXT,
+  bandsintown_api_key  TEXT,
+  storage_quota_bytes  BIGINT,
+  is_eu_non_german     BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_artist_private_data_email
+  ON public.artist_private_data (email)
+  WHERE email IS NOT NULL;
+
+-- Idempotent backfill from artists (safe to re-run)
+INSERT INTO public.artist_private_data (
+  artist_id, email, vat_number, notes, bandsintown_api_key, storage_quota_bytes, is_eu_non_german
+)
+SELECT
+  a.id,
+  a.email,
+  a.vat_number,
+  a.notes,
+  a.bandsintown_api_key,
+  a.storage_quota_bytes,
+  COALESCE(a.is_eu_non_german, FALSE)
+FROM public.artists a
+ON CONFLICT (artist_id) DO UPDATE SET
+  email = COALESCE(EXCLUDED.email, public.artist_private_data.email),
+  vat_number = COALESCE(EXCLUDED.vat_number, public.artist_private_data.vat_number),
+  notes = COALESCE(EXCLUDED.notes, public.artist_private_data.notes),
+  bandsintown_api_key = COALESCE(EXCLUDED.bandsintown_api_key, public.artist_private_data.bandsintown_api_key),
+  storage_quota_bytes = COALESCE(EXCLUDED.storage_quota_bytes, public.artist_private_data.storage_quota_bytes),
+  is_eu_non_german = EXCLUDED.is_eu_non_german,
+  updated_at = NOW();
+
+-- Clear secrets from the public artists row so anon/authenticated select(*) cannot leak them.
+-- Canonical storage is artist_private_data (admin/member RLS only).
+UPDATE public.artists SET
+  email = NULL,
+  vat_number = NULL,
+  notes = NULL,
+  bandsintown_api_key = NULL
+WHERE
+  email IS NOT NULL
+  OR vat_number IS NOT NULL
+  OR notes IS NOT NULL
+  OR bandsintown_api_key IS NOT NULL;
+
+ALTER TABLE public.artist_private_data ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "artist_private_data: member read" ON public.artist_private_data;
+DROP POLICY IF EXISTS "artist_private_data: member write" ON public.artist_private_data;
+DROP POLICY IF EXISTS "artist_private_data: admin all" ON public.artist_private_data;
+
+CREATE POLICY "artist_private_data: member read" ON public.artist_private_data
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.artist_members am
+      WHERE am.artist_id = artist_id AND am.user_id = auth.uid()
+    )
+    OR public.get_my_role() IN ('admin', 'editor')
+  );
+
+CREATE POLICY "artist_private_data: member write" ON public.artist_private_data
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM public.artist_members am
+      WHERE am.artist_id = artist_id AND am.user_id = auth.uid()
+    )
+    OR public.get_my_role() IN ('admin', 'editor')
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.artist_members am
+      WHERE am.artist_id = artist_id AND am.user_id = auth.uid()
+    )
+    OR public.get_my_role() IN ('admin', 'editor')
+  );
+
+CREATE POLICY "artist_private_data: admin all" ON public.artist_private_data
+  FOR ALL
+  USING (public.get_my_role() = 'admin')
+  WITH CHECK (public.get_my_role() = 'admin');
+
+-- ---------------------------------------------------------------------------
 -- TABLE: artist_members
 -- Junction table for the many-to-many relationship between users and artists.
 -- Replaces the 1:1 artists.user_id constraint to support:
@@ -3287,9 +3379,12 @@ DROP POLICY IF EXISTS "videos: admin delete"             ON public.videos;
 DROP POLICY IF EXISTS "videos: can_manage_videos insert" ON public.videos;
 DROP POLICY IF EXISTS "videos: can_manage_videos update" ON public.videos;
 
--- Allows public read access to all videos
+-- Public: only visible videos. Staff (admin/editor) see all (incl. hidden).
 CREATE POLICY "videos: public read" ON public.videos
-  FOR SELECT USING (TRUE);
+  FOR SELECT USING (
+    is_visible = TRUE
+    OR public.get_my_role() IN ('admin', 'editor')
+  );
 
 -- Requires can_manage_videos permission (admin always bypasses)
 CREATE POLICY "videos: can_manage_videos insert" ON public.videos
@@ -3312,6 +3407,7 @@ CREATE POLICY "videos: admin delete" ON public.videos
 -- RLS: assets
 -- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "assets: authenticated read"          ON public.assets;
+DROP POLICY IF EXISTS "assets: staff read"                  ON public.assets;
 DROP POLICY IF EXISTS "assets: editor+ insert"              ON public.assets;
 DROP POLICY IF EXISTS "assets: admin delete"                ON public.assets;
 DROP POLICY IF EXISTS "assets: editor+ update"              ON public.assets;
@@ -3319,9 +3415,12 @@ DROP POLICY IF EXISTS "assets: can_view_admin_panel insert" ON public.assets;
 DROP POLICY IF EXISTS "assets: can_view_admin_panel update" ON public.assets;
 DROP POLICY IF EXISTS "assets: public press read"            ON public.assets;
 
--- Allows any authenticated user to read assets
-CREATE POLICY "assets: authenticated read" ON public.assets
-  FOR SELECT USING (auth.role() = 'authenticated');
+-- Staff only: full asset catalogue (admin file explorer). Not every logged-in user.
+CREATE POLICY "assets: staff read" ON public.assets
+  FOR SELECT USING (
+    public.has_permission('can_view_admin_panel')
+    OR public.get_my_role() IN ('admin', 'editor')
+  );
 
 -- Allows anonymous/public read of press-approved assets (replaces press_photos public read)
 CREATE POLICY "assets: public press read" ON public.assets
@@ -3348,13 +3447,19 @@ CREATE POLICY "assets: admin delete" ON public.assets
 
 ALTER TABLE public.asset_folders ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "asset_folders: authenticated read"          ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: staff read"                  ON public.asset_folders;
 DROP POLICY IF EXISTS "asset_folders: editor+ write"               ON public.asset_folders;
 DROP POLICY IF EXISTS "asset_folders: admin delete"                ON public.asset_folders;
 DROP POLICY IF EXISTS "asset_folders: editor+ update"              ON public.asset_folders;
 DROP POLICY IF EXISTS "asset_folders: can_view_admin_panel write"  ON public.asset_folders;
 DROP POLICY IF EXISTS "asset_folders: can_view_admin_panel update" ON public.asset_folders;
--- Allows any authenticated user to browse asset folders
-CREATE POLICY "asset_folders: authenticated read" ON public.asset_folders FOR SELECT TO authenticated USING (true);
+-- Staff only: browse all folders (matches assets: staff read)
+CREATE POLICY "asset_folders: staff read" ON public.asset_folders
+  FOR SELECT TO authenticated
+  USING (
+    public.has_permission('can_view_admin_panel')
+    OR public.get_my_role() IN ('admin', 'editor')
+  );
 -- Requires can_view_admin_panel permission
 CREATE POLICY "asset_folders: can_view_admin_panel write"  ON public.asset_folders FOR INSERT TO authenticated WITH CHECK (
   public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin'
@@ -3398,9 +3503,108 @@ CREATE POLICY "asset_artists: editor+ delete" ON public.asset_artists
 DROP POLICY IF EXISTS "site_settings_public_read"  ON public.site_settings;
 DROP POLICY IF EXISTS "site_settings_admin_write"  ON public.site_settings;
 
--- Allows public read of site settings (label name, contact, etc.)
+-- Public: only non-sensitive CMS keys. Staff (admin/editor) read all keys.
+-- Admin-only examples: label_billing_*, invite_link_expiry_hours.
+-- SSOT list mirrored in src/lib/api/siteSettingsPublicKeys.ts
 CREATE POLICY "site_settings_public_read" ON public.site_settings
-  FOR SELECT USING (TRUE);
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor')
+    OR key = ANY (ARRAY[
+      'label_name',
+      'label_short_name',
+      'label_tagline',
+      'contact_email',
+      'privacy_policy_url',
+      'terms_url',
+      'instagram_url',
+      'youtube_url',
+      'spotify_url',
+      'spotify_playlist_uri',
+      'spotify_playlists',
+      'hero_badge',
+      'hero_news_badge',
+      'hero_description',
+      'hero_content_type',
+      'hero_featured_id',
+      'hero_custom_bg_url',
+      'hero_default_primary_btn_label',
+      'hero_default_secondary_btn_label',
+      'seo_title',
+      'seo_description',
+      'og_title',
+      'og_description',
+      'impressum_company_name',
+      'impressum_legal_form',
+      'impressum_representative',
+      'impressum_address',
+      'impressum_vat_id',
+      'impressum_register_court',
+      'impressum_register_number',
+      'impressum_phone',
+      'impressum_email',
+      'datenschutz_content',
+      'datenschutz_content_en',
+      'agb_content',
+      'agb_content_en',
+      'portal_terms_version',
+      'consent_placeholder_url',
+      'noise_opacity',
+      'crt_scanlines_enabled',
+      'vignette_intensity',
+      'shopify_store_url',
+      'submit_hub_url',
+      'submit_hub_label',
+      'submit_hub_description',
+      'submit_hub_section_heading',
+      'show_about_in_header',
+      'show_about_in_footer',
+      'about_nav_label',
+      'youtube_channel_id',
+      'carousel_autoplay_ms',
+      'videos_per_page',
+      'videos_link_to_page',
+      'exclude_shorts_from_public',
+      'concerts_per_page',
+      'concerts_link_to_page',
+      'feature_toggles',
+      'logo_url',
+      'favicon_url',
+      'about_headline',
+      'about_subheading',
+      'about_body',
+      'newsletter_heading',
+      'newsletter_description',
+      'spotify_section_heading',
+      'spotify_section_subheading',
+      'videos_section_heading',
+      'videos_section_subheading',
+      'news_section_heading',
+      'news_section_subheading',
+      'concerts_section_heading',
+      'concerts_section_subheading',
+      'releases_section_heading',
+      'releases_section_subheading',
+      'homepage_section_order',
+      'homepage_news_count',
+      'contact_topics',
+      'custom_social_links',
+      'theme_primary',
+      'theme_secondary',
+      'theme_background',
+      'theme_foreground',
+      'theme_card',
+      'theme_muted',
+      'theme_accent',
+      'theme_border',
+      'theme_gradient_hero_from',
+      'theme_gradient_hero_to',
+      'theme_gradient_hero_dir',
+      'theme_gradient_accent_from',
+      'theme_gradient_accent_to',
+      'theme_gradient_accent_dir',
+      'theme_config'
+    ]::text[])
+  );
 
 -- Allows editors and admins to update site settings
 CREATE POLICY "site_settings_admin_write" ON public.site_settings
@@ -3649,15 +3853,10 @@ CREATE POLICY "artist_epks: admin all" ON public.artist_epks
   USING (public.get_my_role() = 'admin')
   WITH CHECK (public.get_my_role() = 'admin');
 
--- Public read for visible artists (press portal + public EPK viewer)
+-- No anon public SELECT on artist_epks (would leak epk_password_hash + full row).
+-- Public/press EPK content is served only via service-role server code
+-- (getPublicArtistEpkByArtistId) with an explicit column whitelist.
 DROP POLICY IF EXISTS "artist_epks: public read visible" ON public.artist_epks;
-CREATE POLICY "artist_epks: public read visible" ON public.artist_epks
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM public.artists a
-      WHERE a.id = artist_id AND a.is_visible = TRUE
-    )
-  );
 
 -- ---------------------------------------------------------------------------
 -- RLS: epk_versions

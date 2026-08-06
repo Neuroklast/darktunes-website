@@ -13,7 +13,8 @@ import { parseEpkDocumentV2 } from '@/lib/epk/schema/documentV2'
 
 type DbClient = SupabaseClient<Database>
 
-const PUBLIC_EPK_COLUMNS =
+/** Never include epk_password_hash or other private columns. */
+export const PUBLIC_EPK_COLUMNS =
   'bio_short,bio_medium,bio_long,press_quote,booking_contact,press_contact,rider_stage_plot_url,rider_technical_url,rider_hospitality_url,epk_document,epk_document_version,epk_editor_mode,epk_gallery_photos,custom_links' as const
 
 type PublicEpkRow = Pick<

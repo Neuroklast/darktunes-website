@@ -12,11 +12,11 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { motion, useReducedMotion } from 'framer-motion'
 import { MagnifyingGlass } from '@phosphor-icons/react'
-import type { Artist } from '@/types'
+import type { PublicArtist } from '@/lib/api/publicArtist'
 import { getOptimizedImageUrl, getSquareThumbnail } from '@/lib/imageUtils'
 
 interface ArtistsGridContentProps {
-  artists: Artist[]
+  artists: PublicArtist[]
 }
 
 const containerVariants = {

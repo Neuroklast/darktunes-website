@@ -4,10 +4,10 @@ import { unstable_cache } from 'next/cache'
 import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { getPublishedFanPageBySlug, getDraftFanPageByArtistId } from '@/lib/api/publicFanPage'
-import { getArtistBySlug } from '@/lib/api/artists'
+import { getPublicArtistBySlug } from '@/lib/api/publicArtist'
 import { getReleasesByArtistId } from '@/lib/api/releases'
 import { getConcertsByArtistId } from '@/lib/api/concerts'
-import { getVideosByArtistId } from '@/lib/api/videos'
+import { getPublicVideosByArtistId } from '@/lib/api/videos'
 import { verifyFanPagePreviewToken } from '@/lib/fan-page/previewToken'
 import { FanPagePublicView } from './_components/FanPagePublicView'
 import { getMetadataBrand, pageTitle } from '@/lib/seo/metadata'
@@ -27,13 +27,13 @@ function makeGetFanPageData(slug: string) {
       const page = await getPublishedFanPageBySlug(client, slug)
       if (!page) return null
 
-      const artist = await getArtistBySlug(client, slug)
+      const artist = await getPublicArtistBySlug(client, slug)
       if (!artist) return null
 
       const [releases, concerts, videos] = await Promise.all([
         getReleasesByArtistId(client, artist.id),
         getConcertsByArtistId(client, artist.id),
-        getVideosByArtistId(client, artist.id),
+        getPublicVideosByArtistId(client, artist.id),
       ])
 
       return { page, artist, releases, concerts, videos }
@@ -51,13 +51,14 @@ async function getPreviewFanPageData(slug: string, previewToken: string) {
   const page = await getDraftFanPageByArtistId(client, verified.artistId)
   if (!page) return null
 
-  const artist = await getArtistBySlug(client, slug)
+  // Service role + public columns; allow hidden artists for draft preview.
+  const artist = await getPublicArtistBySlug(client, slug, { requireVisible: false })
   if (!artist) return null
 
   const [releases, concerts, videos] = await Promise.all([
     getReleasesByArtistId(client, artist.id),
     getConcertsByArtistId(client, artist.id),
-    getVideosByArtistId(client, artist.id),
+    getPublicVideosByArtistId(client, artist.id),
   ])
 
   return { page, artist, releases, concerts, videos }

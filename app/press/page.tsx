@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import type { Metadata } from 'next'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getPublicArtists } from '@/lib/api/artists'
+import { getPublicArtists } from '@/lib/api/publicArtist'
 import { getPressOnlyNewsPosts } from '@/lib/api/pressReleases'
 import { getSiteSettings, SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
 import { PressLandingClient } from './_components/PressLandingClient'

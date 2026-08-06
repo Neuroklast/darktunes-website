@@ -125,7 +125,7 @@ export function Header({ logoUrl, labelName, sectionOrder, showAbout, aboutNavLa
             aria-controls="mobile-menu"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
-            {mobileMenuOpen ? <X size={24} /> : <List size={24} />}
+            {mobileMenuOpen ? <X size={24} aria-hidden="true" /> : <List size={24} aria-hidden="true" />}
           </Button>
         </div>
       </div>

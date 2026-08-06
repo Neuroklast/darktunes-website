@@ -73,14 +73,14 @@ export function ConsentBanner() {
                   variant="outline"
                   size="sm"
                   onClick={handleReject}
-                  className="text-xs border-border hover:border-foreground/50"
+                  className="min-h-[44px] min-w-[44px] px-4 text-xs border-border hover:border-foreground/50"
                 >
                   {t('reject')}
                 </Button>
                 <Button
                   size="sm"
                   onClick={handleAccept}
-                  className="text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                  className="min-h-[44px] min-w-[44px] px-4 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                 >
                   {t('accept')}
                 </Button>

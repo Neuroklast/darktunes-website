@@ -10,10 +10,25 @@ import type { Database } from '@/types/database'
 import type { Artist } from '@/types'
 import { toSlug } from '@/lib/slugify'
 import { stripEmojis } from '@/lib/stripEmojis'
+import type { ArtistPrivateRow } from './artistPrivateData'
 
 type ArtistRow = Database['public']['Tables']['artists']['Row']
 
-export function rowToArtist(row: ArtistRow): Artist {
+/**
+ * @param privateRow — preferred source for secrets/PII after artist_private_data migration.
+ * Falls back to artists.* columns for DBs that have not applied reset.sql yet.
+ */
+export function rowToArtist(row: ArtistRow, privateRow?: ArtistPrivateRow | null): Artist {
+  const email = privateRow?.email ?? row.email
+  const vatNumber = privateRow?.vat_number ?? row.vat_number
+  const notes = privateRow?.notes ?? row.notes
+  const bandsintownApiKey = privateRow?.bandsintown_api_key ?? row.bandsintown_api_key
+  const storageQuotaBytes =
+    privateRow?.storage_quota_bytes !== undefined && privateRow !== null
+      ? privateRow.storage_quota_bytes
+      : row.storage_quota_bytes
+  const isEuNonGerman = privateRow?.is_eu_non_german ?? row.is_eu_non_german
+
   return {
     id: row.id,
     name: stripEmojis(row.name),
@@ -36,15 +51,15 @@ export function rowToArtist(row: ArtistRow): Artist {
     country: row.country ? stripEmojis(row.country) : undefined,
     foundedYear: row.founding_year ?? undefined,
     hometown: row.hometown ? stripEmojis(row.hometown) : undefined,
-    email: row.email ?? undefined,
-    vatNumber: row.vat_number ?? undefined,
-    isEuNonGerman: row.is_eu_non_german,
-    notes: row.notes ? stripEmojis(row.notes) : undefined,
+    email: email ?? undefined,
+    vatNumber: vatNumber ?? undefined,
+    isEuNonGerman,
+    notes: notes ? stripEmojis(notes) : undefined,
     spotifyId: row.spotify_id ?? undefined,
     discogsId: row.discogs_id ?? undefined,
     songkickId: row.songkick_id ?? undefined,
     bandsintownId: row.bandsintown_id ?? undefined,
-    bandsintownApiKey: row.bandsintown_api_key ?? undefined,
+    bandsintownApiKey: bandsintownApiKey ?? undefined,
     lastfmName: row.lastfm_name ?? undefined,
     soundchartsId: row.soundcharts_id ?? undefined,
     lastSyncedAt: row.last_synced_at ?? undefined,
@@ -52,7 +67,7 @@ export function rowToArtist(row: ArtistRow): Artist {
     landingPublishTrusted: row.landing_publish_trusted ?? false,
     logoUrl: row.logo_url ?? undefined,
     platformLinks: row.platform_links ?? undefined,
-    storageQuotaBytes: row.storage_quota_bytes ?? null,
+    storageQuotaBytes: storageQuotaBytes ?? null,
     smartLinks: (row.smart_links ?? []) as Array<{ label: string; url: string }>,
     userId: row.user_id ?? null,
     imagePositionX: row.image_position_x ?? null,

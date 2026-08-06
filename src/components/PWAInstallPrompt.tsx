@@ -177,7 +177,7 @@ export function PWAInstallPrompt() {
             type="button"
             onClick={handleDismiss}
             aria-label={t('dismiss_aria_label')}
-            className="flex-none p-1 min-w-[28px] min-h-[28px] flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            className="flex-none p-1 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
             <X size={16} weight="bold" aria-hidden="true" />
           </button>

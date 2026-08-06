@@ -782,6 +782,47 @@ export interface Database {
         }
         Relationships: []
       }
+      artist_private_data: {
+        Row: {
+          artist_id: string
+          email: string | null
+          vat_number: string | null
+          notes: string | null
+          bandsintown_api_key: string | null
+          storage_quota_bytes: number | null
+          is_eu_non_german: boolean
+          updated_at: string
+        }
+        Insert: {
+          artist_id: string
+          email?: string | null
+          vat_number?: string | null
+          notes?: string | null
+          bandsintown_api_key?: string | null
+          storage_quota_bytes?: number | null
+          is_eu_non_german?: boolean
+          updated_at?: string
+        }
+        Update: {
+          artist_id?: string
+          email?: string | null
+          vat_number?: string | null
+          notes?: string | null
+          bandsintown_api_key?: string | null
+          storage_quota_bytes?: number | null
+          is_eu_non_german?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'artist_private_data_artist_id_fkey'
+            columns: ['artist_id']
+            isOneToOne: true
+            referencedRelation: 'artists'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       artist_epks: {
         Row: {
           id: string

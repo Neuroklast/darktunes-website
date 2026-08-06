@@ -3,9 +3,9 @@ export const dynamic = 'force-dynamic'
 import { cache } from 'react'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
-import { getArtistBySlug } from '@/lib/api/artists'
+import { getPublicArtistBySlug } from '@/lib/api/publicArtist'
 import { getPressKitForArtist } from '@/lib/api/pressKit'
 import { getConcertsByArtistId } from '@/lib/api/concerts'
 import { getPublicArtistEpkByArtistId } from '@/lib/api/publicArtistEpk'
@@ -14,8 +14,8 @@ import { hydrateDocumentFonts } from '@/lib/epk/editor/hydrateDocumentFonts'
 import { ArtistEpkClient } from './_components/ArtistEpkClient'
 
 const getArtist = cache(async (slug: string) => {
-  const supabase = await createServerSupabaseClient()
-  return getArtistBySlug(supabase, slug).catch(() => null)
+  const publicClient = createPublicSupabaseClient()
+  return getPublicArtistBySlug(publicClient, slug).catch(() => null)
 })
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -33,10 +33,11 @@ export default async function ArtistEpkPage({ params }: { params: Promise<{ slug
 
   const { serverEnv } = await import('@/lib/env.server')
   const supabase = await createServerSupabaseClient()
+  const serviceDb = await createServiceRoleSupabaseClient()
   const publicClient = createPublicSupabaseClient()
 
   const [publicEpk, photos, concerts, fonts] = await Promise.all([
-    getPublicArtistEpkByArtistId(publicClient, artist.id).catch(() => null),
+    getPublicArtistEpkByArtistId(serviceDb, artist.id).catch(() => null),
     getPressKitForArtist(supabase, artist.id).catch(() => []),
     getConcertsByArtistId(supabase, artist.id).catch(() => []),
     listEpkFonts(publicClient, artist.id).catch(() => []),

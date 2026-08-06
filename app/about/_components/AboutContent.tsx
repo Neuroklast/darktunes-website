@@ -14,7 +14,8 @@ import {
 } from '@phosphor-icons/react'
 import { BandcampIcon } from '@/components/icons/BandcampIcon'
 import { useTranslations } from 'next-intl'
-import type { SiteSettings, Artist, NewsPost, CustomSocialLink } from '@/types'
+import type { SiteSettings, NewsPost, CustomSocialLink } from '@/types'
+import type { PublicArtist } from '@/lib/api/publicArtist'
 
 const SOCIAL_ICON_MAP: Record<string, React.ElementType> = {
   InstagramLogo,
@@ -30,7 +31,7 @@ const SOCIAL_ICON_MAP: Record<string, React.ElementType> = {
 
 interface AboutContentProps {
   siteSettings: SiteSettings | null
-  artists: Artist[]
+  artists: PublicArtist[]
   news: NewsPost[]
 }
 

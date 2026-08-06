@@ -19,9 +19,9 @@ import { getPublicReleases } from '@/lib/api/releases'
 import { getPublicNewsPosts } from '@/lib/api/news'
 import { getPublicVideos } from '@/lib/api/videos'
 import { getPublicConcerts } from '@/lib/api/concerts'
-import { getPublicArtists } from '@/lib/api/artists'
+import { getPublicArtists, type PublicArtist } from '@/lib/api/publicArtist'
 import { getSiteSettings } from '@/lib/api/siteSettings'
-import type { Release, NewsPost, Video, Concert, Artist, SiteSettings } from '@/types'
+import type { Release, NewsPost, Video, Concert, SiteSettings } from '@/types'
 
 // Rely on on-demand revalidateTag() webhooks (/api/revalidate-content) rather than
 // short-lived TTLs. A 1-hour TTL caps staleness when webhooks miss; content
@@ -77,10 +77,10 @@ export const getCachedPublicConcerts = cache(unstable_cache(
   { revalidate: TTL, tags: ['concerts'] },
 ))
 
-/** All public artists, cache-keyed to the `artists` tag. */
+/** All public artists (safe columns only), cache-keyed to the `artists` tag. */
 export const getCachedPublicArtists = cache(unstable_cache(
-  async (): Promise<Artist[]> =>
-    getPublicArtists(createPublicSupabaseClient()).catch(() => [] as Artist[]),
+  async (): Promise<PublicArtist[]> =>
+    getPublicArtists(createPublicSupabaseClient()).catch(() => [] as PublicArtist[]),
   ['public-artists'],
   { revalidate: TTL, tags: ['artists'] },
 ))

@@ -69,6 +69,26 @@ export async function getVideosByArtistId(db: DbClient, artistId: string): Promi
   return (data ?? []).map(rowToVideo)
 }
 
+/** Public artist page: only visible videos for the artist. */
+export async function getPublicVideosByArtistId(
+  db: DbClient,
+  artistId: string,
+  options: { excludeShorts?: boolean } = {},
+): Promise<Video[]> {
+  let query = db
+    .from('videos')
+    .select('*, artists(name)')
+    .eq('artist_id', artistId)
+    .eq('is_visible', true)
+    .order('published_at', { ascending: false })
+  if (options.excludeShorts) {
+    query = query.eq('is_short', false)
+  }
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(rowToVideo)
+}
+
 export async function createVideo(db: DbClient, videoData: VideoInsert): Promise<Video> {
   const { data, error } = await db.from('videos').insert(videoData).select('*, artists(name)').single()
   if (error) throw new Error(error.message)

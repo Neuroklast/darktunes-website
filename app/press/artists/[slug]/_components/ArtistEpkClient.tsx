@@ -22,14 +22,15 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PressPhotoLightbox } from '@/components/press/PressPhotoLightbox'
-import type { Artist, Concert, PressAsset } from '@/types'
+import type { Concert, PressAsset } from '@/types'
+import type { PublicArtist } from '@/lib/api/publicArtist'
 import type { PublicArtistEpk } from '@/lib/api/publicArtistEpk'
 import type { EpkDocumentV2 } from '@/lib/epk/schema/documentV2'
 import { EpkPublicViewer } from '@/components/epk-builder/EpkPublicViewer'
 import { getOptimizedImageUrl, getSquareThumbnail } from '@/lib/imageUtils'
 
 interface ArtistEpkClientProps {
-  artist: Artist
+  artist: PublicArtist
   profile: PublicArtistEpk['profile'] | null
   canvasDocument: EpkDocumentV2 | null
   photos: PressAsset[]

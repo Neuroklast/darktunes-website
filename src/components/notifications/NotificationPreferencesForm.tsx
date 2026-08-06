@@ -103,7 +103,10 @@ export function NotificationPreferencesForm({
         <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-border">
+      <div
+        className="overflow-x-auto overflow-y-clip overscroll-x-contain rounded-md border border-border"
+        data-lenis-prevent
+      >
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-muted/40">
             <tr>

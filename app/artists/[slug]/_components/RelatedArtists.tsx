@@ -7,11 +7,11 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import type { Artist } from '@/types'
+import type { PublicArtist } from '@/lib/api/publicArtist'
 import { getSquareThumbnail } from '@/lib/imageUtils'
 
 interface RelatedArtistsProps {
-  artists: Artist[]
+  artists: PublicArtist[]
   heading: string
 }
 
@@ -54,7 +54,7 @@ export function RelatedArtists({ artists, heading }: RelatedArtistsProps) {
                 {artist.name}
               </p>
               {artist.genres.length > 0 && (
-                <p className="text-white/60 font-mono text-[10px] truncate mt-0.5">
+                <p className="text-white/80 font-mono text-xs truncate mt-0.5">
                   {artist.genres[0]}
                 </p>
               )}

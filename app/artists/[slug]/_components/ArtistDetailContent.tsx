@@ -35,7 +35,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { BandcampIcon } from '@/components/icons/BandcampIcon'
 import { useLocale, useTranslations } from 'next-intl'
 import { toBcp47 } from '@/i18n/locales'
-import type { Artist, Release, Concert, Video, NewsPost } from '@/types'
+import type { Release, Concert, Video, NewsPost } from '@/types'
+import type { PublicArtist } from '@/lib/api/publicArtist'
 import { trackShopClick, trackSmartLinkClick } from '@/lib/analytics/trackPageEvent'
 import { ShareButton } from './ShareButton'
 import { RelatedArtists } from './RelatedArtists'
@@ -45,13 +46,13 @@ import { galleryUrlToPressAsset } from '@/lib/api/portalGalleryPress'
 import { getOptimizedImageUrl, getSquareThumbnail } from '@/lib/imageUtils'
 
 interface ArtistDetailContentProps {
-  artist: Artist
+  artist: PublicArtist
   releases: Release[]
   concerts: Concert[]
   videos: Video[]
   news: NewsPost[]
   galleryPhotos: string[]
-  relatedArtists?: Artist[]
+  relatedArtists?: PublicArtist[]
 }
 
 function extractYouTubeId(url: string): string | null {

@@ -7,10 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Public artist DTOs:** Public pages select a column whitelist only (`PUBLIC_ARTIST_COLUMNS`); no `bandsintown_api_key`, email, VAT, notes, or `user_id` in RSC/client payloads.
+- **`artist_private_data` table:** Secrets/PII (email, VAT, notes, Bandsintown API key, storage quota, EU flag) dual-written here; RLS staff/member only; cleared from `artists` after backfill so `select(*)` cannot leak.
+- **RLS tighten:** Videos require `is_visible` (or staff); assets/folders staff-only read (press-approved path unchanged); `artist_epks` no longer public-read (service-role + column whitelist for public EPK); `site_settings` public key allowlist (billing + invite expiry staff-only).
+- **Public EPK:** Served via service-role server code only (`getPublicArtistEpkByArtistId`).
+
 ### Changed
 - **Dependabot batch (#518–#522):** `@radix-ui/react-avatar` 1.2.6, `@radix-ui/react-context-menu` 2.3.7, `@hookform/resolvers` 5.5.7, `typescript-eslint` 8.65.0, `@vitejs/plugin-react` 6.0.4.
 
 ### Fixed
+- **A11y (public):** 44px touch targets on Consent/PWA dismiss/Videos pagination/Contact submit; contact form `aria-invalid`/`aria-describedby`; header menu icons `aria-hidden`; Related Artists meta contrast.
+- **Scroll:** Notification preferences table uses horizontal scroll contract + `data-lenis-prevent`.
 - **Locale switcher UX:** SVG flags (no emoji letter fallbacks on Windows); single switcher in portal/admin chrome (not footer duplicate); hard navigation for reliable language change; portal sidebar PWA install entry restored.
 - **Locale + PWA dashboard bugs:** SW no longer NetworkFirst-caches `/admin|/portal|/editor` HTML (stale locale after switch); dropdown above sticky headers; press mobile no double flag; hide install when already standalone.
 - **Health “Never” / buried last-runs:** Full health snapshot loads latest `sync_logs` per API (`limit(1)` per source) instead of a global recent-N window, so a chatty source no longer hides other APIs.

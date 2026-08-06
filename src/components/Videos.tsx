@@ -222,6 +222,7 @@ export function Videos({ videos, placeholderUrl, heading, subheading, videosPerP
                   <Button
                     variant="outline"
                     size="icon"
+                    className="min-w-[44px] min-h-[44px]"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage <= 1}
                     aria-label="Previous page"
@@ -234,6 +235,7 @@ export function Videos({ videos, placeholderUrl, heading, subheading, videosPerP
                   <Button
                     variant="outline"
                     size="icon"
+                    className="min-w-[44px] min-h-[44px]"
                     onClick={() => setPage((p) => Math.min(effectiveTotalPages, p + 1))}
                     disabled={currentPage >= effectiveTotalPages}
                     aria-label="Next page"

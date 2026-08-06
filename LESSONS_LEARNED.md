@@ -117,6 +117,17 @@ Distilled anti-patterns from project history. **Append session findings before o
 | `get_my_role()` on `profiles` RLS | Direct `auth.uid() = id` on profiles table |
 | Anon client for admin bypass ops | Service-role in route handlers / Server Actions |
 | Column type change without dropping policies | `DROP POLICY IF EXISTS` before `ALTER COLUMN` |
+| `select('*')` + full domain mapper on public RSC | Public column whitelist + `PublicArtist`; secrets in private table |
+| RLS row filter only while secrets share the public table | Row-level ≠ column-level — move secrets off the public-readable row |
+| `authenticated read` on shared media tables | Staff permission or press-approved flags — not every logged-in user |
+
+## Session additions
+
+### 2026-08-06 — Public data / a11y hardening
+
+- **Finding:** Visible `artists` rows exposed `bandsintown_api_key`, email, VAT, notes via anon RLS + `rowToArtist` into client components.
+- **Fix:** `publicArtist.ts` whitelist, `artist_private_data` dual-write, RLS for videos/assets/epks/settings, public a11y targets.
+- **Ops:** Apply `supabase/reset.sql` policy/table sections on live DB after deploy.
 
 ## Documentation
 

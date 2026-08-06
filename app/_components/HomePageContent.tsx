@@ -26,7 +26,8 @@ const Videos = dynamic(
 import { DEFAULT_SECTION_ORDER } from '@/config/sections'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import type { Release, NewsPost, Video, SiteSettings, Concert, HomepageSection, Artist } from '@/types'
+import type { Release, NewsPost, Video, SiteSettings, Concert, HomepageSection } from '@/types'
+import type { PublicArtist } from '@/lib/api/publicArtist'
 import { selectHeroItems } from '@/lib/heroFeatured'
 
 interface HomePageContentProps {
@@ -35,7 +36,7 @@ interface HomePageContentProps {
   videos: Video[]
   concerts: Concert[]
   siteSettings: SiteSettings
-  artists?: Artist[]
+  artists?: PublicArtist[]
 }
 
 const SpotifyMultiPlayer = dynamic(

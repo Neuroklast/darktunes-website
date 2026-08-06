@@ -22,10 +22,15 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
 import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
-import { getArtistBySlug, getPublicArtists, getRelatedArtists } from '@/lib/api/artists'
+import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import {
+  getPublicArtistBySlug,
+  getPublicArtists,
+  getPublicRelatedArtists,
+} from '@/lib/api/publicArtist'
 import { getReleasesByArtistId } from '@/lib/api/releases'
 import { getConcertsByArtistId } from '@/lib/api/concerts'
-import { getVideosByArtistId } from '@/lib/api/videos'
+import { getPublicVideosByArtistId } from '@/lib/api/videos'
 import { getPublicNewsPostsByArtistId } from '@/lib/api/news'
 import { getPublicArtistEpkByArtistId } from '@/lib/api/publicArtistEpk'
 
@@ -56,18 +61,18 @@ function makeGetArtistData(slug: string) {
   return unstable_cache(
     async () => {
       const client = createPublicSupabaseClient()
-      // getArtistBySlug returns null when no artist matches the slug.
-      // Any Supabase connection/auth error is allowed to throw so that Next.js
-      // treats it as a server error (5xx) rather than caching it as a 404.
-      const artist = await getArtistBySlug(client, slug)
+      // Public artist path: column whitelist only (no secrets in RSC payload).
+      // EPK uses service role after Phase-2 RLS drops anon read on artist_epks.
+      const artist = await getPublicArtistBySlug(client, slug)
       if (!artist) return null
+      const serviceDb = await createServiceRoleSupabaseClient()
       const [releases, concerts, videos, news, publicEpk, relatedArtists] = await Promise.all([
         getReleasesByArtistId(client, artist.id),
         getConcertsByArtistId(client, artist.id),
-        getVideosByArtistId(client, artist.id),
+        getPublicVideosByArtistId(client, artist.id),
         getPublicNewsPostsByArtistId(client, artist.id).then((posts) => posts.slice(0, 3)),
-        getPublicArtistEpkByArtistId(client, artist.id).catch(() => null),
-        getRelatedArtists(client, artist.id, artist.genres).catch(() => []),
+        getPublicArtistEpkByArtistId(serviceDb, artist.id).catch(() => null),
+        getPublicRelatedArtists(client, artist.id, artist.genres).catch(() => []),
       ])
       const galleryPhotos = (publicEpk?.profile.epkGalleryPhotos ?? []).filter(Boolean)
       return { artist, releases, concerts, videos, news, galleryPhotos, relatedArtists }

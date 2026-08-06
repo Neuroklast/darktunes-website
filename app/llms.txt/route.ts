@@ -23,12 +23,12 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
-import { getPublicArtists } from '@/lib/api/artists'
+import { getPublicArtists, type PublicArtist } from '@/lib/api/publicArtist'
 import { getPublicReleases } from '@/lib/api/releases'
 import { getSiteSettings, SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
 import { buildDefaultSeoDescription } from '@/lib/brand/tenantDefaults'
 import { resolveSiteUrl } from '@/lib/brand'
-import type { Artist, Release, SiteSettings } from '@/types'
+import type { Release, SiteSettings } from '@/types'
 
 // ISR: regenerate at most once every 5 minutes
 export const revalidate = 300
@@ -46,7 +46,7 @@ function createPublicClient() {
 
 function buildLlmsTxt(
   settings: SiteSettings | null,
-  artists: Artist[],
+  artists: PublicArtist[],
   releases: Release[],
   baseUrl: string,
 ): string {
@@ -153,7 +153,7 @@ export async function GET() {
   // Fetch all public data in parallel; gracefully degrade on errors
   const [settings, artists, releases] = await Promise.all([
     getSiteSettings(db).catch(() => null),
-    getPublicArtists(db).catch(() => [] as Artist[]),
+    getPublicArtists(db).catch(() => [] as PublicArtist[]),
     getPublicReleases(db).catch(() => [] as Release[]),
   ])
 

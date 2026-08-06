@@ -46,7 +46,8 @@ CI enforces this via `npm run check:scroll` (`scripts/check-scroll-contract.mjs`
 - Semantic lists: `<ul>/<li>` for grids; `<section aria-labelledby>`
 - `useReducedMotion` in animated components
 - Dialogs: `aria-labelledby`; icon-only controls: `aria-label` + `aria-hidden` on icons
-- Touch targets: `min-w-[44px] min-h-[44px]` on icon-only controls
+- Touch targets: `min-w-[44px] min-h-[44px]` on icon-only controls **on public UI** (do not globally enlarge `Button` `size="icon"` — breaks dense admin)
+- Contact forms: `aria-invalid` + `aria-describedby` on fields with errors; success/error `role="status"` / `role="alert"`
 - Focus: `focus-visible:ring-2` — never bare `focus:outline-none`
 - Toggle buttons: `aria-pressed`; external links: `rel="noopener noreferrer"`
 - Contrast: 4.5:1 normal text; `text-muted-foreground` is AA-safe

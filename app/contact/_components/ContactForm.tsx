@@ -84,7 +84,11 @@ export function ContactForm({ contactTopics }: ContactFormProps) {
 
   if (status === 'success') {
     return (
-      <div className="rounded-lg border border-primary/30 bg-primary/10 p-8 text-center space-y-2">
+      <div
+        className="rounded-lg border border-primary/30 bg-primary/10 p-8 text-center space-y-2"
+        role="status"
+        aria-live="polite"
+      >
         <p className="text-2xl font-bold">{t('successTitle')}</p>
         <p className="text-muted-foreground font-serif">{t('successMessage')}</p>
       </div>
@@ -114,9 +118,15 @@ export function ContactForm({ contactTopics }: ContactFormProps) {
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             placeholder={t('namePlaceholder')}
             autoComplete="name"
+            aria-invalid={!!errors.name}
+            aria-describedby={errors.name ? 'contact-name-error' : undefined}
             className={errors.name ? 'border-red-500' : ''}
           />
-          {errors.name && <p className="text-xs text-red-400">{errors.name}</p>}
+          {errors.name && (
+            <p id="contact-name-error" role="alert" className="text-xs text-red-400">
+              {errors.name}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -128,9 +138,15 @@ export function ContactForm({ contactTopics }: ContactFormProps) {
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             placeholder={t('emailPlaceholder')}
             autoComplete="email"
+            aria-invalid={!!errors.email}
+            aria-describedby={errors.email ? 'contact-email-error' : undefined}
             className={errors.email ? 'border-red-500' : ''}
           />
-          {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
+          {errors.email && (
+            <p id="contact-email-error" role="alert" className="text-xs text-red-400">
+              {errors.email}
+            </p>
+          )}
         </div>
       </div>
 
@@ -158,9 +174,15 @@ export function ContactForm({ contactTopics }: ContactFormProps) {
           value={form.message}
           onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
           placeholder={t('messagePlaceholder')}
+          aria-invalid={!!errors.message}
+          aria-describedby={errors.message ? 'contact-message-error' : undefined}
           className={errors.message ? 'border-red-500' : ''}
         />
-        {errors.message && <p className="text-xs text-red-400">{errors.message}</p>}
+        {errors.message && (
+          <p id="contact-message-error" role="alert" className="text-xs text-red-400">
+            {errors.message}
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -171,17 +193,23 @@ export function ContactForm({ contactTopics }: ContactFormProps) {
             onCheckedChange={(checked) =>
               setForm((f) => ({ ...f, gdprConsent: checked === true }))
             }
+            aria-invalid={!!errors.gdprConsent}
+            aria-describedby={errors.gdprConsent ? 'contact-gdpr-error' : undefined}
             className={errors.gdprConsent ? 'border-red-500' : ''}
           />
           <Label htmlFor="contact-gdpr" className="text-sm text-muted-foreground leading-snug cursor-pointer">
             {t('gdprConsent')}
           </Label>
         </div>
-        {errors.gdprConsent && <p className="text-xs text-red-400">{errors.gdprConsent}</p>}
+        {errors.gdprConsent && (
+          <p id="contact-gdpr-error" role="alert" className="text-xs text-red-400">
+            {errors.gdprConsent}
+          </p>
+        )}
       </div>
 
       {status === 'error' && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4" role="alert" aria-live="assertive">
           <p className="text-sm font-semibold text-red-400">{t('errorTitle')}</p>
           <p className="text-xs text-muted-foreground">{t('errorMessage')}</p>
         </div>
@@ -190,7 +218,7 @@ export function ContactForm({ contactTopics }: ContactFormProps) {
       <Button
         type="submit"
         disabled={status === 'submitting'}
-        className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold uppercase tracking-wider"
+        className="w-full min-h-[44px] bg-accent text-accent-foreground hover:bg-accent/90 font-bold uppercase tracking-wider"
       >
         {status === 'submitting' ? t('submitting') : t('submit')}
       </Button>

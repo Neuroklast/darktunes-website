@@ -1,7 +1,15 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
-import { getVideos, getPublicVideos, createVideo, updateVideo, deleteVideo, getVideosByArtistId } from './videos'
+import {
+  getVideos,
+  getPublicVideos,
+  getPublicVideosByArtistId,
+  createVideo,
+  updateVideo,
+  deleteVideo,
+  getVideosByArtistId,
+} from './videos'
 
 type DbClient = SupabaseClient<Database>
 type VideoRow = Database['public']['Tables']['videos']['Row']
@@ -168,6 +176,20 @@ describe('getPublicVideos', () => {
     await getPublicVideos(db, { excludeShorts: false })
     const eqCalls = (builder.eq as ReturnType<typeof vi.fn>).mock.calls
     expect(eqCalls.some((call: unknown[]) => call[0] === 'is_short')).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getPublicVideosByArtistId
+// ---------------------------------------------------------------------------
+
+describe('getPublicVideosByArtistId', () => {
+  it('filters by artist_id and is_visible', async () => {
+    const builder = makeBuilder([])
+    const db = { from: vi.fn().mockReturnValue(builder) } as unknown as DbClient
+    await getPublicVideosByArtistId(db, 'artist-1')
+    expect(builder.eq).toHaveBeenCalledWith('artist_id', 'artist-1')
+    expect(builder.eq).toHaveBeenCalledWith('is_visible', true)
   })
 })
 

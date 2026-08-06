@@ -10,6 +10,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { withErrorHandler, ApiError } from '@/lib/errors'
 import { portalMemberWrite, withPortalMembershipWrite } from '@/lib/portal/withPortalMembership'
+import {
+  getArtistPrivateByArtistId,
+  upsertArtistPrivateData,
+} from '@/lib/api/artistPrivateData'
 
 const putBodySchema = z.object({
   bandsintownId: z.string().trim().max(200).nullable().optional(),
@@ -35,11 +39,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     async (db) => {
       const { data, error } = await db
         .from('artists')
-        .select('bandsintown_id, bandsintown_api_key')
+        .select('bandsintown_id')
         .eq('id', ctx.artist.id)
         .maybeSingle()
       if (error) throw new Error(error.message)
-      return data
+      const privateRow = await getArtistPrivateByArtistId(db, ctx.artist.id)
+      return {
+        bandsintown_id: data?.bandsintown_id ?? null,
+        bandsintown_api_key: privateRow?.bandsintown_api_key ?? null,
+      }
     },
   )
 
@@ -65,23 +73,25 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
   const artistId = artistIdFromReq(req)
   const ctx = await withPortalMembershipWrite(req, artistId)
 
-  const update: {
+  const publicUpdate: {
     bandsintown_id?: string | null
-    bandsintown_api_key?: string | null
+    bandsintown_api_key: null
     updated_at: string
   } = {
+    bandsintown_api_key: null,
     updated_at: new Date().toISOString(),
   }
 
   if (parsed.data.bandsintownId !== undefined) {
     const id = parsed.data.bandsintownId
-    update.bandsintown_id = id && id.length > 0 ? id : null
+    publicUpdate.bandsintown_id = id && id.length > 0 ? id : null
   }
 
+  let privateKey: string | undefined
   if (parsed.data.bandsintownApiKey !== undefined) {
     const key = parsed.data.bandsintownApiKey.trim()
     if (key.length > 0) {
-      update.bandsintown_api_key = key
+      privateKey = key
     }
     // Empty string = keep existing key (no overwrite)
   }
@@ -94,8 +104,11 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
       operation: 'update',
     },
     async (db) => {
-      const { error } = await db.from('artists').update(update).eq('id', ctx.artist.id)
+      const { error } = await db.from('artists').update(publicUpdate).eq('id', ctx.artist.id)
       if (error) throw new Error(error.message)
+      if (privateKey !== undefined) {
+        await upsertArtistPrivateData(db, ctx.artist.id, { bandsintown_api_key: privateKey })
+      }
     },
   )
 
@@ -110,11 +123,15 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
     async (db) => {
       const { data, error } = await db
         .from('artists')
-        .select('bandsintown_id, bandsintown_api_key')
+        .select('bandsintown_id')
         .eq('id', ctx.artist.id)
         .maybeSingle()
       if (error) throw new Error(error.message)
-      return data
+      const privateRow = await getArtistPrivateByArtistId(db, ctx.artist.id)
+      return {
+        bandsintown_id: data?.bandsintown_id ?? null,
+        bandsintown_api_key: privateRow?.bandsintown_api_key ?? null,
+      }
     },
   )
 

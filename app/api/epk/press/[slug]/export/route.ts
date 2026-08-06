@@ -5,17 +5,16 @@
  * Logs downloads with source `press` for portal analytics.
  */
 
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorHandler, ApiError } from '@/lib/errors'
-import { getArtistBySlug } from '@/lib/api/artists'
+import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { getPublicArtistBySlug } from '@/lib/api/publicArtist'
 import { getPublicArtistEpkByArtistId } from '@/lib/api/publicArtistEpk'
 import { listEpkFonts, buildEpkFontPublicUrl } from '@/lib/api/epkFonts'
 import { ensureDocumentFontsForExport } from '@/lib/epk/editor/ensureDocumentFontsForExport'
 import { generateEpkPdfBytes } from '@/lib/epk/export/generateEpkPdfBytes'
 import { checkRateLimit, getClientIp } from '@/lib/ipRateLimit'
 import { recordEpkDownloadAsync } from '@/lib/epk/recordEpkDownload'
-import type { Database } from '@/types/database'
 
 export const maxDuration = 60
 
@@ -34,12 +33,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   if (limited) throw new ApiError(429, 'Too many export requests. Please try again later.')
 
   const { serverEnv } = await import('@/lib/env.server')
-  const db = createClient<Database>(
-    serverEnv.NEXT_PUBLIC_SUPABASE_URL,
-    serverEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  )
+  const db = await createServiceRoleSupabaseClient()
 
-  const artist = await getArtistBySlug(db, slug)
+  const artist = await getPublicArtistBySlug(db, slug)
   if (!artist?.isVisible) throw new ApiError(404, 'Artist not found')
 
   const publicEpk = await getPublicArtistEpkByArtistId(db, artist.id)

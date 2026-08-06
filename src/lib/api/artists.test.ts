@@ -20,6 +20,7 @@ function makeBuilder(data: unknown = null, error: unknown = null) {
     neq: vi.fn().mockReturnThis(),
     or: vi.fn().mockReturnThis(),
     filter: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     single: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockReturnThis(),
@@ -171,8 +172,13 @@ describe('getArtistBySlug', () => {
   it('returns null when artist not found', async () => {
     const first = makeBuilder(null, null)
     const second = makeBuilder([], null)
+    const privateEmpty = makeBuilder([], null)
     const db = {
-      from: vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second),
+      from: vi
+        .fn()
+        .mockReturnValueOnce(first)
+        .mockReturnValueOnce(second)
+        .mockReturnValue(privateEmpty),
     } as unknown as DbClient
     const result = await getArtistBySlug(db, 'nonexistent-slug')
     expect(result).toBeNull()
@@ -203,8 +209,13 @@ describe('getArtistBySlug', () => {
   it('falls back to generated slug when stored slug is null/empty', async () => {
     const first = makeBuilder(null, null)
     const second = makeBuilder([{ ...mockArtistRow, slug: null }], null)
+    const privateEmpty = makeBuilder([], null)
     const db = {
-      from: vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second),
+      from: vi
+        .fn()
+        .mockReturnValueOnce(first)
+        .mockReturnValueOnce(second)
+        .mockReturnValue(privateEmpty),
     } as unknown as DbClient
     const result = await getArtistBySlug(db, 'c-z-a-r-i-n-a')
     expect(result).not.toBeNull()

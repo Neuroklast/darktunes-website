@@ -97,9 +97,18 @@
 ## Accessibility (WCAG 2.1 AA)
 - [ ] Verify keyboard-only navigation for header and main journeys
 - [ ] Verify visible focus state for interactive elements
-- [ ] Verify mobile touch targets meet 44×44 minimum
+- [ ] Verify mobile touch targets meet 44×44 minimum (Consent banner, PWA dismiss, Videos pagination, Contact submit, header menu)
+- [ ] Contact form: invalid fields expose `aria-invalid` + error text via `aria-describedby`
 - [ ] Verify reduced motion preference is respected
 - [ ] Run automated accessibility checks and manual spot checks
+
+## Security (public data / roles)
+- [ ] Anon Supabase: `artists` select does not return `bandsintown_api_key` / email secrets after reset.sql apply
+- [ ] Anon: `artist_epks` select denied or empty for `epk_password_hash`
+- [ ] Anon: `videos` with `is_visible=false` returns no rows
+- [ ] Role=`user` cannot list non-press assets; admin/editor file explorer still loads
+- [ ] Artist detail HTML/Flight payload has no `bandsintownApiKey`
+- [ ] Portal Bandsintown still shows `hasApiKey` and sync works after private-data migration
 
 ## Responsive Design
 - [ ] Validate mobile navigation behavior and menu access

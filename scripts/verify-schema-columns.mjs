@@ -42,6 +42,7 @@ const STRUCTURAL_COLUMNS = new Set([
 const CRITICAL_TABLES = {
   artists: { mode: 'full' },
   artist_epks: { mode: 'full', extraStructural: ['artist_id'] },
+  artist_private_data: { mode: 'create-once', extraStructural: ['artist_id'] },
   artist_members: { mode: 'create-once' },
   artist_billing_profiles: { mode: 'create-once' },
   artist_documents: { mode: 'create-once' },

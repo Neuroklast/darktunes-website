@@ -10,6 +10,10 @@ import { z } from 'zod'
 import { withErrorHandler, ApiError } from '@/lib/errors'
 import { portalMemberWrite, withPortalMembershipWrite } from '@/lib/portal/withPortalMembership'
 import { fetchBandsintownArtistEvents } from '@/lib/sync/bandsintownApi'
+import {
+  getArtistPrivateByArtistId,
+  upsertArtistPrivateData,
+} from '@/lib/api/artistPrivateData'
 
 const bodySchema = z.object({
   bandsintownId: z.string().trim().min(1).max(200).optional(),
@@ -42,11 +46,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     async (db) => {
       const { data, error } = await db
         .from('artists')
-        .select('bandsintown_id, bandsintown_api_key')
+        .select('bandsintown_id')
         .eq('id', ctx.artist.id)
         .maybeSingle()
       if (error) throw new Error(error.message)
-      return data
+      const privateRow = await getArtistPrivateByArtistId(db, ctx.artist.id)
+      return {
+        bandsintown_id: data?.bandsintown_id ?? null,
+        bandsintown_api_key: privateRow?.bandsintown_api_key ?? null,
+      }
     },
   )
 
@@ -76,13 +84,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           .from('artists')
           .update({
             bandsintown_id: bandsintownId,
-            ...(parsed.data.bandsintownApiKey
-              ? { bandsintown_api_key: bandsintownApiKey }
-              : {}),
+            bandsintown_api_key: null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', ctx.artist.id)
         if (error) throw new Error(error.message)
+        if (parsed.data.bandsintownApiKey) {
+          await upsertArtistPrivateData(db, ctx.artist.id, {
+            bandsintown_api_key: bandsintownApiKey,
+          })
+        }
       },
     )
   }

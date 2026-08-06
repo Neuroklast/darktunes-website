@@ -3,39 +3,37 @@ import type { Database } from '@/types/database'
 import type { Artist } from '@/types'
 import { sanitizeArtistWrite } from '@/lib/sanitizeTextContent'
 import { rowToArtist } from './artistRowMapper'
-import { PUBLIC_QUERY_LIMITS } from './queryLimits'
+import {
+  getArtistPrivateByArtistId,
+  getArtistPrivateByArtistIds,
+  splitArtistUpdatePayload,
+  upsertArtistPrivateData,
+} from './artistPrivateData'
+import {
+  getPublicArtists as getPublicArtistsSafe,
+  getPublicRelatedArtists,
+  type PublicArtist,
+} from './publicArtist'
 
 type DbClient = SupabaseClient<Database>
 export type ArtistInsert = Database['public']['Tables']['artists']['Insert']
 export type ArtistUpdate = Database['public']['Tables']['artists']['Update']
 
 export { rowToArtist }
+export type { PublicArtist }
 
 /**
  * Returns up to `limit` visible artists that share at least one genre with
  * the given artist, excluding the current artist itself.
- *
- * Uses PostgREST's `ov` (array-overlap) filter which maps to the PostgreSQL
- * `&&` operator so only a single indexed query is needed.
- *
- * Returns an empty array when `genres` is empty or on any error.
+ * Public-safe columns only (no API keys / PII).
  */
 export async function getRelatedArtists(
   db: DbClient,
   currentArtistId: string,
   genres: string[],
   limit = 6,
-): Promise<Artist[]> {
-  if (!genres.length) return []
-  const { data, error } = await db
-    .from('artists')
-    .select('*')
-    .eq('is_visible', true)
-    .neq('id', currentArtistId)
-    .filter('genres', 'ov', `{${genres.join(',')}}`)
-    .limit(limit)
-  if (error) throw new Error(error.message)
-  return (data ?? []).map(rowToArtist)
+): Promise<PublicArtist[]> {
+  return getPublicRelatedArtists(db, currentArtistId, genres, limit)
 }
 
 export async function getArtists(db: DbClient): Promise<Artist[]> {
@@ -44,23 +42,20 @@ export async function getArtists(db: DbClient): Promise<Artist[]> {
     .select('*')
     .order('name', { ascending: true })
   if (error) throw new Error(error.message)
-  return (data ?? []).map(rowToArtist)
+  const rows = data ?? []
+  const privateMap = await getArtistPrivateByArtistIds(
+    db,
+    rows.map((r) => r.id),
+  )
+  return rows.map((row) => rowToArtist(row, privateMap.get(row.id)))
 }
 
 /**
- * Public-facing query: returns only visible artists.
- * Used by the public homepage (Server Component). The admin uses getArtists instead.
+ * Public-facing query: visible artists, public columns only.
+ * Never selects bandsintown_api_key, email, vat_number, notes, user_id, etc.
  */
-export async function getPublicArtists(db: DbClient): Promise<Artist[]> {
-  const { data, error } = await db
-    .from('artists')
-    .select('*')
-    .eq('is_visible', true)
-    .order('featured', { ascending: false })
-    .order('name', { ascending: true })
-    .limit(PUBLIC_QUERY_LIMITS.artists)
-  if (error) throw new Error(error.message)
-  return (data ?? []).map(rowToArtist)
+export async function getPublicArtists(db: DbClient): Promise<PublicArtist[]> {
+  return getPublicArtistsSafe(db)
 }
 
 export async function getArtistById(db: DbClient, id: string): Promise<Artist | null> {
@@ -69,13 +64,18 @@ export async function getArtistById(db: DbClient, id: string): Promise<Artist | 
     if (error.code === 'PGRST116') return null
     throw new Error(error.message)
   }
-  return data ? rowToArtist(data) : null
+  if (!data) return null
+  const privateRow = await getArtistPrivateByArtistId(db, id)
+  return rowToArtist(data, privateRow)
 }
 
 export async function getArtistBySlug(db: DbClient, slug: string): Promise<Artist | null> {
   const { data, error } = await db.from('artists').select('*').eq('slug', slug).maybeSingle()
   if (error) throw new Error(error.message)
-  if (data) return rowToArtist(data)
+  if (data) {
+    const privateRow = await getArtistPrivateByArtistId(db, data.id)
+    return rowToArtist(data, privateRow)
+  }
 
   const { data: nullSlugArtists, error: nullSlugError } = await db
     .from('artists')
@@ -84,17 +84,35 @@ export async function getArtistBySlug(db: DbClient, slug: string): Promise<Artis
   if (nullSlugError) throw new Error(nullSlugError.message)
 
   for (const row of nullSlugArtists ?? []) {
-    const mappedArtist = rowToArtist(row)
+    const privateRow = await getArtistPrivateByArtistId(db, row.id)
+    const mappedArtist = rowToArtist(row, privateRow)
     if (mappedArtist.slug === slug) return mappedArtist
   }
   return null
 }
 
 export async function createArtist(db: DbClient, artistData: ArtistInsert): Promise<Artist> {
-  const { data, error } = await db.from('artists').insert(sanitizeArtistWrite(artistData)).select().single()
+  const sanitized = sanitizeArtistWrite(artistData)
+  const { publicFields, privateFields, hasPrivateFields } = splitArtistUpdatePayload(sanitized)
+  // Insert requires name/slug from original payload; private splitter only clears secrets.
+  const insertRow = {
+    ...sanitized,
+    ...publicFields,
+    name: sanitized.name,
+    slug: sanitized.slug,
+    email: null,
+    vat_number: null,
+    notes: null,
+    bandsintown_api_key: null,
+  } satisfies ArtistInsert
+  const { data, error } = await db.from('artists').insert(insertRow).select().single()
   if (error) throw new Error(error.message)
   if (!data) throw new Error('No data returned from createArtist')
-  return rowToArtist(data)
+  if (hasPrivateFields) {
+    await upsertArtistPrivateData(db, data.id, privateFields)
+  }
+  const privateRow = await getArtistPrivateByArtistId(db, data.id)
+  return rowToArtist(data, privateRow)
 }
 
 export async function updateArtist(
@@ -102,15 +120,21 @@ export async function updateArtist(
   id: string,
   artistData: ArtistUpdate,
 ): Promise<Artist> {
+  const sanitized = sanitizeArtistWrite(artistData)
+  const { publicFields, privateFields, hasPrivateFields } = splitArtistUpdatePayload(sanitized)
   const { data, error } = await db
     .from('artists')
-    .update(sanitizeArtistWrite(artistData))
+    .update(publicFields)
     .eq('id', id)
     .select()
     .single()
   if (error) throw new Error(error.message)
   if (!data) throw new Error('No data returned from updateArtist')
-  return rowToArtist(data)
+  if (hasPrivateFields) {
+    await upsertArtistPrivateData(db, id, privateFields)
+  }
+  const privateRow = await getArtistPrivateByArtistId(db, id)
+  return rowToArtist(data, privateRow)
 }
 
 export async function deleteArtist(db: DbClient, id: string): Promise<void> {

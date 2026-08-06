@@ -12,11 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTranslations } from 'next-intl'
 import { ObfuscatedText } from '@/components/press/ObfuscatedText'
-import type { Artist, NewsPost, SiteSettings } from '@/types'
+import type { NewsPost, SiteSettings } from '@/types'
+import type { PublicArtist } from '@/lib/api/publicArtist'
 import { getOptimizedImageUrl } from '@/lib/imageUtils'
 
 interface PressLandingClientProps {
-  artists: Artist[]
+  artists: PublicArtist[]
   pressReleases: NewsPost[]
   siteSettings: Pick<SiteSettings, 'labelName' | 'labelTagline' | 'contactEmail' | 'impressumPhone' | 'impressumEmail'>
 }

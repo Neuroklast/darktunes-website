@@ -5,13 +5,14 @@ import { useTranslations } from 'next-intl'
 import { Eye } from '@phosphor-icons/react'
 import type { LandingPageDocumentV1 } from '@/lib/fan-page/schema/documentV1'
 import type { FanPageDevice } from '@/lib/fan-page/editor/store'
-import type { Artist, Release, Concert, Video } from '@/types'
+import type { Release, Concert, Video } from '@/types'
+import type { PublicArtist } from '@/lib/api/publicArtist'
 import { FanPageBlockRenderer, type FanPageLiveData } from '@/components/fan-page/FanPageBlockRenderer'
 import { resolveThemeColors } from '@/lib/fan-page/theme/resolveThemeColors'
 
 interface FanPagePublicViewProps {
   document: LandingPageDocumentV1
-  artist: Artist
+  artist: PublicArtist
   releases: Release[]
   concerts: Concert[]
   videos: Video[]
