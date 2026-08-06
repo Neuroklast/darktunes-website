@@ -1,17 +1,18 @@
 'use client'
 
-import { useLocale, useTranslations } from 'next-intl'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { LocaleFlagSwitcher } from '@/components/LocaleFlagSwitcher'
 import { updatePortalPassword } from '../_actions/updatePassword'
 import { PASSWORD_MIN_LENGTH } from '@/lib/auth/passwordPolicy'
 import { PasswordRequirements } from '@/components/auth/PasswordRequirements'
 import { getLocalizedPasswordPairError } from '@/components/auth/passwordPolicyUi'
+import { isStandaloneDisplayMode, requestPwaInstallPrompt } from '@/lib/pwa/installPrompt'
 
 interface SettingsPanelProps {
   email: string
@@ -20,14 +21,16 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ email, displayName: initialDisplayName }: SettingsPanelProps) {
   const t = useTranslations('portal')
-  const locale = useLocale()
-
-  const router = useRouter()
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [displayName, setDisplayName] = useState(initialDisplayName)
   const [savingName, setSavingName] = useState(false)
   const [updating, setUpdating] = useState(false)
+  const [isInstalled, setIsInstalled] = useState(false)
+
+  useEffect(() => {
+    setIsInstalled(isStandaloneDisplayMode())
+  }, [])
 
   const onSaveDisplayName = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,12 +74,6 @@ export function SettingsPanel({ email, displayName: initialDisplayName }: Settin
     } finally {
       setUpdating(false)
     }
-  }
-
-  const switchLocale = () => {
-    const next = locale === 'de' ? 'en' : 'de'
-    document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
-    router.refresh()
   }
 
   return (
@@ -174,14 +171,33 @@ export function SettingsPanel({ email, displayName: initialDisplayName }: Settin
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle>{t('settings_language')}</CardTitle>
+          <p className="text-sm text-muted-foreground">{t('settings_language_hint')}</p>
+        </CardHeader>
+        <CardContent>
+          <LocaleFlagSwitcher size="md" align="start" />
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle>{t('settings_pwa_heading')}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            {t('settings_language_current')}: {locale === 'de' ? 'Deutsch' : 'English'}
+            {isInstalled ? t('settings_pwa_installed') : t('settings_pwa_hint')}
           </p>
         </CardHeader>
         <CardContent>
-          <Button variant="outline" onClick={switchLocale}>
-            {t('settings_language_switch_to')} {locale === 'de' ? 'English' : 'Deutsch'}
-          </Button>
+          {!isInstalled && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsInstalled(isStandaloneDisplayMode())
+                requestPwaInstallPrompt()
+              }}
+            >
+              {t('settings_pwa_show')}
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>

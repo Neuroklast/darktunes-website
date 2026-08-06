@@ -45,11 +45,15 @@ Die folgenden Hinweise geben einen einfachen Überblick darüber, was mit Ihren 
 **Wer ist verantwortlich für die Datenerfassung auf dieser Website?**
 Die Datenverarbeitung auf dieser Website erfolgt durch den Websitebetreiber. Dessen Kontaktdaten können Sie dem [Impressum](/impressum) dieser Website entnehmen.
 
-## 2. Hosting
+## 2. Hosting und Infrastruktur
 
-Diese Website wird bei einem externen Dienstleister gehostet (Hoster). Die personenbezogenen Daten, die auf dieser Website erfasst werden, werden auf den Servern des Hosters gespeichert. Hierbei kann es sich v. a. um IP-Adressen, Kontaktanfragen, Meta- und Kommunikationsdaten, Vertragsdaten, Kontaktdaten, Namen, Websitezugriffe und sonstige Daten, die über eine Website generiert werden, handeln.
+Diese Website wird bei externen Dienstleistern betrieben. Personenbezogene Daten, die auf dieser Website erfasst werden, können auf Servern dieser Anbieter verarbeitet werden (z. B. IP-Adressen, Kontaktanfragen, Meta- und Kommunikationsdaten, Vertragsdaten, Kontaktdaten, Namen, Zugriffsprotokolle).
 
-Unsere Anwendung nutzt Supabase (Supabase Inc., USA) für Datenbank und Realtime-Updates. Dabei werden WebSocket-Verbindungen hergestellt, die Ihre IP-Adresse übertragen. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einer sicheren und funktionalen Bereitstellung unseres Online-Angebots).
+**Vercel Inc.** (USA) stellt Hosting, Edge- und Serverless-Infrastruktur bereit.
+**Cloudflare, Inc.** (USA) wird u. a. für Objektspeicher (Cloudflare R2) und CDN-Dienste genutzt.
+**Supabase Inc.** (USA) wird für Datenbank, Authentifizierung und Realtime-Updates eingesetzt. Dabei können WebSocket-Verbindungen Ihre IP-Adresse übertragen.
+
+Soweit eine Übermittlung in Drittländer (insbesondere USA) erfolgt, stützen wir uns — je nach Anbieter und Konfiguration — auf geeignete Garantien (z. B. Standardvertragsklauseln) und unser berechtigtes Interesse an einer sicheren, skalierbaren Bereitstellung des Angebots (Art. 6 Abs. 1 lit. f DSGVO).
 
 ## 3. Allgemeine Hinweise und Pflichtinformationen
 
@@ -69,9 +73,20 @@ Verantwortliche Stelle ist die natürliche oder juristische Person, die allein o
 Soweit innerhalb dieser Datenschutzerklärung keine speziellere Speicherdauer genannt wurde, verbleiben Ihre personenbezogenen Daten bei uns, bis der Zweck für die Datenverarbeitung entfällt.
 
 ### Ihre Rechte
-Sie haben jederzeit das Recht, unentgeltlich Auskunft über Herkunft, Empfänger und Zweck Ihrer gespeicherten personenbezogenen Daten zu erhalten. Sie haben außerdem ein Recht, die Berichtigung oder Löschung dieser Daten zu verlangen.
+Sie haben jederzeit das Recht, unentgeltlich Auskunft über Herkunft, Empfänger und Zweck Ihrer gespeicherten personenbezogenen Daten zu erhalten. Sie haben außerdem ein Recht auf Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit sowie Widerspruch gegen die Verarbeitung, soweit gesetzlich vorgesehen. Ferner besteht ein Beschwerderecht bei einer Datenschutz-Aufsichtsbehörde (in Deutschland z. B. die für uns zuständige Landesbehörde bzw. der Bundesbeauftragte für den Datenschutz und die Informationsfreiheit).
 
-## 4. Externe Medien und Einbettungen
+### Server-Logs
+Beim Besuch dieser Website können technisch erforderliche Zugriffsdaten (z. B. IP-Adresse, Zeitpunkt, angeforderte Ressource, User-Agent) in Server- oder CDN-Logs verarbeitet werden. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (Sicherheit und Stabilität des Betriebs). Logs werden nur so lange aufbewahrt, wie es für diese Zwecke erforderlich ist.
+
+## 4. Cookies, lokale Speicherung und Einwilligungen
+
+Wir setzen technisch notwendige Cookies und vergleichbare Technologien ein, u. a. das Locale-Cookie \`NEXT_LOCALE\` zur Speicherung Ihrer Sprachwahl. Optional speichern wir Einwilligungen zum Laden externer Medien (Consent-Banner) sowie lokale Einstellungen (z. B. Installationshinweis der Progressive Web App) im Local Storage Ihres Browsers.
+
+Soweit eine Progressive Web App (PWA) genutzt wird, kann ein Service Worker Inhalte zwischenspeichern, um Offline-Funktionen und schnellere Ladezeiten zu ermöglichen. Diese Speicherung erfolgt gerätebezogen in Ihrem Browser.
+
+Externe Medien (z. B. Spotify, YouTube) werden erst nach Ihrer Einwilligung geladen. Die Einwilligung können Sie jederzeit widerrufen, indem Sie die Cookie-/Consent-Einstellungen Ihres Browsers zurücksetzen oder uns kontaktieren.
+
+## 5. Externe Medien und Einbettungen
 
 Diese Website kann externe Inhalte von Drittanbietern einbetten (z.B. Spotify, YouTube). Diese Inhalte werden erst nach Ihrer ausdrücklichen Zustimmung geladen. Vor der Zustimmung werden nur Platzhalter angezeigt.
 
@@ -79,26 +94,32 @@ Diese Website kann externe Inhalte von Drittanbietern einbetten (z.B. Spotify, Y
 
 **YouTube**: Bei der Nutzung von YouTube-Videos gelten die Datenschutzbestimmungen der Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland.
 
-## 5. Newsletter
+## 6. Newsletter
 
-Wenn Sie den auf der Website angebotenen Newsletter beziehen möchten, benötigen wir von Ihnen eine E-Mail-Adresse sowie Informationen, welche uns die Überprüfung gestatten, dass Sie der Inhaber der angegebenen E-Mail-Adresse sind und mit dem Empfang des Newsletters einverstanden sind.
+Wenn Sie den auf der Website angebotenen Newsletter beziehen möchten, benötigen wir von Ihnen eine E-Mail-Adresse sowie Informationen, welche uns die Überprüfung gestatten, dass Sie der Inhaber der angegebenen E-Mail-Adresse sind und mit dem Empfang des Newsletters einverstanden sind. Rechtsgrundlage: Art. 6 Abs. 1 lit. a DSGVO (Einwilligung).
 
 Sie können Ihre Einwilligung jederzeit widerrufen, indem Sie uns eine E-Mail an ${settings.impressumEmail} senden oder den Abmelde-Link in jeder Newsletter-E-Mail nutzen.
 
-## 6. CDN / Bildauslieferung
+## 7. Kontaktformular und Authentifizierung
+
+Wenn Sie uns über das Kontaktformular oder per E-Mail kontaktieren, speichern wir die von Ihnen mitgeteilten Daten zur Bearbeitung der Anfrage (Art. 6 Abs. 1 lit. b bzw. lit. f DSGVO).
+
+Für Login-Bereiche (Artist Portal, Admin, Presse) nutzen wir Supabase Auth. Dabei werden E-Mail-Adresse, Authentifizierungsmetadaten und Sitzungsdaten verarbeitet, um den Zugang abzusichern (Art. 6 Abs. 1 lit. b und lit. f DSGVO).
+
+## 8. CDN / Bildauslieferung
 
 Diese Website nutzt wsrv.nl (Images.weserv.nl) für die Optimierung von Bildern. Dabei können Ihre IP-Adresse und Anfrage-Metadaten an die Betreiber übermittelt werden. Weitere Informationen: https://images.weserv.nl/privacy
 
-## 7. Presse-Portal
+## 9. Presse-Portal
 
 Akkreditierte Journalisten können Pressefotos und Promo-Tracks herunterladen. Wir speichern Download-Statistiken (Zeitpunkt, Datei, Journalist-ID) zu Analysezwecken. Rechtsgrundlage: Berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO).
 
-## 8. Plugins und Tools
+## 10. Plugins und Tools
 
 ### Schriftarten (Google Fonts)
 Diese Website verwendet für die einheitliche Darstellung von Schriftarten Web Fonts. Je nach im CMS ausgewählter Theme-Konfiguration können diese Schriftarten von Google Fonts nachgeladen werden. Dabei kann es zu einer Verbindung mit Servern von Google kommen, wobei insbesondere Ihre IP-Adresse und technische Metadaten an Google übermittelt werden können. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einer konsistenten und ansprechenden Darstellung der Website) beziehungsweise – sofern eine entsprechende Einwilligungslösung eingesetzt wird – Ihre Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO.
 
-## 9. Artist Portal und Abrechnung
+## 11. Artist Portal und Abrechnung
 
 Wenn Sie als Künstler unser Artist Portal nutzen, verarbeiten wir zusätzliche personenbezogene Daten, die für die Vertragsabwicklung und die Auszahlung von Tantiemen (SOS Statements) erforderlich sind.
 
@@ -111,8 +132,8 @@ Die Verarbeitung erfolgt zur Erfüllung unserer vertraglichen Pflichten (Art. 6 
 ### Speicherung und Technologie
 Ihre Daten werden in unserer Datenbank (Supabase) gespeichert. Rechnungen und SOS Statements werden als PDF-Dokumente bei Cloudflare R2 revisionssicher abgelegt. Änderungen an Abrechnungsprofilen (z. B. IBAN) werden in Audit-Logs mit Zeitstempel dokumentiert (GoBD-orientierte Nachvollziehbarkeit).
 
-### Speicherdauer
-Steuer- und abrechnungsrelevante Daten sowie generierte Rechnungen und Statements werden gemäß den gesetzlichen Vorgaben in Deutschland in der Regel **10 Jahre** aufbewahrt — auch nach Löschung des Artist-Kontos.
+### Speicherdauer und Kontolöschung
+Steuer- und abrechnungsrelevante Daten sowie generierte Rechnungen und Statements werden gemäß den gesetzlichen Vorgaben in Deutschland in der Regel **10 Jahre** aufbewahrt — auch nach Löschung des Artist-Kontos. Sonstige Kontodaten können im Rahmen einer Löschanfrage entfernt werden, soweit keine gesetzlichen Aufbewahrungspflichten entgegenstehen.
 `.trim()
 }
 
@@ -127,11 +148,15 @@ The following notes provide a simple overview of what happens to your personal d
 **Who is responsible for data collection on this website?**
 Data processing on this website is carried out by the website operator. You can find their contact details in the [legal notice (Impressum)](/impressum) of this website.
 
-## 2. Hosting
+## 2. Hosting and infrastructure
 
-This website is hosted by an external service provider (host). Personal data collected on this website is stored on the host's servers. This may include IP addresses, contact requests, metadata and communication data, contract data, contact details, names, website access logs, and other data generated via a website.
+This website is operated using external service providers. Personal data collected on this website may be processed on their servers (e.g. IP addresses, contact requests, metadata and communication data, contract data, contact details, names, access logs).
 
-Our application uses Supabase (Supabase Inc., USA) for database storage and real-time updates. This involves establishing WebSocket connections that transmit your IP address. Legal basis: Art. 6(1)(f) GDPR (legitimate interest in a secure and functional provision of our online offering).
+**Vercel Inc.** (USA) provides hosting, edge, and serverless infrastructure.
+**Cloudflare, Inc.** (USA) is used for object storage (Cloudflare R2) and CDN services, among other things.
+**Supabase Inc.** (USA) is used for database, authentication, and real-time updates. WebSocket connections may transmit your IP address.
+
+Where personal data is transferred to third countries (in particular the USA), we rely — depending on the provider and configuration — on appropriate safeguards (e.g. standard contractual clauses) and our legitimate interest in a secure, scalable operation of the service (Art. 6(1)(f) GDPR).
 
 ## 3. General Information and Mandatory Disclosures
 
@@ -151,9 +176,20 @@ The responsible party is the natural or legal person who alone or jointly with o
 Unless a more specific retention period has been stated within this privacy policy, your personal data will remain with us until the purpose for data processing no longer applies.
 
 ### Your Rights
-You have the right to receive information about the origin, recipient, and purpose of your stored personal data free of charge at any time. You also have the right to request the correction or deletion of this data.
+You have the right to receive information about the origin, recipient, and purpose of your stored personal data free of charge at any time. You also have the right to request rectification, erasure, restriction of processing, data portability, and to object to processing where provided by law. You may lodge a complaint with a data protection supervisory authority (in Germany, e.g. the competent state authority or the Federal Commissioner for Data Protection and Freedom of Information).
 
-## 4. External Media and Embeds
+### Server logs
+When you visit this website, technically necessary access data (e.g. IP address, timestamp, requested resource, user agent) may be processed in server or CDN logs. Legal basis: Art. 6(1)(f) GDPR (security and stability of operations). Logs are retained only as long as required for these purposes.
+
+## 4. Cookies, local storage, and consent
+
+We use technically necessary cookies and similar technologies, including the \`NEXT_LOCALE\` cookie to store your language preference. We may also store consent for loading external media (consent banner) and local preferences (e.g. Progressive Web App install prompt dismissal) in your browser’s local storage.
+
+If you use the Progressive Web App (PWA), a service worker may cache content to enable offline features and faster loading. This storage is device-local in your browser.
+
+External media (e.g. Spotify, YouTube) is loaded only after your consent. You may withdraw consent at any time by resetting your browser’s cookie/consent settings or by contacting us.
+
+## 5. External Media and Embeds
 
 This website may embed external content from third-party providers (e.g. Spotify, YouTube). This content is only loaded after your explicit consent. Before consent, only placeholders are displayed.
 
@@ -161,26 +197,32 @@ This website may embed external content from third-party providers (e.g. Spotify
 
 **YouTube**: When using YouTube videos, the privacy policy of Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Ireland applies.
 
-## 5. Newsletter
+## 6. Newsletter
 
-If you would like to receive the newsletter offered on the website, we require an email address from you as well as information that allows us to verify that you are the owner of the email address provided and that you consent to receiving the newsletter.
+If you would like to receive the newsletter offered on the website, we require an email address from you as well as information that allows us to verify that you are the owner of the email address provided and that you consent to receiving the newsletter. Legal basis: Art. 6(1)(a) GDPR (consent).
 
 You can revoke your consent at any time by sending us an email to ${settings.impressumEmail} or by using the unsubscribe link included in every newsletter email.
 
-## 6. CDN / Image Delivery
+## 7. Contact form and authentication
+
+If you contact us via the contact form or email, we store the data you provide in order to handle your request (Art. 6(1)(b) or (f) GDPR).
+
+Login areas (Artist Portal, Admin, Press) use Supabase Auth. We process email address, authentication metadata, and session data to secure access (Art. 6(1)(b) and (f) GDPR).
+
+## 8. CDN / Image Delivery
 
 This website uses wsrv.nl (Images.weserv.nl) to optimise images. In doing so, your IP address and request metadata may be transmitted to the service operator. More information: https://images.weserv.nl/privacy
 
-## 7. Press Portal
+## 9. Press Portal
 
 Accredited journalists may download press photos and promo tracks. We store download statistics (timestamp, file, journalist ID) for analytical purposes. Legal basis: Legitimate interest (Art. 6(1)(f) GDPR).
 
-## 8. Plugins and Tools
+## 10. Plugins and Tools
 
 ### Web Fonts
 This website uses web fonts for uniform font rendering. Depending on the theme configuration selected in the CMS, fonts may be loaded from Google Fonts. This may result in a connection to Google servers and the transmission of your IP address and technical metadata to Google. The legal basis is Art. 6(1)(f) GDPR (legitimate interest in a consistent and visually appealing presentation of the website) or, if a consent solution is used for this purpose, your consent pursuant to Art. 6(1)(a) GDPR.
 
-## 9. Artist Portal and Settlement
+## 11. Artist Portal and Settlement
 
 When you use our Artist Portal as an artist, we process additional personal data required for contract performance and royalty payouts (SOS statements).
 
@@ -193,8 +235,8 @@ Processing is necessary to perform our contract with you (Art. 6(1)(b) GDPR) and
 ### Storage and technology
 Data is stored in our database (Supabase). Invoices and SOS statements are stored as PDFs with Cloudflare R2. Billing profile changes (e.g. IBAN updates) are recorded in timestamped audit logs for GoBD-oriented traceability.
 
-### Retention
-Tax- and settlement-relevant data as well as generated invoices and statements are retained for **10 years** under German legal requirements, including after you request deletion of your artist account.
+### Retention and account deletion
+Tax- and settlement-relevant data as well as generated invoices and statements are retained for **10 years** under German legal requirements, including after you request deletion of your artist account. Other account data may be deleted upon request where no statutory retention duties apply.
 `.trim()
 }
 

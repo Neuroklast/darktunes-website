@@ -33,8 +33,9 @@ const getCachedSettings = unstable_cache(
 )
 
 export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale()
   return {
-    title: 'AGB / Terms',
+    title: locale === 'en' ? 'Terms' : 'AGB',
     robots: { index: false },
   }
 }

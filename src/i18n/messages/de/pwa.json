@@ -1,9 +1,10 @@
 {
   "install_aria_label": "{labelShortName} als App installieren",
   "install_title": "{labelShortName} als App installieren",
-  "install_subtitle": "Schneller Zugriff · Tourplaner offline nutzbar",
+  "install_subtitle": "Schneller Zugriff · Auch offline nutzbar",
   "install_button": "Installieren",
   "install_ios_hint_prefix": "Tippe auf",
   "install_ios_hint_suffix": "und dann „Zum Home-Bildschirm“.",
+  "install_manual_fallback": "Öffne das Browser-Menü und wähle „App installieren“ oder „Zum Home-Bildschirm“.",
   "dismiss_aria_label": "Install-Banner schließen"
 }

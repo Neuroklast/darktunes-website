@@ -53,11 +53,13 @@ CI enforces this via `npm run check:scroll` (`scripts/check-scroll-contract.mjs`
 
 ## Images
 
-Public images via `getOptimizedImageUrl` / `getSquareThumbnail` (`imageUtils.ts`). Use `next/image` with `unoptimized` — wsrv.nl handles resize/WebP; `next.config.ts` sets `images.unoptimized: true` so Vercel Image Optimization never runs (Hobby limit → HTTP 402). Rich-text HTML: `processHtmlImages()`. Icon name clash: import Phosphor `Image` as `ImageIcon`.
+Public images via `getOptimizedImageUrl` / `getSquareThumbnail` (`imageUtils.ts`). Brand logos/wordmarks: `getOptimizedLogoUrl` (higher `q`, wider width). Use `next/image` with `unoptimized` — wsrv.nl handles resize/WebP; `next.config.ts` sets `images.unoptimized: true` so Vercel Image Optimization never runs (Hobby limit → HTTP 402). Rich-text HTML: `processHtmlImages()`. Icon name clash: import Phosphor `Image` as `ImageIcon`.
 
 ## i18n
 
 `en.json` / `de.json`; type from English baseline. RSC loads dict → props to clients. Locale: cookie → Accept-Language → `de`. New strings: both JSON files + prop chain.
+
+**Locale UI:** `LocaleFlagSwitcher` — current flag + DE/EN menu; sets `NEXT_LOCALE`. Use on every shell (public, admin, portal, press). Legal pages that are not CMS dual-fields (Impressum labels) must use `next-intl` keys, not hardcoded German.
 
 **Enterprise contract (mandatory):** `npm run check:i18n` — en/de parity, static key existence, zero hardcoded `toast.*`/`confirm` in portal/admin, admin/editor must load `portal` bundle, residual UI hardcodes only via shrinkable baseline (`scripts/i18n-hardcode-baseline.json`). See [i18n-audit-notes.md](./i18n-audit-notes.md).
 

@@ -1,9 +1,10 @@
 {
   "install_aria_label": "Install {labelShortName} as an app",
   "install_title": "Install {labelShortName} as an app",
-  "install_subtitle": "Quick access · Use tour planner offline",
+  "install_subtitle": "Quick access · Works offline",
   "install_button": "Install",
   "install_ios_hint_prefix": "Tap",
   "install_ios_hint_suffix": "and then \"Add to Home Screen\".",
+  "install_manual_fallback": "Open your browser menu and choose “Install app” or “Add to Home Screen”.",
   "dismiss_aria_label": "Close install banner"
 }

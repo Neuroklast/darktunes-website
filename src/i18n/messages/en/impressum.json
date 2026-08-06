@@ -1,4 +1,27 @@
 {
   "metaTitle": "Legal Notice — {labelName}",
-  "heading": "Legal Notice (Impressum)"
+  "heading": "Legal Notice (Impressum)",
+  "section_provider": "Information pursuant to § 5 DDG",
+  "operator_label": "Website operator",
+  "section_representative": "Represented by (managing director / owner)",
+  "section_contact": "Contact",
+  "phone_label": "Phone",
+  "email_label": "Email",
+  "section_vat": "VAT identification number",
+  "vat_text": "VAT identification number pursuant to § 27a of the German VAT Act (Umsatzsteuergesetz):",
+  "section_register": "Commercial register",
+  "register_court_label": "Register court",
+  "register_number_label": "Registration number",
+  "section_dispute": "Dispute resolution",
+  "dispute_odr": "The European Commission provides a platform for online dispute resolution (ODR):",
+  "dispute_odr_aria": "EU online dispute resolution platform (opens in a new tab)",
+  "dispute_refusal": "We are neither willing nor obliged to participate in dispute resolution proceedings before a consumer arbitration board.",
+  "section_disclaimer": "Disclaimer",
+  "disclaimer_content_heading": "Liability for content",
+  "disclaimer_content_body": "The content on these pages has been created with the greatest care. However, we cannot guarantee the accuracy, completeness, or timeliness of the content. As a service provider, we are responsible for our own content on these pages under general law pursuant to § 7 (1) DDG.",
+  "disclaimer_links_heading": "Liability for links",
+  "disclaimer_links_body": "Our offering contains links to external third-party websites over whose content we have no control. Therefore, we cannot accept any liability for such external content. The respective provider or operator of the linked pages is always responsible for their content.",
+  "section_copyright": "Copyright",
+  "copyright_body": "The content and works created by the site operators on these pages are subject to German copyright law. Reproduction, editing, distribution, and any kind of use outside the limits of copyright law require the written consent of the respective author or creator.",
+  "all_rights_reserved": "All rights reserved."
 }

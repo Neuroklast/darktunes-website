@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Admin accounting / system / release & video submissions** surfaces; read-replica client; maintenance APIs.
 - **ISR + loading skeletons + metadata** for previously cold public/admin routes.
 
+### Changed
+- **Locale UX:** Flag-based language switcher (`LocaleFlagSwitcher`) on public header, admin, portal, and press dashboard (current flag → pick DE/EN).
+- **PWA install:** Generic offline/quick-access copy; install banner re-openable anytime via Footer, portal Settings, and admin sidebar (`requestPwaInstallPrompt`).
+- **Legal i18n:** Impressum section labels/boilerplate fully DE/EN; default Datenschutz expanded (Vercel/Cloudflare/Supabase, cookies/PWA storage, rights, contact/auth, retention).
+- **Logo delivery:** Higher-res wsrv logo proxy (`getOptimizedLogoUrl`, q=90, wider widths). Replace bundled `logo_(1).png` with HQ asset when available (currently 341×81 fallback is limited).
+
 ### Fixed
 - **Portal notification bell read state:** “Mark all” / open-as-read now writes per-user `message_receipts` (same source as badge counts). Feed + badges stay aligned after refresh.
 - **Portal feedback “Select an artist”:** Feedback always uses the active portal artist (server resolve + nav always passes `artistId`). Multi-artist: submits for the band currently selected in the switcher.

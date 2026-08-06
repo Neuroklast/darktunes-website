@@ -143,15 +143,18 @@
 - [ ] Admin/portal/press routes are excluded from page-event tracking
 
 ## Internationalisation (i18n)
-- [ ] Language switch EN↔DE in header works and persists via NEXT_LOCALE cookie
+- [ ] Flag language switcher in public header shows current language; choosing DE/EN persists via NEXT_LOCALE cookie
+- [ ] Same flag switcher works in admin sidebar, portal sidebar, and press dashboard
 - [ ] All UI strings use dictionary keys (no hard-coded EN strings visible in DE mode)
-- [ ] Locale-specific legal pages (/impressum, /datenschutz) reflect correct language
+- [ ] Locale-specific legal pages (/impressum, /datenschutz, /agb) reflect correct language (Impressum body fully EN when locale=en)
 
 ## PWA
 - [ ] /manifest.webmanifest is accessible and valid
 - [ ] Service worker registers without errors (DevTools → Application → Service Workers)
 - [ ] Offline page /offline is served when network is unavailable
 - [ ] PWA install prompt appears on Android/Chrome after 3 seconds (no errors in console)
+- [ ] Install prompt copy is generic (no artist-only tour planner claims)
+- [ ] After dismiss, Footer “Install app” / portal Settings / admin sidebar re-opens the prompt
 
 ## Newsletter DOI Flow
 - [ ] Subscribe form submits → success message shown (no error)

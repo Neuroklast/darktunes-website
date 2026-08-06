@@ -276,6 +276,14 @@ SSOT: `assets` + `press_kit_items` via `pressKit.ts`. Promo audio: presigned str
 
 Serwist (`app/sw.ts`). SW excludes `/api/*`, `/admin/*`, `/portal/*`, `/press/*`, `/promo-pool/*`. Single `PWAInstallPrompt` in `Providers.tsx`.
 
+- Install copy is **generic** (quick access / offline) — no artist-only product pitches.
+- Auto-banner dismiss is stored in `localStorage` (`pwa-install-dismissed`) but can be re-opened anytime via `requestPwaInstallPrompt()` (`src/lib/pwa/installPrompt.ts`): Footer link, portal Settings, admin sidebar footer.
+- Manual re-open clears the dismiss flag and shows a fallback hint when `beforeinstallprompt` is unavailable.
+
+## Locale switcher
+
+`LocaleFlagSwitcher` (`src/components/LocaleFlagSwitcher.tsx`) shows the **current** language as a flag (🇩🇪/🇬🇧) and opens a DE/EN menu. Sets `NEXT_LOCALE` cookie + `router.refresh()`. Placed on public Header, Admin/Portal sidebars, Press dashboard nav.
+
 ## Website tracking
 
 `PageTracker` when `darktunes_consent=accepted` → `POST /api/page-events`. Skips admin/portal/press/editor.

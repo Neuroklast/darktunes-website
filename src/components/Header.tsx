@@ -1,19 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { List, X } from '@phosphor-icons/react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { useTranslations, useLocale } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import logoImage from '@/assets/images/logo_(1).png'
 import { buildNavItems } from '@/config/sections'
 import { useSmoothScrollToAnchor } from '@/hooks/useSmoothScrollToAnchor'
 import type { HomepageSection } from '@/types'
-import { SECONDS_PER_YEAR } from '@/lib/datetime/constants'
-import { getOptimizedImageUrl } from '@/lib/imageUtils'
+import { getOptimizedLogoUrl } from '@/lib/imageUtils'
+import { LocaleFlagSwitcher } from '@/components/LocaleFlagSwitcher'
 
 interface HeaderProps {
   logoUrl?: string
@@ -26,15 +26,14 @@ interface HeaderProps {
 export function Header({ logoUrl, labelName, sectionOrder, showAbout, aboutNavLabel }: HeaderProps) {
   const logoAlt = labelName?.trim() ? `${labelName} logo` : 'Label logo'
   const t = useTranslations('navigation')
-  const locale = useLocale()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const router = useRouter()
   const pathname = usePathname()
   const handleSmoothScroll = useSmoothScrollToAnchor()
   const prefersReducedMotion = useReducedMotion()
   const isHomePage = pathname === '/'
-  const logoSrc = logoUrl ? getOptimizedImageUrl(logoUrl, 200) : logoImage.src
+  // 600px covers ~200px CSS width at 3× DPR for sharp logo rendering
+  const logoSrc = logoUrl ? getOptimizedLogoUrl(logoUrl, 600) : logoImage.src
 
   useEffect(() => {
     const handleScroll = () => {
@@ -55,12 +54,6 @@ export function Header({ logoUrl, labelName, sectionOrder, showAbout, aboutNavLa
     external: item.routeType === 'external',
   }))
 
-  const handleLocaleSwitch = () => {
-    const next = locale === 'de' ? 'en' : 'de'
-    document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=${SECONDS_PER_YEAR}; samesite=lax`
-    router.refresh()
-  }
-
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border transition-all duration-300">
       <div className="container mx-auto px-4 lg:px-16">
@@ -76,8 +69,8 @@ export function Header({ logoUrl, labelName, sectionOrder, showAbout, aboutNavLa
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
-                  width={200}
-                  height={80}
+                  width={400}
+                  height={96}
                   unoptimized={!!logoUrl}
                   className="h-full w-auto"
                   style={{ width: 'auto', height: '100%' }}
@@ -91,8 +84,8 @@ export function Header({ logoUrl, labelName, sectionOrder, showAbout, aboutNavLa
                 <Image
                   src={logoSrc}
                   alt={logoAlt}
-                  width={200}
-                  height={80}
+                  width={400}
+                  height={96}
                   unoptimized={!!logoUrl}
                   className="h-full w-auto"
                   style={{ width: 'auto', height: '100%' }}
@@ -120,15 +113,7 @@ export function Header({ logoUrl, labelName, sectionOrder, showAbout, aboutNavLa
                 )}
               </Button>
             ))}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLocaleSwitch}
-              className="ml-2 min-w-[44px] min-h-[44px] text-xs font-mono text-muted-foreground hover:text-accent-foreground border border-border/40 hover:border-accent/40 px-2 py-1"
-              aria-label={locale === 'de' ? 'Switch to English' : 'Auf Deutsch wechseln'}
-            >
-              {t('switchLocale')}
-            </Button>
+            <LocaleFlagSwitcher className="ml-2" />
           </nav>
 
           <Button
@@ -183,15 +168,7 @@ export function Header({ logoUrl, labelName, sectionOrder, showAbout, aboutNavLa
                   </Button>
                 )
               ))}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLocaleSwitch}
-                className="mt-2 self-start min-w-[44px] min-h-[44px] text-xs font-mono text-muted-foreground hover:text-accent-foreground border border-border/40 hover:border-accent/40 px-2 py-1"
-                aria-label={locale === 'de' ? 'Switch to English' : 'Auf Deutsch wechseln'}
-              >
-                {t('switchLocale')}
-              </Button>
+              <LocaleFlagSwitcher className="mt-2 self-start" align="start" />
             </nav>
           </motion.div>
         )}

@@ -46,6 +46,15 @@ export function getOptimizedImageUrl(url: string, width: number): string {
 }
 
 /**
+ * Higher-quality wsrv proxy for brand logos / wordmarks (sharp edges, less WebP mush).
+ * Prefer this over getOptimizedImageUrl for UI chrome logos.
+ */
+export function getOptimizedLogoUrl(url: string, width = 600): string {
+  if (!url) return ''
+  return buildWsrvUrl(url, { w: width, q: 90 })
+}
+
+/**
  * Returns a wsrv.nl-proxied URL that crops and resizes the image to a square
  * thumbnail of `size × size` pixels in WebP format.
  *

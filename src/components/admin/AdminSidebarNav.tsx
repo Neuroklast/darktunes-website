@@ -19,6 +19,9 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useState } from 'react'
 import { useAuthContext } from '@/contexts/AuthContext'
+import { useTranslations } from 'next-intl'
+import { LocaleFlagSwitcher } from '@/components/LocaleFlagSwitcher'
+import { requestPwaInstallPrompt } from '@/lib/pwa/installPrompt'
 import {
   SquaresFour,
   Microphone,
@@ -60,7 +63,6 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/s
 import { DashboardNotificationBell } from '@/components/admin/DashboardNotificationBell'
 import { NavCountBadge } from '@/components/nav/NavCountBadge'
 import { useAdminNavBadges } from '@/hooks/useAdminNavBadges'
-import { useTranslations } from 'next-intl'
 
 import { getCmsPromoLogPath, getCmsTabPath, getCmsHomePath } from '@/lib/editor/cmsPaths'
 
@@ -147,7 +149,7 @@ const NAV_GROUPS: NavGroup[] = [
 
 export function AdminSidebarNav() {
   const tToast = useTranslations('admin.toast')
-
+  const tPwa = useTranslations('pwa')
 
   const pathname = usePathname()
   const router = useRouter()
@@ -250,7 +252,17 @@ export function AdminSidebarNav() {
 
   const renderFooter = () => (
     <div className="border-t border-border px-3 py-3 space-y-2">
-      <p className="text-xs text-muted-foreground truncate px-1">{user?.email}</p>
+      <div className="flex items-center justify-between gap-2 px-1">
+        <p className="text-xs text-muted-foreground truncate min-w-0">{user?.email}</p>
+        <LocaleFlagSwitcher align="end" />
+      </div>
+      <button
+        type="button"
+        onClick={() => requestPwaInstallPrompt()}
+        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+      >
+        {tPwa('install_button')}
+      </button>
       <button
         type="button"
         onClick={handleSignOut}
@@ -268,6 +280,7 @@ export function AdminSidebarNav() {
       <header className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-border bg-card px-4 md:hidden">
         <p className="text-sm font-bold tracking-wide">{brandTitle}</p>
         <div className="flex items-center gap-2">
+          <LocaleFlagSwitcher align="end" />
           {showNotificationBell && notificationUserId && (
             <DashboardNotificationBell userId={notificationUserId} />
           )}
@@ -298,14 +311,17 @@ export function AdminSidebarNav() {
         aria-label="Admin navigation"
       >
         {/* Brand header */}
-        <div className="px-4 py-5 border-b border-border flex items-center justify-between">
-          <div>
+        <div className="px-4 py-5 border-b border-border flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <p className="text-sm font-bold tracking-wide">{brandTitle}</p>
             <p className="text-xs text-muted-foreground mt-0.5 capitalize">{profile?.role ?? 'admin'}</p>
           </div>
-          {showNotificationBell && notificationUserId && (
-            <DashboardNotificationBell userId={notificationUserId} />
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            <LocaleFlagSwitcher align="end" />
+            {showNotificationBell && notificationUserId && (
+              <DashboardNotificationBell userId={notificationUserId} />
+            )}
+          </div>
         </div>
 
         {renderNavLinks()}

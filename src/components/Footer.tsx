@@ -6,7 +6,8 @@ import { InstagramLogo, YoutubeLogo, SpotifyLogo, ShoppingBag, Globe } from '@ph
 import { useTranslations } from 'next-intl'
 import type { SiteSettings } from '@/types'
 import { SOCIAL_ICON_MAP } from '@/config/socialIcons'
-import { getOptimizedImageUrl } from '@/lib/imageUtils'
+import { getOptimizedLogoUrl } from '@/lib/imageUtils'
+import { requestPwaInstallPrompt } from '@/lib/pwa/installPrompt'
 
 interface FooterProps {
   siteSettings: SiteSettings
@@ -23,7 +24,7 @@ export function Footer({ siteSettings }: FooterProps) {
             <div className="flex items-center mb-4">
               {siteSettings.logoUrl || siteSettings.faviconUrl ? (
                 <Image
-                  src={getOptimizedImageUrl(siteSettings.logoUrl || siteSettings.faviconUrl!, 200)}
+                  src={getOptimizedLogoUrl(siteSettings.logoUrl || siteSettings.faviconUrl!, 400)}
                   alt={`${siteSettings.labelName} logo`}
                   width={160}
                   height={40}
@@ -208,6 +209,13 @@ export function Footer({ siteSettings }: FooterProps) {
             >
               {t('terms')}
             </Link>
+            <button
+              type="button"
+              onClick={() => requestPwaInstallPrompt()}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              {t('installApp')}
+            </button>
           </div>
           <p className="w-full text-center mt-1 text-xs text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors select-none">
             Built by{' '}

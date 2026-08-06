@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { LocaleFlagSwitcher } from '@/components/LocaleFlagSwitcher'
 import { NavCountBadge } from '@/components/nav/NavCountBadge'
 import { PressNotificationBell } from '@/components/press/PressNotificationBell'
 import { usePressNavBadges } from '@/hooks/usePressNavBadges'
@@ -39,6 +40,7 @@ export function PressNav({ email, userId, links }: PressNavProps) {
           <p className="text-xs text-muted-foreground truncate">{email}</p>
         </div>
         <div className="flex items-center gap-2">
+          <LocaleFlagSwitcher align="end" />
           <PressNotificationBell badges={badges} />
           <Button variant="outline" size="icon" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="press-dashboard-nav" aria-label={t('navToggle')}>
             <SidebarSimple size={18} weight="bold" aria-hidden="true" />
@@ -51,7 +53,10 @@ export function PressNav({ email, userId, links }: PressNavProps) {
             <p className="font-semibold">{t('navTitle')}</p>
             <p className="text-xs text-muted-foreground truncate">{email}</p>
           </div>
-          <PressNotificationBell badges={badges} />
+          <div className="flex items-center gap-1 shrink-0">
+            <LocaleFlagSwitcher align="end" />
+            <PressNotificationBell badges={badges} />
+          </div>
         </div>
         <nav id="press-dashboard-nav" className="flex-1 space-y-1" aria-label="Press dashboard navigation">
           {links.map((link) => (

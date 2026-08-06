@@ -28,6 +28,7 @@ import {
   ChatTeardropDots,
 } from '@phosphor-icons/react'
 import { useBrand } from '@/components/brand/BrandProvider'
+import { LocaleFlagSwitcher } from '@/components/LocaleFlagSwitcher'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
@@ -300,7 +301,11 @@ export function PortalSidebar({ artists, featureFlags }: PortalSidebarProps) {
       {artistBlock}
       {renderNav(onNavigate)}
       <Separator className="bg-border" />
-      <div className="p-4">
+      <div className="p-4 space-y-2">
+        <div className="flex items-center justify-between gap-2 px-1">
+          <span className="text-xs text-muted-foreground">{t('settings_language')}</span>
+          <LocaleFlagSwitcher align="end" />
+        </div>
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
@@ -318,6 +323,7 @@ export function PortalSidebar({ artists, featureFlags }: PortalSidebarProps) {
       <header className="portal-main-header sticky top-0 z-50 flex h-14 items-center justify-between border-b border-border bg-card px-4 md:hidden">
         <div className="font-bold tracking-widest text-primary">{labelShortName}</div>
         <div className="flex items-center gap-2">
+          <LocaleFlagSwitcher align="end" />
           <PortalNotificationBell artistId={activeArtist?.id ?? null} />
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
@@ -338,9 +344,12 @@ export function PortalSidebar({ artists, featureFlags }: PortalSidebarProps) {
       </header>
 
       <aside className="portal-sidebar hidden h-full min-h-0 w-64 shrink-0 flex-col border-r border-border bg-card md:flex">
-        <div className="flex items-center justify-between p-6">
+        <div className="flex items-center justify-between gap-2 p-6">
           <span className="font-bold text-lg tracking-widest text-primary">{labelShortName}</span>
-          <PortalNotificationBell artistId={activeArtist?.id ?? null} />
+          <div className="flex items-center gap-1 shrink-0">
+            <LocaleFlagSwitcher align="end" />
+            <PortalNotificationBell artistId={activeArtist?.id ?? null} />
+          </div>
         </div>
         <Separator className="bg-border" />
         <PortalNavShell />

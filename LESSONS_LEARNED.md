@@ -23,6 +23,9 @@ Distilled anti-patterns from project history. **Append session findings before o
 | `createServerSupabaseClient()` in `unstable_cache` | Cookie-free anon client only (see `AGENTS.md`) |
 | Async routes without `loading.tsx` | Skeleton must match loaded layout (zero CLS) |
 | Missing `metadata` / `generateMetadata` | Never `<title>` in JSX |
+| Logo via `getOptimizedImageUrl(..., 200)` in chrome | Use `getOptimizedLogoUrl` + source ≥2–3× display size; small PNGs stay soft on Retina |
+| Permanent PWA dismiss with no re-entry | Store dismiss, but always expose `requestPwaInstallPrompt()` from Footer/Settings |
+| Legal page body only in one language | Labels/boilerplate via `next-intl`; CMS fields stay bilingual when needed |
 
 ## CI & TypeScript
 
