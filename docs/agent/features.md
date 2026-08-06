@@ -57,12 +57,25 @@
 | API | `GET/PUT /api/portal/integrations/bandsintown?artistId=`; `POST …/sync` — membership write; key never returned in full (`hasApiKey` only) |
 | Sync | One-off concert upsert via `fetchBandsintownArtistEvents` (same as admin sync) |
 
+### Portal notification bell
+
+| Topic | Rule |
+|-------|------|
+| Badge total | messages + interviews + statements + platform alerts (`getPortalBadgeCounts`) |
+| Message unread | **Per-user** `message_receipts` when `userId` known — not only legacy `label_messages.read` / `portal_messages.read_at` |
+| Mark one | `markPortalNotificationItemRead` → legacy flag + receipt |
+| Mark all | `markAllPortalMessagesRead(db, artistId, userId)` must write **receipts** for label+portal ids (otherwise badge stays high after “seen”) |
+| Feed | `getPortalNotificationFeed(..., userId)` — same receipt rules as badges |
+| Non-dismissible | Pending interviews + `artist_notified` statements stay in feed/badge until workflow advances (not clearable via mark-all) |
+| Platform alerts | Unified `notifications` table (`read` flag); artist-scoped by `artist_id` + RLS |
+| Admin bell | Separate: `DashboardNotificationBell` + `editor`/`notifications` APIs with realtime |
+
 ### Messaging (M0 hardening)
 
 | Topic | Rule |
 |-------|------|
 | List limits | DAL uses `MessageListOptions` + caps in `src/lib/messaging/constants.ts` (default 50, max 100) |
-| Per-user read | `message_receipts` via `upsertMessageReceipt`; pass `userId` into mark-read / badge counts |
+| Per-user read | `message_receipts` via `upsertMessageReceipt` / `upsertMessageReceipts`; pass `userId` into mark-read / badge counts / bell feed |
 | Rules | `applyMessageRulesOnInsert` / `applyPortalMessageRulesOnInsert` after send (server-side) |
 | Attachments | `assertMessageAttachmentAllowed` + `isAllowedAttachmentUrl` before metadata insert |
 | Domain send | Prefer `src/lib/messaging/send.ts` (`sendLabelMessage`, `sendPortalDomainMessage`) — sets `sender_user_id` + optional `client_message_id` |

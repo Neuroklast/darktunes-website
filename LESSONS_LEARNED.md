@@ -81,6 +81,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Client pages that only read `?artistId=` with no server fallback | RSC `resolvePortalArtist` + always append resolved id in nav (`activeArtistId ?? activeArtist.id`) |
 | One mega-dashboard mixing unrelated data sources | Separate nav items when sources differ (e.g. Spotify public vs SOS statements) |
 | Returning stored secrets to portal clients | Mask secrets (`hasApiKey`); empty input keeps existing key |
+| Bell mark-all only flips legacy `read` flags | Badge counts use `message_receipts` when `userId` is set — always write receipts on mark-read / mark-all |
 
 ## State & UI
 

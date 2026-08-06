@@ -4,6 +4,10 @@ import { markMessageRead } from '@/lib/api/labelMessages'
 import { markPortalMessageRead } from '@/lib/api/portalMessages'
 import { markNotificationRead } from '@/lib/api/notifications'
 import { getNotificationHref } from '@/lib/notifications'
+import {
+  listReadMessageIds,
+  upsertMessageReceipts,
+} from '@/lib/messaging/receipts'
 
 type DbClient = SupabaseClient<Database>
 
@@ -30,10 +34,16 @@ function buildPortalHref(path: string, artistId: string): string {
   return `${path}?artistId=${artistId}`
 }
 
+/**
+ * Aggregated bell feed. When `userId` is set, message unread state follows
+ * per-user `message_receipts` (same as badge counts). Without userId, falls
+ * back to legacy message-level `read` / `read_at`.
+ */
 export async function getPortalNotificationFeed(
   db: DbClient,
   artistId: string,
   limit = 20,
+  userId?: string | null,
 ): Promise<PortalNotificationItem[]> {
   const [labelResult, portalResult, interviewResult, statementResult, platformResult] =
     await Promise.all([
@@ -80,27 +90,49 @@ export async function getPortalNotificationFeed(
   if (statementResult.error) throw new Error(statementResult.error.message)
   if (platformResult.error) throw new Error(platformResult.error.message)
 
+  const labelRows = labelResult.data ?? []
+  const portalRows = portalResult.data ?? []
+
+  const labelReadIds = userId
+    ? await listReadMessageIds(db, {
+        source: 'label',
+        userId,
+        messageIds: labelRows.map((r) => r.id),
+      })
+    : null
+  const portalReadIds = userId
+    ? await listReadMessageIds(db, {
+        source: 'portal',
+        userId,
+        messageIds: portalRows.map((r) => r.id),
+      })
+    : null
+
   const messagesHref = buildPortalHref('/portal/messages', artistId)
   const interviewsHref = buildPortalHref('/portal/interviews', artistId)
   const statementsHref = buildPortalHref('/portal/statements', artistId)
 
   const items: PortalNotificationItem[] = [
-    ...(labelResult.data ?? []).map((row) => ({
+    ...labelRows.map((row) => ({
       id: row.id,
       kind: 'label_message' as const,
       title: row.subject,
       href: messagesHref,
       createdAt: row.sent_at,
-      isUnread: !row.read,
+      isUnread: labelReadIds
+        ? !labelReadIds.has(row.id)
+        : !row.read,
       canMarkRead: true,
     })),
-    ...(portalResult.data ?? []).map((row) => ({
+    ...portalRows.map((row) => ({
       id: row.id,
       kind: 'portal_message' as const,
       title: row.subject,
       href: messagesHref,
       createdAt: row.sent_at,
-      isUnread: row.read_at === null,
+      isUnread: portalReadIds
+        ? !portalReadIds.has(row.id)
+        : row.read_at === null,
       canMarkRead: true,
     })),
     ...(interviewResult.data ?? []).map((row) => ({
@@ -109,6 +141,7 @@ export async function getPortalNotificationFeed(
       title: row.subject,
       href: interviewsHref,
       createdAt: row.created_at,
+      // Action-required items — not dismissible from the bell
       isUnread: true,
       canMarkRead: false,
     })),
@@ -145,32 +178,74 @@ export async function getPortalNotificationFeed(
     .slice(0, limit)
 }
 
-export async function markAllPortalMessagesRead(db: DbClient, artistId: string): Promise<void> {
+/**
+ * Mark all dismissible bell items read for this artist.
+ * Writes legacy message flags AND per-user receipts (required for badge counts).
+ */
+export async function markAllPortalMessagesRead(
+  db: DbClient,
+  artistId: string,
+  userId?: string | null,
+): Promise<void> {
   const now = new Date().toISOString()
 
-  const [labelResult, portalResult, platformResult] = await Promise.all([
-    db
-      .from('label_messages')
-      .update({ read: true, read_at: now })
-      .eq('artist_id', artistId)
-      .eq('read', false)
-      .is('deleted_at', null),
-    db
-      .from('portal_messages')
-      .update({ read_at: now })
-      .eq('to_artist_id', artistId)
-      .is('read_at', null)
-      .is('deleted_at', null),
-    db
-      .from('notifications')
-      .update({ read: true })
-      .eq('artist_id', artistId)
-      .eq('read', false),
-  ])
+  const [labelIdsResult, portalIdsResult, labelResult, portalResult, platformResult] =
+    await Promise.all([
+      db
+        .from('label_messages')
+        .select('id')
+        .eq('artist_id', artistId)
+        .is('deleted_at', null)
+        .order('sent_at', { ascending: false })
+        .limit(200),
+      db
+        .from('portal_messages')
+        .select('id')
+        .eq('to_artist_id', artistId)
+        .is('deleted_at', null)
+        .order('sent_at', { ascending: false })
+        .limit(200),
+      db
+        .from('label_messages')
+        .update({ read: true, read_at: now })
+        .eq('artist_id', artistId)
+        .eq('read', false)
+        .is('deleted_at', null),
+      db
+        .from('portal_messages')
+        .update({ read_at: now })
+        .eq('to_artist_id', artistId)
+        .is('read_at', null)
+        .is('deleted_at', null),
+      db
+        .from('notifications')
+        .update({ read: true })
+        .eq('artist_id', artistId)
+        .eq('read', false),
+    ])
 
+  if (labelIdsResult.error) throw new Error(labelIdsResult.error.message)
+  if (portalIdsResult.error) throw new Error(portalIdsResult.error.message)
   if (labelResult.error) throw new Error(labelResult.error.message)
   if (portalResult.error) throw new Error(portalResult.error.message)
   if (platformResult.error) throw new Error(platformResult.error.message)
+
+  if (userId) {
+    const labelIds = (labelIdsResult.data ?? []).map((r) => r.id)
+    const portalIds = (portalIdsResult.data ?? []).map((r) => r.id)
+    await Promise.all([
+      upsertMessageReceipts(db, {
+        source: 'label',
+        messageIds: labelIds,
+        userId,
+      }),
+      upsertMessageReceipts(db, {
+        source: 'portal',
+        messageIds: portalIds,
+        userId,
+      }),
+    ])
+  }
 }
 
 export async function markPortalNotificationItemRead(

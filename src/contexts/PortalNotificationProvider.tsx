@@ -68,6 +68,18 @@ export function PortalNotificationProvider({
     })
   }
 
+  // Re-sync when layout re-resolves artist or server badge snapshot fields
+  useEffect(() => {
+    setBadges(initialBadges)
+    // Primitive deps avoid infinite loops from new object identity each RSC pass
+  }, [
+    artistId,
+    initialBadges.messages,
+    initialBadges.interviews,
+    initialBadges.statements,
+    initialBadges.alerts,
+  ])
+
   useEffect(() => {
     if (!artistId) return
 
@@ -84,6 +96,9 @@ export function PortalNotificationProvider({
           })
       })
     }
+
+    // Ensure client badges match receipt-aware counts after hydration
+    refreshBadges()
 
     const channel = supabase
       .channel(`portal-notifications-${artistId}`)

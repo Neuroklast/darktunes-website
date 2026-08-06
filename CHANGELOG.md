@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ISR + loading skeletons + metadata** for previously cold public/admin routes.
 
 ### Fixed
+- **Portal notification bell read state:** “Mark all” / open-as-read now writes per-user `message_receipts` (same source as badge counts). Feed + badges stay aligned after refresh.
 - **Portal feedback “Select an artist”:** Feedback always uses the active portal artist (server resolve + nav always passes `artistId`). Multi-artist: submits for the band currently selected in the switcher.
 - **Waterfall top tracks:** Public Spotify top tracks / album plays dedupe by normalized name (max plays).
 - **Apify Force Sync:** System Health Force Sync hits Spotify plays route, not listener sync.

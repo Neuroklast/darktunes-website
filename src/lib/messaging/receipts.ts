@@ -27,6 +27,30 @@ export async function upsertMessageReceipt(
   if (error) throw new Error(error.message)
 }
 
+/** Bulk-mark messages as read for one user (badge counts use receipts, not only legacy flags). */
+export async function upsertMessageReceipts(
+  db: DbClient,
+  opts: { source: MessageReceiptSource; messageIds: string[]; userId: string },
+): Promise<void> {
+  if (opts.messageIds.length === 0) return
+  const readAt = new Date().toISOString()
+  const rows = opts.messageIds.map((messageId) => ({
+    message_source: opts.source,
+    message_id: messageId,
+    user_id: opts.userId,
+    read_at: readAt,
+  }))
+  // Chunk to stay under PostgREST payload limits
+  const CHUNK = 100
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const slice = rows.slice(i, i + CHUNK)
+    const { error } = await db
+      .from('message_receipts')
+      .upsert(slice, { onConflict: 'message_source,message_id,user_id' })
+    if (error) throw new Error(error.message)
+  }
+}
+
 export async function listReadMessageIds(
   db: DbClient,
   opts: { source: MessageReceiptSource; userId: string; messageIds: string[] },
