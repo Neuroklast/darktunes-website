@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dependabot batch (#518–#522):** `@radix-ui/react-avatar` 1.2.6, `@radix-ui/react-context-menu` 2.3.7, `@hookform/resolvers` 5.5.7, `typescript-eslint` 8.65.0, `@vitejs/plugin-react` 6.0.4.
+
 ### Fixed
 - **Health “Never” / buried last-runs:** Full health snapshot loads latest `sync_logs` per API (`limit(1)` per source) instead of a global recent-N window, so a chatty source no longer hides other APIs.
 - **Cron heartbeats reliability:** `sync_execute` awaits heartbeats (incl. mid-drain + finally); YouTube path records `sync_youtube` at start; concurrent heartbeat upserts retry once.
