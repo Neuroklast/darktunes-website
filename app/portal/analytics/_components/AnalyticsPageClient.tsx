@@ -9,12 +9,6 @@ import { getAggregatedStreamsByPlatform } from '@/lib/api/streamingStats'
 import type { ArtistTerritoryMetric } from '@/lib/api/artistTerritoryMetrics'
 import { aggregateMetricsByCountry } from '@/lib/api/artistTerritoryMetrics'
 import type { EventImpact } from '@/lib/api/eventImpact'
-import type { ArtistListenerMetric } from '@/lib/api/artistListenerMetrics'
-import type { SpotifyTrackPlaySnapshot } from '@/lib/api/spotifyTrackPlaySnapshots'
-import {
-  buildPublicSpotifyPresenceModel,
-  filterTrackPlaySnapshots,
-} from '@/lib/analytics/publicSpotifyPresence'
 import type { ArtistBillingProfile } from '@/lib/api/artistBillingProfiles'
 import type { SalesStatement } from '@/lib/api/salesStatements'
 import type { ArtistLineItemWithContext } from '@/lib/api/salesStatementLineItems'
@@ -34,7 +28,6 @@ import {
   collectAvailableCountries,
   filterStreamingStats,
   filterTerritoryMetrics,
-  filterListenerMetrics,
   filterEventImpacts,
   filterLineItemsByPeriod,
   resolvePeriodPreset,
@@ -53,8 +46,8 @@ import {
 } from '@/lib/analytics/analyticsReportPdf'
 import {
   saveViewPreferences,
-  visibleTabIds,
-  PORTAL_ANALYTICS_VIEW_STORAGE_KEY,
+  visibleSosTabIds,
+  PORTAL_SOS_ANALYTICS_VIEW_STORAGE_KEY,
 } from '@/lib/analytics/viewPreferences'
 import { AnalyticsFilters } from './AnalyticsFilters'
 import { AnalyticsKpiGrid } from './AnalyticsKpiGrid'
@@ -66,7 +59,6 @@ import { EarningsChart } from './EarningsChart'
 import { EarningsStatementsPanel } from './EarningsStatementsPanel'
 import { TerritoriesChart } from './TerritoriesChart'
 import { EventImpactChart } from './EventImpactChart'
-import { SpotifyPresencePanel } from './SpotifyPresencePanel'
 import { ReleasePerformanceChart } from './ReleasePerformanceChart'
 import { RevenueMixChart } from './RevenueMixChart'
 import { EpkPressTab } from './EpkPressTab'
@@ -86,9 +78,6 @@ interface AnalyticsPageClientProps {
   statements: SalesStatement[]
   territoryMetrics: ArtistTerritoryMetric[]
   eventImpacts: EventImpact[]
-  listenerMetrics: ArtistListenerMetric[]
-  trackSnapshots: SpotifyTrackPlaySnapshot[]
-  releaseTitles: Record<string, string>
   concerts: Concert[]
   lineItems: ArtistLineItemWithContext[]
   epkStats: EpkDownloadStats
@@ -112,9 +101,6 @@ export function AnalyticsPageClient({
   statements,
   territoryMetrics,
   eventImpacts,
-  listenerMetrics,
-  trackSnapshots,
-  releaseTitles,
   concerts,
   lineItems,
   epkStats,
@@ -130,24 +116,14 @@ export function AnalyticsPageClient({
 
   const [filters, setFilters] = useState<AnalyticsFilterState>(EMPTY_ANALYTICS_FILTER)
   const [searchQuery, setSearchQuery] = useState('')
-  const [preferences, setPreferences] = usePortalAnalyticsPreferences()
+  const [preferences, setPreferences] = usePortalAnalyticsPreferences(
+    PORTAL_SOS_ANALYTICS_VIEW_STORAGE_KEY,
+  )
   const [pdfExporting, setPdfExporting] = useState(false)
 
-  const listenerPeriods = useMemo(
-    () => listenerMetrics.map((m) => m.period),
-    [listenerMetrics],
-  )
-  const snapshotPeriods = useMemo(
-    () => trackSnapshots.map((s) => s.period),
-    [trackSnapshots],
-  )
-
   const periods = useMemo(
-    () => collectAvailablePeriods(stats, territoryMetrics, [
-      ...listenerPeriods,
-      ...snapshotPeriods,
-    ]),
-    [stats, territoryMetrics, listenerPeriods, snapshotPeriods],
+    () => collectAvailablePeriods(stats, territoryMetrics, []),
+    [stats, territoryMetrics],
   )
   const platforms = useMemo(
     () => collectAvailablePlatforms(stats, territoryMetrics),
@@ -174,19 +150,6 @@ export function AnalyticsPageClient({
     )
   }, [territoryMetrics, filters, searchQuery])
 
-  const filteredListeners = useMemo(() => {
-    const byFilter = filterListenerMetrics(listenerMetrics, filters)
-    if (!searchQuery.trim()) return byFilter
-    return byFilter.filter((m) =>
-      matchesQuickSearch(searchQuery, m.period, m.source, m.metricType, m.value, m.country),
-    )
-  }, [listenerMetrics, filters, searchQuery])
-
-  const filteredTrackSnapshots = useMemo(
-    () => filterTrackPlaySnapshots(trackSnapshots, filters.periodFrom, filters.periodTo),
-    [trackSnapshots, filters.periodFrom, filters.periodTo],
-  )
-
   const aggregates = useMemo(
     () => getAggregatedStreamsByPlatform(filteredStats),
     [filteredStats],
@@ -200,11 +163,18 @@ export function AnalyticsPageClient({
     () => computeAnalyticsKpis({
       stats: filteredStats,
       territoryMetrics: filteredTerritory,
-      listenerMetrics: filteredListeners,
+      listenerMetrics: [],
       statements,
     }),
-    [filteredStats, filteredTerritory, filteredListeners, statements],
+    [filteredStats, filteredTerritory, statements],
   )
+
+  // Unfiltered: empty state is about source data, not active period filters
+  const hasSosData =
+    stats.length > 0 ||
+    territoryMetrics.length > 0 ||
+    statements.length > 0 ||
+    lineItems.length > 0
 
   const filteredLineItems = useMemo(
     () => filterLineItemsByPeriod(lineItems, filters),
@@ -226,35 +196,22 @@ export function AnalyticsPageClient({
     [filteredTerritory],
   )
 
-  const publicPresence = useMemo(
-    () =>
-      buildPublicSpotifyPresenceModel({
-        listenerMetrics: filteredListeners,
-        trackSnapshots: filteredTrackSnapshots,
-        releaseTitles,
-        sosStats: filteredStats,
-      }),
-    [filteredListeners, filteredTrackSnapshots, releaseTitles, filteredStats],
-  )
-
   const insights = useMemo(
-    () => [
-      ...computeAnalyticsInsights({
+    () =>
+      computeAnalyticsInsights({
         stats: filteredStats,
         territoryMetrics: filteredTerritory,
-        listenerMetrics: filteredListeners,
+        listenerMetrics: [],
         eventImpacts: filteredEventImpacts,
         promoImpacts,
         releaseRows,
         epkStats,
         pressStats,
       }),
-      ...publicPresence.insights,
-    ],
-    [filteredStats, filteredTerritory, filteredListeners, filteredEventImpacts, promoImpacts, releaseRows, epkStats, pressStats, publicPresence.insights],
+    [filteredStats, filteredTerritory, filteredEventImpacts, promoImpacts, releaseRows, epkStats, pressStats],
   )
 
-  const visibleTabs = useMemo(() => visibleTabIds(preferences.tabs), [preferences.tabs])
+  const visibleTabs = useMemo(() => visibleSosTabIds(preferences.tabs), [preferences.tabs])
   const activeDefaultTab = visibleTabs.includes(defaultTab as typeof visibleTabs[number])
     ? defaultTab
     : visibleTabs[0] ?? 'streaming'
@@ -276,7 +233,7 @@ export function AnalyticsPageClient({
       charts: { ...preferences.charts, periodPreset: preset },
     }
     setPreferences(next)
-    saveViewPreferences(PORTAL_ANALYTICS_VIEW_STORAGE_KEY, next)
+    saveViewPreferences(PORTAL_SOS_ANALYTICS_VIEW_STORAGE_KEY, next)
     if (preset !== 'custom') {
       setFilters((f) => ({ ...f, ...resolvePeriodPreset(periods, preset) }))
     }
@@ -286,27 +243,46 @@ export function AnalyticsPageClient({
     const csv = buildPortalAnalyticsCsv({
       stats: filteredStats,
       territoryMetrics: filteredTerritory,
-      listenerMetrics: filteredListeners,
+      listenerMetrics: [],
       statements,
     })
     const stamp = new Date().toISOString().slice(0, 10)
-    triggerCsvDownload(csv, `analytics-export-${stamp}.csv`)
+    triggerCsvDownload(csv, `sos-analytics-export-${stamp}.csv`)
     toast.success(t('analytics_export_success'))
   }
 
   const handleExportPdf = async () => {
     setPdfExporting(true)
     try {
+      const emptyPresence = {
+        kpis: {
+          latestListeners: null,
+          latestFollowers: null,
+          latestPublicTrackPlays: null,
+          listenersMomPct: null,
+          followersMomPct: null,
+          trackCountLatest: 0,
+          releaseCountLatest: 0,
+          latestPeriod: null,
+          latestScrapedAt: null,
+          hasAnyData: false,
+        },
+        trend: [],
+        topTracks: [],
+        byRelease: [],
+        insights: [],
+        secondaryListeners: { lastfm: [], soundcharts: [] },
+      }
       const blob = await buildAnalyticsReportPdf({
         artistName: artistName || 'Artist',
         periodLabel,
         generatedAt: new Date(),
         kpis,
-        presence: publicPresence,
+        presence: emptyPresence,
         platformAggregates: aggregates,
         labels: {
-          title: t('analytics_pdf_title'),
-          subtitle: t('analytics_pdf_subtitle'),
+          title: t('sos_analytics_pdf_title'),
+          subtitle: t('sos_analytics_pdf_subtitle'),
           period: t('analytics_pdf_period'),
           generated: t('analytics_pdf_generated'),
           kpiStreams: t('analytics_totalStreams'),
@@ -328,7 +304,7 @@ export function AnalyticsPageClient({
         },
       })
       const stamp = new Date().toISOString().slice(0, 10)
-      triggerPdfDownload(blob, `analytics-report-${stamp}.pdf`)
+      triggerPdfDownload(blob, `sos-analytics-${stamp}.pdf`)
       toast.success(t('analytics_export_pdf_success'))
     } catch {
       toast.error(t('analytics_export_pdf_error'))
@@ -340,8 +316,8 @@ export function AnalyticsPageClient({
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl sm:text-3xl font-bold">{t('analytics_dashboard_heading')}</h1>
-        <p className="text-sm text-muted-foreground">{t('analytics_dashboard_subheading')}</p>
+        <h1 className="text-2xl sm:text-3xl font-bold">{t('sos_analytics_heading')}</h1>
+        <p className="text-sm text-muted-foreground">{t('sos_analytics_subheading')}</p>
       </div>
 
       <AnalyticsHubAssistant />
@@ -354,11 +330,21 @@ export function AnalyticsPageClient({
         onExportCsv={handleExportCsv}
         onExportPdf={() => void handleExportPdf()}
         pdfExporting={pdfExporting}
+        storageKey={PORTAL_SOS_ANALYTICS_VIEW_STORAGE_KEY}
+        hub="sos"
+        helpHref="/portal/help#sos-analytics"
       />
 
-      <AnalyticsKpiGrid kpis={kpis} />
+      {!hasSosData ? (
+        <div className="rounded-lg border border-border bg-card/60 p-6 space-y-2">
+          <p className="font-medium">{t('sos_analytics_empty_title')}</p>
+          <p className="text-sm text-muted-foreground">{t('sos_analytics_empty_body')}</p>
+        </div>
+      ) : (
+        <AnalyticsKpiGrid kpis={kpis} />
+      )}
 
-      <AnalyticsInsightsPanel insights={insights} />
+      {insights.length > 0 && <AnalyticsInsightsPanel insights={insights} />}
 
       {showFilters && (
         <AnalyticsFilters
@@ -376,9 +362,6 @@ export function AnalyticsPageClient({
         <TabsList className="bg-card border border-border flex-wrap h-auto w-full justify-start gap-1 p-1">
           {visibleTabs.includes('streaming') && (
             <TabsTrigger value="streaming">{t('analytics_tab_streaming')}</TabsTrigger>
-          )}
-          {visibleTabs.includes('listeners') && (
-            <TabsTrigger value="listeners">{t('analytics_tab_listeners')}</TabsTrigger>
           )}
           {visibleTabs.includes('territories') && (
             <TabsTrigger value="territories">{t('analytics_tab_territories')}</TabsTrigger>
@@ -415,19 +398,6 @@ export function AnalyticsPageClient({
               stats={filteredStats}
               aggregates={aggregates}
               concerts={concerts}
-            />
-          </TabsContent>
-        )}
-
-        {visibleTabs.includes('listeners') && (
-          <TabsContent value="listeners" className="mt-0 space-y-6">
-            <SpotifyPresencePanel
-              metrics={filteredListeners}
-              trackSnapshots={filteredTrackSnapshots}
-              releaseTitles={releaseTitles}
-              sosStats={filteredStats}
-              chartMode={preferences.charts.presenceMode}
-              seriesVisibility={preferences.charts.presenceSeries}
             />
           </TabsContent>
         )}

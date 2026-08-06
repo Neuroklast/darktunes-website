@@ -20,12 +20,22 @@
 - [ ] Run vulnerability scan (`npm audit --production --audit-level=high`)
 
 ## Portal product feedback
-- [ ] `/portal/feedback?artistId=` loads form + empty/history list; nav Account → Feedback
+- [ ] `/portal/feedback` loads form without requiring a manual artist pick; shows “Sending as {artist}”
+- [ ] Single-artist account: submit works even if URL has no `artistId` (server resolve)
+- [ ] Multi-artist: switcher changes active band; feedback submits for currently selected artist
 - [ ] Submit requires category + message ≥20 chars; optional rating/subject; success toast + history refresh
 - [ ] History expands message; status badges Received / Reviewed / Archived
 - [ ] Admin `/admin/feedback` lists new by default; filters + search work; open row → mark reviewed / archive / reopen
 - [ ] Unauthenticated `POST /api/portal/feedback` rejected; non-member artistId → 403
 - [ ] Apply `portal_feedback` from `supabase/reset.sql` on live DB
+
+## Portal analytics split + Bandsintown
+- [ ] Sidebar Dashboard shows **Spotify Trends** and **SOS Analytics** (flag `artist.analytics`)
+- [ ] `/portal/spotify-trends` shows empty state when no presence data (not a wall of zeros)
+- [ ] `/portal/sos-analytics` shows empty state when no SOS statements; tabs exclude Spotify presence
+- [ ] `/portal/analytics` redirects to SOS Analytics; `?tab=listeners` → Spotify Trends
+- [ ] Profile → Integrations: save Bandsintown ID + API key; key masked after save (`hasApiKey`)
+- [ ] Sync concerts from Integrations updates tour list when credentials valid
 
 ## Portal release submission
 - [ ] `/portal/releases/new` stepped wizard; `?step=` updates; progress + Back/Continue work
@@ -156,7 +166,7 @@
 - [ ] Profile edit saves bio, photo uploads to R2
 - [ ] Feature-flagged modules hidden when flag is disabled
 - [ ] `/portal/calendar` blocked when `artist.calendar` is disabled (direct URL shows disabled message)
-- [ ] `/portal/analytics` tabs load (streaming, website, merch) when `artist.analytics` is enabled
+- [ ] `/portal/sos-analytics` tabs load (streaming, website, merch) when `artist.analytics` is enabled
 - [ ] Admin → API Keys can store Apify token; Accounting dry-run lists only **visible** artists/releases with Spotify links; live sync respects 1200 URL/month budget and shows clear errors if token missing/budget exhausted
 - [ ] Portal Listeners tab shows Spotify (public) series after Apify sync (disclaimer: not settlement data)
 - [ ] Overview intelligence panel shows insights with working deep links

@@ -98,10 +98,12 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
     settlement: settlementSummary,
     promoImpacts,
     analyticsEnabled,
+    artistId: artist?.id ?? null,
   })
 
   return (
     <PortalOverview
+      artistId={artist?.id ?? null}
       artistName={artist?.name ?? null}
       profileImageUrl={artist?.imageUrl ?? null}
       totalStreams={totalStreams}

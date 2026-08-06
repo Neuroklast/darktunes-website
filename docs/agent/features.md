@@ -21,7 +21,7 @@
 
 **Legal (multi-tenant):** Public `/impressum`, `/datenschutz`, `/agb`. CMS keys `agb_content` / `agb_content_en`, `portal_terms_version`, label billing address fields. Templates support `{{labelName}}`, `{{address}}`, `{{vatId}}`, … via `renderLegalTemplate`. Portal AGB opt-in per **artist** (`portal_terms_*` on `artists`); onboarding terms step + layout gate when version mismatches.
 
-**Key routes:** profile, analytics (11 tabs + intelligence + dual-axis Spotify presence, period presets, CSV/PDF export), statements, billing, invoices, releases, tour (events), **tour-planner** (TRACK production), calendar, marketing, documents, messages, interviews, epk-builder, onboarding, help, **feedback**.
+**Key routes:** profile (incl. **Integrations** / Bandsintown credentials), **spotify-trends**, **sos-analytics** (legacy `/portal/analytics` redirects), statements, billing, invoices, releases, tour (events), **tour-planner** (TRACK production), calendar, marketing, documents, messages, interviews, epk-builder, onboarding, help, **feedback**.
 
 ### Portal product feedback (`/portal/feedback`)
 
@@ -29,21 +29,33 @@
 |-------|------|
 | Purpose | Product feedback about portal/site — **not** Zammad tech support (`/admin/support`) |
 | Form | Category (`bug` \| `feature` \| `ux` \| `general` \| `praise`), optional 1–5 rating, optional subject, required message (≥20 chars) |
+| Artist | Always the **active portal artist** (RSC `resolvePortalArtist` + `?artistId=`); multi-artist switcher changes sender. No separate “select artist” dropdown. Nav always appends resolved `artistId`. |
 | History | Artist sees own submissions with status (`new` / `reviewed` / `archived`) |
 | API | `GET/POST /api/portal/feedback?artistId=` — membership + `portalMemberWrite`; rate limit 10/h |
 | Table | `portal_feedback` — RLS: artist insert/read own; editor+ read/update status |
 | Admin | `/admin/feedback` list + status actions; nav badge for `status = new`; DAL `src/lib/api/portalFeedback.ts` |
 
-### Portal analytics hub (`/portal/analytics`)
+### Portal analytics (split dashboards)
 
 | Topic | Rule |
 |-------|------|
-| Sources | SOS **statement streams** vs public **Spotify presence** never mixed into one total |
-| Disclaimer | Presence tab: high-visibility non-binding / liability notice (`PublicMetricsDisclaimer`) — public/third-party figures approximate & unreconciled; statements + settlement only for payouts. PDF includes same disclaimer. Never name scrape vendors in UI. |
+| Nav | Two dashboard items under `artist.analytics`: **Spotify Trends** (`/portal/spotify-trends`) and **SOS Analytics** (`/portal/sos-analytics`). Legacy `/portal/analytics` redirects (listeners tab → Spotify Trends). |
+| Sources | SOS **statement streams** vs public **Spotify presence** never mixed into one total or one menu |
+| Spotify Trends | Presence only (listeners, followers, track plays, dual-axis trends, disclaimer). Empty state when no presence data — avoid zero KPI grids. |
+| SOS Analytics | Statement streams, territories, earnings, releases, revenue-mix, settlement, events, press, engagement, merch. Empty state when no statement data. |
+| Disclaimer | Spotify page: high-visibility non-binding / liability notice (`PublicMetricsDisclaimer`) — public/third-party figures approximate & unreconciled; statements + settlement only for payouts. PDF includes same disclaimer. Never name scrape vendors in UI. |
 | Waterfall | Top tracks / album play totals dedupe by normalized track name (`publicSpotifyPresence.ts`) — max plays, no double-count |
-| Trends | Dual Y-axis (audience left, plays right) or index-100 mode; series toggles in Customize |
-| Prefs | `viewPreferences.ts` localStorage: tabs + chart mode + series + period preset |
-| Export | CSV (`reportExport.ts`) + PDF summary (`analyticsReportPdf.ts`, jsPDF) |
+| Prefs | Separate localStorage keys: `portal-spotify-trends-view-v1`, `portal-sos-analytics-view-v1` |
+| Export | SOS: CSV + PDF; Spotify Trends: PDF presence summary |
+
+### Portal Bandsintown credentials
+
+| Topic | Rule |
+|-------|------|
+| UI | Profile → **Integrations** tab — per active artist (multi-project switcher) |
+| Fields | `bandsintown_id` + `bandsintown_api_key` on `artists` (same as admin ArtistForm) |
+| API | `GET/PUT /api/portal/integrations/bandsintown?artistId=`; `POST …/sync` — membership write; key never returned in full (`hasApiKey` only) |
+| Sync | One-off concert upsert via `fetchBandsintownArtistEvents` (same as admin sync) |
 
 ### Messaging (M0 hardening)
 

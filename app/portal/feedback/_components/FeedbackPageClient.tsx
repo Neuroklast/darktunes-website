@@ -6,7 +6,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { CaretDown, CaretUp, Star } from '@phosphor-icons/react'
 import { toast } from 'sonner'
@@ -67,11 +66,21 @@ function formatDate(iso: string, locale: string): string {
   })
 }
 
-export function FeedbackPageClient() {
+interface FeedbackPageClientProps {
+  /** Resolved server-side from ?artistId= or first membership */
+  artistId: string | null
+  artistName: string | null
+}
+
+export function FeedbackPageClient({
+  artistId: resolvedArtistId,
+  artistName: resolvedArtistName,
+}: FeedbackPageClientProps) {
   const t = useTranslations('portal')
   const locale = useLocale()
-  const searchParams = useSearchParams()
-  const artistId = searchParams.get('artistId') ?? ''
+  // RSC re-resolves on artist switch (router.refresh) — never mix URL id with stale name
+  const artistId = resolvedArtistId ?? ''
+  const artistName = resolvedArtistName
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
@@ -205,6 +214,11 @@ export function FeedbackPageClient() {
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t('feedback_title')}</h1>
         <p className="text-sm text-muted-foreground max-w-2xl">{t('feedback_description')}</p>
+        {artistId && artistName ? (
+          <p className="text-sm text-muted-foreground pt-1">
+            {t('feedback_sending_as', { name: artistName })}
+          </p>
+        ) : null}
       </header>
 
       <div className="grid gap-6 lg:grid-cols-5">
@@ -355,7 +369,7 @@ export function FeedbackPageClient() {
                   {submitting ? t('feedback_submitting') : t('feedback_submit')}
                 </Button>
                 {!artistId ? (
-                  <p className="text-sm text-muted-foreground">{t('feedback_missing_artist')}</p>
+                  <p className="text-sm text-muted-foreground">{t('feedback_no_membership')}</p>
                 ) : null}
               </div>
             </form>

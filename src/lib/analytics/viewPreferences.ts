@@ -1,7 +1,11 @@
 import {
   ANALYTICS_TAB_IDS,
   DEFAULT_VISIBLE_TABS,
+  DEFAULT_SOS_VISIBLE_TABS,
   PORTAL_ANALYTICS_VIEW_STORAGE_KEY,
+  PORTAL_SOS_ANALYTICS_VIEW_STORAGE_KEY,
+  PORTAL_SPOTIFY_TRENDS_VIEW_STORAGE_KEY,
+  SOS_ANALYTICS_TAB_IDS,
   type AnalyticsTabId,
 } from './constants'
 import {
@@ -28,6 +32,10 @@ export interface AnalyticsViewPreferences {
 
 export function getDefaultTabVisibility(): TabVisibility {
   return { ...DEFAULT_VISIBLE_TABS }
+}
+
+export function getDefaultSosTabVisibility(): TabVisibility {
+  return { ...DEFAULT_SOS_VISIBLE_TABS }
 }
 
 export function getDefaultPresenceSeriesVisibility(): PresenceSeriesVisibility {
@@ -147,4 +155,13 @@ export function visibleTabIds(visibility: TabVisibility): AnalyticsTabId[] {
   return ANALYTICS_TAB_IDS.filter((id) => visibility[id])
 }
 
-export { PORTAL_ANALYTICS_VIEW_STORAGE_KEY }
+/** SOS dashboard: only statement / business tabs (never Spotify presence). */
+export function visibleSosTabIds(visibility: TabVisibility): AnalyticsTabId[] {
+  return SOS_ANALYTICS_TAB_IDS.filter((id) => visibility[id])
+}
+
+export {
+  PORTAL_ANALYTICS_VIEW_STORAGE_KEY,
+  PORTAL_SOS_ANALYTICS_VIEW_STORAGE_KEY,
+  PORTAL_SPOTIFY_TRENDS_VIEW_STORAGE_KEY,
+}

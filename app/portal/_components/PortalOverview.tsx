@@ -7,7 +7,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from '@/components/ui/avatar'
-import { User, ChartBar, FileText, MusicNotes, MapPin, MapTrifold, MegaphoneSimple, ChatCircleText, ArrowRight, Globe } from '@phosphor-icons/react'
+import { User, ChartBar, ChartLine, FileText, MusicNotes, MapPin, MapTrifold, MegaphoneSimple, ChatCircleText, ArrowRight, Globe } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +18,7 @@ import { PortalIntelligencePanel } from './PortalIntelligencePanel'
 import { useUnreadMessages } from './PortalNotificationProvider'
 
 interface PortalOverviewProps {
+  artistId?: string | null
   artistName: string | null
   profileImageUrl: string | null
   totalStreams: number
@@ -34,7 +35,8 @@ interface PortalOverviewProps {
   artistSlug?: string | null
 }
 
-export function PortalOverview({ artistName,
+export function PortalOverview({ artistId,
+  artistName,
   profileImageUrl,
   totalStreams,
   releaseCount,
@@ -53,6 +55,12 @@ export function PortalOverview({ artistName,
 
   const isEnabled = (id: string) => featureFlags[id] ?? true
   const { unreadCount } = useUnreadMessages()
+  const portalHref = (path: string, extra?: Record<string, string>) => {
+    const qs = new URLSearchParams(extra)
+    if (artistId) qs.set('artistId', artistId)
+    const q = qs.toString()
+    return q ? `${path}?${q}` : path
+  }
   const initials = artistName
     ? artistName.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
     : '?'
@@ -86,7 +94,7 @@ export function PortalOverview({ artistName,
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">{t('fanPage_pages_heading')}</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Link href="/portal/profile">
+            <Link href={portalHref('/portal/profile')}>
               <Card className="border-border bg-card hover:border-primary/50 transition-colors cursor-pointer h-full">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">{t('profile')}</CardTitle>
@@ -97,7 +105,7 @@ export function PortalOverview({ artistName,
               </Card>
             </Link>
             {isEnabled('artist.epk_builder') && (
-              <Link href="/portal/epk-builder">
+              <Link href={portalHref('/portal/epk-builder')}>
                 <Card className="border-border bg-card hover:border-primary/50 transition-colors cursor-pointer h-full">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium">{t('epk_builder_nav')}</CardTitle>
@@ -109,7 +117,7 @@ export function PortalOverview({ artistName,
               </Link>
             )}
             {isEnabled('artist.fan_page') && (
-              <Link href="/portal/fan-page">
+              <Link href={portalHref('/portal/fan-page')}>
                 <Card className="border-border bg-card hover:border-primary/50 transition-colors cursor-pointer h-full">
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium">{t('fan_page_nav')}</CardTitle>
@@ -155,7 +163,7 @@ export function PortalOverview({ artistName,
             {missingFields.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {missingFields.slice(0, 3).map((field) => (
-                  <Link key={field.key} href="/portal/profile">
+                  <Link key={field.key} href={portalHref('/portal/profile')}>
                     <Badge
                       variant="outline"
                       className="text-xs cursor-pointer hover:border-primary/50 hover:text-primary transition-colors gap-1"
@@ -179,7 +187,7 @@ export function PortalOverview({ artistName,
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link href="/portal/profile">
+        <Link href={portalHref('/portal/profile')}>
           <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer glow-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -194,23 +202,50 @@ export function PortalOverview({ artistName,
           </Card>
         </Link>
 
-        <Link href="/portal/analytics">
-          <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer glow-card">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {t('analytics')}
-              </CardTitle>
-              <ChartBar size={18} className="text-primary" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{totalStreams.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground mt-1">{t('analytics_totalStreams')}</p>
-            </CardContent>
-          </Card>
-        </Link>
+        {isEnabled('artist.analytics') && (
+          <>
+            <Link href={portalHref('/portal/sos-analytics')}>
+              <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer glow-card">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {t('sos_analytics')}
+                  </CardTitle>
+                  <ChartBar size={18} className="text-primary" />
+                </CardHeader>
+                <CardContent>
+                  {totalStreams > 0 ? (
+                    <>
+                      <p className="text-2xl font-bold">{totalStreams.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t('analytics_totalStreams')}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-base font-semibold">{t('sos_analytics_empty_short')}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t('sos_analytics_card_hint')}</p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href={portalHref('/portal/spotify-trends')}>
+              <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer glow-card">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {t('spotify_trends')}
+                  </CardTitle>
+                  <ChartLine size={18} className="text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-base font-semibold">{t('spotify_trends_card_title')}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('spotify_trends_card_hint')}</p>
+                </CardContent>
+              </Card>
+            </Link>
+          </>
+        )}
 
         {isEnabled('artist.statements') && (
-          <Link href="/portal/statements">
+          <Link href={portalHref('/portal/statements')}>
             <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer glow-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -226,7 +261,7 @@ export function PortalOverview({ artistName,
           </Link>
         )}
 
-        <Link href="/portal/releases">
+        <Link href={portalHref('/portal/releases')}>
           <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer glow-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -245,7 +280,7 @@ export function PortalOverview({ artistName,
           </Card>
         </Link>
 
-        <Link href="/portal/events">
+        <Link href={portalHref('/portal/events')}>
           <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer glow-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -261,7 +296,12 @@ export function PortalOverview({ artistName,
         </Link>
 
         {isEnabled('artist.tour_planner') && (
-          <Link href={tourCount > 0 ? '/portal/tour-planner?mode=tour' : '/portal/tour-planner'}>
+          <Link
+            href={portalHref(
+              '/portal/tour-planner',
+              tourCount > 0 ? { mode: 'tour' } : undefined,
+            )}
+          >
             <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer glow-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -280,7 +320,7 @@ export function PortalOverview({ artistName,
         )}
 
         {isEnabled('artist.marketing') && (
-          <Link href="/portal/marketing">
+          <Link href={portalHref('/portal/marketing')}>
             <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer glow-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">{t('marketing')}</CardTitle>
@@ -294,7 +334,7 @@ export function PortalOverview({ artistName,
           </Link>
         )}
 
-        <Link href="/portal/messages">
+        <Link href={portalHref('/portal/messages')}>
           <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer glow-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{t('messages')}</CardTitle>

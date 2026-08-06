@@ -119,7 +119,16 @@ vi.mock('@phosphor-icons/react', () => ({
   Info: IconStub,
   FileText: IconStub,
   Trash: IconStub,
+  PlugsConnected: IconStub,
+  ArrowsClockwise: IconStub,
 }))
+
+vi.mock(
+  '../../../app/portal/profile/_components/BandsintownIntegrationsCard',
+  () => ({
+    BandsintownIntegrationsCard: () => <div data-testid="bandsintown-integrations" />,
+  }),
+)
 
 describe('EPK preview fallback coverage', () => {
   it('renders legacy EPK preview entry points in ProfileForm', () => {

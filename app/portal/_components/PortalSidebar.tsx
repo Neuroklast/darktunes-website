@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   CaretUpDown,
   ChartBar,
+  ChartLine,
   ChatCircleText,
   Chats,
   Eye,
@@ -74,7 +75,18 @@ const NAV_GROUPS: NavGroup[] = [
     groupKey: 'nav_group_dashboard',
     items: [
       { href: '/portal', label: 'overview', icon: ChartBar },
-      { href: '/portal/analytics', label: 'analytics', icon: ChartBar, flag: 'artist.analytics' },
+      {
+        href: '/portal/spotify-trends',
+        label: 'spotify_trends',
+        icon: ChartLine,
+        flag: 'artist.analytics',
+      },
+      {
+        href: '/portal/sos-analytics',
+        label: 'sos_analytics',
+        icon: ChartBar,
+        flag: 'artist.analytics',
+      },
     ],
   },
   {
@@ -149,9 +161,12 @@ export function PortalSidebar({ artists, featureFlags }: PortalSidebarProps) {
     [activeArtistId, artists],
   )
 
-  /** Append artistId to nav links so server components always get the correct artist */
-  const navHref = (base: string) =>
-    artists.length > 1 && activeArtistId ? `${base}?artistId=${activeArtistId}` : base
+  /** Always append resolved artistId so pages/APIs that require membership never miss context */
+  const navHref = (base: string) => {
+    const id = activeArtistId ?? activeArtist?.id
+    if (!id) return base
+    return `${base}?artistId=${id}`
+  }
 
   const navGroups = useMemo(
     () =>

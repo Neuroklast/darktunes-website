@@ -42,7 +42,7 @@ export function AnalyticsHubAssistant() {
           </p>
         </div>
         <Button variant="ghost" size="sm" className="h-8 gap-1.5 shrink-0" asChild>
-          <Link href="/portal/help#analytics">
+          <Link href="/portal/help#sos-analytics">
             <Question size={14} aria-hidden="true" />
             {t('analytics_help_link')}
           </Link>

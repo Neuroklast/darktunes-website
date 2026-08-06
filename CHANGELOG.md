@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Product & compliance
+- **Portal analytics split:** Dashboard nav now has **Spotify Trends** (`/portal/spotify-trends`) and **SOS Analytics** (`/portal/sos-analytics`) instead of one overloaded hub. Legacy `/portal/analytics` redirects. Empty states when a source has no data (no misleading zero grids).
+- **Portal Bandsintown credentials:** Profile → Integrations — artists set per-project Bandsintown ID + API key and can sync concerts (`/api/portal/integrations/bandsintown`).
 - **Artist portal product feedback:** `/portal/feedback` — category, optional star rating, optional subject, required message, own history with status. Admin inbox `/admin/feedback` (filter, search, mark reviewed/archive). Table `portal_feedback`. Distinct from Zammad `/admin/support`.
 - **VIES + local IBAN + ECB FX on invoices:** EU VAT IDs via official VIES on billing save; reverse-charge requires live-valid VIES; local ISO 7064 IBAN only; non-EUR invoices store ECB/Frankfurter rate on PDF + `fx_rate*` columns.
 - **Legal multi-tenant + §14 UStG / GoBD:** Public `/agb` with CMS templates and `{{placeholders}}`; Datenschutz portal/settlement retention; label billing party from `site_settings`; billing `tax_status` on PDF; portal AGB opt-in per artist; invoice PDF write-once + `pdf_sha256` + stable R2 keys.
@@ -35,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ISR + loading skeletons + metadata** for previously cold public/admin routes.
 
 ### Fixed
+- **Portal feedback “Select an artist”:** Feedback always uses the active portal artist (server resolve + nav always passes `artistId`). Multi-artist: submits for the band currently selected in the switcher.
 - **Waterfall top tracks:** Public Spotify top tracks / album plays dedupe by normalized name (max plays).
 - **Apify Force Sync:** System Health Force Sync hits Spotify plays route, not listener sync.
 - **Advanced sync jobs 500:** List jobs without brittle PostgREST artist embeds; separate name lookup.

@@ -28,4 +28,23 @@ describe('computeOverviewInsights', () => {
     })
     expect(insights).toHaveLength(0)
   })
+
+  it('links SOS analytics hrefs with artistId when provided', () => {
+    const stats: StreamingStat[] = [
+      { id: '1', artistId: 'a', platform: 'Spotify', period: '2025-01', streams: 100, createdAt: '' },
+      { id: '2', artistId: 'a', platform: 'Spotify', period: '2025-02', streams: 150, createdAt: '' },
+    ]
+    const insights = computeOverviewInsights({
+      stats,
+      statements: [],
+      settlement: null,
+      promoImpacts: [],
+      analyticsEnabled: true,
+      artistId: 'artist-uuid-1',
+    })
+    const growth = insights.find((i) => i.id === 'overview-growth')
+    expect(growth?.href).toContain('/portal/sos-analytics')
+    expect(growth?.href).toContain('artistId=artist-uuid-1')
+    expect(growth?.href).toContain('tab=streaming')
+  })
 })

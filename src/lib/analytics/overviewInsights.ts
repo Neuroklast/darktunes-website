@@ -26,15 +26,22 @@ function streamGrowthPct(stats: StreamingStat[]): number | null {
   return Math.round(((last - prev) / prev) * 10000) / 100
 }
 
+function sosHref(tab: string, artistId?: string | null): string {
+  const qs = new URLSearchParams({ tab })
+  if (artistId) qs.set('artistId', artistId)
+  return `/portal/sos-analytics?${qs.toString()}`
+}
+
 export function computeOverviewInsights(input: {
   stats: StreamingStat[]
   statements: SalesStatement[]
   settlement: ArtistSettlementSummary | null
   promoImpacts: PromoImpact[]
   analyticsEnabled: boolean
+  artistId?: string | null
 }): OverviewInsight[] {
   const insights: OverviewInsight[] = []
-  const { stats, statements, settlement, promoImpacts, analyticsEnabled } = input
+  const { stats, statements, settlement, promoImpacts, analyticsEnabled, artistId } = input
 
   if (!analyticsEnabled) return insights
 
@@ -46,7 +53,7 @@ export function computeOverviewInsights(input: {
       titleKey: 'overview_insight_growth_title',
       bodyKey: 'overview_insight_growth_body',
       values: { pct: growth },
-      href: '/portal/analytics?tab=streaming',
+      href: sosHref('streaming', artistId),
     })
   } else if (growth !== null && growth <= -GROWTH_SIGNIFICANT_PCT) {
     insights.push({
@@ -55,7 +62,7 @@ export function computeOverviewInsights(input: {
       titleKey: 'overview_insight_decline_title',
       bodyKey: 'overview_insight_decline_body',
       values: { pct: Math.abs(growth) },
-      href: '/portal/analytics?tab=streaming',
+      href: sosHref('streaming', artistId),
     })
   }
 
@@ -78,7 +85,7 @@ export function computeOverviewInsights(input: {
       titleKey: 'overview_insight_settlement_title',
       bodyKey: 'overview_insight_settlement_body',
       values: { balance: Math.round(settlement.balanceEur * 100) / 100 },
-      href: '/portal/analytics?tab=settlement',
+      href: sosHref('settlement', artistId),
     })
   }
 
@@ -93,7 +100,7 @@ export function computeOverviewInsights(input: {
       titleKey: 'overview_insight_promo_title',
       bodyKey: 'overview_insight_promo_body',
       values: { pct: Math.abs(topPromo.deltaPct) },
-      href: '/portal/analytics?tab=events',
+      href: sosHref('events', artistId),
     })
   }
 

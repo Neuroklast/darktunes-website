@@ -36,6 +36,7 @@ import {
   Info,
   FileText,
   Trash,
+  PlugsConnected,
 } from '@phosphor-icons/react'
 import { TiptapEditor } from '@/components/admin/TiptapEditor'
 import type { ArtistProfile } from '@/lib/api/artistProfiles'
@@ -45,6 +46,7 @@ import { PORTAL_PHOTO_MAX_BYTES } from '@/hooks/usePortalProfileForm'
 import { GenreTagPicker } from '@/components/ui/genre-tag-picker'
 import type { Genre } from '@/lib/api/genres'
 import { formatFileSize } from '@/lib/imageResizer'
+import { BandsintownIntegrationsCard } from './BandsintownIntegrationsCard'
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
@@ -185,6 +187,10 @@ function ProfileFormInner({ artistId, artistName, artistSlug, initialProfile, ar
             <TabsTrigger value="riders" className="gap-1.5">
               <FileText size={14} aria-hidden="true" />
               {t('profile_tab_riders')}
+            </TabsTrigger>
+            <TabsTrigger value="integrations" className="gap-1.5">
+              <PlugsConnected size={14} aria-hidden="true" />
+              {t('profile_tab_integrations')}
             </TabsTrigger>
           </TabsList>
 
@@ -573,6 +579,10 @@ function ProfileFormInner({ artistId, artistName, artistSlug, initialProfile, ar
                 ))}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="integrations" className="space-y-4 mt-0">
+            <BandsintownIntegrationsCard artistId={artistId} />
           </TabsContent>
 
         </Tabs>

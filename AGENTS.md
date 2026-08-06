@@ -63,7 +63,7 @@ Read the relevant file before working in that area:
 | Vitest, Playwright, perf budgets | [testing-performance.md](docs/agent/testing-performance.md) |
 | Admin auth, sync, cron, assets, health | [backend.md](docs/agent/backend.md) |
 | Portal write auth (JWT vs service role) | [portal-write-auth.md](docs/agent/portal-write-auth.md) |
-| Portal, press, EPK, PWA, newsletter | [features.md](docs/agent/features.md) |
+| Portal (analytics split, feedback, Bandsintown, press, EPK, PWA) | [features.md](docs/agent/features.md) |
 
 After introducing new patterns, update the relevant `docs/agent/*.md` file.
 

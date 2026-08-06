@@ -74,6 +74,14 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Hardcoded English strings | `en.json` + `de.json`; RSC passes dict as props |
 | `alert()` / `confirm()` | `sonner` toasts |
 
+## Portal tenancy
+
+| Anti-pattern | Rule |
+|--------------|------|
+| Client pages that only read `?artistId=` with no server fallback | RSC `resolvePortalArtist` + always append resolved id in nav (`activeArtistId ?? activeArtist.id`) |
+| One mega-dashboard mixing unrelated data sources | Separate nav items when sources differ (e.g. Spotify public vs SOS statements) |
+| Returning stored secrets to portal clients | Mask secrets (`hasApiKey`); empty input keeps existing key |
+
 ## State & UI
 
 | Anti-pattern | Rule |
