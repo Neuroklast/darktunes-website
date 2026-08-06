@@ -17,11 +17,11 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useTranslations } from 'next-intl'
 import { LocaleFlagSwitcher } from '@/components/LocaleFlagSwitcher'
-import { requestPwaInstallPrompt } from '@/lib/pwa/installPrompt'
+import { isStandaloneDisplayMode, requestPwaInstallPrompt } from '@/lib/pwa/installPrompt'
 import {
   SquaresFour,
   Microphone,
@@ -162,6 +162,11 @@ export function AdminSidebarNav() {
   const showNotificationBell = Boolean(notificationUserId)
   const badges = useAdminNavBadges(notificationUserId ?? null, isAdmin)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [pwaInstalled, setPwaInstalled] = useState(false)
+
+  useEffect(() => {
+    setPwaInstalled(isStandaloneDisplayMode())
+  }, [])
 
   const handleSignOut = useCallback(async () => {
     const { error } = await signOut()
@@ -254,13 +259,15 @@ export function AdminSidebarNav() {
     <div className="border-t border-border px-3 py-3 space-y-2">
       {/* Language switcher lives only in the brand header — avoid duplicates. */}
       <p className="text-xs text-muted-foreground truncate px-1">{user?.email}</p>
-      <button
-        type="button"
-        onClick={() => requestPwaInstallPrompt()}
-        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-      >
-        {tPwa('install_button')}
-      </button>
+      {!pwaInstalled ? (
+        <button
+          type="button"
+          onClick={() => requestPwaInstallPrompt()}
+          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          {tPwa('install_button')}
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={handleSignOut}

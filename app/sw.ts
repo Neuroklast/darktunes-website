@@ -64,7 +64,25 @@ const serwist = new Serwist({
         ],
       }),
     },
-    // --- HTML navigation (pages) — network-first, fall back to offline ---
+    // --- Dashboard HTML — never cache (cookie/locale + force-dynamic shells) ---
+    // NetworkFirst + pages cache made language switches appear broken: a slow
+    // network could serve yesterday's HTML for /admin|/portal with the old locale.
+    {
+      matcher: ({ request, url }: { request: Request; url: URL }) => {
+        if (request.destination !== 'document') return false
+        const p = url.pathname
+        return (
+          p.startsWith('/admin') ||
+          p.startsWith('/portal') ||
+          p.startsWith('/editor') ||
+          p.startsWith('/press/dashboard') ||
+          p.startsWith('/login') ||
+          p.startsWith('/account')
+        )
+      },
+      handler: new NetworkOnly(),
+    },
+    // --- Public HTML navigation — network-first, fall back to offline ---
     {
       matcher: ({ request }: { request: Request }) => request.destination === 'document',
       handler: new NetworkFirst({

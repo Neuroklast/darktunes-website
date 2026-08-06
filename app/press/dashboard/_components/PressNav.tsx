@@ -54,7 +54,10 @@ export function PressNav({ email, userId, links }: PressNavProps) {
             <p className="text-xs text-muted-foreground truncate">{email}</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <LocaleFlagSwitcher align="end" />
+            {/* Flag only on desktop here — mobile chrome already has one (avoid double). */}
+            <div className="hidden md:block">
+              <LocaleFlagSwitcher align="end" />
+            </div>
             <PressNotificationBell badges={badges} />
           </div>
         </div>

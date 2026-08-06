@@ -274,15 +274,16 @@ SSOT: `assets` + `press_kit_items` via `pressKit.ts`. Promo audio: presigned str
 
 ## PWA
 
-Serwist (`app/sw.ts`). SW excludes `/api/*`, `/admin/*`, `/portal/*`, `/press/*`, `/promo-pool/*`. Single `PWAInstallPrompt` in `Providers.tsx`.
+Serwist (`app/sw.ts`). SW excludes `/api/*` from typical app caches. Dashboard **document** navigations (`/admin`, `/portal`, `/editor`, `/press/dashboard`, `/login`, `/account`) use **NetworkOnly** so locale cookies always hit a fresh RSC tree. Public pages stay NetworkFirst with offline fallback.
 
 - Install copy is **generic** (quick access / offline) — no artist-only product pitches.
-- Auto-banner dismiss is stored in `localStorage` (`pwa-install-dismissed`) but can be re-opened anytime via `requestPwaInstallPrompt()` (`src/lib/pwa/installPrompt.ts`): Footer link, portal Settings, admin sidebar footer.
+- Auto-banner dismiss is stored in `localStorage` (`pwa-install-dismissed`) but can be re-opened anytime via `requestPwaInstallPrompt()` (`src/lib/pwa/installPrompt.ts`): Footer link, portal Settings, admin/portal sidebar footers.
 - Manual re-open clears the dismiss flag and shows a fallback hint when `beforeinstallprompt` is unavailable.
+- Install entry is hidden when already running as installed PWA (`display-mode: standalone`).
 
 ## Locale switcher
 
-`LocaleFlagSwitcher` (`src/components/LocaleFlagSwitcher.tsx`) shows the **current** language as a flag (🇩🇪/🇬🇧/🇫🇷) and opens a DE/EN/FR menu. Sets `NEXT_LOCALE` cookie + `router.refresh()`. Locales SSOT: `src/i18n/locales.ts`. Placed on public Header, Admin/Portal sidebars, Press dashboard nav. Message trees under `src/i18n/messages/{en,de,fr}/`.
+`LocaleFlagSwitcher` + SVG `LocaleFlagIcon` (not emoji — Windows shows DE/GB/FR letters for flag emoji). Opens DE/EN/FR menu, sets `NEXT_LOCALE`, full navigation (not `router.refresh()`). SSOT: `src/i18n/locales.ts`. One control per shell chrome (header), not sidebar footers. Message trees under `src/i18n/messages/{en,de,fr}/`.
 
 ## Website tracking
 

@@ -5,8 +5,8 @@
  * to pick Deutsch / English / Français. Sets NEXT_LOCALE and reloads.
  *
  * Uses SVG flags (not emoji) so Windows does not show "DE"/"GB"/"FR" letters.
- * Uses full reload so admin/portal shells always pick up the new locale cookie
- * (router.refresh() is slow/unreliable on force-dynamic dashboards).
+ * Uses full navigation so admin/portal shells always re-render with the new
+ * cookie (router.refresh() is slow/unreliable on force-dynamic dashboards).
  */
 
 import { useLocale } from 'next-intl'
@@ -24,8 +24,21 @@ import { cn } from '@/lib/utils'
 import { LOCALES, LOCALE_META, type AppLocale } from '@/i18n/locales'
 import type { Locale } from '@/i18n/types'
 
-function setLocaleCookie(locale: Locale) {
-  document.cookie = `NEXT_LOCALE=${locale}; path=/; max-age=${SECONDS_PER_YEAR}; samesite=lax`
+/** Exported for unit tests — writes the NEXT_LOCALE cookie used by next-intl. */
+export function setLocaleCookie(locale: Locale): void {
+  if (typeof document === 'undefined') return
+  const secure =
+    typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; secure' : ''
+  document.cookie = `NEXT_LOCALE=${locale}; path=/; max-age=${SECONDS_PER_YEAR}; samesite=lax${secure}`
+}
+
+/** Full navigation so RSC + SW always see the new cookie (not a soft refresh). */
+export function navigateWithNewLocale(): void {
+  if (typeof window === 'undefined') return
+  // Replace keeps history clean; cache: 'reload' is a hint for fetch, not assign.
+  // Bust any document cache with a no-op hash-free assign of the current URL.
+  const { pathname, search, hash } = window.location
+  window.location.assign(`${pathname}${search}${hash}`)
 }
 
 interface LocaleFlagSwitcherProps {
@@ -40,15 +53,15 @@ export function LocaleFlagSwitcher({
   align = 'end',
 }: LocaleFlagSwitcherProps) {
   const locale = useLocale() as Locale
-  const currentCode = (LOCALES.includes(locale as AppLocale) ? locale : 'de') as AppLocale
+  const currentCode = ((LOCALES as readonly string[]).includes(locale)
+    ? locale
+    : 'de') as AppLocale
   const currentMeta = LOCALE_META[currentCode]
 
   const selectLocale = (next: Locale) => {
-    if (next === locale) return
+    if (next === currentCode) return
     setLocaleCookie(next)
-    // Full reload: cookie-based next-intl + heavy portal/admin RSC trees need a
-    // hard navigation for a snappy, reliable language change.
-    window.location.reload()
+    navigateWithNewLocale()
   }
 
   return (
@@ -65,20 +78,19 @@ export function LocaleFlagSwitcher({
           )}
           aria-label={`Language: ${currentMeta.label}. Open language menu`}
         >
-          <LocaleFlagIcon locale={currentCode} className="h-4 w-6" title={currentMeta.label} />
+          <LocaleFlagIcon locale={currentCode} className="h-4 w-6" />
           <span className="sr-only">{currentMeta.label}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="min-w-[11rem]">
+      {/* z-[100] above sticky dashboard headers (z-50) */}
+      <DropdownMenuContent align={align} className="z-[100] min-w-[11rem]">
         {LOCALES.map((code) => {
           const option = LOCALE_META[code]
           const selected = code === currentCode
           return (
             <DropdownMenuItem
               key={code}
-              onSelect={(event) => {
-                // Keep menu from swallowing the navigation on slow shells
-                event.preventDefault()
+              onSelect={() => {
                 selectLocale(code)
               }}
               className="cursor-pointer gap-2.5"
