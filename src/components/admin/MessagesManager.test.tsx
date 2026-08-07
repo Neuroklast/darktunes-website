@@ -73,6 +73,42 @@ vi.mock('@phosphor-icons/react', () => ({
   ChatsCircle: () => null,
   CaretDown: () => null,
   CaretUp: () => null,
+  // RichTextEditor / Tiptap bubble menus (pulled in via inline reply)
+  TextAlignLeft: () => null,
+  TextAlignCenter: () => null,
+  TextAlignRight: () => null,
+  TextB: () => null,
+  TextItalic: () => null,
+  TextUnderline: () => null,
+  TextStrikethrough: () => null,
+  ListBullets: () => null,
+  ListNumbers: () => null,
+  Link: () => null,
+  LinkBreak: () => null,
+  Image: () => null,
+  Code: () => null,
+  Quotes: () => null,
+  TextHOne: () => null,
+  TextHTwo: () => null,
+  TextHThree: () => null,
+}))
+
+vi.mock('@/components/messaging/RichTextEditor', () => ({
+  RichTextEditor: ({
+    value,
+    onChange,
+    placeholder,
+  }: {
+    value: string
+    onChange: (html: string, text: string) => void
+    placeholder?: string
+  }) => (
+    <textarea
+      aria-label={placeholder ?? 'Reply'}
+      value={value}
+      onChange={(e) => onChange(e.target.value, e.target.value)}
+    />
+  ),
 }))
 
 vi.mock('sonner', () => ({
