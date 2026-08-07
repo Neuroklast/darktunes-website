@@ -117,6 +117,8 @@ function createMockDb(
               fields === 'id' ? [] : [{ status: 'done' }, { status: 'pending' }],
             ),
           ),
+          // recoverStuckSyncJobs path (update → eq → or → select)
+          update: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
           or: vi.fn().mockReturnThis(),
           gte: vi.fn().mockReturnThis(),

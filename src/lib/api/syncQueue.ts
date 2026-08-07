@@ -815,7 +815,15 @@ export async function getSyncQueueStats(
 ): Promise<{ pending: number; running: number; done: number; failed: number }> {
   // Unstick zombies before reporting so admin polls + waitForSyncQueueIdle can
   // re-kick instead of waiting forever on a dead `running` row.
-  await recoverStuckSyncJobs(db)
+  // Non-fatal: stats must still load if recovery fails (permissions / schema lag).
+  try {
+    await recoverStuckSyncJobs(db)
+  } catch (err) {
+    console.warn(
+      '[syncQueue] recoverStuckSyncJobs during stats failed:',
+      err instanceof Error ? err.message : err,
+    )
+  }
 
   const createdSince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const [pending, running, done, failed] = await Promise.all([

@@ -85,6 +85,8 @@ function mockSupabaseClientOnline(): void {
               }
               return makeThenableBuilder(fields === 'id' ? [] : [{ status: 'done' }])
             }),
+            // recoverStuckSyncJobs (update → eq → or → select)
+            update: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
             or: vi.fn().mockReturnThis(),
             gte: vi.fn().mockReturnThis(),
