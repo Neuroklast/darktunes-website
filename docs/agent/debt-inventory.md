@@ -20,7 +20,7 @@ Update when items move in/out of scope. Not a product PRD.
 | Item | Action |
 |------|--------|
 | `@deprecated usePortalTabVisibility` | Removed (zero callers; use `usePortalAnalyticsPreferences`) |
-| User-Agents / Edge brand strings | `src/lib/brand/userAgent.ts` + env; newsletter-confirm brand env |
+| User-Agents / Edge brand strings | `src/lib/brand/userAgent.ts` + env; newsletter-confirm uses `TENANT_LABEL_NAME`; Zammad via `readTenantBootstrap()` |
 | Portaled UI under dialogs | `z-[10000]` + CI `check:overlay` |
 | Mailbox chrome EN hardcodes | i18n via `admin.messages` / portal `messages_*` |
 

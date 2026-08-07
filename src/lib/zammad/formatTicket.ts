@@ -4,12 +4,11 @@
  * Formats ticket titles and bodies for Zammad submission.
  */
 
+import { NEUTRAL_LABEL_NAME, readTenantBootstrap } from '@/lib/brand/tenantDefaults'
+
 function brandShort(): string {
-  return (
-    process.env.BRAND_LABEL_SHORT_NAME?.trim() ||
-    process.env.NEXT_PUBLIC_BRAND_SHORT_NAME?.trim() ||
-    'darkTunes'
-  )
+  const { labelShortName, labelName } = readTenantBootstrap()
+  return labelShortName || labelName || NEUTRAL_LABEL_NAME
 }
 
 function autoErrorPrefix(): string {
