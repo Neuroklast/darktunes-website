@@ -88,7 +88,7 @@
     "@tiptap/starter-kit": "^3.27.1",
     "@types/papaparse": "^5.5.2",
     "@vercel/functions": "^3.7.7",
-    "apify-client": "^2.23.4",
+    "apify-client": "^2.24.0",
     "busboy": "^1.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
