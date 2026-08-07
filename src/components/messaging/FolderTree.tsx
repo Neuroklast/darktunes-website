@@ -43,6 +43,9 @@ interface FolderTreeProps {
   enableDrop?: boolean
   /** Hide From Artists system folder (portal has no staff queue) */
   hideFromArtists?: boolean
+  /** Localized system folder labels */
+  systemFolderLabels?: SystemFolderLabels
+  foldersSectionLabel?: string
 }
 
 function DroppableFolderRow({
@@ -93,13 +96,15 @@ function DroppableFolderRow({
   )
 }
 
-const SYSTEM_FOLDERS: Array<{ id: SystemFolder; label: string; Icon: React.ElementType }> = [
+const SYSTEM_FOLDER_DEFAULTS: Array<{ id: SystemFolder; label: string; Icon: React.ElementType }> = [
   { id: 'inbox',        label: 'Inbox',        Icon: Tray },
   { id: 'from-artists', label: 'From Artists', Icon: Microphone },
   { id: 'starred',      label: 'Starred',      Icon: Star },
   { id: 'sent',         label: 'Sent',         Icon: PaperPlaneTilt },
   { id: 'trash',        label: 'Trash',        Icon: Trash },
 ]
+
+export type SystemFolderLabels = Partial<Record<SystemFolder, string>>
 
 export function FolderTree({
   selected,
@@ -111,6 +116,8 @@ export function FolderTree({
   onRenameFolder,
   enableDrop = false,
   hideFromArtists = false,
+  systemFolderLabels,
+  foldersSectionLabel = 'Folders',
 }: FolderTreeProps) {
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
@@ -130,9 +137,13 @@ export function FolderTree({
     setEditingId(null)
   }, [editName, onRenameFolder])
 
-  const systemFolders = hideFromArtists
-    ? SYSTEM_FOLDERS.filter((f) => f.id !== 'from-artists')
-    : SYSTEM_FOLDERS
+  const systemFolders = (hideFromArtists
+    ? SYSTEM_FOLDER_DEFAULTS.filter((f) => f.id !== 'from-artists')
+    : SYSTEM_FOLDER_DEFAULTS
+  ).map((f) => ({
+    ...f,
+    label: systemFolderLabels?.[f.id] ?? f.label,
+  }))
 
   return (
     <div className="flex flex-col gap-0.5 py-2">
@@ -183,7 +194,7 @@ export function FolderTree({
       {(customFolders.length > 0 || enableDrop) && (
         <div className="mt-2 mb-1 px-3">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground/60">
-            Folders
+            {foldersSectionLabel}
           </p>
         </div>
       )}

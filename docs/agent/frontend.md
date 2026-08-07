@@ -89,7 +89,10 @@ Portaled pickers/menus must sit **above** Dialog/Sheet or they open “invisibly
 |-------|---------|------------|
 | Dialog/Sheet overlay | `z-[9998]` | `dialog.tsx`, `alert-dialog.tsx`, `sheet.tsx` |
 | Dialog/Sheet content | `z-[9999]` | same |
-| Portaled pickers & menus | `z-[10000]` | `select.tsx`, `popover.tsx` (DateField/MonthField), `dropdown-menu.tsx` |
+| Portaled pickers & menus | `z-[10000]` | `select`, `popover` (DateField/MonthField), `dropdown-menu`, `hover-card`, `context-menu`, `tooltip` |
+| Drawer | Overlay `z-[9998]` / content `z-[9999]` | Same stack as Dialog/Sheet |
+
+CI: `npm run check:overlay` (`scripts/check-overlay-stack-contract.mjs`).
 
 **Date pickers:** Always use `DateField` / `MonthField` — never raw `type="date"` for shared UX. They rely on Popover; the Popover z-index is what keeps calendars usable inside admin modals (e.g. New Release → Release Date).
 

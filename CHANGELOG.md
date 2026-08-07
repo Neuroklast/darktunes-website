@@ -8,12 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **Debt cleanup (overlay / over-fetch / brand UA):** Portaled HoverCard, ContextMenu, Tooltip at `z-[10000]` with CI `check:overlay`; Drawer aligned to Dialog stack; auth/role/file-explorer selects column-whitelisted; outbound User-Agents via `src/lib/brand/userAgent.ts` + env; residual CSP/rate-limit risks documented (`SECURITY.md`, `docs/agent/debt-inventory.md`).
 - **Public artist DTOs:** Public pages select a column whitelist only (`PUBLIC_ARTIST_COLUMNS`); no `bandsintown_api_key`, email, VAT, notes, or `user_id` in RSC/client payloads.
 - **`artist_private_data` table:** Secrets/PII (email, VAT, notes, Bandsintown API key, storage quota, EU flag) dual-written here; RLS staff/member only; cleared from `artists` after backfill so `select(*)` cannot leak.
 - **RLS tighten:** Videos require `is_visible` (or staff); assets/folders staff-only read (press-approved path unchanged); `artist_epks` no longer public-read (service-role + column whitelist for public EPK); `site_settings` public key allowlist (billing + invite expiry staff-only).
 - **Public EPK:** Served via service-role server code only (`getPublicArtistEpkByArtistId`).
 
 ### Changed
+- **Mailbox chrome i18n:** Admin/portal sort options, system folder labels, search placeholder, compose/sound labels use `admin.messages` / portal message keys (en/de/fr).
+- **Newsletter confirm Edge function:** Brand name / from-display from env (`BRAND_LABEL_NAME` / `LABEL_NAME`); no hard-coded label in email copy.
 - **Dependabot batch (#518–#522):** `@radix-ui/react-avatar` 1.2.6, `@radix-ui/react-context-menu` 2.3.7, `@hookform/resolvers` 5.5.7, `typescript-eslint` 8.65.0, `@vitejs/plugin-react` 6.0.4.
 
 ### Added

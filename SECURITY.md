@@ -51,6 +51,18 @@ We will respond within 72 hours and coordinate a fix before any public disclosur
 - **Rich-text messaging sanitization** — `label_messages.body_html` and `artist_replies.body_html` store formatted content. Every render path sanitizes the HTML with `sanitizeHtml()` from `src/lib/sanitizeHtml.ts`, which applies a regex-based server-safe pass during SSR and delegates to DOMPurify on the client, before using `dangerouslySetInnerHTML`. This covers both the initial server-rendered response and the client hydration, reducing XSS risk across the admin inbox, artist portal, and all other rich-text surfaces (bio fields, privacy policy, about page).
 - Dependencies are kept up to date. Run `npm audit` before adding new packages.
 
+## Known residual risks
+
+| Risk | Why it remains | Mitigation / follow-up |
+|------|----------------|------------------------|
+| CSP `unsafe-inline` (script + style) | Theme CSS inject + embed stack | Documented in `contentSecurityPolicy.ts`; nonce migration is a dedicated project |
+| In-memory IP rate limits | Serverless multi-instance | Prefer Upstash for distributed routes; Vercel WAF in production |
+| Capability share URLs (tour/EPK) | Token = secret in the URL | Treat as credentials; rotate/revoke in product; rate-limit share endpoints |
+| `select('*')` in some staff DAL paths | Historical convenience | Priority hooks/explorer whitelisted; remaining invoice/SOS inventory in `docs/agent/debt-inventory.md` |
+| Portaled menus below dialogs | Historic z-50 defaults | Select/Popover/Dropdown/HoverCard/ContextMenu use `z-[10000]`; CI `check:overlay` |
+
+Debt tracking: [docs/agent/debt-inventory.md](docs/agent/debt-inventory.md).
+
 ## CSRF Protection
 
 CSRF protection is NOT needed for Route Handlers that verify a ******

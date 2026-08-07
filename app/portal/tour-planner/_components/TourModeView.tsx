@@ -33,7 +33,7 @@ import { evaluateTourReadiness } from '@/lib/tour-planner/tourReadiness'
 import { downloadDaySheetPdf } from '@/lib/tour-planner/pdf'
 import { buildTourPlannerPdfLabels } from './TourPlannerExtras'
 import { portalKey } from '@/i18n/portalKey'
-import type { Tour, TourStop } from '@/types'
+import type { Tour } from '@/types'
 import { cn } from '@/lib/utils'
 
 interface TourModeViewProps {

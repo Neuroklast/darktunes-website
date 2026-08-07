@@ -177,7 +177,7 @@ async function loadReplies(
 
 export function MessagesManager() {
   const tToast = useTranslations('admin.toast')
-
+  const tMsg = useTranslations('admin.messages')
 
   const { loading: authLoading, session } = useAuthContext()
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
@@ -685,20 +685,33 @@ export function MessagesManager() {
         <Input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search…"
+          placeholder={tMsg('search_placeholder')}
           className="h-7 text-sm flex-1 min-w-[140px]"
         />
         <MailboxSortSelect
           value={sortMode}
           onChange={setSortMode}
           className="h-7 text-xs w-[140px]"
+          aria-label={tMsg('sort_label')}
+          labels={{
+            date_desc: tMsg('sort_newest'),
+            date_asc: tMsg('sort_oldest'),
+            unread_first: tMsg('sort_unread'),
+            subject_asc: tMsg('sort_subject'),
+            count_desc: tMsg('sort_count'),
+          }}
         />
         <div className="flex flex-wrap items-center gap-1">
-          <MessageSoundToggle iconOnly className="h-7 w-7 min-h-7 min-w-7" labelOn="Message sound on" labelOff="Message sound off" />
+          <MessageSoundToggle
+            iconOnly
+            className="h-7 w-7 min-h-7 min-w-7"
+            labelOn={tMsg('sound_on')}
+            labelOff={tMsg('sound_off')}
+          />
           <Button size="sm" className="h-7 gap-1 text-xs" asChild>
             <Link href="/admin/messages/compose">
               <PencilSimple size={13} aria-hidden="true" />
-              Compose
+              {tMsg('compose')}
             </Link>
           </Button>
           <ExternalEmailComposer />
@@ -719,7 +732,7 @@ export function MessagesManager() {
         style={{ overscrollBehavior: 'contain' }}
       >
         <div className="flex items-center justify-between px-3 py-3 border-b border-border">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Mailbox</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{tMsg('mailbox')}</p>
           {totalUnread > 0 && <Badge className="text-xs px-1.5 py-0">{totalUnread}</Badge>}
         </div>
         <div className="flex-1 overflow-y-auto px-1" style={{ overscrollBehavior: 'contain' }} data-lenis-prevent>
@@ -736,6 +749,14 @@ export function MessagesManager() {
             onDeleteFolder={handleDeleteFolder}
             onRenameFolder={handleRenameFolder}
             enableDrop
+            systemFolderLabels={{
+              inbox: tMsg('folder_inbox'),
+              'from-artists': tMsg('folder_from_artists'),
+              starred: tMsg('folder_starred'),
+              sent: tMsg('folder_sent'),
+              trash: tMsg('folder_trash'),
+            }}
+            foldersSectionLabel={tMsg('folder_section')}
           />
         </div>
       </aside>
@@ -751,7 +772,7 @@ export function MessagesManager() {
           {isFromArtistsFolder ? (
             fromArtistThreads.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full py-12 text-muted-foreground text-sm gap-2">
-                <p>No messages from artists</p>
+                <p>{tMsg('no_from_artists')}</p>
               </div>
             ) : (
               fromArtistThreads.map((thread) => {
@@ -793,7 +814,7 @@ export function MessagesManager() {
             )
           ) : labelThreads.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full py-12 text-muted-foreground text-sm gap-2">
-              <p>No messages</p>
+              <p>{tMsg('no_messages')}</p>
             </div>
           ) : (
             labelThreads.map((thread) => {
@@ -1044,7 +1065,7 @@ export function MessagesManager() {
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center min-h-[200px] text-muted-foreground text-sm gap-2">
             <ArrowBendUpRight size={32} className="opacity-20" aria-hidden="true" />
-            <p>Select a message to read</p>
+            <p>{tMsg('select_to_read')}</p>
           </div>
         )}
       </div>

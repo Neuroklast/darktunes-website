@@ -1,6 +1,11 @@
 /**
  * Single source of truth for the site Content-Security-Policy.
  * Imported by next.config.ts and validated in unit tests.
+ *
+ * Residual risk: `script-src` / `style-src` include `'unsafe-inline'`.
+ * - Scripts: embeds + Next hydration patterns in current stack.
+ * - Styles: CMS theme injection (`ThemeStyleInjector`) and Google Fonts.
+ * Nonce-based CSP is a follow-up (see SECURITY.md); do not remove without a migration plan.
  */
 export const CONTENT_SECURITY_POLICY_DIRECTIVES: Record<string, readonly string[]> = {
   'default-src': ["'self'"],

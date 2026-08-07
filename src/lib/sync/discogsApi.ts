@@ -12,6 +12,7 @@
  * Docs: https://www.discogs.com/developers/
  */
 
+import { getBrandUserAgent } from '@/lib/brand/userAgent'
 import { HttpError } from '@/lib/rateLimiter'
 
 // ---------------------------------------------------------------------------
@@ -87,7 +88,7 @@ export async function fetchDiscogsArtistProfile(
   fetchFn: typeof fetch,
 ): Promise<DiscogsArtistProfile> {
   const headers: Record<string, string> = {
-    'User-Agent': 'darkTunes/1.0 +https://darktunes.com',
+    'User-Agent': getBrandUserAgent(),
   }
   if (token) headers['Authorization'] = `Discogs token=${token}`
 
@@ -141,7 +142,7 @@ export async function fetchDiscogsArtistReleases(
     const response = await fetchFn(url.toString(), {
       headers: {
         Authorization: `Discogs token=${token}`,
-        'User-Agent': 'darkTunes/1.0 +https://darktunes.com',
+        'User-Agent': getBrandUserAgent(),
       },
     })
 

@@ -4,6 +4,7 @@
  */
 
 import sharp from 'sharp'
+import { getCoverArtCheckUserAgent } from '@/lib/brand/userAgent'
 import {
   coverStatusToCode,
   type CoverArtErrorCode,
@@ -306,7 +307,7 @@ async function fetchWithRedirectGuard(
       redirect: 'manual',
       headers: {
         Accept: 'image/jpeg,image/*,*/*;q=0.8',
-        'User-Agent': 'darkTunes-cover-art-check/1.0',
+        'User-Agent': getCoverArtCheckUserAgent(),
       },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })

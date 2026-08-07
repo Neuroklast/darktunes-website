@@ -25,7 +25,11 @@ export function useAuth() {
   async function fetchProfile(userId: string) {
     try {
       const [profileResult, membershipsResult] = await Promise.all([
-        supabase.from('users').select('*').eq('id', userId).single(),
+        supabase
+          .from('users')
+          .select('id, email, role, created_at, updated_at')
+          .eq('id', userId)
+          .single(),
         supabase
           .from('artist_members')
           .select('artist_id, member_role')

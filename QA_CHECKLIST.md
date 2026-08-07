@@ -167,9 +167,15 @@
 - [ ] Same flag switcher works in admin sidebar, portal sidebar, and press dashboard
 - [ ] **Admin sidebar labels update on language switch:** e.g. EN “Artists” / “Sign Out” → DE “Künstler” / “Abmelden” → FR “Artistes” / “Déconnexion” after reload (no leftover English menu)
 - [ ] **Editor `/editor` chrome:** flag switcher present; tab labels + Sign Out follow locale after switch
+- [ ] **Mailbox chrome (admin + portal):** sort options, system folder labels (Inbox/Starred/Sent/Trash), search placeholder, compose/sound toggles follow locale (not stuck in English)
 - [ ] French UI: public shell + portal/admin strings load from `messages/fr`
 - [ ] All UI strings use dictionary keys (no hard-coded EN strings visible in DE/FR mode)
 - [ ] Locale-specific legal pages (/impressum, /datenschutz, /agb) reflect correct language (Impressum labels DE/EN/FR; CMS body DE/EN with FR→EN fallback)
+
+## Overlay stack (modals)
+- [ ] In Admin → Releases → New/Edit, Release Date calendar opens **above** the dialog (usable click targets)
+- [ ] Select / dropdown menus inside dialogs are clickable (not hidden under overlay)
+- [ ] Tooltips on controls inside dialogs remain visible
 
 ## PWA
 - [ ] /manifest.webmanifest is accessible and valid

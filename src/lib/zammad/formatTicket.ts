@@ -4,8 +4,21 @@
  * Formats ticket titles and bodies for Zammad submission.
  */
 
-const AUTO_ERROR_PREFIX = '[SYSTEM ERROR REPORT — darkTunes]'
-const MANUAL_PREFIX = '[darkTunes Support Request]'
+function brandShort(): string {
+  return (
+    process.env.BRAND_LABEL_SHORT_NAME?.trim() ||
+    process.env.NEXT_PUBLIC_BRAND_SHORT_NAME?.trim() ||
+    'darkTunes'
+  )
+}
+
+function autoErrorPrefix(): string {
+  return `[SYSTEM ERROR REPORT — ${brandShort()}]`
+}
+
+function manualPrefix(): string {
+  return `[${brandShort()} Support Request]`
+}
 
 export function formatAutoErrorTitle(source: string, message: string): string {
   const truncated = message.trim().slice(0, 120)
@@ -13,7 +26,7 @@ export function formatAutoErrorTitle(source: string, message: string): string {
 }
 
 export function formatManualTicketTitle(subject: string): string {
-  return `${MANUAL_PREFIX} ${subject.trim().slice(0, 200)}`
+  return `${manualPrefix()} ${subject.trim().slice(0, 200)}`
 }
 
 export interface AutoErrorBodyInput {
@@ -27,7 +40,7 @@ export interface AutoErrorBodyInput {
 
 export function formatAutoErrorBody(input: AutoErrorBodyInput): string {
   const lines = [
-    AUTO_ERROR_PREFIX,
+    autoErrorPrefix(),
     '',
     'This ticket was created automatically after a client-side application error.',
     'The user saw the standard error page — no manual action was taken.',
@@ -66,7 +79,7 @@ export function formatManualTicketBody(
   message: string,
 ): string {
   return [
-    MANUAL_PREFIX,
+    manualPrefix(),
     '',
     `Submitted by: ${customerName} <${customerEmail}>`,
     '',

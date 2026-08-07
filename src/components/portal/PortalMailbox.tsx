@@ -703,6 +703,13 @@ export function PortalMailbox({
               onRenameFolder={handleRenameFolder}
               enableDrop
               hideFromArtists
+              systemFolderLabels={{
+                inbox: t('messages_folder_inbox'),
+                starred: t('messages_folder_starred'),
+                sent: t('messages_folder_sent'),
+                trash: t('messages_folder_trash'),
+              }}
+              foldersSectionLabel={t('messages_folder_section')}
             />
           </div>
         </div>
@@ -726,6 +733,13 @@ export function PortalMailbox({
               value={sortMode}
               onChange={setSortMode}
               aria-label={t('messages_sort_label')}
+              labels={{
+                date_desc: t('messages_sort_newest'),
+                date_asc: t('messages_sort_oldest'),
+                unread_first: t('messages_sort_unread'),
+                subject_asc: t('messages_sort_subject'),
+                count_desc: t('messages_sort_count'),
+              }}
             />
             <p className="text-[10px] text-muted-foreground leading-snug">
               {t('messages_dnd_hint')}

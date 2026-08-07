@@ -58,14 +58,16 @@ function buildConfirmationEmail(
   verificationToken: string,
   unsubscribeToken: string | null,
   siteUrl: string,
+  brandName: string,
 ): { subject: string; html: string; text: string } {
   const confirmUrl = `${siteUrl}/api/newsletter/verify?token=${verificationToken}`
   const unsubscribeUrl = unsubscribeToken
     ? `${siteUrl}/api/newsletter/unsubscribe?token=${unsubscribeToken}`
     : null
   const year = new Date().getFullYear()
+  const brand = brandName.trim() || 'Label'
 
-  const subject = 'Please confirm your darkTunes newsletter subscription'
+  const subject = `Please confirm your ${brand} newsletter subscription`
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -78,7 +80,7 @@ function buildConfirmationEmail(
   <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:40px auto;background:#292929;border-radius:8px;overflow:hidden;">
     <tr>
       <td style="padding:32px 40px;text-align:center;background:#101010;border-bottom:1px solid #383838;">
-        <h1 style="margin:0;font-size:24px;letter-spacing:4px;text-transform:uppercase;color:#ffffff;">darkTunes</h1>
+        <h1 style="margin:0;font-size:24px;letter-spacing:4px;text-transform:uppercase;color:#ffffff;">${brand}</h1>
       </td>
     </tr>
     <tr>
@@ -100,14 +102,14 @@ function buildConfirmationEmail(
           <a href="${confirmUrl}" style="color:#493687;word-break:break-all;">${confirmUrl}</a>
         </p>
         <p style="margin:16px 0 0;color:#666666;font-size:12px;">
-          This link expires in 7 days. If you didn't sign up for the darkTunes newsletter, you can safely ignore this email.
+          This link expires in 7 days. If you didn't sign up for the ${brand} newsletter, you can safely ignore this email.
         </p>
       </td>
     </tr>
     <tr>
       <td style="padding:24px 40px;border-top:1px solid #383838;text-align:center;">
         <p style="margin:0;color:#555555;font-size:12px;">
-          &copy; ${year} darkTunes Music Group. All rights reserved.
+          &copy; ${year} ${brand}. All rights reserved.
         </p>
         ${unsubscribeUrl ? `<p style="margin:8px 0 0;font-size:11px;color:#444444;">
           <a href="${unsubscribeUrl}" style="color:#444444;">Unsubscribe</a>
@@ -122,7 +124,7 @@ function buildConfirmationEmail(
     ? `\n\nTo unsubscribe at any time, visit: ${unsubscribeUrl}`
     : ''
 
-  const text = `darkTunes Newsletter — Confirm your subscription
+  const text = `${brand} Newsletter — Confirm your subscription
 
 Thanks for signing up! Please click the link below to confirm your subscription:
 
@@ -130,7 +132,7 @@ ${confirmUrl}
 
 This link expires in 7 days. If you didn't sign up, you can safely ignore this email.${unsubscribeFooter}
 
-— darkTunes Music Group`
+— ${brand}`
 
   return { subject, html, text }
 }
@@ -166,8 +168,12 @@ serve(async (req: Request) => {
 
   // Read required secrets from environment
   const resendApiKey = Deno.env.get('RESEND_API_KEY')
-  const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'noreply@darktunes.com'
-  const siteUrl = (Deno.env.get('NEXT_PUBLIC_SITE_URL') ?? 'https://darktunes.com').replace(/\/$/, '')
+  const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'noreply@example.com'
+  const siteUrl = (Deno.env.get('NEXT_PUBLIC_SITE_URL') ?? Deno.env.get('SITE_URL') ?? 'http://localhost:3000').replace(/\/$/, '')
+  const brandName =
+    Deno.env.get('BRAND_LABEL_NAME')?.trim() ||
+    Deno.env.get('LABEL_NAME')?.trim() ||
+    'Label'
 
   if (!resendApiKey) {
     console.error('[newsletter-confirm] RESEND_API_KEY is not set')
@@ -179,6 +185,7 @@ serve(async (req: Request) => {
     record.verification_token,
     record.unsubscribe_token,
     siteUrl,
+    brandName,
   )
 
   // Send via Resend API
@@ -189,7 +196,7 @@ serve(async (req: Request) => {
       Authorization: `Bearer ${resendApiKey}`,
     },
     body: JSON.stringify({
-      from: `darkTunes <${fromEmail}>`,
+      from: `${brandName} <${fromEmail}>`,
       to: [record.email],
       subject,
       html,

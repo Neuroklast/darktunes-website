@@ -38,7 +38,6 @@ import {
   saveViewPreferences,
   PORTAL_ANALYTICS_VIEW_STORAGE_KEY,
   type AnalyticsViewPreferences,
-  type TabVisibility,
   type PresenceSeriesVisibility,
 } from '@/lib/analytics/viewPreferences'
 import { PRESENCE_SERIES_KEYS, type PresenceSeriesKey } from '@/lib/analytics/presenceChartUtils'
@@ -298,19 +297,6 @@ export function usePortalAnalyticsPreferences(
   }, [storageKey])
 
   return [prefs, setPrefs]
-}
-
-/** @deprecated Prefer usePortalAnalyticsPreferences */
-export function usePortalTabVisibility(): [TabVisibility, (next: TabVisibility) => void] {
-  const [prefs, setPrefs] = usePortalAnalyticsPreferences()
-  return [
-    prefs.tabs,
-    (tabs) => {
-      const next = { ...prefs, tabs }
-      saveViewPreferences(PORTAL_ANALYTICS_VIEW_STORAGE_KEY, next)
-      setPrefs(next)
-    },
-  ]
 }
 
 export type { PresenceSeriesVisibility }

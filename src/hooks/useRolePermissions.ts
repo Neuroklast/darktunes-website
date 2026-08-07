@@ -31,7 +31,9 @@ export function useRolePermissions() {
 
     void supabase
       .from('role_permissions')
-      .select('*')
+      .select(
+        'role, can_publish_news, can_edit_news, can_manage_artists, can_manage_releases, can_manage_videos, can_view_admin_panel, updated_at, updated_by',
+      )
       .eq('role', role)
       .maybeSingle()
       .then(({ data, error: queryError }) => {

@@ -139,6 +139,12 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-07 — Overlay stack + brand residual debt
+
+- **Finding:** Dialog/Sheet at `z-[9999]` made any remaining portaled UI at `z-50` (HoverCard, ContextMenu, Tooltip) unusable inside modals — same class of bug as DateField.
+- **Fix:** Shared portaled stack `z-[10000]` + CI `npm run check:overlay`. Track residual CSP/rate-limit/`select('*')` in `docs/agent/debt-inventory.md`.
+- **Brand UAs:** Put partner User-Agents behind env helpers with brand-neutral defaults so `check:brand` stays clean; set `BRAND_USER_AGENT` in production when APIs need an allowlisted identity.
+
 ### 2026-08-06 — Public data / a11y hardening
 
 - **Finding:** Visible `artists` rows exposed `bandsintown_api_key`, email, VAT, notes via anon RLS + `rowToArtist` into client components.

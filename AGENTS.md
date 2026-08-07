@@ -64,6 +64,7 @@ Read the relevant file before working in that area:
 | Admin auth, sync, cron, assets, health | [backend.md](docs/agent/backend.md) |
 | Portal write auth (JWT vs service role) | [portal-write-auth.md](docs/agent/portal-write-auth.md) |
 | Portal (analytics split, feedback, Bandsintown, press, EPK, PWA) | [features.md](docs/agent/features.md) |
+| Legacy / hardcode / security residual inventory | [debt-inventory.md](docs/agent/debt-inventory.md) |
 
 After introducing new patterns, update the relevant `docs/agent/*.md` file.
 

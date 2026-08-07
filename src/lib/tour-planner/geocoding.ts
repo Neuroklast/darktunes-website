@@ -1,3 +1,4 @@
+import { getNominatimUserAgent } from '@/lib/brand/userAgent'
 import { APIProvider, Coordinates, GeocodingResult } from './types'
 
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org'
@@ -34,7 +35,7 @@ async function geocodeWithNominatim(address: string): Promise<GeocodingResult> {
 
   const response = await fetch(url, {
     headers: {
-      'User-Agent': process.env.NOMINATIM_USER_AGENT ?? 'darktunes-tour-planner/1.0'
+      'User-Agent': getNominatimUserAgent(),
     }
   })
 

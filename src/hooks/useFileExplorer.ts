@@ -178,8 +178,16 @@ export function useFileExplorer(initialFolderId: string | null = null): UseFileE
 
     setIsLoading(true)
     try {
-      const folderQuery = supabase.from('asset_folders').select('*').order('name', { ascending: true })
-      const assetQuery = supabase.from('assets').select('*').order('created_at', { ascending: false })
+      const folderQuery = supabase
+        .from('asset_folders')
+        .select('id, name, parent_id, artist_id, created_by, created_at, updated_at')
+        .order('name', { ascending: true })
+      const assetQuery = supabase
+        .from('assets')
+        .select(
+          'id, filename, original_filename, mime_type, size_bytes, r2_key, public_url, uploaded_by, created_at, folder_id, artist_id, tags, sha256_hash, release_id, alt_text, is_press_approved, press_suggested, press_category, press_caption, photographer_credit, downloadable_for_press',
+        )
+        .order('created_at', { ascending: false })
 
       if (folderId === null) {
         assetQuery.is('folder_id', null)

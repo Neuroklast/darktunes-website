@@ -45,6 +45,9 @@ jobs:
       - name: Scroll contract
         run: npm run check:scroll
 
+      - name: Overlay stack contract
+        run: npm run check:overlay
+
       - name: Brand contract
         run: npm run check:brand
 
