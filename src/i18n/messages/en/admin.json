@@ -970,7 +970,13 @@
     "search_placeholder": "Search…",
     "no_from_artists": "No messages from artists",
     "no_messages": "No messages",
-    "select_to_read": "Select a message to read"
+    "select_to_read": "Select a message to read",
+    "reply_heading": "Reply",
+    "reply_placeholder": "Write a reply…",
+    "reply_send": "Send reply",
+    "reply_sending": "Sending…",
+    "reply_sent": "Reply sent",
+    "reply_failed": "Failed to send reply"
   },
   "notifications": {
     "title": "Notifications",
@@ -998,6 +1004,7 @@
       "landing_page_review": "Fan page awaiting review",
       "press_asset": "Press asset suggestion",
       "portal_message": "New message from artist",
+      "label_message": "New message from label",
       "fan_page_decision": "Fan page review decision"
     },
     "actions": {
@@ -1014,6 +1021,7 @@
       "landing_page_review": "Fan page review queue",
       "press_asset_suggestion": "Press asset suggestion",
       "artist_portal_message": "Artist message to label",
+      "label_message": "Label message to artist",
       "fan_page_review_decision": "Fan page decision",
       "release_submission_decision": "Release decision",
       "video_submission_decision": "Video decision",

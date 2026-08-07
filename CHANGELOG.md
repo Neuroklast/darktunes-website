@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Admin messages chat:** Inline reply field under the conversation (like the artist portal), not only a link to Compose.
+- **Message reply notifications:** Label→artist sends emit `label_message` to artist members; artist replies to label messages emit staff `artist_portal_message` notifications (bell + history), not only realtime toasts when the mailbox is open.
+
 ### Changed
 - **Sync executor continuous drain:** One logical queue run now self-chains across Vercel duration slices (budget headroom before claim, inter-artist pacing, owner-token lease, 6m stuck-job recovery). Rate-limited artists cool down; others keep processing without manual Force Sync every few minutes.
 - **Admin System Health — no infra ops UI:** Removed Supabase Cron / Edge Function / `CRON_SECRET` setup checklist and Cron Schedulers panel from label admin. Health copy stays product-facing (Force Sync, API Keys, contact technical operator); hosting/cron setup remains in `DEPLOYMENT.md` only.

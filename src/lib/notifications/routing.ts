@@ -56,6 +56,8 @@ function getKnownNotificationHref(
       return withEntity(isEditor ? getCmsTabPath('editor', 'assets') : '/admin/assets', entityId)
     case 'artist_portal_message':
       return withEntity('/admin/messages', entityId)
+    case 'label_message':
+      return withArtist('/portal/messages', artistId)
     case 'fan_page_review_decision':
       return withArtist('/portal/fan-page', artistId)
     case 'release_submission_decision':
@@ -91,6 +93,8 @@ export function getNotificationSummaryFallback(
       return entityName ?? 'Press asset suggestion'
     case 'artist_portal_message':
       return entityName ?? 'New message from artist'
+    case 'label_message':
+      return entityName ?? 'New message from label'
     case 'fan_page_review_decision':
       return entityName ?? 'Fan page review decision'
     case 'release_submission_decision':
@@ -121,6 +125,8 @@ export function getNotificationActionLabelFallback(type: string): string {
     case 'press_asset_suggestion':
       return 'Review asset'
     case 'artist_portal_message':
+      return 'Open messages'
+    case 'label_message':
       return 'Open messages'
     case 'fan_page_review_decision':
       return 'Open fan page'

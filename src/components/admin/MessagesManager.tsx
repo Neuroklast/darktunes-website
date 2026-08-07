@@ -52,7 +52,6 @@ import type { Database } from '@/types/database'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { MessageSearch } from '@/components/messaging/MessageSearch'
 import { FolderTree, type FolderSelection } from '@/components/messaging/FolderTree'
@@ -63,6 +62,7 @@ import { SharedInboxPanel } from '@/components/messaging/SharedInboxPanel'
 import { MessageChatThread, type ChatThreadItem } from '@/components/messaging/MessageChatThread'
 import { MessageSoundToggle } from '@/components/messaging/MessageSoundToggle'
 import { MailboxSortSelect } from '@/components/messaging/MailboxSortSelect'
+import { RichTextEditor } from '@/components/messaging/RichTextEditor'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { playNewMessageSound } from '@/lib/messaging/messageSound'
 import {
@@ -199,6 +199,15 @@ export function MessagesManager() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortMode, setSortMode] = useState<MailboxSortMode>('date_desc')
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
+  const [replyHtml, setReplyHtml] = useState('')
+  const [replyText, setReplyText] = useState('')
+  const [isSendingReply, setIsSendingReply] = useState(false)
+
+  // Clear draft when switching conversation
+  useEffect(() => {
+    setReplyHtml('')
+    setReplyText('')
+  }, [selectedThreadId, selectedMessageId])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -591,6 +600,55 @@ export function MessagesManager() {
     setFolders((cur) => cur.map((f) => (f.id === id ? updated : f)))
   }, [supabase])
 
+  /** Inline chat reply (label → artist), same pattern as portal mailbox. */
+  const handleSendInlineReply = useCallback(
+    async (artistId: string, subjectBase: string) => {
+      if (!replyText.trim() || !artistId) return
+      setIsSendingReply(true)
+      try {
+        const token = session?.access_token
+        const subject = subjectBase.toLowerCase().startsWith('re:')
+          ? subjectBase
+          : `Re: ${subjectBase}`
+        const res = await fetch('/api/admin/messages/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            artistIds: [artistId],
+            subject,
+            body: replyText.trim(),
+            bodyHtml: replyHtml || null,
+            clientMessageId:
+              typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                ? crypto.randomUUID()
+                : undefined,
+          }),
+        })
+        if (!res.ok) {
+          const errBody = (await res.json().catch(() => ({}))) as { error?: string }
+          throw new Error(errBody.error ?? tMsg('reply_failed'))
+        }
+        const data = (await res.json()) as { messages?: LabelMessage[] }
+        const created = data.messages?.[0]
+        if (created) {
+          setMessages((cur) => [created, ...cur.filter((m) => m.id !== created.id)])
+        }
+        setReplyHtml('')
+        setReplyText('')
+        toast.success(tMsg('reply_sent'))
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : tMsg('reply_failed'))
+      } finally {
+        setIsSendingReply(false)
+      }
+    },
+    [replyHtml, replyText, session?.access_token, tMsg],
+  )
+
   // Rule management
   const handleCreateRule = useCallback(async (rule: Omit<MessageRule, 'id' | 'createdAt'>) => {
     const created = await createRule(supabase, rule)
@@ -920,19 +978,32 @@ export function MessagesManager() {
                   )
                 }}
               />
-              <div className="mt-2">
-                <Separator className="mb-4" />
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-                  <ArrowBendUpLeft size={12} className="inline mr-1" aria-hidden="true" />
-                  Reply to Artist
-                </p>
-                <Button variant="outline" size="sm" className="gap-1.5" asChild>
-                  <Link
-                    href={`/admin/messages/compose?artistId=${encodeURIComponent(selectedFromArtistMessage.fromArtistId)}&subject=${encodeURIComponent(`Re: ${selectedFromArtistMessage.subject}`)}`}
-                  >
-                    <ArrowBendUpLeft size={14} aria-hidden="true" />
-                    Reply to {artists.find((a) => a.id === selectedFromArtistMessage.fromArtistId)?.name ?? 'Artist'}
-                  </Link>
+            </div>
+            <div className="border-t border-border p-4 space-y-2 shrink-0 bg-card/30">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                {tMsg('reply_heading')}
+              </p>
+              <RichTextEditor
+                value={replyHtml}
+                onChange={(html, text) => {
+                  setReplyHtml(html)
+                  setReplyText(text)
+                }}
+                placeholder={tMsg('reply_placeholder')}
+                minHeight={80}
+              />
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  disabled={!replyText.trim() || isSendingReply}
+                  onClick={() => {
+                    void handleSendInlineReply(
+                      selectedFromArtistMessage.fromArtistId,
+                      selectedFromArtistThread?.subject ?? selectedFromArtistMessage.subject,
+                    )
+                  }}
+                >
+                  {isSendingReply ? tMsg('reply_sending') : tMsg('reply_send')}
                 </Button>
               </div>
             </div>
@@ -1043,24 +1114,37 @@ export function MessagesManager() {
               ) : (
                 <AttachmentViewer attachments={attachments} />
               )}
-
-              {/* Reply on compose page (avoids dismissible overlay) */}
-              <div className="mt-2">
-                <Separator className="mb-4" />
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-                  <ArrowBendUpLeft size={12} className="inline mr-1" aria-hidden="true" />
-                  Reply to Artist
-                </p>
-                <Button variant="outline" size="sm" className="gap-1.5" asChild>
-                  <Link
-                    href={`/admin/messages/compose?artistId=${encodeURIComponent(selectedMessage.artistId)}&subject=${encodeURIComponent(`Re: ${selectedLabelThread?.subject ?? selectedMessage.subject}`)}`}
-                  >
-                    <ArrowBendUpLeft size={14} aria-hidden="true" />
-                    Reply to {artists.find((a) => a.id === selectedMessage.artistId)?.name ?? 'Artist'}
-                  </Link>
-                </Button>
-              </div>
             </div>
+            {!selectedMessage.isExternal && (
+              <div className="border-t border-border p-4 space-y-2 shrink-0 bg-card/30">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {tMsg('reply_heading')}
+                </p>
+                <RichTextEditor
+                  value={replyHtml}
+                  onChange={(html, text) => {
+                    setReplyHtml(html)
+                    setReplyText(text)
+                  }}
+                  placeholder={tMsg('reply_placeholder')}
+                  minHeight={80}
+                />
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    disabled={!replyText.trim() || isSendingReply}
+                    onClick={() => {
+                      void handleSendInlineReply(
+                        selectedMessage.artistId,
+                        selectedLabelThread?.subject ?? selectedMessage.subject,
+                      )
+                    }}
+                  >
+                    {isSendingReply ? tMsg('reply_sending') : tMsg('reply_send')}
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center min-h-[200px] text-muted-foreground text-sm gap-2">

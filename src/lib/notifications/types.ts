@@ -11,6 +11,8 @@ export type NotificationEventType =
   | 'landing_page_review'
   | 'press_asset_suggestion'
   | 'artist_portal_message'
+  /** Label → artist message (portal inbox + bell). */
+  | 'label_message'
   | 'fan_page_review_decision'
   | 'release_submission_decision'
   | 'video_submission_decision'

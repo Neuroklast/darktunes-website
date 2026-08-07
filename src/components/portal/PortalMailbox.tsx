@@ -42,7 +42,6 @@ import { MailboxSortSelect } from '@/components/messaging/MailboxSortSelect'
 import { RichTextEditor } from '@/components/messaging/RichTextEditor'
 import { PortalEmptyState } from '@/components/portal/PortalEmptyState'
 import { useUnreadMessages } from '@/contexts/PortalNotificationProvider'
-import { sendArtistReply } from '@/lib/api/artistReplies'
 import { markMessageRead } from '@/lib/api/labelMessages'
 import { playNewMessageSound } from '@/lib/messaging/messageSound'
 import {
@@ -876,18 +875,34 @@ export function PortalMailbox({
                           setIsSendingReply(true)
                           try {
                             const rootId = (replyTargetLabel as LabelConversationThread).rootMessageId
-                            const reply = await sendArtistReply(
-                              supabase,
-                              rootId,
-                              artistId,
-                              replyText,
-                              replyHtml || undefined,
-                            )
-                            const replies = labelReplies[rootId] ?? []
-                            setLabelReplies({
-                              ...labelReplies,
-                              [rootId]: [...replies, reply],
+                            const res = await fetch('/api/portal/messages/artist-reply', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                ...(await getPortalAuthHeaders()),
+                              },
+                              body: JSON.stringify({
+                                artistId,
+                                messageId: rootId,
+                                body: replyText,
+                                bodyHtml: replyHtml || null,
+                              }),
                             })
+                            if (!res.ok) {
+                              throw new Error(
+                                ((await res.json()) as { error?: string }).error ??
+                                  t('messages_reply_failed'),
+                              )
+                            }
+                            const created = (await res.json()) as { reply?: ArtistReply }
+                            const reply = created.reply
+                            if (reply) {
+                              const replies = labelReplies[rootId] ?? []
+                              setLabelReplies({
+                                ...labelReplies,
+                                [rootId]: [...replies.filter((r) => r.id !== reply.id), reply],
+                              })
+                            }
                             setReplyHtml('')
                             setReplyText('')
                             toast.success(t('messages_reply_sent'))

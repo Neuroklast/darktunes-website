@@ -41,6 +41,12 @@ export const NOTIFICATION_CATALOG: Record<NotificationEventType, NotificationCat
     summaryKey: 'types.portal_message',
     actionKey: 'actions.open_messages',
   },
+  label_message: {
+    audience: 'artist',
+    defaultEntityType: 'label_message',
+    summaryKey: 'types.label_message',
+    actionKey: 'actions.open_messages',
+  },
   fan_page_review_decision: {
     audience: 'artist',
     defaultEntityType: 'artist',

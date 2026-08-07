@@ -205,6 +205,11 @@
 - [ ] Portal Listeners tab shows Spotify (public) series after Apify sync (disclaimer: not settlement data)
 - [ ] Overview intelligence panel shows insights with working deep links
 
+## Messaging (chat + notifications)
+- [ ] Admin → Messages: open a conversation → reply box under the thread; send appears in chat without leaving the page
+- [ ] Artist portal → reply to label message → staff get in-app notification / bell
+- [ ] Admin compose or inline reply → artist gets portal message badge / toast / `label_message` notification when offline then returns
+
 ## Personal Artist Page
 - [ ] `/portal/fan-page` accessible when `artist.fan_page` flag is enabled; UI labels say **Personal Artist Page**
 - [ ] Editor saves sections, title, bio content

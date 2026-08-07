@@ -81,10 +81,11 @@
 | Domain send | Prefer `src/lib/messaging/send.ts` (`sendLabelMessage`, `sendPortalDomainMessage`) — sets `sender_user_id` + optional `client_message_id` |
 | Unified search | `searchArtistMailbox` in `src/lib/messaging/search.ts` |
 | Shared inbox (M2) | Portal `to_label` messages: `assignee_user_id`, `priority`, `tags`; staff notes (`message_internal_notes`); audit (`message_events`); APIs under `/api/admin/messages/[id]/{ops,notes,export}`; UI `SharedInboxPanel` |
-| Chat thread UI | Detail pane uses `MessageChatThread` (chronological bubbles; own messages right). Label threads include original + `artist_replies`. |
+| Chat thread UI | Detail pane uses `MessageChatThread` (chronological bubbles; own messages right). Label threads include original + `artist_replies`. **Admin and portal both have an inline reply composer** under the thread (not only a link to Compose). |
 | Conversation grouping | Client-side threads via `src/lib/messaging/threads.ts` (normalize subject, participant key). Portal inbox API merges sent+received so Re: threads are complete. One list row per conversation (count badge). |
 | Inbox tools | Sort modes (`MailboxSortSelect`); drag conversation → folder/trash (`@dnd-kit` + droppable `FolderTree`). Star/delete/move/restore apply to **all** message ids in the thread. |
 | Live sound | Realtime INSERT → `playNewMessageSound()`; toggle `MessageSoundToggle` (`localStorage` `dt-message-sound-enabled`, default on) |
+| Notifications | Label send: `POST /api/admin/messages/send` emits `label_message` (artist audience). Artist reply: `POST /api/portal/messages/artist-reply` emits `artist_portal_message` (staff). Portal→label already emits on `POST /api/portal/messages/send`. |
 
 ### TRACK Tour Planner (`/portal/tour-planner`)
 

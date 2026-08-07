@@ -1068,6 +1068,7 @@
   "notifications_type_landing_page_review": "File de revue page fan",
   "notifications_type_press_asset_suggestion": "Suggestion d’asset presse",
   "notifications_type_artist_portal_message": "Message au label",
+  "notifications_type_label_message": "Message du label",
   "notifications_type_fan_page_review_decision": "Décision Personal Artist Page",
   "notifications_type_release_submission_decision": "Décision de sortie",
   "notifications_type_video_submission_decision": "Décision vidéo",

@@ -970,7 +970,13 @@
     "search_placeholder": "Rechercher…",
     "no_from_artists": "Aucun message d’artistes",
     "no_messages": "Aucun message",
-    "select_to_read": "Sélectionnez un message à lire"
+    "select_to_read": "Sélectionnez un message à lire",
+    "reply_heading": "Répondre",
+    "reply_placeholder": "Écrire une réponse…",
+    "reply_send": "Envoyer la réponse",
+    "reply_sending": "Envoi…",
+    "reply_sent": "Réponse envoyée",
+    "reply_failed": "Échec de l’envoi de la réponse"
   },
   "notifications": {
     "title": "Notifications",
@@ -998,6 +1004,7 @@
       "landing_page_review": "Page fan en attente de relecture",
       "press_asset": "Suggestion d’asset presse",
       "portal_message": "Nouveau message d’un artiste",
+      "label_message": "Nouveau message du label",
       "fan_page_decision": "Décision de relecture de page fan"
     },
     "actions": {
@@ -1014,6 +1021,7 @@
       "landing_page_review": "File de relecture page fan",
       "press_asset_suggestion": "Suggestion d’asset presse",
       "artist_portal_message": "Message artiste vers le label",
+      "label_message": "Message label vers artiste",
       "fan_page_review_decision": "Décision page fan",
       "release_submission_decision": "Décision de release",
       "video_submission_decision": "Décision de vidéo",
