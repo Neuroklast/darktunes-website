@@ -17,10 +17,20 @@ import type { BulkPressAction, PressFilters, SortDir, SortField, ViewMode } from
 const DEFAULT_LIMIT_BYTES = 10 * 1024 * 1024 * 1024 // 10 GB
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
+  if (!Number.isFinite(bytes) || bytes < 0) return '0 B'
+  if (bytes < 1024) return `${Math.round(bytes)} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+}
+
+function coerceBytes(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return Math.floor(value)
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value)
+    if (Number.isFinite(n) && n >= 0) return Math.floor(n)
+  }
+  return null
 }
 
 interface ExplorerToolbarProps {
@@ -71,31 +81,57 @@ export function ExplorerToolbar({
   artists = [],
 }: ExplorerToolbarProps) {
   const [usedBytes, setUsedBytes] = useState<number | null>(null)
+  const [assetCount, setAssetCount] = useState<number | null>(null)
   const [limitBytes, setLimitBytes] = useState(DEFAULT_LIMIT_BYTES)
+  const [statsError, setStatsError] = useState(false)
   const [bulkKitArtistId, setBulkKitArtistId] = useState<string>('label')
 
   const fetchStats = useCallback(() => {
-    if (!authToken) return
+    // Prefer Bearer when available; always send cookies so dual-auth works
+    // while the explorer session token is still hydrating.
+    const headers: HeadersInit = {}
+    if (authToken) {
+      headers.Authorization = `Bearer ${authToken}`
+    }
     void fetch('/api/admin/assets/storage-stats', {
-      headers: { Authorization: 'Bearer ' + authToken },
+      headers,
+      credentials: 'include',
+      cache: 'no-store',
     })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => {
-        if (json && typeof json === 'object' && 'usedBytes' in json) {
-          setUsedBytes(json.usedBytes as number)
-          if ('limitBytes' in json && typeof json.limitBytes === 'number' && json.limitBytes > 0) {
-            setLimitBytes(json.limitBytes)
-          }
+      .then(async (r) => {
+        if (!r.ok) {
+          setStatsError(true)
+          return null
         }
+        return (await r.json()) as Record<string, unknown>
       })
-      .catch(() => undefined)
+      .then((json) => {
+        if (!json) return
+        const used = coerceBytes(json.usedBytes)
+        if (used === null) {
+          setStatsError(true)
+          return
+        }
+        setUsedBytes(used)
+        setStatsError(false)
+        const count = coerceBytes(json.assetCount)
+        if (count !== null) setAssetCount(count)
+        const limit = coerceBytes(json.limitBytes)
+        if (limit !== null && limit > 0) setLimitBytes(limit)
+      })
+      .catch(() => {
+        setStatsError(true)
+      })
   }, [authToken])
 
   useEffect(() => {
     fetchStats()
   }, [fetchStats, storageStatsRevision])
 
-  const usedPct = usedBytes !== null ? Math.min(100, (usedBytes / limitBytes) * 100) : null
+  const usedPct =
+    usedBytes !== null && limitBytes > 0
+      ? Math.min(100, Math.max(0, (usedBytes / limitBytes) * 100))
+      : null
 
   const updatePressFilter = (patch: Partial<PressFilters>) => {
     if (!pressFilters || !onPressFiltersChange) return
@@ -233,16 +269,33 @@ export function ExplorerToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {usedPct !== null && usedBytes !== null && (
-          <div className="flex min-w-40 flex-col gap-1" title="Catalog total from assets table">
-            <div className="flex justify-between text-xs text-muted-foreground">
+        {usedBytes !== null && usedPct !== null && (
+          <div
+            className="flex min-w-44 flex-col gap-1"
+            title={
+              assetCount != null
+                ? `Catalog total: ${assetCount.toLocaleString()} asset(s) in database`
+                : 'Catalog total from assets table'
+            }
+          >
+            <div className="flex justify-between gap-2 text-xs text-muted-foreground">
               <span>Storage</span>
-              <span>
+              <span className="tabular-nums">
                 {formatBytes(usedBytes)} / {formatBytes(limitBytes)}
+                {assetCount != null ? ` · ${assetCount.toLocaleString()} files` : ''}
               </span>
             </div>
-            <Progress value={usedPct} className="h-1.5" aria-label="Asset storage usage" />
+            <Progress
+              value={usedPct}
+              className="h-1.5"
+              aria-label={`Asset storage usage: ${formatBytes(usedBytes)} of ${formatBytes(limitBytes)}`}
+            />
           </div>
+        )}
+        {statsError && usedBytes === null && (
+          <span className="text-xs text-destructive" role="status">
+            Storage stats unavailable
+          </span>
         )}
         <span className="text-sm text-muted-foreground">{itemCount} item(s)</span>
         <div className="flex items-center gap-1 rounded-md border border-border p-1">

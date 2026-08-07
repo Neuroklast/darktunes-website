@@ -58,31 +58,42 @@ function makeSequentialMockDb(calls: Array<{ data: unknown; error?: unknown }>):
 describe('tryAcquireSyncExecutorLease', () => {
   it('acquires when no lease row exists', async () => {
     const db = makeSequentialMockDb([{ data: null }, { data: null }])
-    await expect(tryAcquireSyncExecutorLease(db, 60_000)).resolves.toBe(true)
+    const token = await tryAcquireSyncExecutorLease(db, 60_000)
+    expect(token).toEqual(expect.any(String))
+    expect(token!.length).toBeGreaterThan(4)
     expect(db.from).toHaveBeenCalledWith('site_settings')
   })
 
-  it('returns false when lease is still valid', async () => {
+  it('returns null when lease is still valid', async () => {
     const future = new Date(Date.now() + 60_000).toISOString()
-    const db = makeSequentialMockDb([{ data: { value: future } }])
-    await expect(tryAcquireSyncExecutorLease(db, 60_000)).resolves.toBe(false)
+    const db = makeSequentialMockDb([{ data: { value: `${future}|other-token` } }])
+    await expect(tryAcquireSyncExecutorLease(db, 60_000)).resolves.toBeNull()
   })
 
   it('acquires when lease is expired via optimistic update', async () => {
     const past = new Date(Date.now() - 60_000).toISOString()
     const db = makeSequentialMockDb([
-      { data: { value: past } },
+      { data: { value: `${past}|old` } },
       { data: [{ key: SYNC_EXECUTOR_LEASE_KEY }] },
     ])
-    await expect(tryAcquireSyncExecutorLease(db, 60_000)).resolves.toBe(true)
+    const token = await tryAcquireSyncExecutorLease(db, 60_000)
+    expect(token).toEqual(expect.any(String))
   })
 })
 
 describe('releaseSyncExecutorLease', () => {
-  it('upserts expired lease value', async () => {
+  it('upserts expired lease value without token', async () => {
     const db = makeSequentialMockDb([{ data: null }])
     await expect(releaseSyncExecutorLease(db)).resolves.toBeUndefined()
     expect(db.from).toHaveBeenCalledWith('site_settings')
+  })
+
+  it('no-ops when token does not own the lease', async () => {
+    const future = new Date(Date.now() + 60_000).toISOString()
+    const db = makeSequentialMockDb([{ data: { value: `${future}|owner-a` } }])
+    await expect(releaseSyncExecutorLease(db, 'owner-b')).resolves.toBeUndefined()
+    // Only the read path — no update when ownership mismatches
+    expect(db.from).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -299,41 +310,53 @@ describe('markSyncJobFailed', () => {
 
 describe('getSyncQueueStats', () => {
   it('aggregates per-status counts via head queries', async () => {
-    const db = makeSequentialMockDb([
-      { data: null, error: null },
-      { data: null, error: null },
-      { data: null, error: null },
-      { data: null, error: null },
-    ])
-
+    // First call: recoverStuckSyncJobs (update…select). Then 4 status counts.
     let callIndex = 0
     const counts = [3, 1, 10, 2]
     const gteCalls: string[] = []
-    ;(db.from as ReturnType<typeof vi.fn>).mockImplementation(() => {
-      const count = counts[callIndex] ?? 0
-      callIndex++
-      const countResult = { count, error: null }
-      const countPromise = Promise.resolve(countResult)
-      return {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        gte: vi.fn((field: string) => {
-          gteCalls.push(field)
+    const db = {
+      from: vi.fn().mockImplementation(() => {
+        // recoverStuckSyncJobs
+        if (callIndex === 0) {
+          callIndex++
+          const recoverResult = { data: [], error: null }
+          const recoverPromise = Promise.resolve(recoverResult)
           return {
-            then: countPromise.then.bind(countPromise),
-            catch: countPromise.catch.bind(countPromise),
-            finally: countPromise.finally.bind(countPromise),
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            or: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            then: recoverPromise.then.bind(recoverPromise),
+            catch: recoverPromise.catch.bind(recoverPromise),
+            finally: recoverPromise.finally.bind(recoverPromise),
           }
-        }),
-        then: countPromise.then.bind(countPromise),
-        catch: countPromise.catch.bind(countPromise),
-        finally: countPromise.finally.bind(countPromise),
-      }
-    })
+        }
+
+        const count = counts[callIndex - 1] ?? 0
+        callIndex++
+        const countResult = { count, error: null }
+        const countPromise = Promise.resolve(countResult)
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn((field: string) => {
+            gteCalls.push(field)
+            return {
+              then: countPromise.then.bind(countPromise),
+              catch: countPromise.catch.bind(countPromise),
+              finally: countPromise.finally.bind(countPromise),
+            }
+          }),
+          then: countPromise.then.bind(countPromise),
+          catch: countPromise.catch.bind(countPromise),
+          finally: countPromise.finally.bind(countPromise),
+        }
+      }),
+    } as unknown as DbClient
 
     const stats = await getSyncQueueStats(db)
     expect(stats).toEqual({ pending: 3, running: 1, done: 10, failed: 2 })
-    expect(db.from).toHaveBeenCalledTimes(4)
+    expect(db.from).toHaveBeenCalledTimes(5)
     expect(gteCalls).toEqual(['created_at', 'created_at'])
   })
 })

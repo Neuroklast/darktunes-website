@@ -1,6 +1,6 @@
 /**
- * Maps sync/cron failure signals to short, actionable admin messages.
- * Keep copy plain — no stack traces, no internal jargon without a next step.
+ * Maps sync failure signals to short, product-facing admin messages.
+ * Never expose hosting/infra setup (R2, Vercel, Supabase Cron, secrets, Edge Functions).
  */
 
 export interface UserFacingError {
@@ -21,25 +21,25 @@ export function describeSyncQueueIssue(input: {
 
   if (input.cronSecretMissing) {
     out.push({
-      title: 'Cron auth not configured',
-      message: 'CRON_SECRET is missing on the site. Supabase Cron cannot call sync routes securely.',
-      fixHint: 'Set CRON_SECRET in Vercel and the same value on the trigger-sync Edge Function secrets.',
+      title: 'Automatic sync unavailable',
+      message: 'Background sync cannot start until technical setup is completed by the site operator.',
+      fixHint: 'Contact your technical operator. Label admins cannot configure this from the dashboard.',
     })
   }
 
   if (input.executorNeverRan && input.backlog > 0) {
     out.push({
-      title: 'Executor never ran',
-      message: `${input.backlog} job(s) are waiting, but /api/sync has no heartbeat yet.`,
+      title: 'Sync not processing',
+      message: `${input.backlog} job(s) are waiting, but automatic processing has not started yet.`,
       fixHint:
-        'In Supabase, schedule Cron type=process-queue every 5 minutes to trigger-sync, and confirm SITE_URL + CRON_SECRET on the Edge Function.',
+        'Use Force Sync All on this page, or contact your technical operator if jobs stay stuck.',
     })
   } else if (input.executorOffline && input.backlog > 0) {
     out.push({
-      title: 'Executor offline',
-      message: `${input.backlog} job(s) are waiting and the executor heartbeat is stale.`,
+      title: 'Sync processor idle',
+      message: `${input.backlog} job(s) are waiting and automatic processing looks stalled.`,
       fixHint:
-        'Check Supabase Cron last run for process-queue. Verify Edge secrets SITE_URL (production URL) and CRON_SECRET match Vercel.',
+        'Use Force Sync All on this page, or contact your technical operator if the backlog does not clear.',
     })
   }
 
@@ -52,9 +52,8 @@ export function describeSyncQueueIssue(input: {
   } else if (input.youtubeIdle) {
     out.push({
       title: 'YouTube sync never ran',
-      message: 'No YouTube heartbeat yet — daily channel sync has not completed.',
-      fixHint:
-        'Schedule Supabase Cron type=youtube (daily) or run Sync YouTube from this page after credentials are set.',
+      message: 'No YouTube channel sync has completed yet.',
+      fixHint: 'Run Sync YouTube on this page after credentials are set under API Keys.',
     })
   }
 
@@ -68,10 +67,10 @@ export function describeJobError(errorMessage: string | null): string {
     return 'Provider rate-limited this job. It was rescheduled with a cooldown (not retried in a tight loop).'
   }
   if (msg.includes('quota') || msg.includes('YOUTUBE_QUOTA')) {
-    return 'YouTube API quota is exhausted for today. Wait for quota reset or raise the Google Cloud quota.'
+    return 'YouTube API quota is exhausted for today. Try again after the daily quota resets.'
   }
   if (msg.includes('CRON_SECRET') || msg.includes('Unauthorized') || msg.includes('401')) {
-    return 'Authentication failed. CRON_SECRET in Vercel and the Edge Function must match.'
+    return 'Sync authentication failed. Contact your technical operator — this cannot be fixed from the label admin.'
   }
   if (msg.includes('Cancelled by admin') || msg.includes('Cancel requested')) {
     return 'Cancelled from the Advanced job console.'

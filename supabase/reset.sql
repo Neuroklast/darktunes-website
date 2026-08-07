@@ -1236,6 +1236,10 @@ AS $$
   FROM public.assets a;
 $$;
 
+-- Ensure live DBs pick up the function even when table already existed
+COMMENT ON FUNCTION public.get_assets_storage_stats() IS
+  'SUM(size_bytes)+COUNT(*) over public.assets for admin storage bar';
+
 REVOKE ALL ON FUNCTION public.get_assets_storage_stats() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_assets_storage_stats() TO service_role;
 CREATE INDEX IF NOT EXISTS idx_assets_release_id  ON public.assets (release_id);

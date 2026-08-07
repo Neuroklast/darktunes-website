@@ -16,8 +16,8 @@ const FanPageReviewsManager = lazy(() =>
 export default function AdminFanPageReviewsPage() {
   return (
     <AdminPageShell
-      title="Fan Page Reviews"
-      description="Review artist fan pages submitted from the portal and approve or reject publication."
+      title="Personal Artist Page Reviews"
+      description="Review personal artist pages submitted from the portal and approve or reject publication."
     >
       <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">Loading…</div>}>
         <FanPageReviewsManager />

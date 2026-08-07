@@ -224,7 +224,9 @@ Artists are guided step-by-step; only fields visible/required for the selected t
 
 API surface: document, versions, fonts, share, templates, press export. DAL: `epkDocument.ts`, `epkFonts.ts`, `epkShareLinks.ts`.
 
-## Fan Page (`/portal/fan-page`, public `/@{slug}`)
+## Personal Artist Page (`/portal/fan-page`, public `/@{slug}`)
+
+User-facing name: **Personal Artist Page** (legacy code paths still use `fan-page` / `fan_page`).
 
 Distinct from EPK (press/PDF) and the fixed `/artists/[slug]` profile. One customizable fan landing page per artist.
 

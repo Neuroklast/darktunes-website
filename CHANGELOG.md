@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Sync executor continuous drain:** One logical queue run now self-chains across Vercel duration slices (budget headroom before claim, inter-artist pacing, owner-token lease, 6m stuck-job recovery). Rate-limited artists cool down; others keep processing without manual Force Sync every few minutes.
+- **Admin System Health — no infra ops UI:** Removed Supabase Cron / Edge Function / `CRON_SECRET` setup checklist and Cron Schedulers panel from label admin. Health copy stays product-facing (Force Sync, API Keys, contact technical operator); hosting/cron setup remains in `DEPLOYMENT.md` only.
+- **Personal Artist Page rename:** User-facing “Fan Page” labels (portal nav, builder, admin reviews, help, public metadata) → **Personal Artist Page** (routes/keys unchanged).
+- **Assets storage bar:** Cookie+Bearer auth, robust RPC/paginated totals, stable ordering for pagination, file count + clearer error when stats fail.
+
 ### Security
 - **Debt cleanup (overlay / over-fetch / brand UA):** Portaled HoverCard, ContextMenu, Tooltip at `z-[10000]` with CI `check:overlay`; Drawer aligned to Dialog stack; auth/role/file-explorer selects column-whitelisted; outbound User-Agents via `src/lib/brand/userAgent.ts` + env; residual CSP/rate-limit risks documented (`SECURITY.md`, `docs/agent/debt-inventory.md`).
 - **Public artist DTOs:** Public pages select a column whitelist only (`PUBLIC_ARTIST_COLUMNS`); no `bandsintown_api_key`, email, VAT, notes, or `user_id` in RSC/client payloads.

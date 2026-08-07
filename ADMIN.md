@@ -217,15 +217,17 @@ The **SOS Generator** tab in the same Accounting page lets admins upload royalty
 
 **Do NOT** use a webhook or external HTTP POST to upload statements — the Server Action is the only supported upload path.
 
-## Monitoring Sync Schedules
+## Monitoring Sync (label admin)
 
-Sync runs via **Supabase Cron** → `trigger-sync` Edge Function (**not** Vercel Cron). To verify:
-1. Supabase Dashboard → Cron Jobs → last execution time and status
-2. Admin → **System** → Health (**Guided**): setup checklist, plain-language issues, queue KPIs
-3. Admin → System → Health → **Advanced**: live `sync_queue` jobs — cancel pending/running (cooperative), retry failed/cancelled
-4. Admin → System → Log Manager → filter by `api_source`
+Label admins do **not** configure hosting, R2, Vercel, Supabase Cron, Edge Functions, or secrets from the dashboard. That stays in operator docs (`DEPLOYMENT.md`).
 
-If sync fails: check logs; re-queue bulk via Maintenance or per-job **Retry** in Advanced.
+From **Admin → System → Health** the label admin can:
+1. See product health (APIs, queue KPIs, plain-language issues) without infra setup copy
+2. Run **Force Sync All** / **Sync YouTube** when credentials exist under API Keys
+3. Use **Advanced** for live `sync_queue` jobs — cancel pending/running (cooperative), retry failed/cancelled
+4. Open **Log Manager** for application/API error browsing
+
+Scheduler and secret setup: operators only — Supabase Dashboard + `DEPLOYMENT.md` (not the admin UI).
 
 ## Creating a Journalist Account
 

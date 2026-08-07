@@ -38,6 +38,7 @@ Skipping docs because “the task was only code” is a process failure.
 - **Minimal changes:** Smallest diff that fully solves the task
 - **Docs:** Always update documentation/markdown at session end (see above)
 - **Bronze CSV (SOS):** Never browser `fetch()` to presigned R2 URLs — use `/api/admin/sos/import-batches/*` routes; limits in `src/lib/sos/bronzeUploadLimits.ts`
+- **No infra ops in admin UI:** Label admin must not show R2 / Vercel / Supabase Cron / Edge Function / `CRON_SECRET` setup. Product health + Force Sync only; scheduler docs in `DEPLOYMENT.md`
 
 ## Scroll — decision tree (read before touching any layout)
 

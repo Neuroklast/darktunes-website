@@ -28,7 +28,6 @@ import {
   Gauge,
   Bell,
   ChartLine,
-  Clock,
   Headphones,
   Waveform,
 } from '@phosphor-icons/react'
@@ -45,7 +44,6 @@ import {
 import type { AlertSeverity, HealthResponse } from '@/lib/health/types'
 import { describeSyncQueueIssue } from '@/lib/sync/userFacingErrors'
 import { SyncAdvancedJobsPanel } from '@/components/admin/sync/SyncAdvancedJobsPanel'
-import { SyncSetupChecklist } from '@/components/admin/sync/SyncSetupChecklist'
 
 interface SystemHealthWidgetProps {
   bearerToken: string
@@ -436,14 +434,12 @@ export function SystemHealthWidget({ bearerToken }: SystemHealthWidgetProps) {
       Boolean(health.apis.youtube?.configured) &&
       (youtubeJob?.statusLabel === 'Awaiting first run' ||
         youtubeJob?.lastHeartbeatAt == null),
-    cronSecretMissing: executeJob?.statusLabel === 'Cron auth not configured',
+    cronSecretMissing:
+      executeJob?.statusLabel === 'Automatic sync unavailable' ||
+      executeJob?.statusLabel === 'Cron auth not configured',
   })
 
   const activeWork = queueBacklog > 0
-  const executorOk =
-    executeJob?.operationalState === 'operational' ||
-    (executeJob?.lastHeartbeatAt != null && executeJob.operationalState !== 'failing')
-  const youtubeOk = Boolean(youtubeJob?.lastHeartbeatAt)
 
   return (
     <div className="space-y-6">
@@ -600,7 +596,10 @@ export function SystemHealthWidget({ bearerToken }: SystemHealthWidgetProps) {
         <Card className="border-yellow-500/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">What needs attention</CardTitle>
-            <CardDescription>Plain-language sync/scheduler issues and how to fix them.</CardDescription>
+            <CardDescription>
+              Product-facing sync issues you can act on from this dashboard. Hosting and scheduler
+              setup is not managed here.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
@@ -610,7 +609,7 @@ export function SystemHealthWidget({ bearerToken }: SystemHealthWidgetProps) {
                   <p className="text-xs text-muted-foreground mt-1">{issue.message}</p>
                   {issue.fixHint && (
                     <p className="text-xs text-foreground mt-1">
-                      <span className="font-medium">Fix: </span>
+                      <span className="font-medium">Next step: </span>
                       {issue.fixHint}
                     </p>
                   )}
@@ -619,15 +618,6 @@ export function SystemHealthWidget({ bearerToken }: SystemHealthWidgetProps) {
             </ul>
           </CardContent>
         </Card>
-      )}
-
-      {viewMode === 'guided' && (
-        <SyncSetupChecklist
-          cronSecretConfigured={executeJob?.statusLabel !== 'Cron auth not configured'}
-          executorOk={executorOk}
-          youtubeConfigured={health.apis.youtube?.configured ?? false}
-          youtubeOk={youtubeOk}
-        />
       )}
 
       {viewMode === 'advanced' && (
@@ -752,50 +742,6 @@ export function SystemHealthWidget({ bearerToken }: SystemHealthWidgetProps) {
           </Card>
         )}
       </div>
-
-      {health.cronHealth && (
-        <Card
-          className={cn(
-            health.cronHealth.operationalState === 'failing' && 'border-red-500/30',
-            health.cronHealth.operationalState === 'degraded' && 'border-yellow-500/30',
-            health.cronHealth.operationalState === 'operational' && 'border-green-500/30',
-          )}
-        >
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Clock size={16} weight="bold" aria-hidden="true" />
-              Cron Schedulers
-            </CardTitle>
-            <CardDescription>{health.cronHealth.statusDetail}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Badge
-              className={operationalBadgeClass(health.cronHealth.operationalState)}
-              aria-label={`Cron health: ${health.cronHealth.statusLabel}`}
-            >
-              {health.cronHealth.statusLabel}
-            </Badge>
-            <ul className="space-y-2">
-              {health.cronHealth.jobs.map((job) => (
-                <li
-                  key={job.key}
-                  className="flex flex-wrap items-center gap-2 text-xs border border-border rounded-md px-3 py-2"
-                >
-                  <span className="font-medium text-foreground">{job.label}</span>
-                  <Badge className={operationalBadgeClass(job.operationalState)}>
-                    {job.statusLabel}
-                  </Badge>
-                  <span className="text-muted-foreground ml-auto">
-                    {job.lastHeartbeatAt
-                      ? formatRelativeTime(job.lastHeartbeatAt)
-                      : 'No heartbeat'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {apiEntries.map(([api, status]) => {

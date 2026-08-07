@@ -80,12 +80,12 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
   const data = await makeGetFanPageData(slug)().catch(() => null)
   const { labelShortName } = await getMetadataBrand()
-  if (!data) return { title: pageTitle('Fan Page', labelShortName) }
+  if (!data) return { title: pageTitle('Personal Artist Page', labelShortName) }
 
-  const title = data.page.seoTitle ?? `${data.page.artistName} — Fan Page`
+  const title = data.page.seoTitle ?? `${data.page.artistName} — Personal Artist Page`
   const description =
     data.page.seoDescription ??
-    `Official fan page for ${data.page.artistName} on ${labelShortName}.`
+    `Official personal artist page for ${data.page.artistName} on ${labelShortName}.`
 
   return { title, description }
 }

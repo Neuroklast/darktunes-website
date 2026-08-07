@@ -140,7 +140,9 @@
 - [ ] Full artist sync does **not** claim to update videos (YouTube is a separate action)
 - [ ] `GET /api/sync/queue` with admin Bearer returns `{ pending, running, done, failed }` and does **not** enqueue jobs
 - [ ] Admin → System → **Advanced**: job table lists pending/running; cancel pending removes work; cancel running sets cancel-requested then job ends cancelled; retry failed re-queues
-- [ ] Admin → System → **Guided**: setup checklist shows Supabase Cron paths (no Vercel Cron); speaking issues when executor offline with backlog
+- [ ] Force Sync / Sync All: many artists drain continuously (executor self-chains); no manual re-kick every ~5 min while due jobs remain; rate-limited artists pause with cooldown while others proceed
+- [ ] Stuck `running` jobs recover within ~6 minutes and stats GET unblocks re-kick
+- [ ] Admin → System → Health: **no** infra setup (no CRON_SECRET / Supabase Cron / Edge Function / Vercel / R2 operator docs); speaking issues stay product-facing (Force Sync / technical operator), never expose secrets or cron schedules
 - [ ] `vercel.json` has no `crons` key
 
 ## Documentation
@@ -203,12 +205,13 @@
 - [ ] Portal Listeners tab shows Spotify (public) series after Apify sync (disclaimer: not settlement data)
 - [ ] Overview intelligence panel shows insights with working deep links
 
-## Fan Page
-- [ ] `/portal/fan-page` accessible when `artist.fan_page` flag is enabled; shows disabled message otherwise
-- [ ] Fan page editor saves sections, title, bio content
+## Personal Artist Page
+- [ ] `/portal/fan-page` accessible when `artist.fan_page` flag is enabled; UI labels say **Personal Artist Page**
+- [ ] Editor saves sections, title, bio content
 - [ ] Publish flow: draft → pending_review (or direct publish when `landing_publish_trusted` is set)
-- [ ] Public URL `/@{slug}` renders the fan page; returns 404 for unpublished pages
-- [ ] Admin review at `/admin/fan-page/review/[artistId]` accessible by admin only
+- [ ] Public URL `/@{slug}` renders the page; returns 404 for unpublished pages
+- [ ] Admin review queue labels say Personal Artist Page Reviews
+- [ ] Admin → Assets storage bar shows catalog total (Σ `assets.size_bytes`); refreshes after upload/delete
 
 ## TRACK Tour Planner
 - [ ] `/portal/tour-planner` accessible when `artist.tour_planner` flag is enabled; shows disabled message otherwise

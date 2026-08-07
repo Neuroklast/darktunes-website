@@ -139,10 +139,20 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-07 — Sync executor hang / constant re-kick
+
+- **Finding:** `/api/sync` stopped after ~280s and left jobs `running` until a 10m lock; admin had to Force Sync repeatedly. `force=1` infinite loops ignored the budget and could outlive the lease.
+- **Rule:** Claim only with headroom under maxDuration; pace between artists; self-chain after lease release while due pending remain; owner-token lease release; recover stuck on stats GET. Rate-limit one artist without stopping the whole drain.
+
+### 2026-08-07 — No infra ops in label admin UI
+
+- **Finding:** Label admins were shown Supabase Cron paths, Edge Function secrets, `CRON_SECRET`, and Vercel setup inside Admin → System Health — hosting/ops work that does not belong in product UI.
+- **Rule:** Admin surfaces only product health and actions (API status, queue KPIs, Force Sync, Advanced job console). R2 / Vercel / Supabase Cron / Edge secrets stay in `DEPLOYMENT.md` and operator dashboards — never as admin menu copy or setup checklists.
+
 ### 2026-08-07 — Overlay stack + brand residual debt
 
 - **Finding:** Dialog/Sheet at `z-[9999]` made any remaining portaled UI at `z-50` (HoverCard, ContextMenu, Tooltip) unusable inside modals — same class of bug as DateField.
-- **Fix:** Shared portaled stack `z-[10000]` + CI `npm run check:overlay`. Track residual CSP/rate-limit/`select('*')` in `docs/agent/debt-inventory.md`.
+- **Fix:** Shared portaled stack `z-[10000]` + CI `check:overlay`. Track residual CSP/rate-limit/`select('*')` in `docs/agent/debt-inventory.md`.
 - **Brand UAs:** Put partner User-Agents behind env helpers with brand-neutral defaults so `check:brand` stays clean; set `BRAND_USER_AGENT` in production when APIs need an allowlisted identity.
 
 ### 2026-08-06 — Public data / a11y hardening

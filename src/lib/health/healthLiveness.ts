@@ -21,7 +21,7 @@ export function deriveDatabaseHealth(
       status: 'offline',
       latencyMs,
       statusLabel: 'Unreachable',
-      statusDetail: 'Supabase ping failed — public reads and sync jobs cannot run.',
+      statusDetail: 'Database ping failed — public reads and sync jobs cannot run.',
     }
   }
 

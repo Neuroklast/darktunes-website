@@ -93,6 +93,12 @@ async function kickExecutor(
  * Polls until the sync queue has no pending/running jobs.
  * Re-kicks the executor only when nothing is running so overlapping waitUntil
  * workers do not pile up (single-flight lease is the server-side guard).
+ *
+ * The server also self-chains across Vercel duration slices when due jobs
+ * remain — client kicks are a safety net if self-chain/auth is unavailable.
+ * GET /api/sync/queue recovers stuck `running` rows so a dead worker cannot
+ * block re-kicks forever.
+ *
  * Returns when drained or when timeoutMs elapses.
  */
 export async function waitForSyncQueueIdle(

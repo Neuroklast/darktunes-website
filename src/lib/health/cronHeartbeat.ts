@@ -61,8 +61,8 @@ function deriveExecuteCron(
     return {
       ...base,
       operationalState: 'unconfigured',
-      statusLabel: 'Cron auth not configured',
-      statusDetail: 'Set CRON_SECRET to enable scheduled sync/execute invocations.',
+      statusLabel: 'Automatic sync unavailable',
+      statusDetail: 'Background sync is not armed. Contact your technical operator.',
     }
   }
 
@@ -77,8 +77,8 @@ function deriveExecuteCron(
       statusLabel: backlog > 0 ? 'Executor never ran' : 'Awaiting first run',
       statusDetail:
         backlog > 0
-          ? `${backlog} queue job(s) waiting but /api/sync has no heartbeat yet.`
-          : 'No heartbeat recorded — schedule /api/sync every 5 minutes.',
+          ? `${backlog} queue job(s) waiting but automatic processing has not started yet.`
+          : 'No automatic sync run recorded yet.',
     }
   }
 
@@ -89,14 +89,14 @@ function deriveExecuteCron(
         ...base,
         operationalState: 'failing',
         statusLabel: 'Executor offline',
-        statusDetail: `Last invoke ${minutes}m ago with ${backlog} active queue job(s) — cron may be down.`,
+        statusDetail: `Last run ${minutes}m ago with ${backlog} active queue job(s) — automatic processing may be stalled.`,
       }
     }
     return {
       ...base,
       operationalState: 'degraded',
       statusLabel: 'Executor overdue',
-      statusDetail: `Last invoke ${minutes}m ago (expected every 5m) — queue is idle.`,
+      statusDetail: `Last run ${minutes}m ago — queue is idle.`,
     }
   }
 
@@ -121,8 +121,8 @@ function deriveDailyCron(
     return {
       ...base,
       operationalState: 'unconfigured',
-      statusLabel: 'Not scheduled',
-      statusDetail: `Required credentials for ${label} are missing — check Admin → API Keys and deployment secrets.`,
+      statusLabel: 'Not configured',
+      statusDetail: `Required credentials for ${label} are missing — check Admin → API Keys.`,
     }
   }
 
@@ -132,7 +132,7 @@ function deriveDailyCron(
       ...base,
       operationalState: 'idle',
       statusLabel: 'Awaiting first run',
-      statusDetail: `No heartbeat yet — ${label} daily cron has not completed.`,
+      statusDetail: `No run recorded yet for ${label}.`,
     }
   }
 
@@ -171,7 +171,7 @@ function deriveAlertCron(
       ...base,
       operationalState: 'unconfigured',
       statusLabel: 'Alerts not armed',
-      statusDetail: 'Set CRON_SECRET and schedule /api/health/alert to enable proactive alerts.',
+      statusDetail: 'Proactive alerts are not available. Contact your technical operator.',
     }
   }
 
@@ -183,7 +183,7 @@ function deriveAlertCron(
       ...base,
       operationalState: 'idle',
       statusLabel: 'Awaiting first check',
-      statusDetail: 'Proactive alert cron has not run yet.',
+      statusDetail: 'Proactive alerts have not run yet.',
     }
   }
 

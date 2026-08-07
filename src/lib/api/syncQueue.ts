@@ -41,13 +41,42 @@ export interface SyncJob {
 }
 
 export const MAX_ATTEMPTS = 3
-/** Visibility timeout — running jobs past this are reset to pending. */
-export const LOCK_DURATION_MS = 10 * 60 * 1000
+/**
+ * Visibility timeout — running jobs past this are reset to pending.
+ * Slightly above Vercel maxDuration (300s) so a live job is not stolen mid-run,
+ * but short enough that a hard-killed waitUntil recovers without a 10m hang.
+ */
+export const LOCK_DURATION_MS = 6 * 60 * 1000
 
-/** site_settings key for the single-flight queue executor lease (ISO expiry). */
+/** site_settings key for the single-flight queue executor lease. */
 export const SYNC_EXECUTOR_LEASE_KEY = 'sync_executor_lease'
 /** Default lease length; should cover one Vercel maxDuration budget. */
 export const EXECUTOR_LEASE_MS = 5 * 60 * 1000
+
+/** Lease payload: `ISO_EXPIRES|token` so only the owner can release. */
+function encodeExecutorLease(expiresIso: string, token: string): string {
+  return `${expiresIso}|${token}`
+}
+
+function parseExecutorLease(
+  raw: string | null | undefined,
+): { expiresAt: number; token: string | null } | null {
+  if (!raw) return null
+  const pipe = raw.indexOf('|')
+  if (pipe === -1) {
+    const expiresAt = Date.parse(raw)
+    if (Number.isNaN(expiresAt)) return null
+    // Legacy ISO-only values (pre-token) — treat as owned by nobody for release matching.
+    return { expiresAt, token: null }
+  }
+  const expiresAt = Date.parse(raw.slice(0, pipe))
+  if (Number.isNaN(expiresAt)) return null
+  return { expiresAt, token: raw.slice(pipe + 1) || null }
+}
+
+function newExecutorLeaseToken(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+}
 
 const ARTIST_SCOPED_JOB_TYPES: SyncJobType[] = ['full', 'spotify', 'discogs', 'youtube']
 
@@ -92,12 +121,12 @@ function rowToSyncJob(
 /**
  * Tries to acquire a single-flight lease so only one `/api/sync` waitUntil
  * worker drains the queue at a time (avoids parallel R2/DNS storms).
- * Returns true when this caller holds the lease.
+ * Returns a lease token when this caller holds the lease, otherwise null.
  */
 export async function tryAcquireSyncExecutorLease(
   db: DbClient,
   leaseMs = EXECUTOR_LEASE_MS,
-): Promise<boolean> {
+): Promise<string | null> {
   const now = Date.now()
   const { data: existing, error: readError } = await db
     .from('site_settings')
@@ -110,18 +139,20 @@ export async function tryAcquireSyncExecutorLease(
   }
 
   if (existing?.value) {
-    const expiresAt = Date.parse(existing.value)
-    if (!Number.isNaN(expiresAt) && expiresAt > now) {
-      return false
+    const parsed = parseExecutorLease(existing.value)
+    if (parsed && parsed.expiresAt > now) {
+      return null
     }
   }
 
+  const token = newExecutorLeaseToken()
   const expires = new Date(now + leaseMs).toISOString()
+  const value = encodeExecutorLease(expires, token)
 
   if (existing) {
     const { data, error } = await db
       .from('site_settings')
-      .update({ value: expires })
+      .update({ value })
       .eq('key', SYNC_EXECUTOR_LEASE_KEY)
       .eq('value', existing.value)
       .select('key')
@@ -129,27 +160,66 @@ export async function tryAcquireSyncExecutorLease(
     if (error) {
       throw new Error(`Failed to acquire sync executor lease: ${error.message}`)
     }
-    return (data?.length ?? 0) > 0
+    return (data?.length ?? 0) > 0 ? token : null
   }
 
   const { error: insertError } = await db.from('site_settings').insert({
     key: SYNC_EXECUTOR_LEASE_KEY,
-    value: expires,
+    value,
   })
 
   if (insertError) {
     // Concurrent insert lost the race — another executor holds the lease.
-    if (insertError.code === '23505') return false
+    if (insertError.code === '23505') return null
     throw new Error(`Failed to create sync executor lease: ${insertError.message}`)
   }
 
-  return true
+  return token
 }
 
-/** Clears the executor lease so the next kick can start a new worker. */
-export async function releaseSyncExecutorLease(db: DbClient): Promise<void> {
+/**
+ * Clears the executor lease so the next kick (or self-chain) can start a worker.
+ * When `token` is provided, only the owner may release (prevents a late finally
+ * from clearing a newer worker's lease after hard timeout races).
+ */
+export async function releaseSyncExecutorLease(
+  db: DbClient,
+  token?: string | null,
+): Promise<void> {
+  if (token) {
+    const { data: existing, error: readError } = await db
+      .from('site_settings')
+      .select('value')
+      .eq('key', SYNC_EXECUTOR_LEASE_KEY)
+      .maybeSingle()
+
+    if (readError) {
+      throw new Error(`Failed to read sync executor lease: ${readError.message}`)
+    }
+
+    const parsed = parseExecutorLease(existing?.value)
+    if (!parsed || parsed.token !== token) {
+      // Lost ownership (expired + re-acquired by another worker) — do not clear.
+      return
+    }
+
+    const { error } = await db
+      .from('site_settings')
+      .update({ value: encodeExecutorLease(new Date(0).toISOString(), 'released') })
+      .eq('key', SYNC_EXECUTOR_LEASE_KEY)
+      .eq('value', existing!.value)
+
+    if (error) {
+      throw new Error(`Failed to release sync executor lease: ${error.message}`)
+    }
+    return
+  }
+
   const { error } = await db.from('site_settings').upsert(
-    { key: SYNC_EXECUTOR_LEASE_KEY, value: new Date(0).toISOString() },
+    {
+      key: SYNC_EXECUTOR_LEASE_KEY,
+      value: encodeExecutorLease(new Date(0).toISOString(), 'released'),
+    },
     { onConflict: 'key' },
   )
   if (error) {
@@ -721,9 +791,32 @@ async function countSyncQueueByStatus(
   return count ?? 0
 }
 
+/**
+ * Pending jobs that are due now (scheduled_at <= now, under max attempts).
+ * Used to decide self-chain continuation after a budget-limited drain.
+ */
+export async function countDuePendingSyncJobs(db: DbClient): Promise<number> {
+  const now = new Date().toISOString()
+  const { count, error } = await db
+    .from('sync_queue')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'pending')
+    .lt('attempt_count', MAX_ATTEMPTS)
+    .lte('scheduled_at', now)
+
+  if (error) {
+    throw new Error(`Failed to count due pending sync jobs: ${error.message}`)
+  }
+  return count ?? 0
+}
+
 export async function getSyncQueueStats(
   db: DbClient,
 ): Promise<{ pending: number; running: number; done: number; failed: number }> {
+  // Unstick zombies before reporting so admin polls + waitForSyncQueueIdle can
+  // re-kick instead of waiting forever on a dead `running` row.
+  await recoverStuckSyncJobs(db)
+
   const createdSince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const [pending, running, done, failed] = await Promise.all([
     countSyncQueueByStatus(db, 'pending'),
