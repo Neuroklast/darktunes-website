@@ -794,7 +794,9 @@
   },
   "pages": {
     "assetsDescription": "Browse, upload, and manage media files.",
-    "videosDescription": "Manage videos and keep your channel catalogue in sync."
+    "videosDescription": "Manage videos and keep your channel catalogue in sync.",
+    "fanPageReviewsTitle": "Personal Artist Page Reviews",
+    "fanPageReviewsDescription": "Review personal artist pages submitted from the portal and approve or reject publication."
   },
   "portalFaq": {
     "pageTitle": "Portal FAQ",

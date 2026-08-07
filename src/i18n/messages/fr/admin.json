@@ -794,7 +794,9 @@
   },
   "pages": {
     "assetsDescription": "Parcourez, uploadez et gérez les fichiers médias.",
-    "videosDescription": "Gérez les vidéos et gardez le catalogue de chaînes synchronisé."
+    "videosDescription": "Gérez les vidéos et gardez le catalogue de chaînes synchronisé.",
+    "fanPageReviewsTitle": "Revue Personal Artist Page",
+    "fanPageReviewsDescription": "Examinez les Personal Artist Pages soumises depuis le portail et approuvez ou refusez la publication."
   },
   "portalFaq": {
     "pageTitle": "FAQ du portail",

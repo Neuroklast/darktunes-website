@@ -1,10 +1,11 @@
 /**
- * app/admin/fan-page-reviews/page.tsx — Fan Page review queue
+ * app/admin/fan-page-reviews/page.tsx — Personal Artist Page review queue
  */
 
 export const dynamic = 'force-dynamic'
 
 import { Suspense, lazy } from 'react'
+import { getTranslations } from 'next-intl/server'
 import { AdminPageShell } from '../_components/AdminPageShell'
 
 const FanPageReviewsManager = lazy(() =>
@@ -13,13 +14,15 @@ const FanPageReviewsManager = lazy(() =>
   })),
 )
 
-export default function AdminFanPageReviewsPage() {
+export default async function AdminFanPageReviewsPage() {
+  const t = await getTranslations('admin.pages')
+
   return (
     <AdminPageShell
-      title="Personal Artist Page Reviews"
-      description="Review personal artist pages submitted from the portal and approve or reject publication."
+      title={t('fanPageReviewsTitle')}
+      description={t('fanPageReviewsDescription')}
     >
-      <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">Loading…</div>}>
+      <Suspense fallback={<div className="p-8 text-muted-foreground text-sm">Loading…</div>}>
         <FanPageReviewsManager />
       </Suspense>
     </AdminPageShell>

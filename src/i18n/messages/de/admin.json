@@ -794,7 +794,9 @@
   },
   "pages": {
     "assetsDescription": "Mediendateien durchsuchen, hochladen und verwalten.",
-    "videosDescription": "Videos verwalten und den Kanal-Katalog synchron halten."
+    "videosDescription": "Videos verwalten und den Kanal-Katalog synchron halten.",
+    "fanPageReviewsTitle": "Personal-Artist-Page-Reviews",
+    "fanPageReviewsDescription": "Persönliche Artist Pages aus dem Portal prüfen und die Veröffentlichung freigeben oder ablehnen."
   },
   "portalFaq": {
     "pageTitle": "Portal-FAQ",
