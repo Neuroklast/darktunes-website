@@ -117,7 +117,11 @@ Client: `bronzeUpload.ts`. Multipart: `bronzeMultipartUpload.ts`. Limits: `bronz
 
 Release/video submit also fires `sendSubmissionNotificationEmail()` (env `LABEL_NOTIFICATION_EMAIL`, fire-and-forget).
 
-**Preferences:** `notification_preferences` (user_id, event_type, in_app, email). Missing row = all channels on. `emitNotification` skips users with `in_app=false`. UI: `/admin/notifications/preferences`, `/portal/notifications/preferences`.
+**Preferences:** `notification_preferences` (user_id, event_type, in_app, email, push). Missing row = all channels on. `emitNotification` skips users with `in_app=false` for the DB insert; Web Push uses a separate `push=false` filter via `sendPushForNotification`. UI: `/admin/notifications/preferences`, `/portal/notifications/preferences`.
+
+**Web Push (PWA):** After a successful insert, `emitNotification` fire-and-forgets `sendPushForNotification` (`src/lib/push/send.ts`, `web-push` + VAPID). Subscriptions in `push_subscriptions` (RLS: own all). APIs: `GET /api/push/vapid-public-key`, `POST /api/push/subscribe`, `POST /api/push/unsubscribe`. Env: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, optional `VAPID_SUBJECT`. Missing keys → push no-op. SW handlers in `app/sw.ts` (`push`, `notificationclick`) + Badging API.
+
+**Client UX:** `PushBootstrap` / `PortalPushBootstrap` / `AdminPushBootstrap` — one soft “Enable” banner; auto re-sync when permission already granted; app icon badge from portal/admin counts. Preferences include device toggle + per-event push column.
 
 **History:** `/admin/notifications`, `/portal/notifications` via `NotificationCenter`.
 

@@ -19,7 +19,7 @@ import {
   getNotificationActionLabelFallback,
   getNotificationHref,
   getNotificationSummaryFallback,
-} from '@/lib/notifications'
+} from '@/lib/notifications/routing'
 import { formatRelativeTime } from '@/lib/formatRelativeTime'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'

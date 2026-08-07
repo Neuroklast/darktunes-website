@@ -7,13 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **PWA Web Push + app icon badge (portal + admin):** One-tap **Enable** banner (no technical setup for users). Subscriptions in `push_subscriptions`; per-event `notification_preferences.push`; `emitNotification` sends Web Push via VAPID/`web-push` when configured. Service worker handles `push` / `notificationclick` and Badging API. Deployer sets `NEXT_PUBLIC_VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` once (see `DEPLOYMENT.md` / `.env.example`). Preferences include device toggle + Push column.
+- **CI mobile layout contract:** `npm run check:mobile-layout` (`scripts/check-mobile-layout-contract.mjs`) in `ci:contracts` — bans CSS-only hide of ResizablePanelGroup, requires `useIsLg` on builder shells, full-bleed fan-page parity, footer touch targets. Unit tests for shells + footer.
+
 ### Fixed
 - **EPK + Personal Artist Page builders on mobile:** Desktop three-column layout no longer paints beside mobile tabs. Root cause: `react-resizable-panels` sets inline `display:flex`, so Tailwind `hidden lg:flex` failed. Shells now mount `ResizablePanelGroup` only at `lg+` via `useIsLg()`; compact toolbars + single-panel tabs below `lg`.
 - **Homepage footer legal links (mobile):** Impressum / Datenschutz / AGB wrap with 44px touch targets; removed overflow clipping that made links untappable.
-- **Mobile public scroll ghosting:** Lenis disabled on coarse pointer (native scroll); VFX lite mode (no CRT/chromatic/will-change); `ScrollReveal` drops permanent `will-change` after animate-in.
-
-### Added
-- **CI mobile layout contract:** `npm run check:mobile-layout` (`scripts/check-mobile-layout-contract.mjs`) in `ci:contracts` — bans CSS-only hide of ResizablePanelGroup, requires `useIsLg` on builder shells, full-bleed fan-page parity, footer touch targets. Unit tests for shells + footer.
+- **Mobile public scroll ghosting:** Lenis uses `syncTouch: false` (native touch); VFX lite mode (no CRT/chromatic/will-change); `ScrollReveal` drops permanent `will-change` after animate-in.
 
 ### Changed
 - **Portal fan-page shell:** Same full-bleed `lockScroll` + `p-0` as EPK builder.
@@ -21,9 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Admin Assets storage bar:** Stale Bearer tokens no longer block cookie auth (401 → cookie fallback). Catalog totals use multi-strategy aggregation (RPC JSON → PostgREST `sum()` → paginated); no-store cache; clearer “Catalog storage” UI with zero-size warning and retry.
-
-### Added
-- **Portal interviews:** Artists can permanently delete interview requests from `/portal/interviews` (`DELETE /api/portal/interview-requests/[id]?artistId=`). RLS: `interview_requests: artist delete own`.
 
 ### Changed
 - **Portal billing:** Complete billing profiles open the full form directly — no guided mode chooser / setup wizard on every visit. Incomplete profiles and `?mode=assistant` / `?focus=payout` still use the assistant.

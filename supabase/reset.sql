@@ -2123,12 +2123,36 @@ CREATE TABLE IF NOT EXISTS public.notification_preferences (
   event_type TEXT NOT NULL,
   in_app BOOLEAN NOT NULL DEFAULT TRUE,
   email BOOLEAN NOT NULL DEFAULT TRUE,
+  push BOOLEAN NOT NULL DEFAULT TRUE,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, event_type)
 );
 
+-- Existing DBs created before push channel
+ALTER TABLE public.notification_preferences
+  ADD COLUMN IF NOT EXISTS push BOOLEAN NOT NULL DEFAULT TRUE;
+
 CREATE INDEX IF NOT EXISTS idx_notification_preferences_user
   ON public.notification_preferences(user_id);
+
+-- ---------------------------------------------------------------------------
+-- TABLE: push_subscriptions (Web Push endpoints for PWA / browsers)
+-- One row per browser/device subscription; endpoint is unique globally.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT push_subscriptions_endpoint_unique UNIQUE (endpoint)
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user
+  ON public.push_subscriptions(user_id);
 
 -- ---------------------------------------------------------------------------
 -- TABLE: interview_requests
@@ -3181,6 +3205,7 @@ ALTER TABLE public.editor_activity_log   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.editor_notifications  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.push_subscriptions    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.interview_requests    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_logs              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.support_known_errors  ENABLE ROW LEVEL SECURITY;
@@ -3800,6 +3825,15 @@ CREATE POLICY "notifications: admin read all" ON public.notifications
 DROP POLICY IF EXISTS "notification_preferences: own all" ON public.notification_preferences;
 
 CREATE POLICY "notification_preferences: own all" ON public.notification_preferences
+  FOR ALL USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+-- ---------------------------------------------------------------------------
+-- RLS: push_subscriptions (users manage own; send uses service role)
+-- ---------------------------------------------------------------------------
+DROP POLICY IF EXISTS "push_subscriptions: own all" ON public.push_subscriptions;
+
+CREATE POLICY "push_subscriptions: own all" ON public.push_subscriptions
   FOR ALL USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 

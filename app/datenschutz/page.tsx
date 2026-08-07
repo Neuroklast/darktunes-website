@@ -82,7 +82,7 @@ Beim Besuch dieser Website können technisch erforderliche Zugriffsdaten (z. B. 
 
 Wir setzen technisch notwendige Cookies und vergleichbare Technologien ein, u. a. das Locale-Cookie \`NEXT_LOCALE\` zur Speicherung Ihrer Sprachwahl. Optional speichern wir Einwilligungen zum Laden externer Medien (Consent-Banner) sowie lokale Einstellungen (z. B. Installationshinweis der Progressive Web App) im Local Storage Ihres Browsers.
 
-Soweit eine Progressive Web App (PWA) genutzt wird, kann ein Service Worker Inhalte zwischenspeichern, um Offline-Funktionen und schnellere Ladezeiten zu ermöglichen. Diese Speicherung erfolgt gerätebezogen in Ihrem Browser.
+Soweit eine Progressive Web App (PWA) genutzt wird, kann ein Service Worker Inhalte zwischenspeichern, um Offline-Funktionen und schnellere Ladezeiten zu ermöglichen. Diese Speicherung erfolgt gerätebezogen in Ihrem Browser. Mit Ihrer ausdrücklichen Zustimmung können wir Push-Benachrichtigungen über den Browser-Push-Dienst senden; dabei wird ein gerätebezogener Push-Endpunkt gespeichert. Sie können Push jederzeit in den Benachrichtigungs-Einstellungen oder in den Browser-Einstellungen deaktivieren.
 
 Externe Medien (z. B. Spotify, YouTube) werden erst nach Ihrer Einwilligung geladen. Die Einwilligung können Sie jederzeit widerrufen, indem Sie die Cookie-/Consent-Einstellungen Ihres Browsers zurücksetzen oder uns kontaktieren.
 
@@ -185,7 +185,7 @@ When you visit this website, technically necessary access data (e.g. IP address,
 
 We use technically necessary cookies and similar technologies, including the \`NEXT_LOCALE\` cookie to store your language preference. We may also store consent for loading external media (consent banner) and local preferences (e.g. Progressive Web App install prompt dismissal) in your browser’s local storage.
 
-If you use the Progressive Web App (PWA), a service worker may cache content to enable offline features and faster loading. This storage is device-local in your browser.
+If you use the Progressive Web App (PWA), a service worker may cache content to enable offline features and faster loading. This storage is device-local in your browser. With your explicit consent we may send push notifications via the browser push service; a device-bound push endpoint is stored. You can disable push at any time in notification preferences or browser settings.
 
 External media (e.g. Spotify, YouTube) is loaded only after your consent. You may withdraw consent at any time by resetting your browser’s cookie/consent settings or by contacting us.
 

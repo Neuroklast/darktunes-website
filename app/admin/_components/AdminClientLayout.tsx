@@ -24,6 +24,7 @@ import { Suspense } from 'react'
 import { usePathname } from 'next/navigation'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AdminSidebarNav } from '@/components/admin/AdminSidebarNav'
+import { AdminPushBootstrap } from '@/components/notifications/AdminPushBootstrap'
 import { ScrollableAppShell } from '@/components/layout/ScrollableAppShell'
 import { isAdminListRoute } from '@/lib/scroll/dashboardRoutes'
 
@@ -57,6 +58,7 @@ export function AdminClientLayout({ children }: AdminClientLayoutProps) {
         )}
       >
         <Suspense>{children}</Suspense>
+        <AdminPushBootstrap />
       </ScrollableAppShell>
     </AuthProvider>
   )

@@ -2,7 +2,8 @@
 
 import { useTranslations } from 'next-intl'
 import { NotificationPreferencesForm } from '@/components/notifications/NotificationPreferencesForm'
-import { ALL_NOTIFICATION_EVENT_TYPES } from '@/lib/notifications'
+import { PushDeviceToggle } from '@/components/notifications/PushDeviceToggle'
+import { ALL_NOTIFICATION_EVENT_TYPES } from '@/lib/notifications/catalog'
 
 interface Props {
   userId: string
@@ -30,7 +31,20 @@ export function AdminNotificationPreferencesClient({ userId }: Props) {
       savedLabel={t('preferencesSaved')}
       inAppLabel={t('channelInApp')}
       emailLabel={t('channelEmail')}
+      pushLabel={t('channelPush')}
       typeLabels={typeLabels}
+      headerSlot={
+        <PushDeviceToggle
+          title={t('pushDeviceTitle')}
+          description={t('pushDeviceDesc')}
+          enableLabel={t('pushEnableCta')}
+          disableLabel={t('pushDisableCta')}
+          statusOn={t('pushStatusOn')}
+          statusOff={t('pushStatusOff')}
+          statusDenied={t('pushStatusDenied')}
+          statusUnsupported={t('pushStatusUnsupported')}
+        />
+      }
     />
   )
 }

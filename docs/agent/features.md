@@ -290,6 +290,19 @@ Serwist (`app/sw.ts`). SW excludes `/api/*` from typical app caches. Dashboard *
 - Manual re-open clears the dismiss flag and shows a fallback hint when `beforeinstallprompt` is unavailable.
 - Install entry is hidden when already running as installed PWA (`display-mode: standalone`).
 
+### Web Push + app icon badge
+
+| Piece | Location |
+|-------|----------|
+| SW push / click | `app/sw.ts` — `showNotification`, open URL, optional `setAppBadge` from payload |
+| Subscribe APIs | `/api/push/*` (auth cookie; any logged-in user) |
+| Send path | `emitNotification` → `sendPushForNotification` (service role list + `web-push`) |
+| Zero-config UI | Soft banner in portal + admin shells; device toggle on preferences pages |
+| Icon badge | `setAppIconBadge` from portal badge totals / admin nav badge sum |
+| Schema | `push_subscriptions`; `notification_preferences.push` |
+
+**User path:** log in → tap **Enable** once (browser permission) → done. No VAPID/keys in the UI. Deployer sets VAPID env once (see `DEPLOYMENT.md`).
+
 ## Locale switcher
 
 `LocaleFlagSwitcher` + SVG `LocaleFlagIcon` (not emoji — Windows shows DE/GB/FR letters for flag emoji). Opens DE/EN/FR menu, sets `NEXT_LOCALE`, full navigation (not `router.refresh()`). SSOT: `src/i18n/locales.ts`. One control per shell chrome (header), not sidebar footers. Message trees under `src/i18n/messages/{en,de,fr}/`.

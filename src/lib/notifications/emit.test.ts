@@ -1,7 +1,15 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { emitNotification } from './emit'
 import { ALL_NOTIFICATION_EVENT_TYPES, NOTIFICATION_CATALOG } from './catalog'
 import { getNotificationHref } from './routing'
+
+vi.mock('@/lib/push/send', () => ({
+  sendPushForNotification: vi.fn().mockResolvedValue({ sent: 0, skipped: 0, failed: 0 }),
+}))
+
+beforeEach(() => {
+  vi.clearAllMocks()
+})
 
 afterEach(() => {
   vi.restoreAllMocks()

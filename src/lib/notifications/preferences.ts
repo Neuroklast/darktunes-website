@@ -1,6 +1,6 @@
 /**
  * Per-user notification channel preferences.
- * Missing rows mean defaults: in_app=true, email=true.
+ * Missing rows mean defaults: in_app=true, email=true, push=true.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -14,6 +14,7 @@ export interface NotificationPreference {
   eventType: NotificationEventType | string
   inApp: boolean
   email: boolean
+  push: boolean
 }
 
 export async function getUserNotificationPreferences(
@@ -22,7 +23,7 @@ export async function getUserNotificationPreferences(
 ): Promise<NotificationPreference[]> {
   const { data, error } = await db
     .from('notification_preferences')
-    .select('event_type, in_app, email')
+    .select('event_type, in_app, email, push')
     .eq('user_id', userId)
 
   if (error) throw new Error(error.message)
@@ -30,13 +31,18 @@ export async function getUserNotificationPreferences(
   const byType = new Map(
     (data ?? []).map((row) => [
       row.event_type,
-      { eventType: row.event_type, inApp: row.in_app, email: row.email },
+      {
+        eventType: row.event_type,
+        inApp: row.in_app,
+        email: row.email,
+        push: row.push ?? true,
+      },
     ]),
   )
 
   return ALL_NOTIFICATION_EVENT_TYPES.map((eventType) => {
     const existing = byType.get(eventType)
-    return existing ?? { eventType, inApp: true, email: true }
+    return existing ?? { eventType, inApp: true, email: true, push: true }
   })
 }
 
@@ -59,10 +65,29 @@ export async function getUsersWithInAppDisabled(
   return new Set((data ?? []).map((row) => row.user_id))
 }
 
+/** Returns user IDs that have push disabled for this event type. */
+export async function getUsersWithPushDisabled(
+  db: DbClient,
+  userIds: string[],
+  eventType: string,
+): Promise<Set<string>> {
+  if (userIds.length === 0) return new Set()
+
+  const { data, error } = await db
+    .from('notification_preferences')
+    .select('user_id')
+    .in('user_id', userIds)
+    .eq('event_type', eventType)
+    .eq('push', false)
+
+  if (error) throw new Error(error.message)
+  return new Set((data ?? []).map((row) => row.user_id))
+}
+
 export async function upsertNotificationPreferences(
   db: DbClient,
   userId: string,
-  prefs: Array<{ eventType: string; inApp: boolean; email: boolean }>,
+  prefs: Array<{ eventType: string; inApp: boolean; email: boolean; push: boolean }>,
 ): Promise<void> {
   if (prefs.length === 0) return
 
@@ -71,6 +96,7 @@ export async function upsertNotificationPreferences(
     event_type: p.eventType,
     in_app: p.inApp,
     email: p.email,
+    push: p.push,
   }))
 
   const { error } = await db.from('notification_preferences').upsert(rows, {

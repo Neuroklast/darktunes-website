@@ -36,6 +36,7 @@ import { PortalOfflineProvider } from './_components/PortalOfflineProvider'
 import { PortalOfflineBanner } from './_components/PortalOfflineBanner'
 import { PortalAccessGate } from './_components/PortalAccessGate'
 import { PortalNotificationProvider } from './_components/PortalNotificationProvider'
+import { PortalPushBootstrap } from '@/components/notifications/PortalPushBootstrap'
 import { PortalHelpPalette } from './_components/PortalHelpPalette'
 import { getCachedPortalFaq } from '@/lib/portal/getCachedPortalFaq'
 import { ScrollableAppShell } from '@/components/layout/ScrollableAppShell'
@@ -235,6 +236,7 @@ async function PortalLayoutContent({ children }: { children: ReactNode }) {
               <PortalTermsGate artistId={artist.id} termsVersion={termsVersion} />
             ) : null}
             {children}
+            <PortalPushBootstrap />
           </PortalQueryProvider>
         </PortalOfflineProvider>
       </ScrollableAppShell>

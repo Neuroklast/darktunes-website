@@ -82,6 +82,22 @@ export async function emitNotification(
     throw new Error(error.message)
   }
 
+  // Web Push — fire-and-forget; never block in-app insert path.
+  // Uses full uniqueUserIds so push can still fire when in_app is off for a user.
+  void import('@/lib/push/send')
+    .then(({ sendPushForNotification }) =>
+      sendPushForNotification(db, {
+        type: input.type,
+        userIds: uniqueUserIds,
+        entityId: input.entityId,
+        entityName: input.entityName,
+        artistId: input.artistId,
+      }),
+    )
+    .catch((err: unknown) => {
+      console.warn('[emitNotification] web push skipped:', err)
+    })
+
   return {
     inserted: data?.length ?? rows.length,
     userIds: uniqueUserIds,

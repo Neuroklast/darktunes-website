@@ -40,6 +40,15 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Desktop toolbar `flex-wrap` of 20+ controls on phone | Compact primary row + overflow menu; segment control for panels |
 | Footer legal `flex gap-6` + parent `overflow-x-hidden` | Links clip and are untappable — always `flex-wrap` + `min-h-[44px]` |
 
+## Web Push / PWA
+
+| Anti-pattern | Rule |
+|--------------|------|
+| Expect users to configure VAPID or endpoints | Deployer sets env once; UI is one-tap **Enable** only |
+| Upsert `push_subscriptions` with user JWT when `endpoint` is globally unique | Another account on the same browser hits RLS on UPDATE — use **service role** after auth for subscribe reassignment |
+| Rely on push alone without in-app | Always keep `emitNotification` DB path; push is fire-and-forget best-effort |
+| Assume SW + badge work in `next dev` | Serwist SW is production-only here — test push on deployed HTTPS |
+
 ## Next.js & RSC
 
 | Anti-pattern | Rule |

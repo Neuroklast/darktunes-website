@@ -1,13 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
+import { ALL_NOTIFICATION_EVENT_TYPES } from '@/lib/notifications/catalog'
 import {
-  ALL_NOTIFICATION_EVENT_TYPES,
   getUserNotificationPreferences,
   upsertNotificationPreferences,
   type NotificationPreference,
-} from '@/lib/notifications'
+} from '@/lib/notifications/preferences'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 
@@ -19,8 +19,11 @@ interface NotificationPreferencesFormProps {
   savedLabel: string
   inAppLabel: string
   emailLabel: string
+  pushLabel: string
   /** Map event type → display label */
   typeLabels: Record<string, string>
+  /** Optional slot above the table (e.g. push enable control) */
+  headerSlot?: ReactNode
 }
 
 export function NotificationPreferencesForm({
@@ -31,7 +34,9 @@ export function NotificationPreferencesForm({
   savedLabel,
   inAppLabel,
   emailLabel,
+  pushLabel,
   typeLabels,
+  headerSlot,
 }: NotificationPreferencesFormProps) {
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const [prefs, setPrefs] = useState<NotificationPreference[]>([])
@@ -52,6 +57,7 @@ export function NotificationPreferencesForm({
               eventType,
               inApp: true,
               email: true,
+              push: true,
             })),
           )
         }
@@ -65,7 +71,10 @@ export function NotificationPreferencesForm({
   }, [supabase, userId])
 
   const updatePref = useCallback(
-    (eventType: string, patch: Partial<Pick<NotificationPreference, 'inApp' | 'email'>>) => {
+    (
+      eventType: string,
+      patch: Partial<Pick<NotificationPreference, 'inApp' | 'email' | 'push'>>,
+    ) => {
       setPrefs((prev) =>
         prev.map((p) => (p.eventType === eventType ? { ...p, ...patch } : p)),
       )
@@ -84,6 +93,7 @@ export function NotificationPreferencesForm({
           eventType: p.eventType,
           inApp: p.inApp,
           email: p.email,
+          push: p.push,
         })),
       )
       setSaved(true)
@@ -103,6 +113,8 @@ export function NotificationPreferencesForm({
         <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
       </div>
 
+      {headerSlot}
+
       <div
         className="overflow-x-auto overflow-y-clip overscroll-x-contain rounded-md border border-border"
         data-lenis-prevent
@@ -113,6 +125,7 @@ export function NotificationPreferencesForm({
               <th className="px-3 py-2 text-left font-medium">Event</th>
               <th className="px-3 py-2 text-center font-medium">{inAppLabel}</th>
               <th className="px-3 py-2 text-center font-medium">{emailLabel}</th>
+              <th className="px-3 py-2 text-center font-medium">{pushLabel}</th>
             </tr>
           </thead>
           <tbody>
@@ -137,6 +150,15 @@ export function NotificationPreferencesForm({
                     checked={pref.email}
                     onChange={(e) => updatePref(pref.eventType, { email: e.target.checked })}
                     aria-label={`${typeLabels[pref.eventType] ?? pref.eventType} ${emailLabel}`}
+                  />
+                </td>
+                <td className="px-3 py-2 text-center">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary"
+                    checked={pref.push}
+                    onChange={(e) => updatePref(pref.eventType, { push: e.target.checked })}
+                    aria-label={`${typeLabels[pref.eventType] ?? pref.eventType} ${pushLabel}`}
                   />
                 </td>
               </tr>

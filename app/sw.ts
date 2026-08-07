@@ -100,3 +100,131 @@ const serwist = new Serwist({
 })
 
 serwist.addEventListeners()
+
+// ---------------------------------------------------------------------------
+// Web Push + app icon badge (PWA)
+// Payload shape: { title, body, url, icon?, badge?, tag?, badgeCount? }
+// ---------------------------------------------------------------------------
+
+interface PushPayload {
+  title?: string
+  body?: string
+  url?: string
+  icon?: string
+  badge?: string
+  tag?: string
+  badgeCount?: number
+}
+
+/** Minimal SW runtime surface — app tsconfig has no DOM webworker lib. */
+interface SwPushData {
+  json: () => unknown
+  text: () => string
+}
+
+interface SwClient {
+  focus: () => Promise<unknown>
+  postMessage: (message: unknown) => void
+  navigate?: (url: string) => Promise<unknown>
+}
+
+interface SwScope {
+  registration: {
+    showNotification: (
+      title: string,
+      options?: Record<string, unknown>,
+    ) => Promise<void>
+  }
+  clients: {
+    matchAll: (opts: {
+      type: string
+      includeUncontrolled: boolean
+    }) => Promise<SwClient[]>
+    openWindow?: (url: string) => Promise<unknown>
+  }
+  location: { origin: string }
+  navigator: { setAppBadge?: (n?: number) => Promise<void> }
+  addEventListener: (type: string, listener: (event: SwExtendableEvent) => void) => void
+}
+
+interface SwExtendableEvent {
+  data?: SwPushData | null
+  notification?: {
+    close: () => void
+    data?: unknown
+  }
+  waitUntil: (p: Promise<unknown>) => void
+}
+
+const sw = self as unknown as SwScope
+
+sw.addEventListener('push', (event) => {
+  let data: PushPayload = {}
+  try {
+    if (event.data) {
+      data = event.data.json() as PushPayload
+    }
+  } catch {
+    try {
+      data = { body: event.data?.text() }
+    } catch {
+      data = {}
+    }
+  }
+
+  const title = data.title?.trim() || 'Notification'
+  const options = {
+    body: data.body?.trim() || '',
+    icon: data.icon || '/icons/icon-192.png',
+    badge: data.badge || '/icons/icon-192.png',
+    tag: data.tag,
+    data: { url: data.url || '/' },
+    renotify: Boolean(data.tag),
+  }
+
+  const show = sw.registration.showNotification(title, options)
+
+  const badgeWork =
+    typeof data.badgeCount === 'number' && typeof sw.navigator.setAppBadge === 'function'
+      ? sw.navigator.setAppBadge(Math.max(0, data.badgeCount)).catch(() => undefined)
+      : Promise.resolve()
+
+  event.waitUntil(Promise.all([show, badgeWork]))
+})
+
+sw.addEventListener('notificationclick', (event) => {
+  event.notification?.close()
+  const rawData = event.notification?.data
+  const rawUrl =
+    rawData && typeof rawData === 'object' && 'url' in rawData
+      ? String((rawData as { url?: string }).url || '/')
+      : '/'
+  const targetUrl = rawUrl.startsWith('http')
+    ? rawUrl
+    : new URL(rawUrl, sw.location.origin).href
+
+  event.waitUntil(
+    (async () => {
+      const allClients = await sw.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      })
+      for (const client of allClients) {
+        await client.focus()
+        if (typeof client.navigate === 'function') {
+          try {
+            await client.navigate(targetUrl)
+            return
+          } catch {
+            // fall through
+          }
+        }
+        client.postMessage({ type: 'PUSH_NAVIGATE', url: targetUrl })
+        return
+      }
+      if (sw.clients.openWindow) {
+        await sw.clients.openWindow(targetUrl)
+      }
+    })(),
+  )
+})

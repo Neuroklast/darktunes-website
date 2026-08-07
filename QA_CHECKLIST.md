@@ -197,6 +197,12 @@
 - [ ] PWA install prompt appears on Android/Chrome after 3 seconds (no errors in console)
 - [ ] Install prompt copy is generic (no artist-only tour planner claims)
 - [ ] After dismiss, Footer “Install app” / portal Settings / admin sidebar re-opens the prompt
+- [ ] **Push (production + VAPID set):** Portal and admin show soft “Enable notifications” once; one tap grants permission and stores subscription
+- [ ] After enable, a new catalog event (e.g. label message / release submission) shows a system notification when the tab is closed
+- [ ] Notification click opens the deep-linked portal/admin URL
+- [ ] App icon badge count updates with unread items (Android Chrome / installed PWA); clears when counts go to 0
+- [ ] Preferences → per-event **Push** off stops that event’s push; device toggle disables this browser
+- [ ] Without VAPID env keys, app still works (in-app + email only; no enable errors loop)
 
 ## Newsletter DOI Flow
 - [ ] Subscribe form submits → success message shown (no error)
