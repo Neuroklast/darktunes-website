@@ -19,7 +19,9 @@ Defined in `app/globals.css` `@theme {}`. `tailwind.config.js` is IDE-only — r
 
 Single `LenisProvider` in `Providers.tsx`. No second instance; no CSS `scroll-behavior: smooth`. Import `useLenis` from `LenisProvider.tsx`.
 
-**Dashboard routes:** `LenisProvider` does **not mount** Lenis on `/admin/*`, `/portal/*`, or `/editor` (`src/lib/scroll/dashboardRoutes.ts`) so wheel events reach native scroll inside dashboard shells. Public pages keep Lenis active.
+**Dashboard routes:** `LenisProvider` does **not mount** Lenis on `/admin/*`, `/portal/*`, or `/editor` (`src/lib/scroll/dashboardRoutes.ts`) so wheel events reach native scroll inside dashboard shells.
+
+**Touch / coarse pointer:** Lenis is **disabled** when `(pointer: coarse)` — native scroll only. `syncTouch` caused rubber-band ghosting / doubled frames with VFX GPU layers. Desktop fine-pointer keeps Lenis (wheel smooth scroll, `syncTouch: false`).
 
 **Dashboard scroll shell:** Admin and portal layouts use `ScrollableAppShell` (`src/components/layout/ScrollableAppShell.tsx`). Contract: outer `h-dvh overflow-hidden` → inner `flex-1 min-h-0 overflow-y-auto` with `data-lenis-prevent`. List routes set `lockScroll` so only `AdminListShell` scrolls internally.
 
@@ -70,6 +72,22 @@ Public images via `getOptimizedImageUrl` / `getSquareThumbnail` (`imageUtils.ts`
 
 Mobile-first; fluid widths (`w-full`, `max-w-*`); no hardcoded structural pixels. Skeletons match loaded layout (zero CLS). `truncate` / `break-words` for overflow.
 
+### Multi-column builders (EPK / Personal Artist Page)
+
+`react-resizable-panels` sets **inline** `display: flex` on `Group` — Tailwind `hidden` / `lg:flex` **cannot** hide it. Always:
+
+1. Gate with `useIsLg()` (`src/hooks/useMediaQuery.ts`, Tailwind `lg` = 1024px).
+2. **Mount** `ResizablePanelGroup` only when `isLg`; below `lg` render one full-width panel + tab chrome.
+3. Default media hooks to mobile-safe (`false`) until `matchMedia` runs (avoid desktop flash).
+4. Compact toolbars on mobile (`compact` prop): primary actions + overflow menu, not a wrapped desktop icon wall.
+5. Portal full-bleed: `lockScroll` + `contentClassName p-0` for `/portal/epk-builder` **and** `/portal/fan-page`.
+
+CI: `npm run check:mobile-layout` (`scripts/check-mobile-layout-contract.mjs`) — in `ci:contracts`.
+
+### Public footer (legal links)
+
+Legal row must `flex-wrap` with `min-h-[44px]` touch targets. Never `overflow-x-hidden` + non-wrapping link row (clips Impressum on ~360px).
+
 ## Modals (mandatory)
 
 | Rule | Pattern |
@@ -109,6 +127,8 @@ CI: `npm run check:overlay` (`scripts/check-overlay-stack-contract.mjs`).
 ## Visual effects
 
 `VisualEffectsOverlay` in `NavHidingWrapper` — public routes only. Props from CMS `site_settings`. Raw, dark, industrial — no neon. `ThemeEffectsClient` cleans `data-fx-*` on unmount.
+
+**Mobile / coarse pointer:** `vfx-mobile-lite` — static vignette only; no CRT scanline animation, chromatic aberration, or permanent `will-change` (scroll ghosting). `ScrollReveal` clears `will-change` after intro animation.
 
 ## Color theme admin
 

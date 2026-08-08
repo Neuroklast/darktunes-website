@@ -10,6 +10,11 @@
 - [ ] Admin → Releases → New Release: **Release Date** calendar opens above the modal, day selectable, form can save with today’s date
 - [ ] Spot-check other modal date/month fields: Videos publish date, Expense date, Settlement period MonthField
 - [ ] Homepage: wheel/trackpad scroll over **Videos** section continues page scroll (no dead zone on desktop)
+- [ ] **Mobile homepage:** Footer Impressum / Datenschutz / AGB / Kontakt are tappable after dismissing consent/PWA banners; links wrap, not clipped
+- [ ] **Mobile homepage scroll:** No vertical double-image / heavy stutter over Releases/Videos (native scroll on phone)
+- [ ] **Portal EPK builder mobile:** Only one of Canvas / Layers / Properties; no side-by-side columns; compact toolbar + Save; canvas usable
+- [ ] **Portal Personal Artist Page builder mobile:** Only one of Sections / Preview / Properties; Publish reachable; no double preview columns
+- [ ] **Desktop builders ≥1024px:** Resizable three-column layout still works for EPK + Personal Artist Page
 - [ ] Admin/Portal messages: open a label thread → original + replies show as chat bubbles (own on the right)
 - [ ] New message while mailbox open → toast + optional chime; toggle Sound off/on persists after reload
 - [ ] Inbox: multiple Re:/Aw: messages on same subject appear as **one** conversation (count badge); opening shows full chat

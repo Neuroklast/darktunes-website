@@ -207,7 +207,8 @@ async function PortalLayoutContent({ children }: { children: ReactNode }) {
   const showTermsGate =
     !skipTermsGate && Boolean(artist) && needsPortalTermsAcceptance(artist, termsVersion)
 
-  const isEpkBuilder = currentPath.includes('/portal/epk-builder')
+  const isFullBleedBuilder =
+    currentPath.includes('/portal/epk-builder') || currentPath.includes('/portal/fan-page')
 
   return (
     <PortalNotificationProvider
@@ -215,9 +216,9 @@ async function PortalLayoutContent({ children }: { children: ReactNode }) {
       initialBadges={badgeCounts}
     >
       <ScrollableAppShell
-        lockScroll={isEpkBuilder}
+        lockScroll={isFullBleedBuilder}
         mainClassName="border-t border-primary/10 md:border-t-0"
-        contentClassName={isEpkBuilder ? 'p-0' : 'p-4 sm:p-6 md:p-8'}
+        contentClassName={isFullBleedBuilder ? 'p-0' : 'p-4 sm:p-6 md:p-8'}
         sidebar={(
           <PortalSidebar
             artists={artists}

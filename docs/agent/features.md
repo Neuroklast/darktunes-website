@@ -222,6 +222,7 @@ Artists are guided step-by-step; only fields visible/required for the selected t
 
 - **Legacy:** browser print via `printEpkDocument.ts` / `EPKPreview` (`forceMount` on EPK tab)
 - **Canvas builder:** `/portal/epk-builder` — JSON v2 on `artist_epks.epk_document`; server PDF `POST /api/portal/epk/export`; share links `/epk/share/[token]`; analytics `epk_download_events`
+- **Mobile editor:** `EpkBuilderShell` uses `useIsLg()` — single panel (Canvas | Layers | Properties) below `lg`; **do not mount** `ResizablePanelGroup` on mobile (inline `display:flex` defeats CSS `hidden`). Compact toolbar + overflow “More tools”. Portal `lockScroll` + `p-0`.
 
 API surface: document, versions, fonts, share, templates, press export. DAL: `epkDocument.ts`, `epkFonts.ts`, `epkShareLinks.ts`.
 
@@ -236,6 +237,7 @@ Distinct from EPK (press/PDF) and the fixed `/artists/[slug]` profile. One custo
 | Flag | `artist.fan_page` in `portal_feature_flags` |
 | Storage | `artist_landing_pages` (1:1 `artist_id`, JSON `LandingPageDocumentV1`) |
 | Editor | Section-based builder (`@dnd-kit`), TipTap bio blocks, shared image crop from EPK |
+| Mobile | Same as EPK: `useIsLg`, one panel (Sections \| Preview \| Properties), compact toolbar, full-bleed `lockScroll` |
 | Public URL | Rewrite `/@:slug` → `/fan/:slug`; ISR tag `fan-page-{slug}` |
 | Publish | `draft` → `pending_review` (default) or direct when `artists.landing_publish_trusted` |
 | Assets | Upload `source=landing` → `asset_folders/landing`, tag `landing_editor` |

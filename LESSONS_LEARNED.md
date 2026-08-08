@@ -29,6 +29,16 @@ Distilled anti-patterns from project history. **Append session findings before o
 |--------------|------|
 | Permanent `data-lenis-prevent` on a desktop grid that is only a mobile horizontal strip | Prevent only real nested scrollports; desktop page scroll must keep Lenis |
 | Matching `[class*="overflow-x-auto"]` for Lenis prevent | Tailwind keeps the token in the class string under responsive overrides — check **computed overflow + scroll metrics** |
+| Lenis `syncTouch: true` on phones with fixed VFX / `will-change` layers | Disable Lenis on `(pointer: coarse)`; native scroll. Ghosting/double-image otherwise |
+| Permanent `will-change: transform` after ScrollReveal | Clear to `auto` on animation complete |
+
+## Mobile multi-column editors
+
+| Anti-pattern | Rule |
+|--------------|------|
+| `ResizablePanelGroup` + `className="hidden lg:flex"` | Library sets **inline** `display:flex` → CSS `hidden` loses. **Conditional mount** with `useIsLg()` only |
+| Desktop toolbar `flex-wrap` of 20+ controls on phone | Compact primary row + overflow menu; segment control for panels |
+| Footer legal `flex gap-6` + parent `overflow-x-hidden` | Links clip and are untappable — always `flex-wrap` + `min-h-[44px]` |
 
 ## Next.js & RSC
 

@@ -21,6 +21,7 @@ import { FanPageHistoryPanel } from './FanPageHistoryPanel'
 import { FanPageOnboardingTour } from './FanPageOnboardingTour'
 import type { FanPageLiveData } from './FanPageBlockRenderer'
 import type { FanPageSaveStatus } from '@/hooks/useFanPageAutosave'
+import { useIsLg } from '@/hooks/useMediaQuery'
 import { cn } from '@/lib/utils'
 
 type MobilePanel = 'sections' | 'preview' | 'properties'
@@ -54,6 +55,9 @@ export function FanPageBuilderShell({
   const store = useFanPageEditorStoreApi()
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('preview')
   const [historyOpen, setHistoryOpen] = useState(false)
+  // Default false until effect runs — never mount ResizablePanelGroup on mobile.
+  // CSS `hidden` cannot hide it: the library sets inline display:flex.
+  const isLg = useIsLg()
 
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: 'fan-page-builder-layout-v1',
@@ -104,8 +108,9 @@ export function FanPageBuilderShell({
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] min-h-[560px] flex-col md:h-[calc(100dvh-0px)]">
-      <div className="shrink-0 border-b border-border bg-card px-3 py-2 md:px-4">
+      <div className="shrink-0 border-b border-border bg-card px-2 py-2 sm:px-3 md:px-4">
         <FanPageToolbar
+          compact={!isLg}
           onPublish={onPublish}
           onOpenHistory={() => setHistoryOpen(true)}
           onOpenSmartPreview={() => void handleSmartPreview()}
@@ -118,80 +123,77 @@ export function FanPageBuilderShell({
         />
       </div>
 
-      <nav
-        className="flex shrink-0 gap-1 border-b border-border bg-card p-2 lg:hidden"
-        aria-label={t('fanPage_mobile_nav')}
-      >
-        {(['sections', 'preview', 'properties'] as const).map((panel) => (
-          <button
-            key={panel}
-            type="button"
-            className={cn(
-              'min-h-[44px] flex-1 rounded-md px-3 text-sm font-medium transition-colors',
-              mobilePanel === panel
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted',
-            )}
-            onClick={() => setMobilePanel(panel)}
-          >
-            {panel === 'sections'
-              ? t('fanPage_mobile_sections')
-              : panel === 'preview'
-                ? t('fanPage_preview_title')
-                : t('fanPage_properties_title')}
-          </button>
-        ))}
-      </nav>
+      {!isLg ? (
+        <nav
+          className="flex shrink-0 gap-1 border-b border-border bg-card p-2"
+          aria-label={t('fanPage_mobile_nav')}
+        >
+          {(['sections', 'preview', 'properties'] as const).map((panel) => (
+            <button
+              key={panel}
+              type="button"
+              className={cn(
+                'min-h-[44px] flex-1 rounded-md px-3 text-sm font-medium transition-colors',
+                mobilePanel === panel
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted',
+              )}
+              onClick={() => setMobilePanel(panel)}
+            >
+              {panel === 'sections'
+                ? t('fanPage_mobile_sections')
+                : panel === 'preview'
+                  ? t('fanPage_preview_title')
+                  : t('fanPage_properties_title')}
+            </button>
+          ))}
+        </nav>
+      ) : null}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside
-          className={cn(
-            'flex w-full shrink-0 flex-col border-r border-border bg-card lg:hidden',
-            mobilePanel !== 'sections' && 'hidden',
-          )}
-        >
-          {leftPanel}
-        </aside>
+        {/* Mobile: one panel — never mount ResizablePanelGroup (inline display:flex wins over CSS hidden) */}
+        {!isLg ? (
+          <>
+            {mobilePanel === 'sections' ? (
+              <aside className="flex w-full min-h-0 flex-1 flex-col bg-card">{leftPanel}</aside>
+            ) : null}
 
-        <main
-          className={cn('min-w-0 flex-1 overflow-hidden lg:hidden', mobilePanel !== 'preview' && 'hidden')}
-        >
-          <FanPagePreviewPanel liveData={liveData} />
-        </main>
+            {mobilePanel === 'preview' ? (
+              <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
+                <FanPagePreviewPanel liveData={liveData} />
+              </main>
+            ) : null}
 
-        <aside
-          className={cn(
-            'flex w-full shrink-0 flex-col border-l border-border bg-card lg:hidden',
-            mobilePanel !== 'properties' && 'hidden',
-          )}
-        >
-          {rightPanel}
-        </aside>
+            {mobilePanel === 'properties' ? (
+              <aside className="flex w-full min-h-0 flex-1 flex-col bg-card">{rightPanel}</aside>
+            ) : null}
+          </>
+        ) : (
+          <ResizablePanelGroup
+            direction="horizontal"
+            defaultLayout={defaultLayout}
+            onLayoutChanged={onLayoutChanged}
+            className="min-h-0 flex-1"
+          >
+            <ResizablePanel id="fan-left-panel" defaultSize="20%" minSize="14%" maxSize="30%" className="min-w-0">
+              <aside className="flex h-full flex-col border-r border-border bg-card">{leftPanel}</aside>
+            </ResizablePanel>
 
-        <ResizablePanelGroup
-          direction="horizontal"
-          defaultLayout={defaultLayout}
-          onLayoutChanged={onLayoutChanged}
-          className="hidden min-h-0 flex-1 lg:flex"
-        >
-          <ResizablePanel id="fan-left-panel" defaultSize="20%" minSize="14%" maxSize="30%" className="min-w-0">
-            <aside className="flex h-full flex-col border-r border-border bg-card">{leftPanel}</aside>
-          </ResizablePanel>
+            <ResizableHandle withHandle aria-label={t('fanPage_panel_resize')} className="bg-border" />
 
-          <ResizableHandle withHandle aria-label={t('fanPage_panel_resize')} className="bg-border" />
+            <ResizablePanel id="fan-preview-panel" defaultSize="50%" minSize="35%" className="min-w-0">
+              <main className="h-full overflow-hidden">
+                <FanPagePreviewPanel liveData={liveData} />
+              </main>
+            </ResizablePanel>
 
-          <ResizablePanel id="fan-preview-panel" defaultSize="50%" minSize="35%" className="min-w-0">
-            <main className="h-full overflow-hidden">
-              <FanPagePreviewPanel liveData={liveData} />
-            </main>
-          </ResizablePanel>
+            <ResizableHandle withHandle aria-label={t('fanPage_panel_resize')} className="bg-border" />
 
-          <ResizableHandle withHandle aria-label={t('fanPage_panel_resize')} className="bg-border" />
-
-          <ResizablePanel id="fan-right-panel" defaultSize="30%" minSize="18%" maxSize="42%" className="min-w-0">
-            <aside className="flex h-full flex-col border-l border-border bg-card">{rightPanel}</aside>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+            <ResizablePanel id="fan-right-panel" defaultSize="30%" minSize="18%" maxSize="42%" className="min-w-0">
+              <aside className="flex h-full flex-col border-l border-border bg-card">{rightPanel}</aside>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
       </div>
 
       <FanPageCommandPalette

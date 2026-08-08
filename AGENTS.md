@@ -64,6 +64,7 @@ Skipping docs because “the task was only code” is a process failure.
 6. **Swiper / carousel / any 3rd-party scroll widget** → wrap with `data-lenis-prevent`.
 7. **Modal body** → `overflow-y-auto max-h-[70vh]` + `data-lenis-prevent`.
 8. **After any scroll change** → run `npm run check:scroll` locally before pushing.
+9. **Multi-column builders (EPK / fan-page):** Never hide `ResizablePanelGroup` with CSS alone — mount only when `useIsLg()`. After changes run `npm run check:mobile-layout`.
 
 ## Detailed guidelines
 

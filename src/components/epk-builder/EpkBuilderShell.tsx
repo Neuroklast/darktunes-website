@@ -30,6 +30,7 @@ import type { Artist, ArtistAsset } from '@/types'
 import type { EpkPickerAsset } from '@/lib/epk/pickerAssets'
 import type { EpkAssetPickerMode } from './EpkPropertiesPanel'
 import { cn } from '@/lib/utils'
+import { useIsLg } from '@/hooks/useMediaQuery'
 import { useDefaultLayout } from 'react-resizable-panels'
 import {
   ResizableHandle,
@@ -85,6 +86,9 @@ export function EpkBuilderShell({
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('canvas')
+  // Default false until effect runs — never mount ResizablePanelGroup on mobile.
+  // CSS `hidden` cannot hide it: the library sets inline display:flex.
+  const isLg = useIsLg()
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: 'epk-builder-layout-v2',
     panelIds: ['epk-left-panel', 'epk-canvas-panel', 'epk-right-panel'],
@@ -205,8 +209,9 @@ export function EpkBuilderShell({
         onSave={onSave}
       />
 
-      <div className="shrink-0 border-b border-border bg-card px-3 py-2 md:px-4">
+      <div className="shrink-0 border-b border-border bg-card px-2 py-2 sm:px-3 md:px-4">
         <EpkToolbar
+          compact={!isLg}
           onSave={onSave}
           onSaveSnapshot={onSaveSnapshot}
           onOpenAssetPicker={() => openAssetPicker('insert')}
@@ -222,133 +227,129 @@ export function EpkBuilderShell({
         />
       </div>
 
-      <nav
-        className="flex shrink-0 gap-1 border-b border-border bg-card p-2 lg:hidden"
-        aria-label={t('epk_mobile_nav_label')}
-      >
-        {(['canvas', 'layers', 'properties'] as const).map((panel) => (
-          <button
-            key={panel}
-            type="button"
-            className={cn(
-              'min-h-[44px] flex-1 rounded-md px-3 text-sm font-medium transition-colors',
-              mobilePanel === panel
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted',
-            )}
-            onClick={() => setMobilePanel(panel)}
-          >
-            {panel === 'canvas'
-              ? t('epk_mobile_canvas')
-              : panel === 'layers'
-                ? t('epk_editor_layers_title')
-                : t('epk_editor_properties_title')}
-          </button>
-        ))}
-      </nav>
+      {!isLg ? (
+        <nav
+          className="flex shrink-0 gap-1 border-b border-border bg-card p-2"
+          aria-label={t('epk_mobile_nav_label')}
+        >
+          {(['canvas', 'layers', 'properties'] as const).map((panel) => (
+            <button
+              key={panel}
+              type="button"
+              className={cn(
+                'min-h-[44px] flex-1 rounded-md px-3 text-sm font-medium transition-colors',
+                mobilePanel === panel
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted',
+              )}
+              onClick={() => setMobilePanel(panel)}
+            >
+              {panel === 'canvas'
+                ? t('epk_mobile_canvas')
+                : panel === 'layers'
+                  ? t('epk_editor_layers_title')
+                  : t('epk_editor_properties_title')}
+            </button>
+          ))}
+        </nav>
+      ) : null}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Mobile / tablet: tabbed panels */}
-        <aside
-          className={cn(
-            'flex w-full shrink-0 flex-col border-r border-border bg-card lg:hidden',
-            mobilePanel !== 'layers' && 'hidden',
-          )}
-        >
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3" data-lenis-prevent>
-            <EpkPagesPanel />
-            <EpkLayersPanel />
-          </div>
-        </aside>
+        {/* Mobile / tablet: one panel at a time — ResizablePanelGroup must not mount */}
+        {!isLg ? (
+          <>
+            {mobilePanel === 'layers' ? (
+              <aside className="flex w-full min-h-0 flex-1 flex-col bg-card">
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3" data-lenis-prevent>
+                  <EpkPagesPanel />
+                  <EpkLayersPanel />
+                </div>
+              </aside>
+            ) : null}
 
-        <main
-          className={cn(
-            'min-w-0 flex-1 overflow-hidden bg-muted/20 lg:hidden',
-            mobilePanel !== 'canvas' && 'hidden',
-          )}
-        >
-          <EpkCanvas
-            onOpenAssetPicker={() => openAssetPicker('insert')}
-            onReplaceImage={() => openAssetPicker('replace')}
-          />
-        </main>
+            {mobilePanel === 'canvas' ? (
+              <main className="min-h-0 min-w-0 flex-1 overflow-hidden bg-muted/20">
+                <EpkCanvas
+                  onOpenAssetPicker={() => openAssetPicker('insert')}
+                  onReplaceImage={() => openAssetPicker('replace')}
+                />
+              </main>
+            ) : null}
 
-        <aside
-          className={cn(
-            'flex w-full shrink-0 flex-col border-l border-border bg-card lg:hidden',
-            mobilePanel !== 'properties' && 'hidden',
-          )}
-        >
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3" data-lenis-prevent>
-            <EpkPropertiesPanel onOpenAssetPicker={openAssetPicker} />
-            <EpkFontManager artistId={artistId} initialFonts={initialFonts} />
-          </div>
-        </aside>
-
-        {/* Desktop: resizable three-column layout */}
-        <ResizablePanelGroup
-          direction="horizontal"
-          defaultLayout={defaultLayout}
-          onLayoutChanged={onLayoutChanged}
-          className="hidden min-h-0 flex-1 lg:flex"
-        >
-          <ResizablePanel
-            id="epk-left-panel"
-            defaultSize="18%"
-            minSize="14%"
-            maxSize="32%"
-            className="min-w-0"
+            {mobilePanel === 'properties' ? (
+              <aside className="flex w-full min-h-0 flex-1 flex-col bg-card">
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3" data-lenis-prevent>
+                  <EpkPropertiesPanel onOpenAssetPicker={openAssetPicker} />
+                  <EpkFontManager artistId={artistId} initialFonts={initialFonts} />
+                </div>
+              </aside>
+            ) : null}
+          </>
+        ) : (
+          <ResizablePanelGroup
+            direction="horizontal"
+            defaultLayout={defaultLayout}
+            onLayoutChanged={onLayoutChanged}
+            className="min-h-0 flex-1"
           >
-            <aside className="flex h-full flex-col border-r border-border bg-card">
-              <div
-                className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"
-                data-lenis-prevent
-              >
-                <EpkPagesPanel />
-                <EpkLayersPanel />
-              </div>
-            </aside>
-          </ResizablePanel>
+            <ResizablePanel
+              id="epk-left-panel"
+              defaultSize="18%"
+              minSize="14%"
+              maxSize="32%"
+              className="min-w-0"
+            >
+              <aside className="flex h-full flex-col border-r border-border bg-card">
+                <div
+                  className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"
+                  data-lenis-prevent
+                >
+                  <EpkPagesPanel />
+                  <EpkLayersPanel />
+                </div>
+              </aside>
+            </ResizablePanel>
 
-          <ResizableHandle
-            withHandle
-            aria-label={t('epk_panel_resize_handle')}
-            className="bg-border"
-          />
+            <ResizableHandle
+              withHandle
+              aria-label={t('epk_panel_resize_handle')}
+              className="bg-border"
+            />
 
-          <ResizablePanel id="epk-canvas-panel" defaultSize="52%" minSize="35%" className="min-w-0">
-            <main className="h-full overflow-hidden bg-muted/20">
-              <EpkCanvas
-                onOpenAssetPicker={() => openAssetPicker('insert')}
-                onReplaceImage={() => openAssetPicker('replace')}
-              />
-            </main>
-          </ResizablePanel>
+            <ResizablePanel id="epk-canvas-panel" defaultSize="52%" minSize="35%" className="min-w-0">
+              <main className="h-full overflow-hidden bg-muted/20">
+                <EpkCanvas
+                  onOpenAssetPicker={() => openAssetPicker('insert')}
+                  onReplaceImage={() => openAssetPicker('replace')}
+                />
+              </main>
+            </ResizablePanel>
 
-          <ResizableHandle
-            withHandle
-            aria-label={t('epk_panel_resize_handle')}
-            className="bg-border"
-          />
+            <ResizableHandle
+              withHandle
+              aria-label={t('epk_panel_resize_handle')}
+              className="bg-border"
+            />
 
-          <ResizablePanel
-            id="epk-right-panel"
-            defaultSize="30%"
-            minSize="18%"
-            maxSize="42%"
-            className="min-w-0"
-          >
-            <aside className="flex h-full flex-col border-l border-border bg-card">
-              <div
-                className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3"
-                data-lenis-prevent
-              >
-                <EpkPropertiesPanel onOpenAssetPicker={openAssetPicker} />
-                <EpkFontManager artistId={artistId} initialFonts={initialFonts} />
-              </div>
-            </aside>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+            <ResizablePanel
+              id="epk-right-panel"
+              defaultSize="30%"
+              minSize="18%"
+              maxSize="42%"
+              className="min-w-0"
+            >
+              <aside className="flex h-full flex-col border-l border-border bg-card">
+                <div
+                  className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3"
+                  data-lenis-prevent
+                >
+                  <EpkPropertiesPanel onOpenAssetPicker={openAssetPicker} />
+                  <EpkFontManager artistId={artistId} initialFonts={initialFonts} />
+                </div>
+              </aside>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
       </div>
 
       <EpkAssetPicker

@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **EPK + Personal Artist Page builders on mobile:** Desktop three-column layout no longer paints beside mobile tabs. Root cause: `react-resizable-panels` sets inline `display:flex`, so Tailwind `hidden lg:flex` failed. Shells now mount `ResizablePanelGroup` only at `lg+` via `useIsLg()`; compact toolbars + single-panel tabs below `lg`.
+- **Homepage footer legal links (mobile):** Impressum / Datenschutz / AGB wrap with 44px touch targets; removed overflow clipping that made links untappable.
+- **Mobile public scroll ghosting:** Lenis disabled on coarse pointer (native scroll); VFX lite mode (no CRT/chromatic/will-change); `ScrollReveal` drops permanent `will-change` after animate-in.
+
+### Added
+- **CI mobile layout contract:** `npm run check:mobile-layout` (`scripts/check-mobile-layout-contract.mjs`) in `ci:contracts` — bans CSS-only hide of ResizablePanelGroup, requires `useIsLg` on builder shells, full-bleed fan-page parity, footer touch targets. Unit tests for shells + footer.
+
 ### Changed
+- **Portal fan-page shell:** Same full-bleed `lockScroll` + `p-0` as EPK builder.
 - **Agent / CI process (phase-1 bad-practice enforcement):** Session-start section in `AGENTS.md`; `npm run ci` split into `ci:contracts` → `ci:typecheck` → `ci:tests`; PR template (`.github/pull_request_template.md`) with conditional docs checklist; `verify:schema-columns` fails if `supabase/migrations/*.sql` appears. Docs enforcement stays PR/process-based (no naive “any code → any docs” CI gate).
 
 ### Fixed

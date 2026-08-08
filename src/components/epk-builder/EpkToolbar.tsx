@@ -26,6 +26,7 @@ import {
   GridFour,
   Magnet,
   MagnifyingGlass,
+  DotsThreeOutline,
 } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -34,6 +35,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useEpkEditorStore, useEpkEditorStoreApi, useEpkEditorTemporal } from '@/lib/epk/editor/EpkEditorProvider'
@@ -52,6 +54,8 @@ interface EpkToolbarProps {
   onOpenCommandPalette: () => void
   onInsertPreset: (presetId: ProfilePresetId) => void
   isSaving: boolean
+  /** Mobile: primary actions only + overflow menu for secondary tools. */
+  compact?: boolean
 }
 
 export function EpkToolbar({
@@ -65,6 +69,7 @@ export function EpkToolbar({
   onOpenCommandPalette,
   onInsertPreset,
   isSaving,
+  compact = false,
 }: EpkToolbarProps) {
   const t = useTranslations('portal')
   const store = useEpkEditorStoreApi()
@@ -111,12 +116,180 @@ export function EpkToolbar({
   const fitPageZoom = () => {
     const page = document.pages.find((p) => p.id === activePageId) ?? document.pages[0]
     if (!page) return
-    const sidebarWidth = window.innerWidth >= 1280 ? 560 : window.innerWidth >= 1024 ? 520 : 0
-    const availableWidth = Math.max(320, window.innerWidth - sidebarWidth - 80)
-    const availableHeight = Math.max(320, window.innerHeight - 200)
+    // Mobile/compact: full width; desktop: reserve side panels
+    const sidebarWidth = compact
+      ? 0
+      : window.innerWidth >= 1280
+        ? 560
+        : window.innerWidth >= 1024
+          ? 520
+          : 0
+    const chromeHeight = compact ? 220 : 200
+    const availableWidth = Math.max(280, window.innerWidth - sidebarWidth - (compact ? 24 : 80))
+    const availableHeight = Math.max(240, window.innerHeight - chromeHeight)
     const fitByWidth = availableWidth / page.width
     const fitByHeight = availableHeight / page.height
     setZoom(Math.min(2.5, Math.max(0.1, Math.min(fitByWidth, fitByHeight))))
+  }
+
+  if (compact) {
+    return (
+      <TooltipProvider>
+        <div
+          className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card p-1.5"
+          role="toolbar"
+          aria-label={t('epk_editor_toolbar_label')}
+        >
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-[44px] min-w-[44px]"
+            disabled={!canUndo}
+            aria-label={t('epk_editor_undo')}
+            onClick={() => store.temporal.getState().undo()}
+          >
+            <ArrowCounterClockwise size={18} aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-[44px] min-w-[44px]"
+            disabled={!canRedo}
+            aria-label={t('epk_editor_redo')}
+            onClick={() => store.temporal.getState().redo()}
+          >
+            <ArrowClockwise size={18} aria-hidden="true" />
+          </Button>
+
+          <Separator orientation="vertical" className="mx-0.5 h-8" />
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-[44px] min-w-[44px]"
+            aria-label={t('epk_editor_add_text')}
+            onClick={() => addElement('text')}
+          >
+            <TextT size={18} aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-[44px] min-w-[44px]"
+            aria-label={t('epk_editor_add_image')}
+            onClick={onOpenAssetPicker}
+          >
+            <ImageIcon size={18} aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-[44px] min-w-[44px]"
+            disabled={selectedIds.length === 0}
+            aria-label={t('epk_editor_delete')}
+            onClick={() => deleteSelected()}
+          >
+            <Trash size={18} aria-hidden="true" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-[44px]"
+            onClick={fitPageZoom}
+          >
+            {t('epk_editor_zoom_fit')}
+          </Button>
+
+          <div className="flex-1" />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-[44px] min-w-[44px]"
+                aria-label={t('epk_toolbar_more')}
+              >
+                <DotsThreeOutline size={18} aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onSelect={onOpenCommandPalette}>
+                {t('epk_cmd_title')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => addElement('shape')}>
+                {t('epk_editor_add_shape')}
+              </DropdownMenuItem>
+              {PROFILE_PRESETS.map((preset) => (
+                <DropdownMenuItem key={preset.id} onSelect={() => onInsertPreset(preset.id)}>
+                  {presetLabel(preset.id)}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={selectedIds.length < 2}
+                onSelect={() => groupSelected()}
+              >
+                {t('epk_editor_group')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={selectedIds.length === 0}
+                onSelect={() => ungroupSelected()}
+              >
+                {t('epk_editor_ungroup')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setSnapEnabled(!snapEnabled)}>
+                {snapEnabled ? t('epk_ctx_snap_off') : t('epk_ctx_snap_on')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setShowGrid(!showGrid)}>
+                {showGrid ? t('epk_ctx_grid_off') : t('epk_ctx_grid_on')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setZoom(zoom - 0.1)}>
+                {t('epk_editor_zoom_out')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setZoom(zoom + 0.1)}>
+                {t('epk_editor_zoom_in')} ({Math.round(zoom * 100)}%)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={isSaving} onSelect={() => void onSaveSnapshot()}>
+                {t('epk_versions_snapshot')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenVersionHistory}>
+                {t('epk_versions_title')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenShareLinks}>{t('epk_share_title')}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenAnalytics}>
+                {t('epk_analytics_title')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenTemplates}>
+                {t('epk_templates_title')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="min-h-[44px]"
+            disabled={!isDirty || isSaving}
+            onClick={() => void onSave()}
+          >
+            <FloppyDisk size={18} className="mr-1.5" aria-hidden="true" />
+            {isSaving ? t('epk_editor_saving') : t('epk_editor_save')}
+          </Button>
+        </div>
+      </TooltipProvider>
+    )
   }
 
   return (

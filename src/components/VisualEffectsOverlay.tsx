@@ -22,8 +22,12 @@
  *
  * All overlays use pointer-events: none — they never block user interactions.
  * The CSS for ::before/::after lives in globals.css (.vfx-overlay).
+ *
+ * Mobile / coarse pointer: static vignette only — no scanline animation,
+ * chromatic filters, or elevated grain (scroll ghosting / double-image).
  */
 
+import { useEffect, useState } from 'react'
 import type { ThemeEffects } from '@/config/themeConfig'
 
 interface VisualEffectsOverlayProps {
@@ -37,28 +41,49 @@ interface VisualEffectsOverlayProps {
   effects?: ThemeEffects
 }
 
+function useIsCoarsePointer(): boolean {
+  const [coarse, setCoarse] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return
+    }
+    const mql = window.matchMedia('(pointer: coarse)')
+    const update = () => setCoarse(mql.matches)
+    update()
+    mql.addEventListener('change', update)
+    return () => mql.removeEventListener('change', update)
+  }, [])
+
+  return coarse
+}
+
 export function VisualEffectsOverlay({
   noiseOpacity,
   crtScanlinesEnabled,
   vignetteIntensity,
   effects,
 }: VisualEffectsOverlayProps) {
-  const chromaticEnabled  = effects?.overlay?.chromaticAberration?.enabled ?? false
+  const isCoarse = useIsCoarsePointer()
+  const chromaticEnabled =
+    !isCoarse && (effects?.overlay?.chromaticAberration?.enabled ?? false)
   const chromaticIntensity = effects?.overlay?.chromaticAberration?.intensity ?? 2
-  const washEnabled       = effects?.overlay?.colorWash?.enabled ?? false
-  const washColor         = effects?.overlay?.colorWash?.color ?? 'transparent'
-  const washOpacity       = effects?.overlay?.colorWash?.opacity ?? 0
+  const washEnabled = !isCoarse && (effects?.overlay?.colorWash?.enabled ?? false)
+  const washColor = effects?.overlay?.colorWash?.color ?? 'transparent'
+  const washOpacity = effects?.overlay?.colorWash?.opacity ?? 0
+  const scanlines = !isCoarse && crtScanlinesEnabled
+  const grainOpacity = isCoarse ? Math.min(noiseOpacity, 0.02) : noiseOpacity
 
   return (
     <>
       <div
         aria-hidden="true"
-        className={`vfx-overlay${crtScanlinesEnabled ? ' vfx-scanlines' : ''}${chromaticEnabled ? ' vfx-chromatic' : ''}`}
+        className={`vfx-overlay${scanlines ? ' vfx-scanlines' : ''}${chromaticEnabled ? ' vfx-chromatic' : ''}${isCoarse ? ' vfx-mobile-lite' : ''}`}
         style={
           {
-            '--vfx-noise-opacity':   noiseOpacity,
+            '--vfx-noise-opacity': grainOpacity,
             '--vfx-vignette-shadow': `rgba(0,0,0,${vignetteIntensity})`,
-            '--vfx-vignette-grad':   `rgba(0,0,0,${(vignetteIntensity * 0.65).toFixed(3)})`,
+            '--vfx-vignette-grad': `rgba(0,0,0,${(vignetteIntensity * 0.65).toFixed(3)})`,
             '--fx-chromatic-offset': chromaticEnabled ? `${chromaticIntensity}px` : '0px',
           } as React.CSSProperties
         }
@@ -69,7 +94,7 @@ export function VisualEffectsOverlay({
           className="vfx-color-wash"
           style={
             {
-              '--fx-wash-color':   washColor,
+              '--fx-wash-color': washColor,
               '--fx-wash-opacity': washOpacity,
             } as React.CSSProperties
           }

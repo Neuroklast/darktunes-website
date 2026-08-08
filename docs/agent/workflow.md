@@ -8,7 +8,7 @@ Same gate surface as `.github/workflows/ci.yml`, runnable in three phases:
 
 | Script | What runs |
 |--------|-----------|
-| `npm run ci:contracts` | lint, scroll/overlay/brand/i18n contracts, portal-rls, schema-columns (incl. **no** `supabase/migrations/*.sql`), api-contracts |
+| `npm run ci:contracts` | lint, scroll/overlay/**mobile-layout**/brand/i18n contracts, portal-rls, schema-columns (incl. **no** `supabase/migrations/*.sql`), api-contracts |
 | `npm run ci:typecheck` | `tsc --noEmit` |
 | `npm run ci:tests` | vitest + production build |
 | `npm run ci` | all three phases in order |
