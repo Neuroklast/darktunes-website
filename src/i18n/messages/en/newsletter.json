@@ -1,18 +1,18 @@
 {
   "heading": "Newsletter",
-  "description": "New releases, tour dates and the occasional exclusive – straight to your inbox.",
+  "description": "New releases, tour dates, the odd exclusive. No spam.",
   "namePlaceholder": "Name (optional)",
   "emailLabel": "Email address",
   "emailPlaceholder": "your@email.com",
   "submit": "Subscribe",
   "submitting": "Subscribing…",
-  "successTitle": "Check your inbox! 📬",
-  "successMessage": "We sent you a confirmation email. Click the link inside to finish signing up.",
-  "consentText": "By subscribing you agree to get occasional emails from {labelShortName}. Unsubscribe whenever you want.",
+  "successTitle": "Check your inbox",
+  "successMessage": "Confirmation mail is on its way. Click the link to finish.",
+  "consentText": "You’ll get occasional mails from {labelShortName}. Unsubscribe anytime.",
   "privacyLink": "Privacy Policy",
   "validationEmail": "Please enter a valid email address",
-  "confirmSuccessTitle": "You're in! 🎉",
-  "confirmSuccessMessage": "You're now on the {labelShortName} newsletter list. Glad to have you.",
+  "confirmSuccessTitle": "You’re in",
+  "confirmSuccessMessage": "Subscribed to the {labelShortName} newsletter.",
   "confirmErrorTitle": "Link invalid or expired",
-  "confirmErrorMessage": "This confirmation link doesn't work anymore. Try subscribing again."
+  "confirmErrorMessage": "This confirmation link is dead. Try subscribing again."
 }
