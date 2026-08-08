@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { ReactLenis, useLenis } from 'lenis/react'
 import { isDashboardRoute } from '@/lib/scroll/dashboardRoutes'
@@ -35,11 +35,12 @@ function ScrollLockObserver() {
 }
 
 /**
- * Desktop / fine-pointer: Lenis smooth wheel scroll.
- * Coarse pointer (phones/tablets): native scroll only — Lenis syncTouch causes
- * rubber-band ghosting / doubled frames with GPU layers (VFX, will-change).
+ * Public routes only. `syncTouch: false` so phones keep native touch scroll
+ * (syncTouch caused rubber-band ghosting with VFX layers). Wheel/trackpad still
+ * get smooth Lenis on desktop. Do not conditionally mount Lenis after media
+ * queries — remounting the whole tree detaches focused elements and flakes e2e.
  */
-const LENIS_DESKTOP_OPTIONS = {
+const LENIS_OPTIONS = {
   lerp: 0.08,
   duration: 0.55,
   easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -50,41 +51,16 @@ const LENIS_DESKTOP_OPTIONS = {
   prevent: shouldPreventLenis,
 } as const
 
-/**
- * Resolve touch vs fine-pointer once before mounting Lenis.
- * Avoid defaulting to "native then Lenis" on desktop — remounting the whole
- * tree mid-hydration steals focus and flakes keyboard e2e tests.
- */
-function useScrollMode(): 'pending' | 'native' | 'lenis' {
-  const [mode, setMode] = useState<'pending' | 'native' | 'lenis'>('pending')
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      setMode('lenis')
-      return
-    }
-    const coarse = window.matchMedia('(pointer: coarse)')
-    const update = () => setMode(coarse.matches ? 'native' : 'lenis')
-    update()
-    coarse.addEventListener('change', update)
-    return () => coarse.removeEventListener('change', update)
-  }, [])
-
-  return mode
-}
-
 export function LenisProvider({ children }: LenisProviderProps) {
   const pathname = usePathname()
   const onDashboard = isDashboardRoute(pathname)
-  const scrollMode = useScrollMode()
 
-  // Dashboard, touch devices, or pre-media-query: native scroll only (no Lenis).
-  if (onDashboard || scrollMode !== 'lenis') {
+  if (onDashboard) {
     return <>{children}</>
   }
 
   return (
-    <ReactLenis root options={LENIS_DESKTOP_OPTIONS}>
+    <ReactLenis root options={LENIS_OPTIONS}>
       <ScrollLockObserver />
       {children}
     </ReactLenis>

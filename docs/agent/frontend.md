@@ -21,7 +21,7 @@ Single `LenisProvider` in `Providers.tsx`. No second instance; no CSS `scroll-be
 
 **Dashboard routes:** `LenisProvider` does **not mount** Lenis on `/admin/*`, `/portal/*`, or `/editor` (`src/lib/scroll/dashboardRoutes.ts`) so wheel events reach native scroll inside dashboard shells.
 
-**Touch / coarse pointer:** Lenis is **disabled** when `(pointer: coarse)` — native scroll only. `syncTouch` caused rubber-band ghosting / doubled frames with VFX GPU layers. Desktop fine-pointer keeps Lenis (wheel smooth scroll, `syncTouch: false`).
+**Touch:** Lenis always uses `syncTouch: false` so phones keep native touch scroll (syncTouch caused rubber-band ghosting with VFX GPU layers). Wheel/trackpad still get smooth Lenis on desktop. Do **not** mount/unmount Lenis from media queries — remounting the tree detaches focused nodes and flakes keyboard e2e.
 
 **Dashboard scroll shell:** Admin and portal layouts use `ScrollableAppShell` (`src/components/layout/ScrollableAppShell.tsx`). Contract: outer `h-dvh overflow-hidden` → inner `flex-1 min-h-0 overflow-y-auto` with `data-lenis-prevent`. List routes set `lockScroll` so only `AdminListShell` scrolls internally.
 
