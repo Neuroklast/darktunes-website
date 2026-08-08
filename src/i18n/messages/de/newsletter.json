@@ -1,18 +1,18 @@
 {
   "heading": "Newsletter",
-  "description": "Bleib auf dem Laufenden – neue Releases, Tourdaten und exklusive Inhalte direkt in deinem Postfach.",
+  "description": "Neue Releases, Tourdaten und ab und zu was Exklusives – direkt in dein Postfach.",
   "namePlaceholder": "Name (optional)",
   "emailLabel": "E-Mail-Adresse",
   "emailPlaceholder": "deine@email.de",
   "submit": "Anmelden",
   "submitting": "Anmelden…",
-  "successTitle": "Prüfe dein Postfach! 📬",
-  "successMessage": "Wir haben dir eine Bestätigungsmail geschickt. Bitte klicke auf den Link darin, um deine Anmeldung abzuschließen.",
-  "consentText": "Mit der Anmeldung stimmst du zu, gelegentlich E-Mails von {labelShortName} zu erhalten. Du kannst dich jederzeit abmelden.",
+  "successTitle": "Schau in dein Postfach! 📬",
+  "successMessage": "Wir haben dir eine Bestätigungsmail geschickt. Klick den Link darin, um dich anzumelden.",
+  "consentText": "Mit der Anmeldung bekommst du ab und zu Mails von {labelShortName}. Abmelden geht jederzeit.",
   "privacyLink": "Datenschutzerklärung",
   "validationEmail": "Bitte eine gültige E-Mail-Adresse eingeben",
-  "confirmSuccessTitle": "Anmeldung bestätigt! 🎉",
-  "confirmSuccessMessage": "Du bist jetzt für den {labelShortName} Newsletter angemeldet. Willkommen in der Community!",
+  "confirmSuccessTitle": "Du bist drin! 🎉",
+  "confirmSuccessMessage": "Du stehst jetzt auf der {labelShortName}-Newsletter-Liste. Schön, dass du dabei bist.",
   "confirmErrorTitle": "Link ungültig oder abgelaufen",
-  "confirmErrorMessage": "Dieser Bestätigungslink ist ungültig oder wurde bereits verwendet. Bitte versuche dich erneut anzumelden."
+  "confirmErrorMessage": "Dieser Bestätigungslink funktioniert nicht mehr. Versuch es einfach nochmal."
 }
