@@ -55,12 +55,14 @@ test.describe('User journeys and accessibility flows', () => {
 
     await page.goto('/', { waitUntil: 'domcontentloaded' })
 
-    const navLinks = page.locator('header nav a')
+    // Desktop main nav only (visible). Hidden mobile-menu anchors are not focusable.
+    const navLinks = page.locator('header nav[aria-label="Main navigation"] a:visible')
     const count = await navLinks.count()
     expect(count).toBeGreaterThan(0)
 
     for (let i = 0; i < count; i++) {
       const link = navLinks.nth(i)
+      await link.scrollIntoViewIfNeeded()
       await link.focus()
       const focused = await link.evaluate((el) => document.activeElement === el)
       expect(focused).toBe(true)

@@ -50,29 +50,36 @@ const LENIS_DESKTOP_OPTIONS = {
   prevent: shouldPreventLenis,
 } as const
 
-function usePreferNativeScroll(): boolean {
-  const [preferNative, setPreferNative] = useState(true)
+/**
+ * Resolve touch vs fine-pointer once before mounting Lenis.
+ * Avoid defaulting to "native then Lenis" on desktop — remounting the whole
+ * tree mid-hydration steals focus and flakes keyboard e2e tests.
+ */
+function useScrollMode(): 'pending' | 'native' | 'lenis' {
+  const [mode, setMode] = useState<'pending' | 'native' | 'lenis'>('pending')
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      setMode('lenis')
       return
     }
     const coarse = window.matchMedia('(pointer: coarse)')
-    const update = () => setPreferNative(coarse.matches)
+    const update = () => setMode(coarse.matches ? 'native' : 'lenis')
     update()
     coarse.addEventListener('change', update)
     return () => coarse.removeEventListener('change', update)
   }, [])
 
-  return preferNative
+  return mode
 }
 
 export function LenisProvider({ children }: LenisProviderProps) {
   const pathname = usePathname()
   const onDashboard = isDashboardRoute(pathname)
-  const preferNativeScroll = usePreferNativeScroll()
+  const scrollMode = useScrollMode()
 
-  if (onDashboard || preferNativeScroll) {
+  // Dashboard, touch devices, or pre-media-query: native scroll only (no Lenis).
+  if (onDashboard || scrollMode !== 'lenis') {
     return <>{children}</>
   }
 
