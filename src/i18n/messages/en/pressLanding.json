@@ -5,7 +5,7 @@
     "contact": "Contact"
   },
   "heroBadge": "Press & Media",
-  "heroDescription": "Editorial requests, interviews, review copies, and high-resolution assets for the {labelShortName} roster.",
+  "heroDescription": "Interview requests, review copies, high-res assets and everything else for the {labelShortName} roster.",
   "rosterSearch": "Search artists…",
   "rosterSort": {
     "label": "Sort by",
@@ -16,7 +16,7 @@
   "noResults": "No artists match your search.",
   "contact": {
     "title": "Press Contact",
-    "description": "For interview requests, review copies, event accreditation, or bespoke press kits, reach out directly.",
+    "description": "Need an interview, review copy, accreditation or a custom press kit? Get in touch.",
     "emailLabel": "E-Mail",
     "phoneLabel": "Phone",
     "applyButton": "Apply for press access",
