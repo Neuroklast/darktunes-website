@@ -3,7 +3,7 @@ import type { Database } from '@/types/database'
 import { markMessageRead } from '@/lib/api/labelMessages'
 import { markPortalMessageRead } from '@/lib/api/portalMessages'
 import { markNotificationRead } from '@/lib/api/notifications'
-import { getNotificationHref } from '@/lib/notifications'
+import { getNotificationHref } from '@/lib/notifications/routing'
 import {
   listReadMessageIds,
   upsertMessageReceipts,

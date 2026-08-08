@@ -7,7 +7,7 @@ import {
   getNotificationActionLabelFallback,
   getNotificationHref,
   getNotificationSummaryFallback,
-} from '@/lib/notifications'
+} from '@/lib/notifications/routing'
 
 export function getDashboardNotificationHref(
   notification: Pick<DashboardNotification, 'type'> &

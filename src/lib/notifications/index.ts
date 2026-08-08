@@ -1,11 +1,8 @@
 /**
- * Notifications public barrel.
+ * Client-safe notifications barrel (catalog, routing, preferences helpers).
  *
- * Client components must NOT import this barrel if they only need catalog /
- * routing / preferences — use subpaths (`./catalog`, `./routing`, `./preferences`)
- * so Node-only `web-push` (via emit → send) never enters the client bundle.
- *
- * Server routes may import `emitNotification` from here or `./emit`.
+ * Server-only: import `emitNotification` from `@/lib/notifications/emit`
+ * (pulls `web-push` / Node net — never re-export from this barrel).
  */
 export {
   ALL_NOTIFICATION_EVENT_TYPES,
@@ -13,7 +10,6 @@ export {
   getCatalogEntry,
   isNotificationEventType,
 } from './catalog'
-export { emitNotification } from './emit'
 export {
   getUserNotificationPreferences,
   getUsersWithInAppDisabled,

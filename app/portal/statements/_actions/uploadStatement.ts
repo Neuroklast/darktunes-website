@@ -164,7 +164,7 @@ export async function uploadStatement(
           }
           // In-app bell even when email fails — artist should still see the statement
           try {
-            const { emitNotification } = await import('@/lib/notifications')
+            const { emitNotification } = await import('@/lib/notifications/emit')
             await emitNotification(serviceSupabase, {
               type: 'statement_available',
               entityId: statement.id,

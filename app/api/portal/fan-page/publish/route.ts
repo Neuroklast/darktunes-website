@@ -12,7 +12,7 @@ import { getFanPageDocumentState, publishFanPage } from '@/lib/api/fanPageDocume
 import { validateFanPageForPublish, canHardPublish } from '@/lib/fan-page/publishValidation'
 import { portalMemberWrite, withPortalMembershipWrite } from '@/lib/portal/withPortalMembership'
 import { revalidateTag } from 'next/cache'
-import { emitNotification } from '@/lib/notifications'
+import { emitNotification } from '@/lib/notifications/emit'
 
 const bodySchema = z.object({
   artist_id: z.string().uuid(),

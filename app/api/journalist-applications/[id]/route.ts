@@ -12,7 +12,7 @@ import { getUserRoleWithClient } from '@/lib/getUserRole'
 import { type NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { updateApplicationStatus } from '@/lib/api/journalistApplications'
-import { emitNotification } from '@/lib/notifications'
+import { emitNotification } from '@/lib/notifications/emit'
 import { z } from 'zod'
 
 const UpdateSchema = z.object({

@@ -4,7 +4,7 @@ import { withErrorHandler } from '@/lib/errors'
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { extractBearerToken, verifyAdminOrEditor } from '@/lib/adminAuth'
 import { updateVideoSubmissionStatus } from '@/lib/api/videoSubmissions'
-import { emitNotification } from '@/lib/notifications'
+import { emitNotification } from '@/lib/notifications/emit'
 
 function extractId(req: NextRequest): string {
   const segments = new URL(req.url).pathname.split('/')

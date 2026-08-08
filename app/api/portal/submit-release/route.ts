@@ -22,7 +22,7 @@ import { verifyCoverArtToken } from '@/lib/submissions/coverArtToken'
 import type { SubmissionFieldType } from '@/lib/submissions/fieldTypes'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
 import { getClientIp } from '@/lib/ipRateLimit'
-import { emitNotification } from '@/lib/notifications'
+import { emitNotification } from '@/lib/notifications/emit'
 
 const trackInputSchema = z.object({
   trackNumber: z.number().int().min(1),

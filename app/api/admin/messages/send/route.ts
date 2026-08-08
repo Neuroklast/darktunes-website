@@ -10,7 +10,7 @@ import { ApiError, withErrorHandler } from '@/lib/errors'
 import { requireAdminOrEditorFromRequest } from '@/lib/adminAuth'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { sendLabelMessagesToArtists } from '@/lib/messaging/send'
-import { emitNotification } from '@/lib/notifications'
+import { emitNotification } from '@/lib/notifications/emit'
 
 const bodySchema = z.object({
   artistIds: z.array(z.string().uuid()).min(1).max(200),

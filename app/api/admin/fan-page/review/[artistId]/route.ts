@@ -9,7 +9,7 @@ import { extractBearerToken, verifyAdminOrEditor } from '@/lib/adminAuth'
 import { reviewFanPage } from '@/lib/api/fanPageDocument'
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { revalidateTag } from 'next/cache'
-import { emitNotification } from '@/lib/notifications'
+import { emitNotification } from '@/lib/notifications/emit'
 
 const bodySchema = z.object({
   approved: z.boolean(),

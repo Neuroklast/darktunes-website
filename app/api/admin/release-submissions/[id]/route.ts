@@ -8,7 +8,7 @@ import {
   updateReleaseSubmissionStatus,
 } from '@/lib/api/releaseSubmissions'
 import { getTracksBySubmissionId } from '@/lib/api/releaseSubmissionTracks'
-import { emitNotification } from '@/lib/notifications'
+import { emitNotification } from '@/lib/notifications/emit'
 
 function extractId(req: NextRequest): string {
   const segments = new URL(req.url).pathname.split('/')

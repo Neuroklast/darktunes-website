@@ -9,7 +9,7 @@ import { getEmailCredentials } from '@/lib/secrets/getExternalCredentials'
 import { withIdempotency } from '@/lib/api/idempotency'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
 import { getClientIp } from '@/lib/ipRateLimit'
-import { emitNotification } from '@/lib/notifications'
+import { emitNotification } from '@/lib/notifications/emit'
 
 const bodySchema = z.object({
   title: z.string().min(1),

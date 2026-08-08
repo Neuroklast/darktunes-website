@@ -16,7 +16,7 @@ import {
   PORTAL_ASSET_MIME,
   PORTAL_UPLOAD_RATE,
 } from '@/lib/uploads/portalUploadLimits'
-import { emitNotification } from '@/lib/notifications'
+import { emitNotification } from '@/lib/notifications/emit'
 
 const deleteSchema = z.object({ id: z.string() })
 

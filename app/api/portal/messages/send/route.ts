@@ -13,7 +13,7 @@ import { portalMemberWrite, withPortalMembershipWrite } from '@/lib/portal/withP
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
 import { getClientIp } from '@/lib/ipRateLimit'
 import { PORTAL_MESSAGE_SEND_RATE } from '@/lib/uploads/portalUploadLimits'
-import { emitNotification } from '@/lib/notifications'
+import { emitNotification } from '@/lib/notifications/emit'
 import { sendPortalDomainMessage } from '@/lib/messaging/send'
 
 const sendSchema = z.object({

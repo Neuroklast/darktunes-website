@@ -16,7 +16,7 @@ import {
 import { isPressApplicationsEnabled } from '@/lib/pressAccess'
 import { z } from 'zod'
 import { checkRateLimit, getClientIp } from '@/lib/ipRateLimit'
-import { emitNotification } from '@/lib/notifications'
+import { emitNotification } from '@/lib/notifications/emit'
 
 const ApplySchema = z.object({
   email: z.string().email(),
