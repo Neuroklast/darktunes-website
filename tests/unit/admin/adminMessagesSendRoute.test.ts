@@ -19,7 +19,7 @@ vi.mock('@/lib/messaging/send', () => ({
   sendLabelMessagesToArtists: (...args: unknown[]) => sendLabelMessagesToArtists(...args),
 }))
 
-vi.mock('@/lib/notifications', () => ({
+vi.mock('@/lib/notifications/emit', () => ({
   emitNotification: (...args: unknown[]) => emitNotification(...args),
 }))
 

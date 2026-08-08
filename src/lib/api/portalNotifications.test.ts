@@ -25,7 +25,7 @@ vi.mock('@/lib/api/notifications', () => ({
   markNotificationRead: vi.fn(),
 }))
 
-vi.mock('@/lib/notifications', () => ({
+vi.mock('@/lib/notifications/routing', () => ({
   getNotificationHref: () => '/portal',
 }))
 

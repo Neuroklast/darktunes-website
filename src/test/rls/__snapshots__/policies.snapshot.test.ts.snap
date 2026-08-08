@@ -193,6 +193,7 @@ exports[`RLS Policies – supabase/reset.sql > snapshot: all CREATE POLICY names
   "promo_log: artist read",
   "promo_tracks: admin all",
   "promo_tracks: journalist read",
+  "push_subscriptions: own all",
   "rbac_audit_log: admin insert",
   "rbac_audit_log: admin read",
   "release_artists: can_manage_releases write",
@@ -362,6 +363,7 @@ exports[`RLS Policies – supabase/reset.sql > snapshot: all tables with RLS ena
   "promo_impact",
   "promo_log_entries",
   "promo_tracks",
+  "push_subscriptions",
   "rbac_audit_log",
   "release_artists",
   "release_checklists",
@@ -741,6 +743,9 @@ exports[`RLS Policies – supabase/reset.sql > snapshot: policies per table (ext
   "promo_tracks": [
     "promo_tracks: admin all",
     "promo_tracks: journalist read",
+  ],
+  "push_subscriptions": [
+    "push_subscriptions: own all",
   ],
   "rbac_audit_log": [
     "rbac_audit_log: admin insert",
