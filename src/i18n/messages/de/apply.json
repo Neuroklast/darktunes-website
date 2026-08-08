@@ -1,6 +1,6 @@
 {
   "heading": "Pressezugang beantragen",
-  "subheading": "Zugang zum {labelShortName} Press-Dashboard beantragen — Promo-Tracks, Presse-Kits und exklusive Releases.",
+  "subheading": "Zugang zum {labelShortName} Press-Dashboard beantragen — Promo-Tracks, Presse-Kits, exklusive Releases.",
   "fields": {
     "name": "Vollständiger Name",
     "email": "E-Mail-Adresse",
@@ -13,10 +13,10 @@
   "submitting": "Wird gesendet…",
   "success": {
     "heading": "Bewerbung eingereicht",
-    "message": "Danke. Wir schauen uns deine Bewerbung an und melden uns per Mail.",
+    "message": "Wir schauen’s uns an und melden uns per Mail.",
     "login": "Bereits freigeschaltet? Jetzt anmelden"
   },
-  "applicationsDisabled": "Aktuell nehmen wir keine Pressebewerbungen an. Versuch es später nochmal oder kontaktiere das Label.",
+  "applicationsDisabled": "Aktuell nehmen wir keine Pressebewerbungen an. Später nochmal versuchen oder das Label kontaktieren.",
   "errors": {
     "emailInUse": "Für diese E-Mail existiert bereits ein Konto. Bitte melde dich an.",
     "generic": "Senden fehlgeschlagen. Bitte versuche es erneut."

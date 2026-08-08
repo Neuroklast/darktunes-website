@@ -1,6 +1,6 @@
 {
   "heading": "Apply for Press Access",
-  "subheading": "Ask for access to the {labelShortName} press dashboard — promo tracks, press kits and exclusive releases.",
+  "subheading": "Request access to the {labelShortName} press dashboard — promo tracks, press kits, exclusive releases.",
   "fields": {
     "name": "Full Name",
     "email": "Email Address",
@@ -13,10 +13,10 @@
   "submitting": "Submitting…",
   "success": {
     "heading": "Application Submitted",
-    "message": "Thanks. We'll look at your application and reply by email.",
+    "message": "We’ll review it and get back to you by email.",
     "login": "Already approved? Sign in"
   },
-  "applicationsDisabled": "We're not taking press applications right now. Check back later or contact the label.",
+  "applicationsDisabled": "Not taking press applications right now. Check back later or contact the label.",
   "errors": {
     "emailInUse": "An account with this email already exists. Please sign in.",
     "generic": "Submission failed. Please try again."

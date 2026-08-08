@@ -5,7 +5,7 @@
     "contact": "Kontakt"
   },
   "heroBadge": "Presse & Medien",
-  "heroDescription": "Interviewanfragen, Review-Copies, hochauflösende Assets und der Rest für den {labelShortName}-Roster.",
+  "heroDescription": "Interviews, Review-Copies, hochauflösende Assets für den {labelShortName}-Roster.",
   "rosterSearch": "Künstler suchen…",
   "rosterSort": {
     "label": "Sortieren nach",
@@ -16,7 +16,7 @@
   "noResults": "Keine Künstler gefunden.",
   "contact": {
     "title": "Pressekontakt",
-    "description": "Braucht ihr ein Interview, Review-Copy, Akkreditierung oder ein individuelles Pressekit? Meldet euch.",
+    "description": "Interview, Review-Copy, Akkreditierung oder individuelles Pressekit? Schreib uns.",
     "emailLabel": "E-Mail",
     "phoneLabel": "Telefon",
     "applyButton": "Pressezugang beantragen",
