@@ -12,6 +12,8 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Hash dedupe or “artists” root folder shared across labels | Scope `getAssetByHash` and `asset_folders` uniqueness per org |
 | EPK templates treated as global CMS content | Templates are label-owned; DAL takes `organizationId` |
 | Storage RPC / feedback admin unscoped with service role | Pass host `organizationId` into aggregates and artist-joined feedback queries |
+| Sales Statement workspaces keyed only by period | Period uniqueness must include `organization_id` (each label has its own Q1/Q2 workspace) |
+| Calling the product “SOS” in user/docs copy | User-facing name is **Sales Statement**; `sos_*` code paths may stay for expand→migrate |
 | CI only stubs org isolation | `check:organization-scope` must fail when audited files lose markers |
 
 ## Database & schema

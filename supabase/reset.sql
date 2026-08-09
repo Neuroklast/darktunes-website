@@ -7054,6 +7054,15 @@ ALTER TABLE public.asset_folders ADD COLUMN IF NOT EXISTS organization_id UUID
   DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
 ALTER TABLE public.epk_templates ADD COLUMN IF NOT EXISTS organization_id UUID
   DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+-- Sales Statement accounting tables (code paths may still use sos_* table names)
+ALTER TABLE public.sos_rules_presets ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.sos_accounting_workspaces ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.sos_period_summaries ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.distributor_import_batches ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
 
 UPDATE public.artists SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 UPDATE public.releases SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
@@ -7066,6 +7075,10 @@ UPDATE public.assets SET organization_id = '00000000-0000-0000-0000-000000000000
 UPDATE public.sync_queue SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 UPDATE public.asset_folders SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 UPDATE public.epk_templates SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.sos_rules_presets SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.sos_accounting_workspaces SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.sos_period_summaries SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.distributor_import_batches SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 
 ALTER TABLE public.artists ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
 ALTER TABLE public.artists ALTER COLUMN organization_id SET NOT NULL;
@@ -7089,6 +7102,14 @@ ALTER TABLE public.asset_folders ALTER COLUMN organization_id SET DEFAULT '00000
 ALTER TABLE public.asset_folders ALTER COLUMN organization_id SET NOT NULL;
 ALTER TABLE public.epk_templates ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
 ALTER TABLE public.epk_templates ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.sos_rules_presets ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.sos_rules_presets ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.sos_accounting_workspaces ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.sos_accounting_workspaces ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.sos_period_summaries ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.sos_period_summaries ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.distributor_import_batches ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.distributor_import_batches ALTER COLUMN organization_id SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_artists_organization_id ON public.artists (organization_id);
 CREATE INDEX IF NOT EXISTS idx_releases_organization_id ON public.releases (organization_id);
@@ -7101,6 +7122,25 @@ CREATE INDEX IF NOT EXISTS idx_assets_organization_id ON public.assets (organiza
 CREATE INDEX IF NOT EXISTS idx_sync_queue_organization_id ON public.sync_queue (organization_id);
 CREATE INDEX IF NOT EXISTS idx_asset_folders_organization_id ON public.asset_folders (organization_id);
 CREATE INDEX IF NOT EXISTS idx_epk_templates_organization_id ON public.epk_templates (organization_id);
+CREATE INDEX IF NOT EXISTS idx_sos_rules_presets_organization_id ON public.sos_rules_presets (organization_id);
+CREATE INDEX IF NOT EXISTS idx_sos_accounting_workspaces_organization_id ON public.sos_accounting_workspaces (organization_id);
+CREATE INDEX IF NOT EXISTS idx_sos_period_summaries_organization_id ON public.sos_period_summaries (organization_id);
+CREATE INDEX IF NOT EXISTS idx_distributor_import_batches_organization_id ON public.distributor_import_batches (organization_id);
+
+-- Sales Statement uniqueness is per organization (periods / preset names may repeat across labels).
+DROP INDEX IF EXISTS uq_sos_rules_presets_name_ci;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sos_rules_presets_org_name_ci
+  ON public.sos_rules_presets (organization_id, lower(btrim(name)));
+
+ALTER TABLE public.sos_accounting_workspaces
+  DROP CONSTRAINT IF EXISTS sos_accounting_workspaces_period_start_period_end_key;
+DROP INDEX IF EXISTS uq_sos_accounting_workspaces_org_period;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sos_accounting_workspaces_org_period
+  ON public.sos_accounting_workspaces (organization_id, period_start, period_end);
+
+DROP INDEX IF EXISTS sos_period_summaries_period_key;
+CREATE UNIQUE INDEX IF NOT EXISTS sos_period_summaries_org_period_key
+  ON public.sos_period_summaries (organization_id, period_start, period_end);
 
 -- Folder name uniqueness is per organization (each label may have its own "artists" root).
 DROP INDEX IF EXISTS uq_asset_folders_name_parent;

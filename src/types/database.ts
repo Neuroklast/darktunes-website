@@ -53,6 +53,7 @@ export interface Database {
       }
       sos_rules_presets: {
         Row: {
+          organization_id: string
           id: string
           name: string
           config: Record<string, unknown>
@@ -60,6 +61,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           config: Record<string, unknown>
@@ -67,6 +69,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           config?: Record<string, unknown>
@@ -76,6 +79,7 @@ export interface Database {
       }
       sos_accounting_workspaces: {
         Row: {
+          organization_id: string
           id: string
           period_start: string
           period_end: string
@@ -86,6 +90,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           period_start: string
           period_end: string
@@ -96,6 +101,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           period_start?: string
           period_end?: string
@@ -108,6 +114,7 @@ export interface Database {
       }
       sos_period_summaries: {
         Row: {
+          organization_id: string
           id: string
           period_start: string
           period_end: string
@@ -120,6 +127,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           period_start: string
           period_end: string
@@ -132,6 +140,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           period_start?: string
           period_end?: string
@@ -1561,6 +1570,7 @@ export interface Database {
       }
       distributor_import_batches: {
         Row: {
+          organization_id: string
           id: string
           period_start: string
           period_end: string
@@ -1574,6 +1584,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           period_start: string
           period_end: string
@@ -1587,6 +1598,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           period_start?: string
           period_end?: string

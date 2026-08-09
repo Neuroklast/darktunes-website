@@ -22,7 +22,7 @@ function extractBatchIdFromPath(pathname: string): string | null {
 }
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
   const id = extractBatchIdFromPath(new URL(req.url).pathname)
   if (!id) throw new ApiError(400, 'Invalid import batch path')
   const body = await req.json().catch(() => ({}))
@@ -32,7 +32,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  const batch = await getImportBatchById(serviceSupabase, id)
+  const batch = await getImportBatchById(serviceSupabase, id, organizationId)
   if (!batch) throw new ApiError(404, 'Import batch not found')
 
   const { serverEnv } = await import('@/lib/env.server')
@@ -50,6 +50,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
       serviceSupabase,
       batch.periodStart,
       batch.periodEnd,
+      organizationId,
     )
     const labelArtists =
       label_artists?.map((artist) => ({

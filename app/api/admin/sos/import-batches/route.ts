@@ -1,5 +1,5 @@
 /**
- * GET  /api/admin/sos/import-batches — list bronze import batches
+ * GET  /api/admin/sos/import-batches — list Sales Statement bronze import batches (host org)
  * POST /api/admin/sos/import-batches — register a bronze CSV import (upload via [id]/upload)
  */
 
@@ -18,16 +18,16 @@ import { assertSettlementPeriodWritable } from '@/lib/api/settlementPeriods'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  const batches = await listImportBatches(serviceSupabase, 100)
+  const batches = await listImportBatches(serviceSupabase, 100, organizationId)
   return NextResponse.json({ batches })
 })
 
 const MAX_REGISTRATION_BODY_BYTES = 16_384
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const { userId } = await requireAdminFromRequest(req)
+  const { userId, organizationId } = await requireAdminFromRequest(req)
   const user = { id: userId }
 
   const rawBody = await req.text()
@@ -64,7 +64,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   const serviceSupabase = await createServiceRoleSupabaseClient()
 
   if (file_hash && /^[a-f0-9]{64}$/i.test(file_hash)) {
-    const existing = await findImportBatchByFileHash(serviceSupabase, file_hash)
+    const existing = await findImportBatchByFileHash(serviceSupabase, file_hash, organizationId)
     if (existing) {
       return NextResponse.json({ batch: existing, duplicate: true }, { status: 200 })
     }
@@ -82,8 +82,10 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
     periodEnd: period_end,
     distributor,
     r2Key,
+    fileHash: file_hash ?? null,
     rowCount: row_count ?? 0,
     uploadedBy: user.id,
+    organizationId,
   })
 
   return NextResponse.json({ batch, r2Key }, { status: 201 })

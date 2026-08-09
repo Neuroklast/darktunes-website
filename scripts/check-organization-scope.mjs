@@ -92,6 +92,30 @@ const REQUIRED = [
     file: 'app/api/admin/epk-templates/route.ts',
     markers: ['organizationId'],
   },
+  {
+    file: 'src/lib/api/sosAccountingWorkspaces.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'src/lib/api/sosRulesPresets.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'src/lib/api/sosPeriodSummaries.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'src/lib/api/distributorImportBatches.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'app/api/admin/sos/workspaces/route.ts',
+    markers: ['organizationId'],
+  },
+  {
+    file: 'app/api/admin/sos/presets/route.ts',
+    markers: ['organizationId'],
+  },
 ]
 
 const failures = []

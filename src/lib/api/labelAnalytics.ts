@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { SosPeriodSummary } from '@/lib/api/sosPeriodSummaries'
 import { listSosPeriodSummaries } from '@/lib/api/sosPeriodSummaries'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 
@@ -111,9 +112,12 @@ export async function getRosterHealthMetrics(db: DbClient): Promise<RosterHealth
   return rows.sort((a, b) => b.totalRevenueEur - a.totalRevenueEur)
 }
 
-export async function getLabelAnalyticsSnapshot(db: DbClient): Promise<LabelAnalyticsSnapshot> {
+export async function getLabelAnalyticsSnapshot(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<LabelAnalyticsSnapshot> {
   const [periodSummaries, rosterHealth] = await Promise.all([
-    listSosPeriodSummaries(db).catch(() => []),
+    listSosPeriodSummaries(db, organizationId).catch(() => []),
     getRosterHealthMetrics(db).catch(() => []),
   ])
 

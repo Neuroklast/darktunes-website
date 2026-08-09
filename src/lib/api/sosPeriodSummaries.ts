@@ -1,9 +1,11 @@
 /**
- * DAL for sos_period_summaries — admin revenue trend snapshots with Bronze lineage.
+ * DAL for sos_period_summaries — Sales Statement period revenue trend snapshots
+ * with Bronze lineage. Scoped by organization_id (table name keeps legacy sos_* path).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type Row = Database['public']['Tables']['sos_period_summaries']['Row']
@@ -30,6 +32,7 @@ export interface UpsertSosPeriodSummaryInput {
   artistBreakdowns: unknown[]
   platformBreakdowns: unknown[]
   sourceBatchIds?: string[]
+  organizationId?: string
 }
 
 function rowToSummary(row: Row): SosPeriodSummary {
@@ -51,10 +54,12 @@ export async function upsertSosPeriodSummary(
   db: DbClient,
   input: UpsertSosPeriodSummaryInput,
 ): Promise<SosPeriodSummary> {
+  const organizationId = input.organizationId ?? DEFAULT_ORGANIZATION_ID
   const { data, error } = await db
     .from('sos_period_summaries')
     .upsert(
       {
+        organization_id: organizationId,
         period_start: input.periodStart,
         period_end: input.periodEnd,
         total_revenue: input.totalRevenue,
@@ -64,7 +69,7 @@ export async function upsertSosPeriodSummary(
         platform_breakdowns: input.platformBreakdowns,
         source_batch_ids: input.sourceBatchIds ?? [],
       },
-      { onConflict: 'period_start,period_end' },
+      { onConflict: 'organization_id,period_start,period_end' },
     )
     .select()
     .single()
@@ -73,10 +78,14 @@ export async function upsertSosPeriodSummary(
   return rowToSummary(data)
 }
 
-export async function listSosPeriodSummaries(db: DbClient): Promise<SosPeriodSummary[]> {
+export async function listSosPeriodSummaries(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<SosPeriodSummary[]> {
   const { data, error } = await db
     .from('sos_period_summaries')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('period_start', { ascending: false })
 
   if (error) throw new Error(error.message)

@@ -10,6 +10,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { requirePageCapability } from '@/lib/rbac'
 import { getTranslations } from 'next-intl/server'
 import { getLabelAnalyticsSnapshot } from '@/lib/api/labelAnalytics'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { getAllJournalistDownloads } from '@/lib/api/journalistDownloads'
 import { listRecentFinancialAuditEvents } from '@/lib/api/financialAudit'
 import { getLabelPageEngagementStats } from '@/lib/api/pageEvents'
@@ -34,9 +35,10 @@ function AnalyticsSkeleton() {
 
 async function AnalyticsContent() {
   const supabase = await createServerSupabaseClient()
+  const organizationId = await getRequestOrganizationId(supabase)
 
   const [snapshot, pressDownloads, auditEvents, websiteEngagement] = await Promise.all([
-    getLabelAnalyticsSnapshot(supabase).catch(() => ({
+    getLabelAnalyticsSnapshot(supabase, organizationId).catch(() => ({
       periodSummaries: [],
       rosterHealth: [],
       totalLabelStreams: 0,

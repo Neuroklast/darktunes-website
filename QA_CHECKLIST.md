@@ -31,7 +31,8 @@
 - [ ] EPK templates admin list/create is per host org; portal published templates match that org
 - [ ] Admin Assets storage bar on Host A counts only Host A assets (RPC/aggregate org filter)
 - [ ] Admin feedback inbox lists only feedback from artists of the host org; status update on foreign id → 404
-- [ ] Apply multi-tenant block of `supabase/reset.sql` (incl. `asset_folders` / `epk_templates` / storage RPC org arg) on staging before pilot hosts
+- [ ] Sales Statement workspaces/presets/period summaries/import batches on Host A never show Host B data
+- [ ] Apply multi-tenant block of `supabase/reset.sql` (folders, EPK templates, storage RPC, Sales Statement tables) on staging before pilot hosts
 
 ## Security
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)
