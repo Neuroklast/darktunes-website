@@ -6,24 +6,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { withErrorHandler, ApiError } from '@/lib/errors'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { listCredentialStatus, upsertCredential } from '@/lib/api/apiCredentials'
-import { isAllowedCredentialKey } from '@/lib/secrets/credentialKeys'
+import { isAllowedCredentialKey, type CredentialKey } from '@/lib/secrets/credentialKeys'
 import { invalidateCredentialCache } from '@/lib/secrets/getExternalCredentials'
 
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdmin(token)
+  const { organizationId } = await requireAdminFromRequest(req)
 
   const db = await createServiceRoleSupabaseClient()
-  const credentials = await listCredentialStatus(db)
+  const credentials = await listCredentialStatus(db, organizationId)
   return NextResponse.json({ credentials })
 })
 
 export const PUT = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const userId = await verifyAdmin(token)
+  const { userId, organizationId } = await requireAdminFromRequest(req)
 
   let body: unknown
   try {
@@ -43,11 +41,16 @@ export const PUT = withErrorHandler(async (req: NextRequest): Promise<NextRespon
   }
 
   const db = await createServiceRoleSupabaseClient()
-  await upsertCredential(db, { key, value, updatedBy: userId })
-  invalidateCredentialCache()
+  await upsertCredential(db, {
+    key: key as CredentialKey,
+    value,
+    updatedBy: userId,
+    labelId: organizationId,
+  })
+  invalidateCredentialCache(organizationId)
   // Health dashboard caches known-api configuration; bust so Apify/etc. show as configured.
   revalidateTag('health-snapshot', 'max')
 
-  const credentials = await listCredentialStatus(db)
+  const credentials = await listCredentialStatus(db, organizationId)
   return NextResponse.json({ credentials })
 })

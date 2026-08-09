@@ -25,6 +25,7 @@ import {
   starMessage,
   markMessageRead,
 } from '@/lib/api/labelMessages'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import {
   getIncomingToLabelMessages,
   markPortalMessageRead,
@@ -317,8 +318,11 @@ export function MessagesManager() {
           ? await searchLabelMessages(supabase, state.query, {
               artistId: state.artistId ?? undefined,
               unreadOnly: state.unreadOnly,
+              organizationId: getClientOrganizationId(),
             })
-          : await getAllLabelMessages(supabase)
+          : await getAllLabelMessages(supabase, {
+              organizationId: getClientOrganizationId(),
+            })
       setMessages(next)
       setRepliesByMessageId(await loadReplies(supabase, next))
     },

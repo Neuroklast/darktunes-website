@@ -292,12 +292,35 @@ export async function getSalesStatementsForPeriod(
   db: DbClient,
   periodStart: string,
   periodEnd: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<SalesStatementRow[]> {
+  const { data: orgArtists, error: artistsError } = await db
+    .from('artists')
+    .select('id')
+    .eq('organization_id', organizationId)
+  if (artistsError) {
+    // Schema without organization_id: unscoped fallback
+    const { data, error } = await db
+      .from('sales_statements')
+      .select('*')
+      .eq('period_start', periodStart)
+      .eq('period_end', periodEnd)
+      .neq('document_type', 'storno')
+      .neq('status', 'superseded')
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as SalesStatementRow[]
+  }
+  const artistIds = (orgArtists ?? []).map((a) => a.id)
+  if (artistIds.length === 0) return []
+
   const { data, error } = await db
     .from('sales_statements')
     .select('*')
     .eq('period_start', periodStart)
     .eq('period_end', periodEnd)
+    .in('artist_id', artistIds)
     .neq('document_type', 'storno')
     .neq('status', 'superseded')
     .neq('status', 'cancelled')

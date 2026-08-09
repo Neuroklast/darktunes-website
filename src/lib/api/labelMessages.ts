@@ -11,6 +11,7 @@ import {
 } from '@/lib/messaging/constants'
 import { upsertMessageReceipt, countUnreadLabelMessagesForUser } from '@/lib/messaging/receipts'
 import { applyMessageRulesOnInsert } from '@/lib/api/messageRules'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type MessageRow = Database['public']['Tables']['label_messages']['Row']
@@ -77,16 +78,39 @@ export async function getLabelMessages(
   return (data ?? []).map(rowToMessage)
 }
 
+async function artistIdsForOrganization(
+  db: DbClient,
+  organizationId: string,
+): Promise<string[] | null> {
+  // null = unscoped (fallback when organization_id column missing)
+  try {
+    const { data, error } = await db
+      .from('artists')
+      .select('id')
+      .eq('organization_id', organizationId)
+    if (error) return null
+    return (data ?? []).map((r) => r.id)
+  } catch {
+    return null
+  }
+}
+
 export async function getAllLabelMessages(
   db: DbClient,
-  opts?: MessageListOptions,
+  opts?: MessageListOptions & { organizationId?: string },
 ): Promise<LabelMessage[]> {
   const limit = resolveMessageListLimit(opts?.limit, MESSAGE_ADMIN_INBOX_DEFAULT_LIMIT)
   const offset = resolveMessageListOffset(opts?.offset)
+  const organizationId = opts?.organizationId ?? DEFAULT_ORGANIZATION_ID
 
-  const { data, error } = await db
-    .from('label_messages')
-    .select('*')
+  const artistIds = await artistIdsForOrganization(db, organizationId)
+  if (artistIds && artistIds.length === 0) return []
+
+  let query = db.from('label_messages').select('*')
+  if (artistIds) {
+    query = query.in('artist_id', artistIds)
+  }
+  const { data, error } = await query
     .order('sent_at', { ascending: false })
     .range(offset, offset + limit - 1)
   if (error) throw new Error(error.message)
@@ -96,10 +120,15 @@ export async function getAllLabelMessages(
 export async function searchLabelMessages(
   db: DbClient,
   query: string,
-  filters?: { artistId?: string; unreadOnly?: boolean } & MessageListOptions,
+  filters?: {
+    artistId?: string
+    unreadOnly?: boolean
+    organizationId?: string
+  } & MessageListOptions,
 ): Promise<LabelMessage[]> {
   const limit = resolveMessageListLimit(filters?.limit, MESSAGE_SEARCH_DEFAULT_LIMIT)
   const offset = resolveMessageListOffset(filters?.offset)
+  const organizationId = filters?.organizationId ?? DEFAULT_ORGANIZATION_ID
 
   let builder = db.from('label_messages').select('*').is('deleted_at', null)
   if (query.trim()) {
@@ -107,6 +136,12 @@ export async function searchLabelMessages(
   }
   if (filters?.artistId) {
     builder = builder.eq('artist_id', filters.artistId)
+  } else {
+    const artistIds = await artistIdsForOrganization(db, organizationId)
+    if (artistIds && artistIds.length === 0) return []
+    if (artistIds) {
+      builder = builder.in('artist_id', artistIds)
+    }
   }
   if (filters?.unreadOnly) {
     builder = builder.eq('read', false)

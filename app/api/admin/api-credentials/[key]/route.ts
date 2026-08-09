@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { withErrorHandler, ApiError } from '@/lib/errors'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { deleteCredential } from '@/lib/api/apiCredentials'
 import { isAllowedCredentialKey, type CredentialKey } from '@/lib/secrets/credentialKeys'
@@ -17,8 +17,7 @@ function extractKey(req: NextRequest): string {
 }
 
 export const DELETE = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdmin(token)
+  const { organizationId } = await requireAdminFromRequest(req)
 
   const key = extractKey(req)
   if (!isAllowedCredentialKey(key)) {
@@ -26,8 +25,8 @@ export const DELETE = withErrorHandler(async (req: NextRequest): Promise<NextRes
   }
 
   const db = await createServiceRoleSupabaseClient()
-  await deleteCredential(db, key as CredentialKey)
-  invalidateCredentialCache()
+  await deleteCredential(db, key as CredentialKey, organizationId)
+  invalidateCredentialCache(organizationId)
   revalidateTag('health-snapshot', 'max')
 
   return NextResponse.json({ success: true })

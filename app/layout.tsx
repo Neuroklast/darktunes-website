@@ -56,9 +56,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const settings = await getCachedSiteSettings().catch(() => null)
   const { labelShortName } = resolveBrandFromSettings(settings ?? SITE_SETTINGS_DEFAULTS)
 
+  let organizationId: string | null = null
   let organizationBranding = null
   try {
-    const organizationId = await getRequestOrganizationId()
+    organizationId = await getRequestOrganizationId()
     organizationBranding = await getOrganizationBranding(
       createPublicSupabaseClient(),
       organizationId,
@@ -68,7 +69,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang={locale} style={fontVariables} suppressHydrationWarning data-animation-preset={settings?.themeConfig?.animation?.preset ?? 'slide-up'}>
+    <html
+      lang={locale}
+      style={fontVariables}
+      suppressHydrationWarning
+      data-animation-preset={settings?.themeConfig?.animation?.preset ?? 'slide-up'}
+      data-organization-id={organizationId ?? undefined}
+    >
       <head>
         {/* PWA meta — prevents white flash and styles the status bar */}
         <meta name="mobile-web-app-capable" content="yes" />
