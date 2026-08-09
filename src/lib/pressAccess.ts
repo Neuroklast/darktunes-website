@@ -2,12 +2,16 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
 import { getFeatureToggles } from '@/lib/featureToggles'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 
-/** Global site toggle — single source of truth for promo pool availability. */
-export async function isPromoPoolEnabled(db: DbClient): Promise<boolean> {
-  const toggles = await getFeatureToggles(db).catch(() => null)
+/** Per-label site toggle — single source of truth for promo pool availability. */
+export async function isPromoPoolEnabled(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<boolean> {
+  const toggles = await getFeatureToggles(db, organizationId).catch(() => null)
   return toggles?.promoPool ?? true
 }
 

@@ -66,7 +66,12 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   const serviceSupabase = await createServiceRoleSupabaseClient()
 
   // Respect period locking when present
-  await assertSettlementPeriodWritable(serviceSupabase, period_start, period_end)
+  await assertSettlementPeriodWritable(
+    serviceSupabase,
+    period_start,
+    period_end,
+    organizationId,
+  )
 
   const workspace = await upsertWorkspaceForPeriod(serviceSupabase, {
     periodStart: period_start,
@@ -91,7 +96,12 @@ export const DELETE = withErrorHandler(async (req: NextRequest): Promise<NextRes
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  await assertSettlementPeriodWritable(serviceSupabase, periodStart, periodEnd)
+  await assertSettlementPeriodWritable(
+    serviceSupabase,
+    periodStart,
+    periodEnd,
+    organizationId,
+  )
 
   const deleted = await deleteWorkspaceForPeriod(
     serviceSupabase,

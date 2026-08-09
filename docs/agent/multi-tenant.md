@@ -91,9 +91,9 @@ Never take `darktunes.com` offline for SaaS launch.
 | 0 | Docs, constants, env placeholders | Done |
 | 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
 | 2 | Host context in `proxy.ts` | Done — DB slug/custom-domain lookup; suspended gate; `MULTI_TENANT_STRICT_HOSTS` |
-| 3 | DAL/API `organization_id` batches | Stronger — **site_settings** + settlement periods + message templates + Sales Statements + CMS catalog + File Explorer/EPK + storage + feedback |
+| 3 | DAL/API `organization_id` batches | Stronger — site_settings + feature toggles + settlement periods + message templates + Sales Statements + CMS + File Explorer/EPK + storage + feedback; platform KV (heartbeats/sync lease) pinned to Org #0 |
 | 4 | Membership + RLS hardening | Portal + **admin request auth** binds host org (`assertAdminOrganizationAccess`; Org #0 legacy allow) |
-| 5 | Cache tags + R2 prefixes | Partial — public catalog caches org-keyed; R2 helper only |
+| 5 | Cache tags + R2 prefixes | Stronger — public caches org-keyed; **`buildTenantObjectKey`** (Org #0 legacy flat keys; other orgs `tenants/{id}/…`); dual-read helpers |
 | 6 | Cron/sync/credentials per org | Sync queue multi-org enqueue; **execute uses job.organizationId credentials**; manual `/api/sync/artist` host-org gated; credentials API per org |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |
 | 8 | Stripe + provisioning | Done (env-gated) |

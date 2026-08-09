@@ -14,6 +14,8 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Storage RPC / feedback admin unscoped with service role | Pass host `organizationId` into aggregates and artist-joined feedback queries |
 | Sales Statement workspaces keyed only by period | Period uniqueness must include `organization_id` (each label has its own Q1/Q2 workspace) |
 | `site_settings` keyed only by `key` | Composite PK `(organization_id, key)` + org-keyed ISR caches; public pages pass host org |
+| Platform KV upserts still use `onConflict: 'key'` after composite PK | Heartbeats, alert cooldown, sync lease must upsert `organization_id,key` (usually Org #0) |
+| Shared R2 prefixes across labels | New non-Org-#0 objects use `tenants/{organizationId}/…`; dual-read candidates for expand phase |
 | Calling the product “SOS” in user/docs copy | User-facing name is **Sales Statement**; `sos_*` code paths may stay for expand→migrate |
 | CI only stubs org isolation | `check:organization-scope` must fail when audited files lose markers |
 

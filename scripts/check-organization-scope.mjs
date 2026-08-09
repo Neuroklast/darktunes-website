@@ -128,6 +128,18 @@ const REQUIRED = [
     file: 'src/lib/cache/publicQueries.ts',
     markers: ['getCachedSiteSettings', 'organizationId', 'orgTag'],
   },
+  {
+    file: 'src/lib/organizations/r2Keys.ts',
+    markers: ['buildTenantObjectKey', 'tenants/', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'src/lib/featureToggles.ts',
+    markers: ['organization_id', 'organizationId'],
+  },
+  {
+    file: 'src/lib/health/heartbeats.ts',
+    markers: ['organization_id', 'DEFAULT_ORGANIZATION_ID', 'organization_id,key'],
+  },
 ]
 
 const failures = []

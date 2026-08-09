@@ -88,7 +88,8 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
   }
 
   const ext = extname(file.name) || ''
-  const r2Key = `uploads/${randomUUID()}${ext}`
+  const { buildTenantObjectKey } = await import('@/lib/organizations/r2Keys')
+  const r2Key = buildTenantObjectKey(organizationId, `uploads/${randomUUID()}${ext}`)
   const { serverEnv } = await import('@/lib/env.server')
   const r2 = createR2Client(
     serverEnv.CLOUDFLARE_R2_ACCOUNT_ID,

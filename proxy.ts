@@ -283,7 +283,12 @@ export async function proxy(request: NextRequest) {
     }
 
     if (isEditorRoute && profileRole === 'editor') {
-      const toggles = await getFeatureToggles(supabase).catch(() => DEFAULT_FEATURE_TOGGLES)
+      const host = request.headers.get('host')
+      const resolved = resolveOrganizationSlugFromHost(host)
+      const lookup = await lookupOrganizationForRequest(host, resolved.organizationSlug)
+      const toggles = await getFeatureToggles(supabase, lookup.id).catch(
+        () => DEFAULT_FEATURE_TOGGLES,
+      )
       if (!toggles.editorTools) {
         const loginUrl = request.nextUrl.clone()
         loginUrl.pathname = '/login'

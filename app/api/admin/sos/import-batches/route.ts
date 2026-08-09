@@ -75,7 +75,12 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   const hashPrefix = file_hash?.slice(0, 12) ?? createHash('sha256').update(`${batchId}-${filename}`).digest('hex').slice(0, 12)
   const r2Key = `sos-imports/${batchId}/${hashPrefix}_${safeName}`
 
-  await assertSettlementPeriodWritable(serviceSupabase, period_start, period_end)
+  await assertSettlementPeriodWritable(
+    serviceSupabase,
+    period_start,
+    period_end,
+    organizationId,
+  )
 
   const batch = await createImportBatch(serviceSupabase, {
     periodStart: period_start,

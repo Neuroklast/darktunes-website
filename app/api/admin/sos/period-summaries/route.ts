@@ -68,7 +68,12 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  await assertSettlementPeriodWritable(serviceSupabase, period_start, period_end)
+  await assertSettlementPeriodWritable(
+    serviceSupabase,
+    period_start,
+    period_end,
+    organizationId,
+  )
 
   const existing = (await listSosPeriodSummaries(serviceSupabase, organizationId)).find(
     (s) => s.periodStart === period_start && s.periodEnd === period_end,

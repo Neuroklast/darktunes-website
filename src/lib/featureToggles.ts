@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { FeatureToggles } from '@/types'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 
@@ -22,10 +23,14 @@ export function parseFeatureTogglesJson(raw: string | null | undefined): Feature
   }
 }
 
-export async function getFeatureToggles(db: DbClient): Promise<FeatureToggles> {
+export async function getFeatureToggles(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<FeatureToggles> {
   const { data, error } = await db
     .from('site_settings')
     .select('value')
+    .eq('organization_id', organizationId)
     .eq('key', 'feature_toggles')
     .maybeSingle()
 

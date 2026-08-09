@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { DEFAULT_EXPORT_COLUMNS } from '@/lib/submissions/submissionExport'
 
 type DbClient = SupabaseClient<Database>
@@ -38,10 +39,14 @@ export function serializeExportColumns(columns: string[]): string {
  * Callers that have a richer `available` set should re-filter with
  * `resolveExportColumns(saved, available)`.
  */
-export async function getReleaseSubmissionExportColumns(db: DbClient): Promise<string[]> {
+export async function getReleaseSubmissionExportColumns(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<string[]> {
   const { data, error } = await db
     .from('site_settings')
     .select('value')
+    .eq('organization_id', organizationId)
     .eq('key', RELEASE_SUBMISSIONS_EXPORT_COLUMNS_KEY)
     .maybeSingle()
 
@@ -54,6 +59,7 @@ export async function getReleaseSubmissionExportColumns(db: DbClient): Promise<s
 export async function setReleaseSubmissionExportColumns(
   db: DbClient,
   columns: string[],
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<string[]> {
   const cleaned = columns
     .filter((c) => typeof c === 'string' && c.trim().length > 0)
@@ -73,8 +79,12 @@ export async function setReleaseSubmissionExportColumns(
   const { error } = await db
     .from('site_settings')
     .upsert(
-      { key: RELEASE_SUBMISSIONS_EXPORT_COLUMNS_KEY, value },
-      { onConflict: 'key' },
+      {
+        organization_id: organizationId,
+        key: RELEASE_SUBMISSIONS_EXPORT_COLUMNS_KEY,
+        value,
+      },
+      { onConflict: 'organization_id,key' },
     )
   if (error) throw new Error(error.message)
   return unique

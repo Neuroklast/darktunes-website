@@ -131,9 +131,11 @@ export async function tryAcquireSyncExecutorLease(
   leaseMs = EXECUTOR_LEASE_MS,
 ): Promise<string | null> {
   const now = Date.now()
+  // Platform-wide lease lives on Org #0 (shared sync worker, not per label).
   const { data: existing, error: readError } = await db
     .from('site_settings')
     .select('value')
+    .eq('organization_id', DEFAULT_ORGANIZATION_ID)
     .eq('key', SYNC_EXECUTOR_LEASE_KEY)
     .maybeSingle()
 
@@ -156,6 +158,7 @@ export async function tryAcquireSyncExecutorLease(
     const { data, error } = await db
       .from('site_settings')
       .update({ value })
+      .eq('organization_id', DEFAULT_ORGANIZATION_ID)
       .eq('key', SYNC_EXECUTOR_LEASE_KEY)
       .eq('value', existing.value)
       .select('key')
@@ -167,6 +170,7 @@ export async function tryAcquireSyncExecutorLease(
   }
 
   const { error: insertError } = await db.from('site_settings').insert({
+    organization_id: DEFAULT_ORGANIZATION_ID,
     key: SYNC_EXECUTOR_LEASE_KEY,
     value,
   })
@@ -193,6 +197,7 @@ export async function releaseSyncExecutorLease(
     const { data: existing, error: readError } = await db
       .from('site_settings')
       .select('value')
+      .eq('organization_id', DEFAULT_ORGANIZATION_ID)
       .eq('key', SYNC_EXECUTOR_LEASE_KEY)
       .maybeSingle()
 
@@ -209,6 +214,7 @@ export async function releaseSyncExecutorLease(
     const { error } = await db
       .from('site_settings')
       .update({ value: encodeExecutorLease(new Date(0).toISOString(), 'released') })
+      .eq('organization_id', DEFAULT_ORGANIZATION_ID)
       .eq('key', SYNC_EXECUTOR_LEASE_KEY)
       .eq('value', existing!.value)
 
@@ -220,10 +226,11 @@ export async function releaseSyncExecutorLease(
 
   const { error } = await db.from('site_settings').upsert(
     {
+      organization_id: DEFAULT_ORGANIZATION_ID,
       key: SYNC_EXECUTOR_LEASE_KEY,
       value: encodeExecutorLease(new Date(0).toISOString(), 'released'),
     },
-    { onConflict: 'key' },
+    { onConflict: 'organization_id,key' },
   )
   if (error) {
     throw new Error(`Failed to release sync executor lease: ${error.message}`)

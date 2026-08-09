@@ -17,6 +17,11 @@ export {
   type RequestOrganizationContext,
 } from '@/lib/organizations/requestContext'
 export { orgTag, orgEntityTag } from '@/lib/organizations/cacheTags'
+export {
+  buildTenantObjectKey,
+  isTenantPrefixedKey,
+  resolveTenantObjectKeyCandidates,
+} from '@/lib/organizations/r2Keys'
 export { assertAdminOrganizationAccess } from '@/lib/organizations/assertAdminOrganizationAccess'
 export {
   lookupOrganizationForRequest,
