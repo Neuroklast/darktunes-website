@@ -91,8 +91,8 @@ Never take `darktunes.com` offline for SaaS launch.
 | 0 | Docs, constants, env placeholders | Done |
 | 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
 | 2 | Host context in `proxy.ts` | Done — DB slug/custom-domain lookup; suspended gate; `MULTI_TENANT_STRICT_HOSTS` |
-| 3 | DAL/API `organization_id` batches | Stronger — site_settings + feature toggles + settlement periods + message templates + Sales Statements + CMS + File Explorer/EPK + storage + feedback; platform KV (heartbeats/sync lease) pinned to Org #0 |
-| 4 | Membership + RLS hardening | Portal + **admin request auth** binds host org (`assertAdminOrganizationAccess`; Org #0 legacy allow) |
+| 3 | DAL/API `organization_id` batches | Stronger — site_settings + **portal_feature_flags** + feature toggles + settlement periods + message templates + Sales Statements + CMS + File Explorer/EPK + storage + feedback; platform KV on Org #0 |
+| 4 | Membership + RLS hardening | Portal + admin host-org auth; **portal_feature_flags** org-scoped read policy (artist_members / org_users / staff) |
 | 5 | Cache tags + R2 prefixes | Stronger — public caches org-keyed; **`buildTenantObjectKey`** + **dual-read** on download/hash/delete (`downloadObjectFromR2(…, organizationId)`); admin/portal uploads tenant-prefixed |
 | 6 | Cron/sync/credentials per org | Sync queue multi-org enqueue; **execute uses job.organizationId credentials**; manual `/api/sync/artist` host-org gated; credentials API per org |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |

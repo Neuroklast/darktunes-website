@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import type { Metadata } from 'next'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { Suspense } from 'react'
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { getBillingProfile, isBillingProfileComplete } from '@/lib/api/artistBillingProfiles'
@@ -48,7 +49,7 @@ async function StatementsContent({ searchParams }: { searchParams: Promise<{ art
 
   if (!user) return null
 
-  const flags = await getFeatureFlagsForRole(supabase, 'artist').catch(() => ({} as Record<string, boolean>))
+  const flags = await getFeatureFlagsForRole(supabase, 'artist', await getRequestOrganizationId().catch(() => undefined)).catch(() => ({} as Record<string, boolean>))
   if (flags['artist.statements'] === false) {
     return (
       <div className="space-y-4">

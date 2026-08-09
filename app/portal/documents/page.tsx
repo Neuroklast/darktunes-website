@@ -5,6 +5,7 @@
 export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { resolvePortalArtist } from '@/lib/api/artistProfiles'
 import { listArtistDocuments } from '@/lib/api/artistDocuments'
@@ -36,7 +37,7 @@ async function DocumentsContent({ searchParams }: { searchParams: Promise<{ arti
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const flags = await getFeatureFlagsForRole(supabase, 'artist').catch(() => ({} as Record<string, boolean>))
+  const flags = await getFeatureFlagsForRole(supabase, 'artist', await getRequestOrganizationId().catch(() => undefined)).catch(() => ({} as Record<string, boolean>))
   if (flags['artist.documents'] === false) {
     return (
       <div className="space-y-4">

@@ -4417,12 +4417,12 @@ CREATE POLICY "journalist_applications: admin all" ON public.journalist_applicat
 -- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "portal_feature_flags: authenticated read" ON public.portal_feature_flags;
 DROP POLICY IF EXISTS "portal_feature_flags: admin write" ON public.portal_feature_flags;
+DROP POLICY IF EXISTS "portal_feature_flags: org scoped read" ON public.portal_feature_flags;
 
--- Allows any authenticated user to read portal feature flags
+-- Baseline (pre multi-tenant column). Org-scoped policy is re-applied in multi-tenant block.
 CREATE POLICY "portal_feature_flags: authenticated read" ON public.portal_feature_flags
   FOR SELECT USING (auth.role() = 'authenticated');
 
--- Allows admins to manage portal feature flags
 CREATE POLICY "portal_feature_flags: admin write" ON public.portal_feature_flags
   FOR ALL
   USING (public.get_my_role() = 'admin')
@@ -4594,7 +4594,8 @@ INSERT INTO public.site_settings (key, value) VALUES
   ('noise_opacity',         '0.04'),
   ('crt_scanlines_enabled', 'true'),
   ('vignette_intensity',    '0.5')
-ON CONFLICT (key) DO NOTHING;
+-- Infer target: key-only PK (fresh) or (organization_id, key) after multi-tenant expand
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.portal_feature_flags (id, label, enabled, target_role) VALUES
   ('artist.analytics', 'Artist Analytics Dashboard', TRUE, 'artist'),
@@ -4607,14 +4608,14 @@ INSERT INTO public.portal_feature_flags (id, label, enabled, target_role) VALUES
   ('artist.fan_page', 'Fan Page Builder', TRUE, 'artist'),
   ('artist.tour_planner', 'Tour Planner (TRACK)', TRUE, 'artist'),
   ('journalist.accreditation', 'Journalist Accreditation', TRUE, 'journalist')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.portal_feature_flags (id, label, enabled, target_role) VALUES
   ('press.applications',  'Press Portal Applications',          TRUE, 'journalist'),
   ('press.zip_download',  'Press Kit ZIP Download',             TRUE, 'journalist'),
   ('press.audio_preview', 'Promo Track In-Browser Preview',     TRUE, 'journalist'),
   ('press.contact',       'Press Inquiry Form',                 TRUE, 'journalist')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- ============================================================
 -- artist_assets — files uploaded by artists via the portal
@@ -7069,6 +7070,8 @@ ALTER TABLE public.settlement_periods ADD COLUMN IF NOT EXISTS organization_id U
   DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
 ALTER TABLE public.message_templates ADD COLUMN IF NOT EXISTS organization_id UUID
   DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.portal_feature_flags ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
 
 UPDATE public.artists SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 UPDATE public.releases SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
@@ -7088,6 +7091,7 @@ UPDATE public.distributor_import_batches SET organization_id = '00000000-0000-00
 UPDATE public.site_settings SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 UPDATE public.settlement_periods SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 UPDATE public.message_templates SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.portal_feature_flags SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 
 ALTER TABLE public.artists ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
 ALTER TABLE public.artists ALTER COLUMN organization_id SET NOT NULL;
@@ -7125,6 +7129,8 @@ ALTER TABLE public.settlement_periods ALTER COLUMN organization_id SET DEFAULT '
 ALTER TABLE public.settlement_periods ALTER COLUMN organization_id SET NOT NULL;
 ALTER TABLE public.message_templates ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
 ALTER TABLE public.message_templates ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.portal_feature_flags ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.portal_feature_flags ALTER COLUMN organization_id SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_artists_organization_id ON public.artists (organization_id);
 CREATE INDEX IF NOT EXISTS idx_releases_organization_id ON public.releases (organization_id);
@@ -7144,6 +7150,37 @@ CREATE INDEX IF NOT EXISTS idx_distributor_import_batches_organization_id ON pub
 CREATE INDEX IF NOT EXISTS idx_site_settings_organization_id ON public.site_settings (organization_id);
 CREATE INDEX IF NOT EXISTS idx_settlement_periods_organization_id ON public.settlement_periods (organization_id);
 CREATE INDEX IF NOT EXISTS idx_message_templates_organization_id ON public.message_templates (organization_id);
+CREATE INDEX IF NOT EXISTS idx_portal_feature_flags_organization_id ON public.portal_feature_flags (organization_id);
+
+-- portal_feature_flags: composite PK so each label can toggle portal modules independently
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'portal_feature_flags_pkey'
+      AND conrelid = 'public.portal_feature_flags'::regclass
+  ) THEN
+    IF (
+      SELECT count(*) FROM pg_attribute a
+      JOIN pg_constraint c ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+      WHERE c.conname = 'portal_feature_flags_pkey' AND NOT a.attisdropped
+    ) = 1 THEN
+      ALTER TABLE public.portal_feature_flags DROP CONSTRAINT portal_feature_flags_pkey;
+    END IF;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'portal_feature_flags_pkey'
+      AND conrelid = 'public.portal_feature_flags'::regclass
+  ) THEN
+    ALTER TABLE public.portal_feature_flags
+      ADD CONSTRAINT portal_feature_flags_pkey PRIMARY KEY (organization_id, id);
+  END IF;
+END $$;
 
 -- site_settings: composite PK so each label has its own key/value CMS bag.
 DO $$
@@ -7175,6 +7212,22 @@ BEGIN
       ADD CONSTRAINT site_settings_pkey PRIMARY KEY (organization_id, key);
   END IF;
 END $$;
+
+-- portal_feature_flags RLS: tighten after organization_id exists
+DROP POLICY IF EXISTS "portal_feature_flags: authenticated read" ON public.portal_feature_flags;
+DROP POLICY IF EXISTS "portal_feature_flags: org scoped read" ON public.portal_feature_flags;
+CREATE POLICY "portal_feature_flags: org scoped read" ON public.portal_feature_flags
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor', 'journalist')
+    OR public.user_belongs_to_organization(organization_id)
+    OR EXISTS (
+      SELECT 1
+      FROM public.artist_members am
+      JOIN public.artists a ON a.id = am.artist_id
+      WHERE am.user_id = auth.uid()
+        AND a.organization_id = portal_feature_flags.organization_id
+    )
+  );
 
 -- Settlement periods uniqueness per organization
 ALTER TABLE public.settlement_periods

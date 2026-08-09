@@ -74,7 +74,15 @@ export async function createOrganization(
     .single()
   if (error) throw new Error(error.message)
   if (!data) throw new Error('No data returned from createOrganization')
-  return rowToOrganization(data)
+  const org = rowToOrganization(data)
+  // Best-effort: seed portal feature flags for the new label
+  try {
+    const { ensurePortalFeatureFlagsForOrganization } = await import('@/lib/api/featureFlags')
+    await ensurePortalFeatureFlagsForOrganization(db, org.id)
+  } catch {
+    // Non-fatal — flags can be provisioned later
+  }
+  return org
 }
 
 export async function listOrganizations(db: DbClient): Promise<Organization[]> {

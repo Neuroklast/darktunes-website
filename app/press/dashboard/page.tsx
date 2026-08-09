@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
 import { isPromoPoolEnabled } from '@/lib/pressAccess'
 import { getDownloadHistory } from '@/lib/api/journalistDownloads'
@@ -16,7 +17,7 @@ export default async function PressDashboardPage() {
   if (!user) return null
 
   const [flags, promoPoolEnabled, downloads, interviewRequests, accreditationRows] = await Promise.all([
-    getFeatureFlagsForRole(supabase, 'journalist').catch(() => ({} as Record<string, boolean>)),
+    getFeatureFlagsForRole(supabase, 'journalist', await getRequestOrganizationId().catch(() => undefined)).catch(() => ({} as Record<string, boolean>)),
     isPromoPoolEnabled(supabase),
     getDownloadHistory(supabase, user.id).catch(() => []),
     getInterviewRequestsByJournalistId(supabase, user.id).catch(() => []),

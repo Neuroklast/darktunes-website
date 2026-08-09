@@ -148,6 +148,14 @@ const REQUIRED = [
     file: 'app/api/upload-epk/route.ts',
     markers: ['buildTenantObjectKey', 'organizationId'],
   },
+  {
+    file: 'src/lib/api/featureFlags.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'app/api/admin/feature-flags/[id]/route.ts',
+    markers: ['organizationId'],
+  },
 ]
 
 const failures = []

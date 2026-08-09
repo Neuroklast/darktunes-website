@@ -8,6 +8,7 @@
 export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
@@ -63,7 +64,7 @@ async function SosAnalyticsContent({
 
   if (!user) return null
 
-  const flags = await getFeatureFlagsForRole(supabase, 'artist').catch(
+  const flags = await getFeatureFlagsForRole(supabase, 'artist', await getRequestOrganizationId().catch(() => undefined)).catch(
     () => ({} as Record<string, boolean>),
   )
   if (flags['artist.analytics'] === false) {

@@ -38,7 +38,8 @@
 - [ ] Sales Statement bronze reprocess/download/hash works for both legacy and tenants/ keys (dual-read)
 - [ ] Portal asset upload for pilot org stores tenant-prefixed `r2_key`
 - [ ] Editor tools toggle is per host org (disable on A does not disable editor on B)
-- [ ] Apply multi-tenant block of `supabase/reset.sql` (site_settings PK, settlement periods, folders, Sales Statement tables) on staging before pilot hosts
+- [ ] Admin Feature Flags on Host A do not change Host B portal modules; new orgs get default flag catalog
+- [ ] Apply multi-tenant block of `supabase/reset.sql` (site_settings PK, portal_feature_flags PK, settlement periods, folders, Sales Statement tables) on staging before pilot hosts
 
 ## Security
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)

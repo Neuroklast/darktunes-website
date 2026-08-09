@@ -5,6 +5,7 @@
 export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { getTranslations } from 'next-intl/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { resolvePortalArtist } from '@/lib/api/artistProfiles'
@@ -40,7 +41,7 @@ async function TourPlannerContent({
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  const flags = await getFeatureFlagsForRole(supabase, 'artist').catch(() => ({} as Record<string, boolean>))
+  const flags = await getFeatureFlagsForRole(supabase, 'artist', await getRequestOrganizationId().catch(() => undefined)).catch(() => ({} as Record<string, boolean>))
   if (flags['artist.tour_planner'] === false) {
     return (
       <div className="space-y-4">

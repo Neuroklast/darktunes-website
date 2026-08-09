@@ -15,18 +15,33 @@ export async function isPromoPoolEnabled(
   return toggles?.promoPool ?? true
 }
 
-export async function isPressApplicationsEnabled(db: DbClient): Promise<boolean> {
-  const flags = await getFeatureFlagsForRole(db, 'journalist').catch(() => ({} as Record<string, boolean>))
+export async function isPressApplicationsEnabled(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<boolean> {
+  const flags = await getFeatureFlagsForRole(db, 'journalist', organizationId).catch(
+    () => ({} as Record<string, boolean>),
+  )
   return flags['press.applications'] !== false
 }
 
-export async function isPressZipDownloadEnabled(db: DbClient): Promise<boolean> {
-  const flags = await getFeatureFlagsForRole(db, 'journalist').catch(() => ({} as Record<string, boolean>))
+export async function isPressZipDownloadEnabled(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<boolean> {
+  const flags = await getFeatureFlagsForRole(db, 'journalist', organizationId).catch(
+    () => ({} as Record<string, boolean>),
+  )
   return flags['press.zip_download'] !== false
 }
 
-export async function isPressAudioPreviewEnabled(db: DbClient): Promise<boolean> {
-  const flags = await getFeatureFlagsForRole(db, 'journalist').catch(() => ({} as Record<string, boolean>))
+export async function isPressAudioPreviewEnabled(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<boolean> {
+  const flags = await getFeatureFlagsForRole(db, 'journalist', organizationId).catch(
+    () => ({} as Record<string, boolean>),
+  )
   return flags['press.audio_preview'] !== false
 }
 

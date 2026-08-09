@@ -53,7 +53,7 @@ async function InvoicesContent({
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  const flags = await getFeatureFlagsForRole(supabase, 'artist').catch(() => ({} as Record<string, boolean>))
+  const flags = await getFeatureFlagsForRole(supabase, 'artist', await getRequestOrganizationId().catch(() => undefined)).catch(() => ({} as Record<string, boolean>))
   if (flags['artist.invoices'] === false) {
     return (
       <div className="space-y-4">

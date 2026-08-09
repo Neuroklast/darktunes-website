@@ -8,13 +8,18 @@ import type { NextRequest } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from '@/lib/errors'
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import type { TourPlannerSettings } from '@/lib/tour-planner/types'
 import type { Database } from '@/types/database'
 import type { PortalBearerAuthWithArtist } from '@/lib/portal/bearerAuth'
 import { withPortalMembershipWrite } from '@/lib/portal/withPortalMembership'
 
-export async function assertTourPlannerEnabled(supabase: SupabaseClient<Database>): Promise<void> {
-  const flags = await getFeatureFlagsForRole(supabase, 'artist')
+export async function assertTourPlannerEnabled(
+  supabase: SupabaseClient<Database>,
+  organizationId?: string,
+): Promise<void> {
+  const orgId = organizationId ?? (await getRequestOrganizationId().catch(() => undefined))
+  const flags = await getFeatureFlagsForRole(supabase, 'artist', orgId)
   if (flags['artist.tour_planner'] === false) {
     throw new ApiError(403, 'Tour Planner is disabled for this account')
   }

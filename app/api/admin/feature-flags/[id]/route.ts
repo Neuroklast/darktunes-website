@@ -15,12 +15,17 @@ function extractId(req: NextRequest): string {
 }
 
 export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
 
   const parsed = schema.safeParse(await req.json())
   if (!parsed.success) throw new ApiError(400, 'Invalid payload', 'VALIDATION_ERROR')
 
   const supabase = await createServiceRoleSupabaseClient()
-  const flag = await updateFeatureFlag(supabase, extractId(req), parsed.data.enabled)
+  const flag = await updateFeatureFlag(
+    supabase,
+    extractId(req),
+    parsed.data.enabled,
+    organizationId,
+  )
   return NextResponse.json({ flag })
 })

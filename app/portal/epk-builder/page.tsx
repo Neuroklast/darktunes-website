@@ -59,7 +59,7 @@ async function EpkBuilderContent({ searchParams }: { searchParams: Promise<{ art
 
   if (!user) redirect('/portal/login')
 
-  const flags = await getFeatureFlagsForRole(supabase, 'artist').catch(
+  const flags = await getFeatureFlagsForRole(supabase, 'artist', await getRequestOrganizationId().catch(() => undefined)).catch(
     (): Record<string, boolean> => ({}),
   )
   if (flags['artist.epk_builder'] === false) notFound()

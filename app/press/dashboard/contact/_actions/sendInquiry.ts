@@ -1,6 +1,7 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
 import { logServerActionError } from '@/lib/logServerActionError'
 
@@ -26,7 +27,7 @@ export async function sendPressInquiry(data: {
     if (!user) return { success: false }
     userId = user.id
 
-    const flags = await getFeatureFlagsForRole(supabase, 'journalist').catch(() => ({} as Record<string, boolean>))
+    const flags = await getFeatureFlagsForRole(supabase, 'journalist', await getRequestOrganizationId().catch(() => undefined)).catch(() => ({} as Record<string, boolean>))
     if (flags['press.contact'] === false) return { success: false }
 
     const { error } = await supabase.from('app_logs').insert({

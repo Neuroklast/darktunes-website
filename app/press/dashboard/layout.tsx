@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import type { Metadata } from 'next'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import type { ReactNode } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
@@ -26,7 +27,7 @@ export default async function PressDashboardLayout({ children }: { children: Rea
   if (!user) return null
 
   const [flags, promoPoolEnabled] = await Promise.all([
-    getFeatureFlagsForRole(supabase, 'journalist').catch(() => ({} as Record<string, boolean>)),
+    getFeatureFlagsForRole(supabase, 'journalist', await getRequestOrganizationId().catch(() => undefined)).catch(() => ({} as Record<string, boolean>)),
     isPromoPoolEnabled(supabase),
   ])
   const links = [

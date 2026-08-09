@@ -17,6 +17,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Platform KV upserts still use `onConflict: 'key'` after composite PK | Heartbeats, alert cooldown, sync lease must upsert `organization_id,key` (usually Org #0) |
 | Shared R2 prefixes across labels | New non-Org-#0 objects use `tenants/{organizationId}/…`; dual-read candidates for expand phase |
 | Download only the stored `r2_key` after key-layout change | Pass `organizationId` into `downloadObjectFromR2` / `sha256HexFromR2Object` / delete helpers so legacy + tenants/ keys both resolve |
+| Portal feature flags as global `id` PK | Composite PK `(organization_id, id)`; seed catalog on `createOrganization`; portal/admin always pass host org |
 | Calling the product “SOS” in user/docs copy | User-facing name is **Sales Statement**; `sos_*` code paths may stay for expand→migrate |
 | CI only stubs org isolation | `check:organization-scope` must fail when audited files lose markers |
 

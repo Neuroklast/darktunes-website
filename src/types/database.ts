@@ -3425,6 +3425,7 @@ export interface Database {
       }
       portal_feature_flags: {
         Row: {
+          organization_id: string
           id: string
           label: string
           enabled: boolean
@@ -3432,6 +3433,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id: string
           label: string
           enabled?: boolean
@@ -3439,6 +3441,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           label?: string
           enabled?: boolean
