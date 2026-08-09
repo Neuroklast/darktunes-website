@@ -41,7 +41,9 @@
 - [ ] Admin Feature Flags on Host A do not change Host B portal modules; new orgs get default flag catalog
 - [ ] Staff JWT cannot list Host B assets/folders/artists/releases/news via browser Supabase (RLS `user_can_access_organization`)
 - [ ] Press apply / promo pool / ZIP toggles follow host org flags and site feature_toggles
-- [ ] Apply multi-tenant block of `supabase/reset.sql` (incl. staff CMS RLS policies) on staging before pilot hosts
+- [ ] Sync for pilot org writes cover-art under `tenants/{orgId}/cover-art/…`; Org #0 stays flat
+- [ ] Staff JWT cannot list Host B sync_queue / release_submissions rows
+- [ ] Apply multi-tenant block of `supabase/reset.sql` (staff CMS + sync/submissions RLS) on staging before pilot hosts
 
 ## Security
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)

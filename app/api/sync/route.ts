@@ -134,14 +134,6 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     return NextResponse.json({ accepted: true, alreadyRunning: true, continued: false })
   }
 
-  const uploadFn = createSyncUploadFn(
-    serverEnv.CLOUDFLARE_R2_ACCOUNT_ID,
-    serverEnv.CLOUDFLARE_R2_ACCESS_KEY_ID,
-    serverEnv.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
-    serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
-    serverEnv.CLOUDFLARE_R2_PUBLIC_URL,
-  )
-
   const siteOrigin = resolveExecutorSiteOrigin(request.url)
   const canSelfChain = Boolean(siteOrigin && authHeader.startsWith('Bearer '))
 
@@ -190,6 +182,15 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
 
           try {
             const syncCredentials = await credentialsForOrg(job.organizationId)
+            // Per-job R2 prefix so pilot labels never write flat Org #0 cover-art keys
+            const uploadFn = createSyncUploadFn(
+              serverEnv.CLOUDFLARE_R2_ACCOUNT_ID,
+              serverEnv.CLOUDFLARE_R2_ACCESS_KEY_ID,
+              serverEnv.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+              serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
+              serverEnv.CLOUDFLARE_R2_PUBLIC_URL,
+              job.organizationId,
+            )
             const tags = await processSyncJob(db, job, uploadFn, syncCredentials)
             // processSyncJob finalises via markSyncJobDone/rescheduleSyncJob, both
             // of which honour cancel_requested_at. Re-check so we never leave a

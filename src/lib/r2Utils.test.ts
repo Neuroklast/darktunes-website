@@ -8,6 +8,8 @@ import {
   uploadUrlToR2,
 } from './r2Utils'
 
+const ORG_B = '11111111-1111-1111-1111-111111111111'
+
 const IMAGE_BYTES = new Uint8Array([1, 2, 3])
 const EXPECTED_HASH = createHash('sha256').update(Buffer.from(IMAGE_BYTES)).digest('hex')
 
@@ -111,6 +113,46 @@ describe('uploadUrlToR2', () => {
     expect(url).toBe(`https://cdn.example.com/cover-art/${EXPECTED_HASH}.png`)
     expect(putAttempts).toBe(2)
     expect(fetchFn).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('uploadUrlToR2 multi-tenant key', () => {
+  beforeEach(() => {
+    resetR2UploadConcurrencyForTests()
+  })
+
+  it('prefixes cover-art under tenants/{org} for non-default orgs', async () => {
+    const send = vi.fn().mockImplementation(async (command: unknown) => {
+      if (command instanceof HeadObjectCommand) {
+        const err = new Error('NotFound')
+        err.name = 'NotFound'
+        throw err
+      }
+      return {}
+    })
+    const s3 = { send } as unknown as S3Client
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(IMAGE_BYTES, {
+        status: 200,
+        headers: { 'content-type': 'image/png' },
+      }),
+    ) as unknown as typeof fetch
+
+    const url = await uploadUrlToR2(
+      'https://example.com/image.png',
+      s3,
+      'bucket',
+      'https://cdn.example.com',
+      'cover-art',
+      fetchFn,
+      ORG_B,
+    )
+
+    expect(url).toBe(
+      `https://cdn.example.com/tenants/${ORG_B}/cover-art/${EXPECTED_HASH}.png`,
+    )
+    const putCommand = send.mock.calls.find(([cmd]) => cmd instanceof PutObjectCommand)?.[0] as PutObjectCommand
+    expect(putCommand.input.Key).toBe(`tenants/${ORG_B}/cover-art/${EXPECTED_HASH}.png`)
   })
 })
 

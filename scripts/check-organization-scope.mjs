@@ -170,6 +170,14 @@ const REQUIRED = [
     file: 'src/lib/pressAccess.ts',
     markers: ['organizationId', 'DEFAULT_ORGANIZATION_ID'],
   },
+  {
+    file: 'src/lib/r2Utils.ts',
+    markers: ['buildTenantObjectKey', 'organizationId', 'createSyncUploadFn'],
+  },
+  {
+    file: 'app/api/sync/artist/route.ts',
+    markers: ['createSyncUploadFn', 'organizationId'],
+  },
 ]
 
 const failures = []

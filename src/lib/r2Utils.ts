@@ -16,6 +16,7 @@ import {
   GetObjectCommand,
 } from '@aws-sdk/client-s3'
 import { withTransientIoRetry } from '@/lib/sync/retryPolicy'
+import { buildTenantObjectKey } from '@/lib/organizations/r2Keys'
 
 /** Process-wide cap so multi-artist executor loops do not storm R2 DNS. */
 const R2_UPLOAD_CONCURRENCY = 2
@@ -104,6 +105,7 @@ export async function objectExistsInR2(s3: S3Client, bucket: string, key: string
  * @param r2PublicUrl - Public CDN base URL for the bucket (e.g. https://cdn.darktunes.com)
  * @param keyPrefix   - Folder prefix for the R2 object key (e.g. 'cover-art')
  * @param fetchFn     - Injectable fetch implementation (defaults to global fetch)
+ * @param organizationId - Optional host org for multi-tenant key prefix (Org #0 stays flat)
  * @returns           - Public CDN URL of the uploaded object
  */
 export async function uploadUrlToR2(
@@ -113,6 +115,7 @@ export async function uploadUrlToR2(
   r2PublicUrl: string,
   keyPrefix: string,
   fetchFn: typeof fetch = globalThis.fetch,
+  organizationId?: string,
 ): Promise<string> {
   return withR2UploadSlot(() =>
     withTransientIoRetry(async () => {
@@ -125,11 +128,18 @@ export async function uploadUrlToR2(
       const ext = contentType.split('/')[1]?.split(';')[0] ?? 'jpg'
       const buffer = Buffer.from(await resp.arrayBuffer())
       const hash = createHash('sha256').update(buffer).digest('hex')
-      const key = `${keyPrefix}/${hash}.${ext}`
+      const relativeKey = `${keyPrefix}/${hash}.${ext}`
+      const key = organizationId
+        ? buildTenantObjectKey(organizationId, relativeKey)
+        : relativeKey
       const publicUrl = buildR2PublicUrl(r2PublicUrl, key)
 
+      // Dual-read existence: legacy + tenant key so re-syncs stay idempotent
       if (await objectExistsInR2(s3, bucket, key)) {
         return publicUrl
+      }
+      if (organizationId && key !== relativeKey && (await objectExistsInR2(s3, bucket, relativeKey))) {
+        return buildR2PublicUrl(r2PublicUrl, relativeKey)
       }
 
       await s3.send(
@@ -151,6 +161,7 @@ export async function uploadUrlToR2(
 /**
  * Creates an uploadToR2 function wired to the given R2 credentials.
  * Used by sync route handlers to avoid duplicating R2 client setup.
+ * Pass organizationId so non–Org-#0 artwork lands under tenants/{orgId}/…
  */
 export function createSyncUploadFn(
   accountId: string,
@@ -158,9 +169,11 @@ export function createSyncUploadFn(
   secretAccessKey: string,
   bucket: string,
   r2PublicUrl: string,
+  organizationId?: string,
 ): (imageUrl: string, keyPrefix: string) => Promise<string> {
   const s3 = createR2Client(accountId, accessKeyId, secretAccessKey)
-  return (imageUrl, keyPrefix) => uploadUrlToR2(imageUrl, s3, bucket, r2PublicUrl, keyPrefix)
+  return (imageUrl, keyPrefix) =>
+    uploadUrlToR2(imageUrl, s3, bucket, r2PublicUrl, keyPrefix, globalThis.fetch, organizationId)
 }
 
 /**

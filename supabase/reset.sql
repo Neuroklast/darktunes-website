@@ -7921,3 +7921,38 @@ CREATE POLICY "genres_write_admin" ON public.genres
   );
 
 -- CMS staff RLS: artists/releases/news/videos/concerts/genres
+
+-- =============================================================================
+-- sync_queue / release_submissions staff RLS
+-- =============================================================================
+
+DROP POLICY IF EXISTS "sync_queue: admin all" ON public.sync_queue;
+CREATE POLICY "sync_queue: admin all" ON public.sync_queue
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "release_submissions: editor+ read all" ON public.release_submissions;
+CREATE POLICY "release_submissions: editor+ read all" ON public.release_submissions
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "release_submissions: editor+ update" ON public.release_submissions;
+CREATE POLICY "release_submissions: editor+ update" ON public.release_submissions
+  FOR UPDATE USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- sync_queue / release_submissions staff RLS

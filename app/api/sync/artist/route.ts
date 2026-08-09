@@ -73,6 +73,7 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     serverEnv.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
     serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
     serverEnv.CLOUDFLARE_R2_PUBLIC_URL,
+    organizationId,
   )
 
   const result = await syncSingleArtist(artistId, 'full', {
