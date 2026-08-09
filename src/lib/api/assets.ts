@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Asset } from '@/types'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type AssetRow = Database['public']['Tables']['assets']['Row']
@@ -33,21 +34,33 @@ export function rowToAsset(row: AssetRow): Asset {
   }
 }
 
-export async function getAssets(db: DbClient): Promise<Asset[]> {
+export async function getAssets(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Asset[]> {
   const { data, error } = await db
     .from('assets')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []).map(rowToAsset)
 }
 
-export async function getAssetsByFolder(db: DbClient, folderId: string | null): Promise<Asset[]> {
-  const query = db.from('assets').select('*').order('created_at', { ascending: false })
+export async function getAssetsByFolder(
+  db: DbClient,
+  folderId: string | null,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Asset[]> {
+  let query = db
+    .from('assets')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .order('created_at', { ascending: false })
   if (folderId === null) {
-    query.is('folder_id', null)
+    query = query.is('folder_id', null)
   } else {
-    query.eq('folder_id', folderId)
+    query = query.eq('folder_id', folderId)
   }
   const { data, error } = await query
   if (error) throw new Error(error.message)
@@ -61,8 +74,16 @@ export interface PressAssetFilters {
   artistId?: string
 }
 
-export async function getPressAssets(db: DbClient, filters: PressAssetFilters = {}): Promise<Asset[]> {
-  let query = db.from('assets').select('*').order('created_at', { ascending: false })
+export async function getPressAssets(
+  db: DbClient,
+  filters: PressAssetFilters & { organizationId?: string } = {},
+): Promise<Asset[]> {
+  const organizationId = filters.organizationId ?? DEFAULT_ORGANIZATION_ID
+  let query = db
+    .from('assets')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .order('created_at', { ascending: false })
 
   if (filters.isPressApproved !== undefined) {
     query = query.eq('is_press_approved', filters.isPressApproved)
@@ -104,10 +125,15 @@ export async function bulkSetPressApproved(
   return data?.length ?? 0
 }
 
-export async function searchAssets(db: DbClient, query: string): Promise<Asset[]> {
+export async function searchAssets(
+  db: DbClient,
+  query: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Asset[]> {
   const { data, error } = await db
     .from('assets')
     .select('*')
+    .eq('organization_id', organizationId)
     .ilike('original_filename', `%${query}%`)
     .order('created_at', { ascending: false })
     .limit(100)
@@ -116,6 +142,10 @@ export async function searchAssets(db: DbClient, query: string): Promise<Asset[]
 }
 
 export async function createAssetRecord(db: DbClient, assetData: AssetInsert): Promise<Asset> {
+  assetData = {
+    ...assetData,
+    organization_id: assetData.organization_id ?? DEFAULT_ORGANIZATION_ID,
+  }
   const { data, error } = await db.from('assets').insert(assetData).select().single()
   if (error) throw new Error(error.message)
   if (!data) throw new Error('No data returned from createAssetRecord')

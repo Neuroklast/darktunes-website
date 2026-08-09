@@ -7,10 +7,14 @@ import { SiteFooter } from './_components/SiteFooter'
 import { VisualEffectsOverlay } from '@/components/VisualEffectsOverlay'
 import { ThemeStyleInjector } from './_components/ThemeStyleInjector'
 import { ThemeEffectsClient } from './_components/ThemeEffectsClient'
+import { OrganizationBrandingInjector } from './_components/OrganizationBrandingInjector'
 import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
 import { SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
 import { resolveBrandFromSettings } from '@/lib/brand'
 import { buildRootLayoutMetadata } from '@/lib/seo/metadata'
+import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
+import { getOrganizationBranding } from '@/lib/api/organizationBranding'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages } from 'next-intl/server'
 import type { Locale } from '@/i18n/types'
@@ -52,6 +56,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const settings = await getCachedSiteSettings().catch(() => null)
   const { labelShortName } = resolveBrandFromSettings(settings ?? SITE_SETTINGS_DEFAULTS)
 
+  let organizationBranding = null
+  try {
+    const organizationId = await getRequestOrganizationId()
+    organizationBranding = await getOrganizationBranding(
+      createPublicSupabaseClient(),
+      organizationId,
+    )
+  } catch {
+    organizationBranding = null
+  }
+
   return (
     <html lang={locale} style={fontVariables} suppressHydrationWarning data-animation-preset={settings?.themeConfig?.animation?.preset ?? 'slide-up'}>
       <head>
@@ -63,6 +78,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="apple-touch-icon" href={settings?.faviconUrl || '/icons/icon-192.png'} />
         {/* Software platform identity — readable by crawlers and Wappalyzer */}
         <meta name="generator" content="Neuroklast & Seifried.dev" />
+        <OrganizationBrandingInjector branding={organizationBranding} />
         {/* Inject admin-configured color token overrides before first paint */}
         <ThemeStyleInjector
           themePrimary={settings?.themePrimary}

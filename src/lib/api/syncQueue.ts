@@ -15,6 +15,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { RATE_LIMIT_JOB_COOLDOWN_MS } from '@/lib/sync/retryPolicy'
 
 type DbClient = SupabaseClient<Database>
@@ -281,6 +282,7 @@ export async function enqueueArtistSyncJobs(
   db: DbClient,
   artistIds: string[],
   jobType: SyncJobType = 'full',
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<number> {
   if (artistIds.length === 0) return 0
 
@@ -288,6 +290,7 @@ export async function enqueueArtistSyncJobs(
   const { data: existing } = await db
     .from('sync_queue')
     .select('artist_id')
+    .eq('organization_id', organizationId)
     .in('artist_id', artistIds)
     .in('status', ['pending', 'running'])
     .in('job_type', conflictingArtistJobTypes(jobType))
@@ -301,6 +304,7 @@ export async function enqueueArtistSyncJobs(
     artist_id: artistId,
     job_type: jobType,
     status: 'pending' as const,
+    organization_id: organizationId,
   }))
 
   const { error } = await db.from('sync_queue').insert(jobs)
@@ -315,10 +319,12 @@ export async function enqueueArtistSyncJobs(
 export async function enqueueOdesliSyncJob(
   db: DbClient,
   cooldownMs = 0,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<number> {
   const { data: existing } = await db
     .from('sync_queue')
     .select('id')
+    .eq('organization_id', organizationId)
     .eq('job_type', 'odesli')
     .is('artist_id', null)
     .in('status', ['pending', 'running'])
@@ -332,6 +338,7 @@ export async function enqueueOdesliSyncJob(
     job_type: 'odesli',
     status: 'pending',
     scheduled_at: scheduledAt,
+    organization_id: organizationId,
   })
 
   if (error) throw new Error(`Failed to enqueue Odesli sync job: ${error.message}`)
@@ -341,15 +348,19 @@ export async function enqueueOdesliSyncJob(
 /**
  * Enqueues Spotify sync jobs for artists with a spotify_id.
  */
-export async function enqueueSpotifySyncJobs(db: DbClient): Promise<number> {
+export async function enqueueSpotifySyncJobs(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<number> {
   const { data: artists, error } = await db
     .from('artists')
     .select('id')
+    .eq('organization_id', organizationId)
     .not('spotify_id', 'is', null)
 
   if (error) throw new Error(`Failed to load artists for Spotify queue: ${error.message}`)
   const artistIds = (artists ?? []).map((a) => a.id)
-  return enqueueArtistSyncJobs(db, artistIds, 'spotify')
+  return enqueueArtistSyncJobs(db, artistIds, 'spotify', organizationId)
 }
 
 /**
@@ -630,13 +641,15 @@ export interface ListSyncJobsOptions {
  */
 export async function listSyncJobs(
   db: DbClient,
-  options: ListSyncJobsOptions = {},
+  options: ListSyncJobsOptions & { organizationId?: string } = {},
 ): Promise<SyncJob[]> {
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 100)
+  const organizationId = options.organizationId ?? DEFAULT_ORGANIZATION_ID
 
   let query = db
     .from('sync_queue')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('created_at', { ascending: false })
     .limit(limit)
 

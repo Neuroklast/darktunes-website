@@ -91,10 +91,10 @@ Never take `darktunes.com` offline for SaaS launch.
 | 0 | Docs, constants, env placeholders | Done |
 | 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
 | 2 | Host context in `proxy.ts` | Done |
-| 3 | DAL/API `organization_id` batches | Partial — public catalog + artists; expand remaining DAL |
+| 3 | DAL/API `organization_id` batches | Partial — catalog, artists, genres, assets, submissions, sync queue; SOS/portal residual |
 | 4 | Membership + RLS hardening | Partial — org RLS + admin backfill; portal tenant assert TBD |
 | 5 | Cache tags + R2 prefixes | Partial — helpers + public releases cache |
-| 6 | Cron/sync/credentials per org | Open |
+| 6 | Cron/sync/credentials per org | Partial — sync queue enqueue/list org-scoped; cron loop residual |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |
 | 8 | Stripe + provisioning | Done (env-gated) |
 | 9 | Onboarding / assistenz | Partial — register flow ported |
