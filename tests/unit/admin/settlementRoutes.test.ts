@@ -8,11 +8,14 @@ const listSettlementPeriodsMock = vi.fn()
 const lockSettlementPeriodMock = vi.fn()
 const archivePeriodWithCarryForwardMock = vi.fn()
 
+const requireAdminFromRequestMock = vi.fn()
+
 vi.mock('@/lib/adminAuth', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/adminAuth')>()
   return {
     ...actual,
     verifyAdmin: verifyAdminMock,
+    requireAdminFromRequest: (...args: unknown[]) => requireAdminFromRequestMock(...args),
   }
 })
 
@@ -73,6 +76,11 @@ async function loadArchiveRoute() {
 describe('GET /api/admin/settlements/register', () => {
   beforeEach(() => {
     verifyAdminMock.mockResolvedValue('admin-user-1')
+    requireAdminFromRequestMock.mockResolvedValue({
+      userId: 'admin-user-1',
+      role: 'admin',
+      organizationId: '00000000-0000-0000-0000-000000000000',
+    })
     createServerSupabaseClientMock.mockResolvedValue(MOCK_DB)
     buildSettlementRegisterMock.mockResolvedValue(SAMPLE_REGISTER)
   })
@@ -92,7 +100,12 @@ describe('GET /api/admin/settlements/register', () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual(SAMPLE_REGISTER)
-    expect(buildSettlementRegisterMock).toHaveBeenCalledWith(MOCK_DB, '2026-01-01', '2026-01-31')
+    expect(buildSettlementRegisterMock).toHaveBeenCalledWith(
+      MOCK_DB,
+      '2026-01-01',
+      '2026-01-31',
+      '00000000-0000-0000-0000-000000000000',
+    )
   })
 
   it('returns 400 when period query params are missing', async () => {

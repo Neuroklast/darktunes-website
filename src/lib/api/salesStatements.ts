@@ -182,6 +182,35 @@ export async function getSalesStatementById(
   return data ? rowToSalesStatement(data as SalesStatementRow) : null
 }
 
+/**
+ * Load a sales statement only if its artist belongs to the organization.
+ * Sales statements have no organization_id column — isolation is via artists.
+ */
+export async function getSalesStatementByIdForOrganization(
+  db: DbClient,
+  id: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<SalesStatement | null> {
+  const statement = await getSalesStatementById(db, id)
+  if (!statement) return null
+
+  const { data: artist, error } = await db
+    .from('artists')
+    .select('id, organization_id')
+    .eq('id', statement.artistId)
+    .maybeSingle()
+
+  if (error) {
+    // Pre-multi-tenant schema: allow statement
+    return statement
+  }
+  if (!artist) return null
+  if (artist.organization_id && artist.organization_id !== organizationId) {
+    return null
+  }
+  return statement
+}
+
 export async function approveSalesStatement(
   db: DbClient,
   id: string,

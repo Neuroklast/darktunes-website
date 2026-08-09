@@ -1,10 +1,10 @@
 import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
 import {
   approveAndNotifySalesStatement,
-  getSalesStatementById,
+  getSalesStatementByIdForOrganization,
   linkApprovedStatementToSettlement,
 } from '@/lib/api/salesStatements'
 import { assertStatementPeriodWritable } from '@/lib/api/settlementPeriods'
@@ -18,8 +18,7 @@ const bulkApproveSchema = z.object({
 })
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const userId = await verifyAdmin(token)
+  const { userId, organizationId } = await requireAdminFromRequest(req)
 
   const body: unknown = await req.json()
   const parsed = bulkApproveSchema.safeParse(body)
@@ -40,7 +39,11 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
 
   for (const id of parsed.data.ids) {
     try {
-      const existing = await getSalesStatementById(supabase, id)
+      const existing = await getSalesStatementByIdForOrganization(
+        supabase,
+        id,
+        organizationId,
+      )
       if (!existing) {
         results.push({ id, success: false, error: 'Statement not found' })
         continue

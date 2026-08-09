@@ -31,6 +31,7 @@ import { deleteSalesStatement } from '@/lib/api/settlementCenterApi'
 import { useMergedAccountingLabels } from '@/lib/i18n/accountingFallbacks'
 import { interpolate } from '@/lib/i18n/interpolate'
 import { PUBLIC_QUERY_LIMITS } from '@/lib/api/queryLimits'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 
 type StatementRow = {
   id: string
@@ -147,6 +148,49 @@ export function StatementsManager({
     setError(null)
 
     const supabase = createBrowserSupabaseClient()
+    const organizationId = getClientOrganizationId()
+
+    // Sales statements have no organization_id — scope via artists in this org.
+    const { data: orgArtists, error: artistsError } = await supabase
+      .from('artists')
+      .select('id')
+      .eq('organization_id', organizationId)
+
+    if (artistsError) {
+      // Pre-schema fallback: unscoped list (single-tenant)
+      const { data, error: fetchError } = await supabase
+        .from('sales_statements')
+        .select(`
+          id,
+          artist_id,
+          filename,
+          period,
+          amount_eur,
+          status,
+          label_notes,
+          created_at,
+          artists!inner(name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(PUBLIC_QUERY_LIMITS.statementsAdmin)
+
+      if (fetchError) {
+        setError(fetchError.message)
+        setLoading(false)
+        return
+      }
+      setStatements((data ?? []) as StatementRow[])
+      setLoading(false)
+      return
+    }
+
+    const artistIds = (orgArtists ?? []).map((a) => a.id)
+    if (artistIds.length === 0) {
+      setStatements([])
+      setLoading(false)
+      return
+    }
+
     const { data, error: fetchError } = await supabase
       .from('sales_statements')
       .select(`
@@ -160,6 +204,7 @@ export function StatementsManager({
         created_at,
         artists!inner(name)
       `)
+      .in('artist_id', artistIds)
       .order('created_at', { ascending: false })
       .limit(PUBLIC_QUERY_LIMITS.statementsAdmin)
 

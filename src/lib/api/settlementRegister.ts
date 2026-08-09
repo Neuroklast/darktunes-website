@@ -13,6 +13,7 @@ import {
   getOrCreateSettlementPeriod,
   type SettlementPeriod,
 } from '@/lib/api/settlementPeriods'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 
@@ -52,17 +53,31 @@ export async function buildSettlementRegister(
   db: DbClient,
   periodStart: string,
   periodEnd: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<SettlementRegister> {
   const period = await getOrCreateSettlementPeriod(db, periodStart, periodEnd)
 
-  const { data: artists, error: artistsError } = await db
+  const artistsResult = await db
     .from('artists')
-    .select('id, name')
+    .select('id, name, organization_id')
+    .eq('organization_id', organizationId)
     .order('name')
 
-  if (artistsError) throw new Error(artistsError.message)
+  let artists: Array<{ id: string; name: string }>
+  if (artistsResult.error) {
+    const fallback = await db.from('artists').select('id, name').order('name')
+    if (fallback.error) throw new Error(fallback.error.message)
+    artists = (fallback.data ?? []) as Array<{ id: string; name: string }>
+  } else {
+    artists = (artistsResult.data ?? []).map((a) => ({ id: a.id, name: a.name }))
+  }
 
-  const statements = await getSalesStatementsForPeriod(db, periodStart, periodEnd)
+  const statements = await getSalesStatementsForPeriod(
+    db,
+    periodStart,
+    periodEnd,
+    organizationId,
+  )
   const statementByArtist = new Map<string, (typeof statements)[number]>()
   for (const statement of statements) {
     if (!statementByArtist.has(statement.artist_id)) {
