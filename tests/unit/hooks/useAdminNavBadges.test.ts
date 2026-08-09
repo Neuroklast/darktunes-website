@@ -5,33 +5,33 @@ import { useAdminNavBadges } from '@/hooks/useAdminNavBadges'
 const portalMessageHandlers: Array<() => void> = []
 const removeChannelMock = vi.fn()
 
+function chainableCount(count: number) {
+  const result = { count, error: null }
+  const chain: {
+    eq: () => typeof chain
+    is: () => typeof chain
+    then: PromiseLike<typeof result>['then']
+  } = {
+    eq: () => chain,
+    is: () => chain,
+    then: (onfulfilled, onrejected) => Promise.resolve(result).then(onfulfilled, onrejected),
+  }
+  return chain
+}
+
+vi.mock('@/lib/organizations/clientOrganizationId', () => ({
+  getClientOrganizationId: () => '00000000-0000-0000-0000-000000000000',
+}))
+
+vi.mock('@/lib/api/portalMessages', () => ({
+  getIncomingToLabelUnreadCount: vi.fn().mockResolvedValue(2),
+}))
+
 vi.mock('@/lib/supabase/client', () => ({
   createBrowserSupabaseClient: () => ({
-    from: (table: string) => {
-      if (table === 'portal_messages') {
-        return {
-          select: () => ({
-            eq: () => ({
-              is: () => ({
-                is: () => Promise.resolve({ count: 2, error: null }),
-              }),
-            }),
-          }),
-        }
-      }
-      if (table === 'release_submissions' || table === 'video_submissions' || table === 'artist_landing_pages') {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({ count: 0, error: null }),
-          }),
-        }
-      }
-      return {
-        select: () => ({
-          eq: () => Promise.resolve({ count: 0, error: null }),
-        }),
-      }
-    },
+    from: () => ({
+      select: () => chainableCount(0),
+    }),
     channel: (name: string) => {
       const chain = {
         on: (
