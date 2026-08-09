@@ -62,7 +62,6 @@ describe('GET /api/admin/assets/storage-stats', () => {
       error: null,
     })
     const order = vi.fn().mockReturnValue({ range })
-    const eq = vi.fn().mockReturnValue({ order, eq: vi.fn().mockReturnThis() })
     const select = vi.fn().mockImplementation((sel: string, opts?: { count?: string; head?: boolean }) => {
       if (opts?.head) {
         return {

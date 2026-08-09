@@ -73,6 +73,13 @@ const lineAllowPatterns = [
   /legacy/i,
   /darktunes_\*/,
   /Migration/,
+  // Org #0 seed + multi-tenant docs: slug/host for default label (not UI brand strings)
+  /Org #0/,
+  /DEFAULT_ORGANIZATION/,
+  /INSERT INTO public\.organizations/,
+  /Sentinel UUID/,
+  // Multi-line VALUES row for Org #0 seed (id + slug darktunes)
+  /00000000-0000-0000-0000-000000000000/,
 ]
 
 function rel(filePath) {

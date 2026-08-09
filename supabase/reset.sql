@@ -6913,7 +6913,7 @@ $$;
 
 -- =============================================================================
 -- MULTI-TENANCY (organizations) — SaaS foundation (ported from PR #417)
--- Sentinel UUID 00000000-0000-0000-0000-000000000000 = darkTunes (Org #0).
+-- Sentinel UUID 00000000-0000-0000-0000-000000000000 = Org #0 (default label).
 -- Additive + idempotent. Apply after core schema exists.
 -- =============================================================================
 

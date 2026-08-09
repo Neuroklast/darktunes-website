@@ -89,7 +89,7 @@ function makeGetArtistData(slug: string, organizationId: string) {
 
 export async function generateStaticParams() {
   const client = createPublicSupabaseClient()
-  // Build-time SSG uses Org #0 (darkTunes); other orgs render via dynamicParams.
+  // Build-time SSG uses Org #0 (DEFAULT_ORGANIZATION_ID); other orgs render via dynamicParams.
   const artists = await getPublicArtists(client).catch((error) => {
     console.error('generateStaticParams(/artists/[slug]) failed:', error)
     return []
