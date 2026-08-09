@@ -90,10 +90,10 @@ Never take `darktunes.com` offline for SaaS launch.
 |-------|--------|-------------------------------------|
 | 0 | Docs, constants, env placeholders | Done |
 | 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
-| 2 | Host context in `proxy.ts` | Done |
-| 3 | DAL/API `organization_id` batches | Partial — catalog, artists, genres, assets, submissions, sync queue, admin SOS list via artists |
+| 2 | Host context in `proxy.ts` | Done — DB slug/custom-domain lookup; suspended gate; `MULTI_TENANT_STRICT_HOSTS` |
+| 3 | DAL/API `organization_id` batches | Partial — public + admin CMS list/create (artists/releases/news/videos/concerts), genres/assets/submissions/sync/SOS admin list |
 | 4 | Membership + RLS hardening | Portal `resolvePortalArtist` + membership helpers bind host org |
-| 5 | Cache tags + R2 prefixes | Partial — helpers + public releases cache |
+| 5 | Cache tags + R2 prefixes | Partial — public catalog caches org-keyed; R2 helper only |
 | 6 | Cron/sync/credentials per org | Partial — sync queue enqueue/list org-scoped; cron loop residual |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |
 | 8 | Stripe + provisioning | Done (env-gated) |
