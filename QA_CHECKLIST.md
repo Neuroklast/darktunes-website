@@ -54,6 +54,9 @@
 - [ ] Journalist download history on Host A never includes Host B keys; admin analytics press downloads are org-scoped
 - [ ] API credentials UI/list for Host A cannot read Host B `label_id` rows (RLS)
 - [ ] Stripe webhook unit path: replaying same event id is duplicate; checkout activates subscription for metadata org
+- [ ] Admin video submissions list only Host A artists; update foreign id → 404
+- [ ] Admin nav badges (video/release/feedback/fan-page) count only host org
+- [ ] Non-platform label admin cannot SELECT/UPDATE Host B organization rows or `platform_admins`
 - [ ] Press apply / promo pool / ZIP toggles follow host org flags and site feature_toggles
 - [ ] Sync for pilot org writes cover-art under `tenants/{orgId}/cover-art/…`; Org #0 stays flat
 - [ ] Staff JWT cannot list Host B sync_queue / release_submissions rows

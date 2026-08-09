@@ -9042,3 +9042,307 @@ CREATE POLICY "api_credentials_admin_only" ON public.api_credentials
   );
 
 -- journalist_downloads + api_credentials org isolation
+
+-- =============================================================================
+-- Org SaaS staff policies + video_submissions / portal_feedback / message notes
+-- =============================================================================
+
+-- organizations: label staff only touch orgs they can access (platform_admins via helper)
+DROP POLICY IF EXISTS "organizations: admin all" ON public.organizations;
+CREATE POLICY "organizations: admin all" ON public.organizations
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(id)
+  );
+
+DROP POLICY IF EXISTS "organization_users: admin all" ON public.organization_users;
+CREATE POLICY "organization_users: admin all" ON public.organization_users
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_branding: admin all" ON public.organization_branding;
+CREATE POLICY "organization_branding: admin all" ON public.organization_branding
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_api_keys: admin all" ON public.organization_api_keys;
+CREATE POLICY "organization_api_keys: admin all" ON public.organization_api_keys
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_webhooks: admin all" ON public.organization_webhook_endpoints;
+CREATE POLICY "organization_webhooks: admin all" ON public.organization_webhook_endpoints
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_webhook_deliveries: admin all" ON public.organization_webhook_deliveries;
+CREATE POLICY "organization_webhook_deliveries: admin all" ON public.organization_webhook_deliveries
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND EXISTS (
+      SELECT 1
+      FROM public.organization_webhook_endpoints e
+      WHERE e.id = endpoint_id
+        AND public.user_can_access_organization(e.organization_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND EXISTS (
+      SELECT 1
+      FROM public.organization_webhook_endpoints e
+      WHERE e.id = endpoint_id
+        AND public.user_can_access_organization(e.organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "subscriptions: admin all" ON public.subscriptions;
+CREATE POLICY "subscriptions: admin all" ON public.subscriptions
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_features: admin all" ON public.organization_features;
+CREATE POLICY "organization_features: admin all" ON public.organization_features
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "custom_domains: admin all" ON public.custom_domains;
+CREATE POLICY "custom_domains: admin all" ON public.custom_domains
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_audit_log: admin all" ON public.organization_audit_log;
+CREATE POLICY "organization_audit_log: admin all" ON public.organization_audit_log
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Only existing platform admins may manage the platform_admins table
+-- (SECURITY DEFINER avoids RLS recursion on platform_admins itself)
+CREATE OR REPLACE FUNCTION public.user_is_platform_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.platform_admins pa WHERE pa.user_id = auth.uid()
+  );
+$$;
+
+DROP POLICY IF EXISTS "platform_admins: admin all" ON public.platform_admins;
+CREATE POLICY "platform_admins: admin all" ON public.platform_admins
+  FOR ALL
+  USING (public.user_is_platform_admin())
+  WITH CHECK (public.user_is_platform_admin());
+
+-- video_submissions staff paths
+DROP POLICY IF EXISTS "video_submissions: editor+ read all" ON public.video_submissions;
+CREATE POLICY "video_submissions: editor+ read all" ON public.video_submissions
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "video_submissions: editor+ update" ON public.video_submissions;
+CREATE POLICY "video_submissions: editor+ update" ON public.video_submissions
+  FOR UPDATE USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- portal_feedback staff paths
+DROP POLICY IF EXISTS "portal_feedback: editor+ read all" ON public.portal_feedback;
+CREATE POLICY "portal_feedback: editor+ read all" ON public.portal_feedback
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "portal_feedback: editor+ update" ON public.portal_feedback;
+CREATE POLICY "portal_feedback: editor+ update" ON public.portal_feedback
+  FOR UPDATE USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- Mailbox internal notes / events: nest through label or portal messages
+DROP POLICY IF EXISTS "message_internal_notes: admin all" ON public.message_internal_notes;
+DROP POLICY IF EXISTS "message_internal_notes: editor read write" ON public.message_internal_notes;
+CREATE POLICY "message_internal_notes: staff all" ON public.message_internal_notes
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND (
+      (
+        message_source = 'label'
+        AND EXISTS (
+          SELECT 1
+          FROM public.label_messages lm
+          WHERE lm.id = message_id
+            AND public.user_can_access_artist(lm.artist_id)
+        )
+      )
+      OR (
+        message_source = 'portal'
+        AND EXISTS (
+          SELECT 1
+          FROM public.portal_messages pm
+          WHERE pm.id = message_id
+            AND (
+              public.user_can_access_artist(pm.from_artist_id)
+              OR (pm.to_artist_id IS NOT NULL AND public.user_can_access_artist(pm.to_artist_id))
+            )
+        )
+      )
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND (
+      (
+        message_source = 'label'
+        AND EXISTS (
+          SELECT 1
+          FROM public.label_messages lm
+          WHERE lm.id = message_id
+            AND public.user_can_access_artist(lm.artist_id)
+        )
+      )
+      OR (
+        message_source = 'portal'
+        AND EXISTS (
+          SELECT 1
+          FROM public.portal_messages pm
+          WHERE pm.id = message_id
+            AND public.user_can_access_artist(pm.from_artist_id)
+        )
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "message_events: admin all" ON public.message_events;
+DROP POLICY IF EXISTS "message_events: editor insert read" ON public.message_events;
+CREATE POLICY "message_events: staff all" ON public.message_events
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND (
+      (
+        message_source = 'label'
+        AND EXISTS (
+          SELECT 1
+          FROM public.label_messages lm
+          WHERE lm.id = message_id
+            AND public.user_can_access_artist(lm.artist_id)
+        )
+      )
+      OR (
+        message_source = 'portal'
+        AND EXISTS (
+          SELECT 1
+          FROM public.portal_messages pm
+          WHERE pm.id = message_id
+            AND (
+              public.user_can_access_artist(pm.from_artist_id)
+              OR (pm.to_artist_id IS NOT NULL AND public.user_can_access_artist(pm.to_artist_id))
+            )
+        )
+      )
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND (
+      (
+        message_source = 'label'
+        AND EXISTS (
+          SELECT 1
+          FROM public.label_messages lm
+          WHERE lm.id = message_id
+            AND public.user_can_access_artist(lm.artist_id)
+        )
+      )
+      OR (
+        message_source = 'portal'
+        AND EXISTS (
+          SELECT 1
+          FROM public.portal_messages pm
+          WHERE pm.id = message_id
+            AND public.user_can_access_artist(pm.from_artist_id)
+        )
+      )
+    )
+  );
+
+-- Org SaaS + submissions + mailbox notes isolation

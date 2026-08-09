@@ -95,7 +95,7 @@ Never take `darktunes.com` offline for SaaS launch.
 | 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
 | 2 | Host context in `proxy.ts` | Done — DB slug/custom-domain lookup; suspended gate; `MULTI_TENANT_STRICT_HOSTS` |
 | 3 | DAL/API `organization_id` batches | Stronger — CMS/settings/flags/settlements/Sales Statements/media/mailbox/press + **journalist_downloads** |
-| 4 | Membership + RLS hardening | Staff org/artist helpers; press kit via assets; promo journalist SELECT via approved apps; **api_credentials** gated on `label_id` as org |
+| 4 | Membership + RLS hardening | Staff org/artist helpers; press/promo/downloads; **org SaaS tables** gated; **video_submissions/portal_feedback** nested; mailbox notes via messages; **platform_admins** only via `user_is_platform_admin()` |
 | 5 | Cache tags + R2 prefixes | Stronger — public caches org-keyed; tenant keys + dual-read; **sync cover-art** uses `createSyncUploadFn(…, job.organizationId)` |
 | 6 | Cron/sync/credentials per org | Sync queue multi-org enqueue + **staff RLS on sync_queue**; execute job-org credentials; manual `/api/sync/artist` host-org gated |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |
@@ -104,7 +104,7 @@ Never take `darktunes.com` offline for SaaS launch.
 | 10 | Custom domains | DAL + admin API ported; full DNS ops TBD |
 | 11 | Platform ops console | Partial — `/admin/organizations` |
 | 12 | Isolation QA + pilots | Unit isolation + e2e + **`npm run check:organization-scope`** CI gate (marker audit) |
-| 13 | Cleanup | Open |
+| 13 | Cleanup | Partial — platform_admins no longer role-open; org table staff writes org-gated |
 
 ## PR #417 port map
 

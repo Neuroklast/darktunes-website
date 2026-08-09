@@ -238,7 +238,18 @@ const REQUIRED = [
       'journalist_downloads: admin read',
       'api_credentials_admin_only',
       'user_can_access_organization(label_id)',
+      'user_is_platform_admin',
+      'video_submissions: editor+ read all',
+      'message_internal_notes: staff all',
     ],
+  },
+  {
+    file: 'src/lib/api/videoSubmissions.ts',
+    markers: ['organizationId', 'artists!inner', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'app/api/admin/video-submissions/route.ts',
+    markers: ['organizationId', 'requireAdminOrEditorFromRequest'],
   },
 ]
 

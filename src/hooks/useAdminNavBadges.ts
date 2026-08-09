@@ -41,25 +41,29 @@ export function useAdminNavBadges(userId: string | null, enabled: boolean) {
           supabase
             .from('release_submissions')
             .select('id', { count: 'exact', head: true })
-            .eq('status', 'received'),
+            .eq('status', 'received')
+            .eq('organization_id', getClientOrganizationId()),
         ),
         safeCount(
           supabase
             .from('video_submissions')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'received'),
+            .select('id, artists!inner(organization_id)', { count: 'exact', head: true })
+            .eq('status', 'received')
+            .eq('artists.organization_id', getClientOrganizationId()),
         ),
         safeCount(
           supabase
             .from('artist_landing_pages')
-            .select('id', { count: 'exact', head: true })
-            .eq('publish_status', 'pending_review'),
+            .select('id, artists!inner(organization_id)', { count: 'exact', head: true })
+            .eq('publish_status', 'pending_review')
+            .eq('artists.organization_id', getClientOrganizationId()),
         ),
         safeCount(
           supabase
             .from('portal_feedback')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'new'),
+            .select('id, artists!inner(organization_id)', { count: 'exact', head: true })
+            .eq('status', 'new')
+            .eq('artists.organization_id', getClientOrganizationId()),
         ),
       ])
 

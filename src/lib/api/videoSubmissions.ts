@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { VideoSubmission, SubmissionStatus } from '@/types'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type Row = Database['public']['Tables']['video_submissions']['Row']
@@ -42,14 +43,19 @@ export async function getVideoSubmissionsByArtistId(
   return (data ?? []).map(rowToSubmission)
 }
 
-export async function getAllVideoSubmissions(db: DbClient): Promise<VideoSubmission[]> {
+/** Admin list — only submissions for artists in the host organization. */
+export async function getAllVideoSubmissions(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<VideoSubmission[]> {
   const { data, error } = await db
     .from('video_submissions')
-    .select('*')
+    .select('*, artists!inner(organization_id)')
+    .eq('artists.organization_id', organizationId)
     .order('created_at', { ascending: false })
     .limit(200)
   if (error) throw new Error(error.message)
-  return (data ?? []).map(rowToSubmission)
+  return (data ?? []).map((row) => rowToSubmission(row as Row))
 }
 
 export async function createVideoSubmission(
@@ -71,7 +77,17 @@ export async function updateVideoSubmissionStatus(
   id: string,
   status: SubmissionStatus,
   adminReply?: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<VideoSubmission> {
+  const { data: existing, error: loadError } = await db
+    .from('video_submissions')
+    .select('*, artists!inner(organization_id)')
+    .eq('id', id)
+    .eq('artists.organization_id', organizationId)
+    .maybeSingle()
+  if (loadError) throw new Error(loadError.message)
+  if (!existing) throw new Error('No data returned from updateVideoSubmissionStatus')
+
   const patch: Partial<Row> = {
     status,
     ...(adminReply !== undefined

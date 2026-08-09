@@ -30,6 +30,8 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Press download logs global across labels | `journalist_downloads.organization_id` on insert + admin SELECT gate; analytics/history always pass host org |
 | `api_credentials` admin policy ignores `label_id` | Treat `label_id` as organization id in RLS (`user_can_access_organization(label_id)`) |
 | Stripe webhook logic only in route handler | Extract `processStripeWebhookEvent` for unit tests (dedupe + activate + past_due) |
+| Any `admin` role can manage all organizations / platform_admins | Gate org SaaS tables with `user_can_access_organization`; manage `platform_admins` only via SECURITY DEFINER `user_is_platform_admin()` (no RLS recursion) |
+| Video submissions admin list unscoped | Join `artists.organization_id` (or denormalize later); badge counts must use the same host filter |
 | Stripe checkout trusts body `organizationId` without auth | Require session + membership/platform_admin (`assertBillingOrganizationAccess`); signup uses `/api/onboarding/register` |
 | One global sync uploadFn for multi-org drain | Create `createSyncUploadFn(…, job.organizationId)` per job so cover-art keys stay tenant-scoped |
 | Calling the product “SOS” in user/docs copy | User-facing name is **Sales Statement**; `sos_*` code paths may stay for expand→migrate |
