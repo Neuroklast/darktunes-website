@@ -77,7 +77,12 @@ describe('authenticatePortalBearerWithArtist', () => {
 
     const result = await authenticatePortalBearerWithArtist(makeRequest('Bearer token-abc'), 'artist-1')
     expect(result.artist).toBe(artist)
-    expect(resolvePortalArtist).toHaveBeenCalledWith(expect.anything(), 'user-1', 'artist-1')
+    expect(resolvePortalArtist).toHaveBeenCalledWith(
+      expect.anything(),
+      'user-1',
+      'artist-1',
+      '00000000-0000-0000-0000-000000000000',
+    )
   })
 
   it('throws 403 when resolvePortalArtist returns FORBIDDEN', async () => {

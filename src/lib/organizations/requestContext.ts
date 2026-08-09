@@ -5,6 +5,7 @@ import { getOrganizationBySlug } from '@/lib/api/organizations'
 import { getOrganizationIdByCustomDomain } from '@/lib/api/customDomains'
 import {
   DEFAULT_ORGANIZATION_ID,
+  DEFAULT_ORGANIZATION_SLUG,
   HEADER_ORGANIZATION_ID,
   HEADER_ORGANIZATION_SLUG,
   HEADER_SURFACE,
@@ -35,7 +36,18 @@ export async function getRequestOrganizationId(db?: DbClient): Promise<string> {
 export async function getRequestOrganizationContext(
   db?: DbClient,
 ): Promise<RequestOrganizationContext> {
-  const h = await headers()
+  // Outside a Next request (unit tests, some workers) headers() throws — use Org #0.
+  let h: Awaited<ReturnType<typeof headers>>
+  try {
+    h = await headers()
+  } catch {
+    return {
+      organizationId: DEFAULT_ORGANIZATION_ID,
+      organizationSlug: DEFAULT_ORGANIZATION_SLUG,
+      surface: 'tenant',
+    }
+  }
+
   const headerOrgId = h.get(HEADER_ORGANIZATION_ID)
   const headerSlug = h.get(HEADER_ORGANIZATION_SLUG)
   const headerSurface = h.get(HEADER_SURFACE) as AppSurface | null
@@ -43,7 +55,7 @@ export async function getRequestOrganizationContext(
   if (headerOrgId) {
     return {
       organizationId: headerOrgId,
-      organizationSlug: headerSlug ?? 'darktunes',
+      organizationSlug: headerSlug ?? DEFAULT_ORGANIZATION_SLUG,
       surface: headerSurface ?? 'tenant',
     }
   }
@@ -62,7 +74,7 @@ export async function getRequestOrganizationContext(
     }
   }
 
-  if (!db || resolved.organizationSlug === 'darktunes') {
+  if (!db || resolved.organizationSlug === DEFAULT_ORGANIZATION_SLUG) {
     return {
       organizationId: DEFAULT_ORGANIZATION_ID,
       organizationSlug: resolved.organizationSlug,
