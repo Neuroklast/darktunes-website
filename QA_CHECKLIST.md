@@ -42,6 +42,9 @@
 - [ ] Staff JWT cannot list Host B assets/folders/artists/releases/news via browser Supabase (RLS `user_can_access_organization`)
 - [ ] Staff JWT cannot read Host B Sales Statement presets/workspaces/batches/settlement periods
 - [ ] Staff JWT cannot read Host B `sales_statements` / settlement ledger (nested via `artists.organization_id`)
+- [ ] Staff JWT cannot read Host B invoices, billing profiles, documents, or `artist_private_data` (PII)
+- [ ] Staff JWT cannot read Host B label/portal messages or EPK admin rows for foreign artists
+- [ ] Staff JWT cannot read Host B streaming/territory metrics or statement line items
 - [ ] Press apply / promo pool / ZIP toggles follow host org flags and site feature_toggles
 - [ ] Sync for pilot org writes cover-art under `tenants/{orgId}/cover-art/…`; Org #0 stays flat
 - [ ] Staff JWT cannot list Host B sync_queue / release_submissions rows

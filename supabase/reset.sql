@@ -8108,3 +8108,449 @@ CREATE POLICY "carry_forwards: admin all" ON public.period_carry_forwards
   );
 
 -- Nested staff RLS (sales_statements / settlement ledger / carry-forwards)
+-- =============================================================================
+-- Nested staff RLS via artists.organization_id (helper + finance/portal/metrics)
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.user_can_access_artist(p_artist_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.artists a
+    WHERE a.id = p_artist_id
+      AND public.user_can_access_organization(a.organization_id)
+  );
+$$;
+
+COMMENT ON FUNCTION public.user_can_access_artist(UUID) IS
+  'Staff may access artist-scoped rows when they can access the artist''s organization';
+
+-- artist_private_data (PII): close staff bypass + admin all
+DROP POLICY IF EXISTS "artist_private_data: member read" ON public.artist_private_data;
+CREATE POLICY "artist_private_data: member read" ON public.artist_private_data
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.artist_members am
+      WHERE am.artist_id = artist_id AND am.user_id = auth.uid()
+    )
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_artist(artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "artist_private_data: member write" ON public.artist_private_data;
+CREATE POLICY "artist_private_data: member write" ON public.artist_private_data
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM public.artist_members am
+      WHERE am.artist_id = artist_id AND am.user_id = auth.uid()
+    )
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_artist(artist_id)
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.artist_members am
+      WHERE am.artist_id = artist_id AND am.user_id = auth.uid()
+    )
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_artist(artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "artist_private_data: admin all" ON public.artist_private_data;
+CREATE POLICY "artist_private_data: admin all" ON public.artist_private_data
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- artist_members
+DROP POLICY IF EXISTS "artist_members: admin all" ON public.artist_members;
+CREATE POLICY "artist_members: admin all" ON public.artist_members
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- Finance / billing / documents
+DROP POLICY IF EXISTS "artist_invoices: admin all" ON public.artist_invoices;
+CREATE POLICY "artist_invoices: admin all" ON public.artist_invoices
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_billing_profiles: admin all" ON public.artist_billing_profiles;
+CREATE POLICY "artist_billing_profiles: admin all" ON public.artist_billing_profiles
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_documents: admin all" ON public.artist_documents;
+CREATE POLICY "artist_documents: admin all" ON public.artist_documents
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- Metrics / streaming
+DROP POLICY IF EXISTS "streaming_stats: admin all" ON public.streaming_stats;
+CREATE POLICY "streaming_stats: admin all" ON public.streaming_stats
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_territory_metrics: admin all" ON public.artist_territory_metrics;
+CREATE POLICY "artist_territory_metrics: admin all" ON public.artist_territory_metrics
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_listener_metrics: admin all" ON public.artist_listener_metrics;
+CREATE POLICY "artist_listener_metrics: admin all" ON public.artist_listener_metrics
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "spotify_track_play_snapshots: admin all" ON public.spotify_track_play_snapshots;
+CREATE POLICY "spotify_track_play_snapshots: admin all" ON public.spotify_track_play_snapshots
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "sales_statement_line_items: admin all" ON public.sales_statement_line_items;
+CREATE POLICY "sales_statement_line_items: admin all" ON public.sales_statement_line_items
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1
+      FROM public.sales_statements ss
+      WHERE ss.id = statement_id
+        AND public.user_can_access_artist(ss.artist_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1
+      FROM public.sales_statements ss
+      WHERE ss.id = statement_id
+        AND public.user_can_access_artist(ss.artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "event_impact: admin all" ON public.event_impact;
+CREATE POLICY "event_impact: admin all" ON public.event_impact
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "promo_impact: admin all" ON public.promo_impact;
+CREATE POLICY "promo_impact: admin all" ON public.promo_impact
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "page_events: admin all" ON public.page_events;
+CREATE POLICY "page_events: admin all" ON public.page_events
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND artist_id IS NOT NULL
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND artist_id IS NOT NULL
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "merch_orders: admin all" ON public.merch_orders;
+CREATE POLICY "merch_orders: admin all" ON public.merch_orders
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "release_checklists: admin all" ON public.release_checklists;
+CREATE POLICY "release_checklists: admin all" ON public.release_checklists
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- Label ↔ artist messages
+DROP POLICY IF EXISTS "label_messages: admin all" ON public.label_messages;
+CREATE POLICY "label_messages: admin all" ON public.label_messages
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "message_attachments: admin all" ON public.message_attachments;
+CREATE POLICY "message_attachments: admin all" ON public.message_attachments
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND EXISTS (
+      SELECT 1
+      FROM public.label_messages lm
+      WHERE lm.id = message_id
+        AND public.user_can_access_artist(lm.artist_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND EXISTS (
+      SELECT 1
+      FROM public.label_messages lm
+      WHERE lm.id = message_id
+        AND public.user_can_access_artist(lm.artist_id)
+    )
+  );
+
+-- Portal mailbox
+DROP POLICY IF EXISTS "portal_msg_folders: admin all" ON public.portal_message_folders;
+CREATE POLICY "portal_msg_folders: admin all" ON public.portal_message_folders
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "portal_messages: admin all" ON public.portal_messages;
+CREATE POLICY "portal_messages: admin all" ON public.portal_messages
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND (
+      public.user_can_access_artist(from_artist_id)
+      OR (to_artist_id IS NOT NULL AND public.user_can_access_artist(to_artist_id))
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(from_artist_id)
+  );
+
+DROP POLICY IF EXISTS "portal_attach: admin all" ON public.portal_message_attachments;
+CREATE POLICY "portal_attach: admin all" ON public.portal_message_attachments
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND EXISTS (
+      SELECT 1
+      FROM public.portal_messages pm
+      WHERE pm.id = message_id
+        AND (
+          public.user_can_access_artist(pm.from_artist_id)
+          OR (pm.to_artist_id IS NOT NULL AND public.user_can_access_artist(pm.to_artist_id))
+        )
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND EXISTS (
+      SELECT 1
+      FROM public.portal_messages pm
+      WHERE pm.id = message_id
+        AND public.user_can_access_artist(pm.from_artist_id)
+    )
+  );
+
+-- EPK / landing pages (admin + editor staff paths)
+DROP POLICY IF EXISTS "artist_epks: admin all" ON public.artist_epks;
+CREATE POLICY "artist_epks: admin all" ON public.artist_epks
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "epk_versions: admin all" ON public.epk_versions;
+CREATE POLICY "epk_versions: admin all" ON public.epk_versions
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_landing_pages: admin all" ON public.artist_landing_pages;
+CREATE POLICY "artist_landing_pages: admin all" ON public.artist_landing_pages
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_landing_pages: editor+ read all" ON public.artist_landing_pages;
+CREATE POLICY "artist_landing_pages: editor+ read all" ON public.artist_landing_pages
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_landing_pages: editor+ update" ON public.artist_landing_pages;
+CREATE POLICY "artist_landing_pages: editor+ update" ON public.artist_landing_pages
+  FOR UPDATE USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "epk_fonts: admin all" ON public.epk_fonts;
+CREATE POLICY "epk_fonts: admin all" ON public.epk_fonts
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND (
+      (artist_id IS NOT NULL AND public.user_can_access_artist(artist_id))
+      OR (
+        artist_id IS NULL
+        AND public.user_can_access_organization('00000000-0000-0000-0000-000000000000'::uuid)
+      )
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND (
+      (artist_id IS NOT NULL AND public.user_can_access_artist(artist_id))
+      OR (
+        artist_id IS NULL
+        AND public.user_can_access_organization('00000000-0000-0000-0000-000000000000'::uuid)
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "epk_share_links: admin all" ON public.epk_share_links;
+CREATE POLICY "epk_share_links: admin all" ON public.epk_share_links
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "epk_download_events: admin all" ON public.epk_download_events;
+CREATE POLICY "epk_download_events: admin all" ON public.epk_download_events
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- Nested staff RLS via user_can_access_artist

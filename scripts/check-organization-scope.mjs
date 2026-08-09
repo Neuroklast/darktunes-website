@@ -193,6 +193,9 @@ const REQUIRED = [
       'settlement_periods: admin all',
       'sales_statements: admin all',
       'user_can_access_organization',
+      'user_can_access_artist',
+      'artist_invoices: admin all',
+      'label_messages: admin all',
     ],
   },
 ]

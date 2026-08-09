@@ -6,7 +6,7 @@ UI data originates from Supabase. After writes, invalidate ISR via the relevant 
 
 **Tenant brand:** `site_settings.label_name` + `label_short_name` (CMS). Code reads via `getBrandContext()` / `resolveBrandFromSettings()` in `src/lib/brand/`. Bootstrap when DB is empty: `TENANT_*` env vars → `SITE_SETTINGS_DEFAULTS` (neutral fallbacks only in TypeScript). No hardcoded tenant names in `app/` or `src/` — enforced by `npm run check:brand`.
 
-**Multi-tenant SaaS (organizations):** Label isolation uses `organization_id` (Org #0 = darkTunes). Host resolution, DAL scoping, cache tags, and Stripe are documented in [multi-tenant.md](multi-tenant.md). Program branch: `feat/multi-tenant-saas`.
+**Multi-tenant SaaS (organizations):** Label isolation uses `organization_id` (Org #0 = darkTunes). Host resolution, DAL scoping, cache tags, and Stripe are documented in [multi-tenant.md](multi-tenant.md). Program branch: `feat/multi-tenant-saas`. Staff JWT isolation: `user_can_access_organization(org_id)` on org-column tables; nested `user_can_access_artist(artist_id)` on artist-scoped finance/messages/metrics/EPK admin policies.
 
 `unstable_cache` callbacks must use a **cookie-free** anon client — never `createServerSupabaseClient()` (calls `cookies()`). See `AGENTS.md`.
 

@@ -95,7 +95,7 @@ Never take `darktunes.com` offline for SaaS launch.
 | 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
 | 2 | Host context in `proxy.ts` | Done — DB slug/custom-domain lookup; suspended gate; `MULTI_TENANT_STRICT_HOSTS` |
 | 3 | DAL/API `organization_id` batches | Stronger — site_settings + **portal_feature_flags** + feature toggles + settlement periods + message templates + Sales Statements + CMS + File Explorer/EPK + storage + feedback; platform KV on Org #0 |
-| 4 | Membership + RLS hardening | Portal + admin host-org auth; **`user_can_access_organization`** on staff CMS + assets + sync_queue + release_submissions + **Sales Statement / settlement / flags** + **nested** sales_statements / ledger / carry-forwards via `artists.organization_id` |
+| 4 | Membership + RLS hardening | Portal + admin host-org auth; **`user_can_access_organization`** + nested **`user_can_access_artist`** for staff paths on CMS, assets, sync, Sales Statement/settlement, finance (invoices/billing/docs/PII), metrics, label/portal messages, EPK |
 | 5 | Cache tags + R2 prefixes | Stronger — public caches org-keyed; tenant keys + dual-read; **sync cover-art** uses `createSyncUploadFn(…, job.organizationId)` |
 | 6 | Cron/sync/credentials per org | Sync queue multi-org enqueue + **staff RLS on sync_queue**; execute job-org credentials; manual `/api/sync/artist` host-org gated |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |
