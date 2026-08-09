@@ -10,6 +10,7 @@ import { getTourArtistFinance, upsertTourArtistFinance } from '@/lib/api/tourArt
 import { getPerformingArtistIdsByStopIds } from '@/lib/api/tourStopPerformingArtists'
 import { getStopPrivateData } from '@/lib/api/tourStopPrivate'
 import type { TourAccessRole } from '@/lib/api/tourAccess'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type TourRow = Database['public']['Tables']['tours']['Row']
@@ -133,6 +134,69 @@ export async function getTourById(db: DbClient, tourId: string): Promise<Tour | 
   const { data, error } = await db.from('tours').select('*').eq('id', tourId).maybeSingle()
   if (error) throw new Error(error.message)
   return data ? rowToTour(data) : null
+}
+
+/**
+ * Load a tour only if its owning artist belongs to the organization.
+ * Tours have no organization_id column — isolation is via artists.
+ */
+export async function getTourByIdForOrganization(
+  db: DbClient,
+  tourId: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Tour | null> {
+  const tour = await getTourById(db, tourId)
+  if (!tour) return null
+
+  const { data: artist, error } = await db
+    .from('artists')
+    .select('id, organization_id')
+    .eq('id', tour.artistId)
+    .maybeSingle()
+
+  if (error) {
+    // Pre-schema: allow tour without org check
+    return tour
+  }
+  if (!artist) return null
+  if (artist.organization_id && artist.organization_id !== organizationId) {
+    return null
+  }
+  return tour
+}
+
+/**
+ * Admin-style tour list for all artists in an organization.
+ */
+export async function listToursForOrganization(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+  includeArchived = false,
+): Promise<Tour[]> {
+  const { data: orgArtists, error: artistsError } = await db
+    .from('artists')
+    .select('id')
+    .eq('organization_id', organizationId)
+
+  if (artistsError) {
+    // Fallback unscoped if column missing
+    let query = db.from('tours').select('*')
+    if (!includeArchived) query = query.eq('archived', false)
+    const { data, error } = await query.order('sort_order', { ascending: true })
+    if (error) throw new Error(error.message)
+    return (data ?? []).map(rowToTour)
+  }
+
+  const artistIds = (orgArtists ?? []).map((a) => a.id)
+  if (artistIds.length === 0) return []
+
+  let query = db.from('tours').select('*').in('artist_id', artistIds)
+  if (!includeArchived) {
+    query = query.eq('archived', false)
+  }
+  const { data, error } = await query.order('sort_order', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(rowToTour)
 }
 
 export async function createTour(db: DbClient, data: TourInsert): Promise<Tour> {

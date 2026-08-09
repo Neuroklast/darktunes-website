@@ -124,8 +124,6 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     { auth: { persistSession: false } },
   )
 
-  const syncCredentials = await getSyncCredentials(db)
-
   // Await so health UI never loses the kick (void + early alreadyRunning return
   // previously dropped heartbeats when the isolate froze after the response).
   await recordHealthHeartbeat(db, 'sync_execute')
@@ -146,6 +144,20 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
 
   const siteOrigin = resolveExecutorSiteOrigin(request.url)
   const canSelfChain = Boolean(siteOrigin && authHeader.startsWith('Bearer '))
+
+  /** Per-org credentials cache for this drain (avoids reload every job). */
+  const credentialsByOrg = new Map<
+    string,
+    Awaited<ReturnType<typeof getSyncCredentials>>
+  >()
+
+  async function credentialsForOrg(organizationId: string) {
+    const existing = credentialsByOrg.get(organizationId)
+    if (existing) return existing
+    const creds = await getSyncCredentials(db, organizationId)
+    credentialsByOrg.set(organizationId, creds)
+    return creds
+  }
 
   waitUntil(
     (async () => {
@@ -177,6 +189,7 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
           }
 
           try {
+            const syncCredentials = await credentialsForOrg(job.organizationId)
             const tags = await processSyncJob(db, job, uploadFn, syncCredentials)
             // processSyncJob finalises via markSyncJobDone/rescheduleSyncJob, both
             // of which honour cancel_requested_at. Re-check so we never leave a

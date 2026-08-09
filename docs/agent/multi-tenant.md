@@ -94,7 +94,7 @@ Never take `darktunes.com` offline for SaaS launch.
 | 3 | DAL/API `organization_id` batches | Partial — public + admin CMS list/create (artists/releases/news/videos/concerts), genres/assets/submissions/sync/SOS admin list |
 | 4 | Membership + RLS hardening | Portal + **admin request auth** binds host org (`assertAdminOrganizationAccess`; Org #0 legacy allow) |
 | 5 | Cache tags + R2 prefixes | Partial — public catalog caches org-keyed; R2 helper only |
-| 6 | Cron/sync/credentials per org | Partial — sync queue multi-org; **api_credentials / getExternalCredentials** per org cache; admin credential routes use request org |
+| 6 | Cron/sync/credentials per org | Sync queue multi-org enqueue; **execute uses job.organizationId credentials**; manual `/api/sync/artist` host-org gated; credentials API per org |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |
 | 8 | Stripe + provisioning | Done (env-gated) |
 | 9 | Onboarding / assistenz | Partial — register flow ported |

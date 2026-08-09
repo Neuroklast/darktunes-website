@@ -26,6 +26,7 @@ export type SyncJobStatus = 'pending' | 'running' | 'done' | 'failed' | 'cancell
 
 export interface SyncJob {
   id: string
+  organizationId: string
   artistId: string | null
   artistName: string | null
   jobType: SyncJobType
@@ -103,6 +104,7 @@ function rowToSyncJob(
 ): SyncJob {
   return {
     id: row.id,
+    organizationId: row.organization_id ?? DEFAULT_ORGANIZATION_ID,
     artistId: row.artist_id ?? null,
     artistName,
     jobType: (row.job_type as SyncJobType) ?? 'full',
