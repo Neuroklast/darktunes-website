@@ -4,6 +4,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 
@@ -104,21 +105,37 @@ export async function getPageEngagementStats(
   }
 }
 
-export async function getLabelPageEngagementStats(db: DbClient): Promise<LabelPageEngagementStats> {
+export async function getLabelPageEngagementStats(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<LabelPageEngagementStats> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString()
 
-  const [eventsRes, artistsRes] = await Promise.all([
-    db
-      .from('page_events')
-      .select('artist_id, event_type, created_at')
-      .not('artist_id', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(10000),
-    db.from('artists').select('id, name'),
-  ])
+  const artistsRes = await db
+    .from('artists')
+    .select('id, name')
+    .eq('organization_id', organizationId)
+  if (artistsRes.error) throw new Error(artistsRes.error.message)
+
+  const orgArtistIds = new Set((artistsRes.data ?? []).map((a) => a.id))
+  if (orgArtistIds.size === 0) {
+    return {
+      totalViews: 0,
+      last30DaysViews: 0,
+      shopClicks: 0,
+      topArtists: [],
+    }
+  }
+
+  const eventsRes = await db
+    .from('page_events')
+    .select('artist_id, event_type, created_at')
+    .not('artist_id', 'is', null)
+    .in('artist_id', [...orgArtistIds])
+    .order('created_at', { ascending: false })
+    .limit(10000)
 
   if (eventsRes.error) throw new Error(eventsRes.error.message)
-  if (artistsRes.error) throw new Error(artistsRes.error.message)
 
   const artistNames = new Map((artistsRes.data ?? []).map((a) => [a.id, a.name]))
   const viewsByArtist = new Map<string, number>()
@@ -128,7 +145,7 @@ export async function getLabelPageEngagementStats(db: DbClient): Promise<LabelPa
   let shopClicks = 0
 
   for (const row of eventsRes.data ?? []) {
-    if (!row.artist_id) continue
+    if (!row.artist_id || !orgArtistIds.has(row.artist_id)) continue
     if (row.event_type === 'page_view') {
       totalViews += 1
       viewsByArtist.set(row.artist_id, (viewsByArtist.get(row.artist_id) ?? 0) + 1)

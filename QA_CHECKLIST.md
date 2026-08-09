@@ -59,6 +59,9 @@
 - [ ] Non-platform label admin cannot SELECT/UPDATE Host B organization rows or `platform_admins`
 - [ ] Financial audit feed on Host A never shows Host B settlement/invoice events
 - [ ] Apify Spotify sync on Host A only scrapes Host A roster and only increments Host A monthly budget
+- [ ] Cron/sync-trigger Apify run processes each active org (or skips empty pilots) without mixing budgets
+- [ ] Portal billing profile save stamps financial_audit_events with host organization_id
+- [ ] Admin analytics website engagement top-artists only includes host org artists
 - [ ] Press apply / promo pool / ZIP toggles follow host org flags and site feature_toggles
 - [ ] Sync for pilot org writes cover-art under `tenants/{orgId}/cover-art/…`; Org #0 stays flat
 - [ ] Staff JWT cannot list Host B sync_queue / release_submissions rows

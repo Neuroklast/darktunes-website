@@ -22,6 +22,10 @@ vi.mock('@/lib/portal/portalWriteClient', () => ({
   portalWriteWithCanary: portalWriteWithCanaryMock,
 }))
 
+vi.mock('@/lib/organizations/requestContext', () => ({
+  getRequestOrganizationId: vi.fn().mockResolvedValue('00000000-0000-0000-0000-000000000000'),
+}))
+
 async function load() {
   vi.resetModules()
   return import('./withPortalMembership')
@@ -52,11 +56,17 @@ describe('withPortalMembership', () => {
 
     const ctx = await withPortalMembership(req, 'artist-1')
 
-    expect(resolvePortalArtistMock).toHaveBeenCalledWith(userDb, 'user-1', 'artist-1')
+    expect(resolvePortalArtistMock).toHaveBeenCalledWith(
+      userDb,
+      'user-1',
+      'artist-1',
+      '00000000-0000-0000-0000-000000000000',
+    )
     expect(ctx).toMatchObject({
       token: 'tok',
       user,
       artist,
+      organizationId: '00000000-0000-0000-0000-000000000000',
       userDb,
       serviceDb,
     })
@@ -91,6 +101,7 @@ describe('portalMemberWrite', () => {
       token: 't',
       user: { id: 'user-1' },
       artist: { id: 'artist-1' },
+      organizationId: '00000000-0000-0000-0000-000000000000',
       userDb: { u: 1 },
       serviceDb: { s: 1 },
     } as unknown as import('./withPortalMembership').PortalMembershipContext

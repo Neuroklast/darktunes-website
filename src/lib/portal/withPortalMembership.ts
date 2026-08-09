@@ -28,6 +28,8 @@ export interface PortalMembershipContext {
   token: string
   user: User
   artist: Artist
+  /** Host organization for this portal request (multi-tenant). */
+  organizationId: string
   /** JWT-scoped client (auth.uid() set) — use for membership reads and canary user path */
   userDb: SupabaseClient<Database>
   /** Service-role client — canary default / privileged side effects */
@@ -75,6 +77,7 @@ export async function withPortalMembership(
     token,
     user,
     artist,
+    organizationId,
     userDb,
     serviceDb,
   }

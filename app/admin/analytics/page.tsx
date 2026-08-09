@@ -47,7 +47,7 @@ async function AnalyticsContent() {
     })),
     getAllJournalistDownloads(supabase, 2000, organizationId).catch(() => []),
     listRecentFinancialAuditEvents(supabase, 150, organizationId).catch(() => []),
-    getLabelPageEngagementStats(supabase).catch(() => ({
+    getLabelPageEngagementStats(supabase, organizationId).catch(() => ({
       totalViews: 0,
       last30DaysViews: 0,
       shopClicks: 0,

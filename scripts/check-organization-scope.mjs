@@ -263,6 +263,18 @@ const REQUIRED = [
     file: 'src/lib/analytics/syncSpotifyPlayCounts.ts',
     markers: ['organizationId', 'DEFAULT_ORGANIZATION_ID'],
   },
+  {
+    file: 'app/api/admin/analytics/sync-spotify-plays/route.ts',
+    markers: ['listActiveOrganizations', 'organizationId', 'multiOrg'],
+  },
+  {
+    file: 'src/lib/portal/withPortalMembership.ts',
+    markers: ['organizationId', 'getRequestOrganizationId'],
+  },
+  {
+    file: 'src/lib/api/pageEvents.ts',
+    markers: ['organizationId', 'DEFAULT_ORGANIZATION_ID', 'organization_id'],
+  },
 ]
 
 const failures = []

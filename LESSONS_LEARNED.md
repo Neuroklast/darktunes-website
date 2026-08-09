@@ -33,6 +33,8 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Any `admin` role can manage all organizations / platform_admins | Gate org SaaS tables with `user_can_access_organization`; manage `platform_admins` only via SECURITY DEFINER `user_is_platform_admin()` (no RLS recursion) |
 | Video submissions admin list unscoped | Join `artists.organization_id` (or denormalize later); badge counts must use the same host filter |
 | Shared Apify monthly budget across labels | `apify_usage_months` PK must be `(organization_id, year_month)`; sync filters roster by host org |
+| Cron Apify only runs Org #0 | Fan-out `listActiveOrganizations` with shared wall-clock budget; admin UI stays host-scoped |
+| Portal financial audit defaults to Org #0 | `withPortalMembership` must expose `organizationId` from host context for stamps |
 | Financial audit trail is global | Stamp `organization_id` on insert; admin analytics list filters host org |
 | Stripe checkout trusts body `organizationId` without auth | Require session + membership/platform_admin (`assertBillingOrganizationAccess`); signup uses `/api/onboarding/register` |
 | One global sync uploadFn for multi-org drain | Create `createSyncUploadFn(…, job.organizationId)` per job so cover-art keys stay tenant-scoped |

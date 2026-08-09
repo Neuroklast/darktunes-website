@@ -97,14 +97,29 @@ Never take `darktunes.com` offline for SaaS launch.
 | 3 | DAL/API `organization_id` batches | Stronger — CMS/settings/flags/settlements/Sales Statements/media/mailbox/press/submissions + **financial_audit_events** + **apify_usage_months** |
 | 4 | Membership + RLS hardening | Staff org/artist helpers; press/promo/downloads; org SaaS tables; video/feedback/mailbox notes; platform_admins helper; Apify budget per org |
 | 5 | Cache tags + R2 prefixes | Stronger — public caches org-keyed; tenant keys + dual-read; **sync cover-art** uses `createSyncUploadFn(…, job.organizationId)` |
-| 6 | Cron/sync/credentials per org | Sync queue multi-org; **Apify Spotify plays** host-org budget + roster filter (cron → Org #0); staff RLS on sync_queue |
+| 6 | Cron/sync/credentials per org | Sync queue multi-org; **Apify Spotify plays** admin=host org, cron/sync-trigger=**fan-out active orgs** with wall budget; staff RLS on sync_queue |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |
 | 8 | Stripe + provisioning | Env-gated checkout membership; webhook logic in **`processStripeWebhookEvent`** (unit-tested: checkout activate, payment_failed, dedupe) |
 | 9 | Onboarding / assistenz | Partial — register flow ported |
 | 10 | Custom domains | DAL + admin API ported; full DNS ops TBD |
 | 11 | Platform ops console | Partial — `/admin/organizations` |
 | 12 | Isolation QA + pilots | Unit isolation + e2e + **`npm run check:organization-scope`** CI gate (marker audit) |
-| 13 | Cleanup | Partial — platform_admins no longer role-open; org table staff writes org-gated |
+| 13 | Cleanup | Partial — platform_admins helper; org SaaS writes gated; residual inventory below |
+
+## Residual isolation inventory (phase 13)
+
+| Item | Status | Notes |
+|------|--------|--------|
+| Apply `supabase/reset.sql` on staging/prod | **Ops** | Required before pilot hosts; all RLS/column expands land here |
+| Stripe live E2E (test keys + webhook forward) | Open | Checkout membership + `processStripeWebhookEvent` unit-covered |
+| Custom domain DNS verification ops | Partial | DAL + admin API; DNS checklist in DEPLOYMENT |
+| Platform super-admin UI polish | Partial | `/admin/organizations` exists |
+| Partner API / Believe multi-tenant | Later | Not core isolation |
+| Portal billing audit org stamp | Done | `ctx.organizationId` via `withPortalMembership` |
+| Apify cron multi-org fan-out | Done | `listActiveOrganizations` + per-org budget |
+| Public page_events label analytics | Done | Filtered via org artist id set |
+| `submission_form_schema` global catalogue | Keep | Label-agnostic form definition |
+| Global role tables (`users`, `role_permissions`) | Keep | Platform-wide; not per-label data |
 
 ## PR #417 port map
 

@@ -199,6 +199,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           entityId: profile.id,
           action: previous ? 'update' : 'create',
           actorId: ctx.user.id,
+          organizationId: ctx.organizationId,
           beforeData: toBillingProfileAuditSnapshot(previous),
           afterData: toBillingProfileAuditSnapshot(profile),
         }),
