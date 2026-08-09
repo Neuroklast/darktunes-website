@@ -73,6 +73,7 @@ Read the relevant file before working in that area:
 | Topic | File |
 |-------|------|
 | CI loop, docs maintenance, multi-agent | [workflow.md](docs/agent/workflow.md) |
+| Multi-tenant SaaS (organizations, hosts, Stripe) | [multi-tenant.md](docs/agent/multi-tenant.md) |
 | RSC/client, IoC, CQRS, naming, caching | [architecture.md](docs/agent/architecture.md) |
 | DAL, SSOT, ISR tags, R2 keys, DB schema | [data-and-schema.md](docs/agent/data-and-schema.md) |
 | Tailwind v4, a11y, modals, theme, Lenis | [frontend.md](docs/agent/frontend.md) |
