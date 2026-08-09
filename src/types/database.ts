@@ -3318,6 +3318,7 @@ export interface Database {
       }
       promo_tracks: {
         Row: {
+          organization_id: string
           id: string
           title: string
           artist_name: string
@@ -3335,6 +3336,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           title: string
           artist_name: string
@@ -3352,6 +3354,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           title?: string
           artist_name?: string
@@ -3380,6 +3383,7 @@ export interface Database {
       }
       journalist_applications: {
         Row: {
+          organization_id: string
           id: string
           user_id: string | null
           email: string
@@ -3394,6 +3398,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           user_id?: string | null
           email: string
@@ -3408,6 +3413,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           user_id?: string | null
           email?: string
@@ -3864,6 +3870,7 @@ export interface Database {
       }
       accreditation_requests: {
         Row: {
+          organization_id: string
           id: string
           journalist_id: string
           event_name: string
@@ -3876,6 +3883,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           journalist_id: string
           event_name: string
@@ -3888,6 +3896,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           journalist_id?: string
           event_name?: string

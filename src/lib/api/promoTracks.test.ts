@@ -29,6 +29,7 @@ function makeMockDb(data: unknown = null, error: unknown = null): DbClient {
 }
 
 const mockTrackRow: PromoTrackRow = {
+  organization_id: '00000000-0000-0000-0000-000000000000',
   id: 'track-uuid-1',
   title: 'Unreleased Banger',
   artist_name: 'darkArtist',

@@ -35,6 +35,7 @@ function makeMockDb(data: unknown = null, error: unknown = null): DbClient {
 }
 
 const mockApplicationRow: ApplicationRow = {
+  organization_id: '00000000-0000-0000-0000-000000000000',
   id: 'app-uuid-1',
   user_id: 'user-uuid-1',
   email: 'journalist@magazine.com',

@@ -48,6 +48,9 @@
 - [ ] Staff JWT cannot read Host B tour planner rows (tours/stops/crew/merch/finance)
 - [ ] Admin mailbox folders and rules are per host org; Host B rules do not fire on Host A messages
 - [ ] Admin inbox “from artists” list only includes artists of the host org
+- [ ] Promo tracks and press applications on Host A never appear on Host B admin/press surfaces
+- [ ] Journalist approved only on Host A cannot list Host B promo tracks (JWT RLS)
+- [ ] Accreditation requests are per host org; staff JWT cannot approve Host B rows
 - [ ] Press apply / promo pool / ZIP toggles follow host org flags and site feature_toggles
 - [ ] Sync for pilot org writes cover-art under `tenants/{orgId}/cover-art/…`; Org #0 stays flat
 - [ ] Staff JWT cannot list Host B sync_queue / release_submissions rows

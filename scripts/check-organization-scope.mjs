@@ -208,6 +208,22 @@ const REQUIRED = [
     file: 'src/lib/api/messageRules.ts',
     markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
   },
+  {
+    file: 'src/lib/api/promoTracks.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'src/lib/api/journalistApplications.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'src/lib/api/accreditations.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'app/api/journalist-applications/route.ts',
+    markers: ['organizationId', 'requireAdminFromRequest'],
+  },
 ]
 
 const failures = []

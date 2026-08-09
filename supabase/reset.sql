@@ -8826,3 +8826,149 @@ CREATE POLICY "message_rules: admin all" ON public.message_rules
   );
 
 -- Tour planner + mailbox folders/rules org isolation
+
+-- =============================================================================
+-- Press / promo isolation: organization_id expand + staff RLS
+-- =============================================================================
+
+ALTER TABLE public.promo_tracks ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.journalist_applications ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.accreditation_requests ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.promo_tracks
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+UPDATE public.journalist_applications
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+UPDATE public.accreditation_requests
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+ALTER TABLE public.promo_tracks ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.promo_tracks ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.journalist_applications ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.journalist_applications ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.accreditation_requests ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.accreditation_requests ALTER COLUMN organization_id SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_promo_tracks_organization_id ON public.promo_tracks (organization_id);
+CREATE INDEX IF NOT EXISTS idx_journalist_applications_organization_id ON public.journalist_applications (organization_id);
+CREATE INDEX IF NOT EXISTS idx_accreditation_requests_organization_id ON public.accreditation_requests (organization_id);
+
+-- Promo tracks: journalists only see tracks for orgs they were approved on; staff org-gated
+DROP POLICY IF EXISTS "promo_tracks: journalist read" ON public.promo_tracks;
+CREATE POLICY "promo_tracks: journalist read" ON public.promo_tracks
+  FOR SELECT USING (
+    (
+      public.get_my_role() = 'journalist'
+      AND EXISTS (
+        SELECT 1
+        FROM public.journalist_applications ja
+        WHERE ja.user_id = auth.uid()
+          AND ja.status = 'approved'
+          AND ja.organization_id = promo_tracks.organization_id
+      )
+    )
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "promo_tracks: admin all" ON public.promo_tracks;
+CREATE POLICY "promo_tracks: admin all" ON public.promo_tracks
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Journalist applications
+DROP POLICY IF EXISTS "journalist_applications: admin all" ON public.journalist_applications;
+CREATE POLICY "journalist_applications: admin all" ON public.journalist_applications
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Accreditation requests
+DROP POLICY IF EXISTS "accreditation_requests: admin all" ON public.accreditation_requests;
+CREATE POLICY "accreditation_requests: admin all" ON public.accreditation_requests
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Press kit staff writes via assets.organization_id (public read stays asset-flag based)
+DROP POLICY IF EXISTS "press_kit_items: can_view_admin_panel insert" ON public.press_kit_items;
+CREATE POLICY "press_kit_items: can_view_admin_panel insert" ON public.press_kit_items
+  FOR INSERT WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND EXISTS (
+      SELECT 1 FROM public.assets a
+      WHERE a.id = asset_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "press_kit_items: can_view_admin_panel update" ON public.press_kit_items;
+CREATE POLICY "press_kit_items: can_view_admin_panel update" ON public.press_kit_items
+  FOR UPDATE USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND EXISTS (
+      SELECT 1 FROM public.assets a
+      WHERE a.id = asset_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  ) WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND EXISTS (
+      SELECT 1 FROM public.assets a
+      WHERE a.id = asset_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "press_kit_items: can_view_admin_panel delete" ON public.press_kit_items;
+CREATE POLICY "press_kit_items: can_view_admin_panel delete" ON public.press_kit_items
+  FOR DELETE USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND EXISTS (
+      SELECT 1 FROM public.assets a
+      WHERE a.id = asset_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  );
+
+-- Interview requests: staff may manage rows for artists in their org
+DROP POLICY IF EXISTS "interview_requests: admin all" ON public.interview_requests;
+CREATE POLICY "interview_requests: admin all" ON public.interview_requests
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- Press / promo organization isolation

@@ -8,12 +8,13 @@
  * to this table. The actual stream URL is generated on-demand as a short-lived
  * presigned GET URL via a journalist-gated Server Action.
  *
- * RLS restricts SELECT to journalist and admin roles.
- * Only admins can insert/delete tracks.
+ * Scoped by organization_id (host label). RLS restricts SELECT to journalists
+ * approved for that org and staff with org access.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type PromoTrackRow = Database['public']['Tables']['promo_tracks']['Row']
@@ -64,11 +65,15 @@ function rowToPromoTrack(row: PromoTrackRow): PromoTrack {
   }
 }
 
-/** Fetches all promo tracks ordered by display_order ascending. */
-export async function getPromoTracks(db: DbClient): Promise<PromoTrack[]> {
+/** Fetches promo tracks for one organization, ordered by display_order. */
+export async function getPromoTracks(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<PromoTrack[]> {
   const { data, error } = await db
     .from('promo_tracks')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('display_order', { ascending: true })
 
   if (error) throw new Error(error.message)
@@ -76,24 +81,35 @@ export async function getPromoTracks(db: DbClient): Promise<PromoTrack[]> {
 }
 
 /**
- * Inserts a new promo track record.
+ * Inserts a new promo track record for the host organization.
  * Caller MUST be admin (enforced by RLS).
- * The r2_key is obtained from the presigned PUT upload flow.
- * Do NOT provide a public_url — the R2 bucket is private.
  */
 export async function createPromoTrack(
   db: DbClient,
   track: PromoTrackInsert,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<PromoTrack> {
-  const { data, error } = await db.from('promo_tracks').insert(track).select().single()
+  const payload: PromoTrackInsert = {
+    ...track,
+    organization_id: track.organization_id ?? organizationId,
+  }
+  const { data, error } = await db.from('promo_tracks').insert(payload).select().single()
 
   if (error) throw new Error(error.message)
   if (!data) throw new Error('No data returned from createPromoTrack')
   return rowToPromoTrack(data as PromoTrackRow)
 }
 
-/** Deletes a promo track record by ID. Caller MUST be admin (enforced by RLS). */
-export async function deletePromoTrack(db: DbClient, id: string): Promise<void> {
-  const { error } = await db.from('promo_tracks').delete().eq('id', id)
+/** Deletes a promo track by ID within an organization. */
+export async function deletePromoTrack(
+  db: DbClient,
+  id: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<void> {
+  const { error } = await db
+    .from('promo_tracks')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', organizationId)
   if (error) throw new Error(error.message)
 }

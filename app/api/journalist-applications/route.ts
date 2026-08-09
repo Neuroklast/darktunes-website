@@ -6,7 +6,6 @@
  */
 
 import { withErrorHandler, ApiError } from '@/lib/errors'
-import { getUserRoleWithClient } from '@/lib/getUserRole'
 import { type NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import {
@@ -15,6 +14,8 @@ import {
 } from '@/lib/api/journalistApplications'
 import { isPressApplicationsEnabled } from '@/lib/pressAccess'
 import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { z } from 'zod'
 import { checkRateLimit, getClientIp } from '@/lib/ipRateLimit'
 import { emitNotification } from '@/lib/notifications/emit'
@@ -26,18 +27,10 @@ const ApplySchema = z.object({
   message: z.string().optional(),
 })
 
-export const GET = withErrorHandler(async () => {
-  const supabase = await createServerSupabaseClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new ApiError(401, 'Unauthorized')
-
-  const role = await getUserRoleWithClient(supabase, user.id)
-  if (role !== 'admin') throw new ApiError(403, 'Forbidden')
-
+export const GET = withErrorHandler(async (req: NextRequest) => {
+  const { organizationId } = await requireAdminFromRequest(req)
   const db = await createServiceRoleSupabaseClient()
-  const applications = await getJournalistApplications(db)
+  const applications = await getJournalistApplications(db, organizationId)
   return NextResponse.json({ applications })
 })
 
@@ -51,7 +44,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const { email, name, outlet, message } = ApplySchema.parse(body)
 
   const db = await createServiceRoleSupabaseClient()
-  const organizationId = await getRequestOrganizationId().catch(() => undefined)
+  const organizationId =
+    (await getRequestOrganizationId().catch(() => undefined)) ?? DEFAULT_ORGANIZATION_ID
   const applicationsEnabled = await isPressApplicationsEnabled(db, organizationId)
   if (!applicationsEnabled) {
     throw new ApiError(403, 'Press applications are currently disabled', 'FEATURE_DISABLED')
@@ -62,13 +56,17 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const application = await createJournalistApplication(db, {
-    email,
-    name,
-    outlet,
-    message: message ?? null,
-    user_id: user?.id ?? null,
-  })
+  const application = await createJournalistApplication(
+    db,
+    {
+      email,
+      name,
+      outlet,
+      message: message ?? null,
+      user_id: user?.id ?? null,
+    },
+    organizationId,
+  )
 
   try {
     await emitNotification(db, {

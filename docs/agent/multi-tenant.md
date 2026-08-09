@@ -94,8 +94,8 @@ Never take `darktunes.com` offline for SaaS launch.
 | 0 | Docs, constants, env placeholders | Done |
 | 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
 | 2 | Host context in `proxy.ts` | Done — DB slug/custom-domain lookup; suspended gate; `MULTI_TENANT_STRICT_HOSTS` |
-| 3 | DAL/API `organization_id` batches | Stronger — site_settings + flags + settlements + **message_folders/rules** + message templates + Sales Statements + CMS + File Explorer/EPK + storage + feedback; platform KV on Org #0 |
-| 4 | Membership + RLS hardening | Portal + admin host-org auth; org helper + **`user_can_access_artist`** for CMS/assets/sync/finance/metrics/messages/EPK/**tour planner**/promo_log; mailbox folders/rules org-gated |
+| 3 | DAL/API `organization_id` batches | Stronger — CMS/settings/flags/settlements/Sales Statements/media + **message_folders/rules** + **promo_tracks** + **journalist_applications** + **accreditation_requests** |
+| 4 | Membership + RLS hardening | Staff org/artist helpers across CMS, finance, tour, mailbox, EPK; press kit staff via assets; promo journalist SELECT only for approved-org apps; interview_requests staff nested |
 | 5 | Cache tags + R2 prefixes | Stronger — public caches org-keyed; tenant keys + dual-read; **sync cover-art** uses `createSyncUploadFn(…, job.organizationId)` |
 | 6 | Cron/sync/credentials per org | Sync queue multi-org enqueue + **staff RLS on sync_queue**; execute job-org credentials; manual `/api/sync/artist` host-org gated |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |

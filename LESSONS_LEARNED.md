@@ -25,6 +25,8 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Staff bypass on `artist_private_data` via role alone | PII policies must require org/artist access, not only `get_my_role() IN ('admin','editor')` |
 | Tour planner admin policies query `users.role` only | Nest via `user_can_access_artist` (or tour → artist org) so Host A staff cannot open Host B logistics |
 | Mailbox folders/rules global across labels | `message_folders` / `message_rules` need `organization_id` + DAL filter; rule apply uses artist org |
+| Promo pool / press applications shared across labels | `promo_tracks`, `journalist_applications`, `accreditation_requests` need `organization_id`; journalist track SELECT should require approved app for that org |
+| Admin journalist APIs auth without host org | Use `requireAdminFromRequest` so list/approve is host-scoped, not global service-role dump |
 | Stripe checkout trusts body `organizationId` without auth | Require session + membership/platform_admin (`assertBillingOrganizationAccess`); signup uses `/api/onboarding/register` |
 | One global sync uploadFn for multi-org drain | Create `createSyncUploadFn(…, job.organizationId)` per job so cover-art keys stay tenant-scoped |
 | Calling the product “SOS” in user/docs copy | User-facing name is **Sales Statement**; `sos_*` code paths may stay for expand→migrate |
