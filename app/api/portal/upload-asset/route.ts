@@ -8,6 +8,7 @@ import type { Database } from '@/types/database'
 import { createR2Client, deleteObjectFromR2 } from '@/lib/r2Utils'
 import { createArtistAsset, deleteArtistAsset } from '@/lib/api/artistAssets'
 import { createAssetRecord } from '@/lib/api/assets'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { portalMemberWrite, withPortalMembershipWrite } from '@/lib/portal/withPortalMembership'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
 import { getClientIp } from '@/lib/ipRateLimit'
@@ -74,6 +75,7 @@ async function getOrCreateArtistFolder(
 async function getOrCreateLandingSubfolder(
   serviceRole: SupabaseClient<Database>,
   artistId: string,
+  organizationId: string,
 ): Promise<string | null> {
   const artistFolderId = await getOrCreateArtistFolder(serviceRole, artistId)
   if (!artistFolderId) return null
@@ -90,6 +92,7 @@ async function getOrCreateLandingSubfolder(
   const { data: created, error } = await serviceRole
     .from('asset_folders')
     .insert({
+      organization_id: organizationId,
       name: 'landing',
       parent_id: artistFolderId,
       artist_id: artistId,
@@ -109,8 +112,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const artistId = url.searchParams.get('artistId')
   const source = url.searchParams.get('source')
   const ctx = await withPortalMembershipWrite(req, artistId)
-  const { artist, user, serviceDb } = ctx
+  const { artist, user, serviceDb, userDb } = ctx
   const userId = user.id
+  const organizationId = await getRequestOrganizationId(userDb)
 
   const ip = getClientIp(req)
   const rl = await checkDistributedRateLimit(
@@ -174,7 +178,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     { route: ROUTE_POST, table: 'asset_folders', operation: 'select' },
     (db) =>
       isLandingUpload
-        ? getOrCreateLandingSubfolder(db, artist.id)
+        ? getOrCreateLandingSubfolder(db, artist.id, organizationId)
         : getOrCreateArtistFolder(db, artist.id),
   )
 
@@ -191,6 +195,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       { route: ROUTE_POST, table: 'assets', operation: 'insert' },
       (db) =>
         createAssetRecord(db, {
+          organization_id: organizationId,
           filename: file.name,
           original_filename: file.name,
           mime_type: file.type || 'application/octet-stream',

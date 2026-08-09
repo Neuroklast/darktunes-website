@@ -7045,6 +7045,10 @@ ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS organization_id UUID
   DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
 ALTER TABLE public.sync_queue ADD COLUMN IF NOT EXISTS organization_id UUID
   DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.asset_folders ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.epk_templates ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
 
 UPDATE public.artists SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 UPDATE public.releases SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
@@ -7055,6 +7059,8 @@ UPDATE public.release_submissions SET organization_id = '00000000-0000-0000-0000
 UPDATE public.genres SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 UPDATE public.assets SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 UPDATE public.sync_queue SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.asset_folders SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.epk_templates SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 
 ALTER TABLE public.artists ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
 ALTER TABLE public.artists ALTER COLUMN organization_id SET NOT NULL;
@@ -7074,6 +7080,10 @@ ALTER TABLE public.assets ALTER COLUMN organization_id SET DEFAULT '00000000-000
 ALTER TABLE public.assets ALTER COLUMN organization_id SET NOT NULL;
 ALTER TABLE public.sync_queue ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
 ALTER TABLE public.sync_queue ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.asset_folders ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.asset_folders ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.epk_templates ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.epk_templates ALTER COLUMN organization_id SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_artists_organization_id ON public.artists (organization_id);
 CREATE INDEX IF NOT EXISTS idx_releases_organization_id ON public.releases (organization_id);
@@ -7084,6 +7094,44 @@ CREATE INDEX IF NOT EXISTS idx_release_submissions_organization_id ON public.rel
 CREATE INDEX IF NOT EXISTS idx_genres_organization_id ON public.genres (organization_id);
 CREATE INDEX IF NOT EXISTS idx_assets_organization_id ON public.assets (organization_id);
 CREATE INDEX IF NOT EXISTS idx_sync_queue_organization_id ON public.sync_queue (organization_id);
+CREATE INDEX IF NOT EXISTS idx_asset_folders_organization_id ON public.asset_folders (organization_id);
+CREATE INDEX IF NOT EXISTS idx_epk_templates_organization_id ON public.epk_templates (organization_id);
+
+-- Folder name uniqueness is per organization (each label may have its own "artists" root).
+DROP INDEX IF EXISTS uq_asset_folders_name_parent;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_asset_folders_name_parent_org
+  ON public.asset_folders (organization_id, name, COALESCE(parent_id::text, ''));
+
+-- Artist insert → folder tree must land in the artist's organization.
+CREATE OR REPLACE FUNCTION public.create_artist_asset_folder()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
+DECLARE
+  v_root_id UUID;
+  v_org_id UUID;
+BEGIN
+  v_org_id := COALESCE(NEW.organization_id, '00000000-0000-0000-0000-000000000000'::uuid);
+
+  INSERT INTO public.asset_folders (name, parent_id, artist_id, created_by, organization_id)
+  VALUES ('artists', NULL, NULL, NULL, v_org_id)
+  ON CONFLICT DO NOTHING;
+
+  SELECT id INTO v_root_id
+  FROM public.asset_folders
+  WHERE name = 'artists'
+    AND parent_id IS NULL
+    AND organization_id = v_org_id
+  LIMIT 1;
+
+  INSERT INTO public.asset_folders (name, parent_id, artist_id, created_by, organization_id)
+  VALUES (NEW.name, v_root_id, NEW.id, NULL, v_org_id)
+  ON CONFLICT DO NOTHING;
+
+  RETURN NEW;
+END;
+$$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_artists_organization_slug ON public.artists (organization_id, slug);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_news_posts_organization_slug ON public.news_posts (organization_id, slug);

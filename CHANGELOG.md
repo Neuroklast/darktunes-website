@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Multi-tenant SaaS foundation (`feat/multi-tenant-saas`, PR #417 patterns):** Org schema + host proxy; public/admin CMS + **Sales Statements** (history, approve, settlement register) scoped via artists; credentials/sync/messages/press/assets; agent SSOT [`docs/agent/multi-tenant.md`](docs/agent/multi-tenant.md). Apply `reset.sql` on staging before multi-host pilots.
+- **Multi-tenant SaaS foundation (`feat/multi-tenant-saas`, PR #417 patterns):** Org schema + host proxy; public/admin CMS + Sales Statements + **File Explorer / admin upload / asset_folders / EPK templates** scoped by `organization_id`; credentials/sync/messages/press/assets; agent SSOT [`docs/agent/multi-tenant.md`](docs/agent/multi-tenant.md). Apply `reset.sql` on staging before multi-host pilots.
 - **PWA Web Push + app icon badge (portal + admin):** One-tap **Enable** banner (no technical setup for users). Subscriptions in `push_subscriptions`; per-event `notification_preferences.push`; `emitNotification` sends Web Push via VAPID/`web-push` when configured. Service worker handles `push` / `notificationclick` and Badging API. Deployer sets `NEXT_PUBLIC_VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` once (see `DEPLOYMENT.md` / `.env.example`). Preferences include device toggle + Push column.
 - **CI mobile layout contract:** `npm run check:mobile-layout` (`scripts/check-mobile-layout-contract.mjs`) in `ci:contracts` — bans CSS-only hide of ResizablePanelGroup, requires `useIsLg` on builder shells, full-bleed fan-page parity, footer touch targets. Unit tests for shells + footer.
 

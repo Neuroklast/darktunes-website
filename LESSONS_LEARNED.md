@@ -4,6 +4,14 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ---
 
+## Multi-tenant isolation
+
+| Anti-pattern | Rule |
+|--------------|------|
+| Client explorer selects assets without `organization_id` filter | Always filter + write `organization_id` from host context (`getClientOrganizationId` / `requireAdmin*FromRequest`) |
+| Hash dedupe or “artists” root folder shared across labels | Scope `getAssetByHash` and `asset_folders` uniqueness per org |
+| EPK templates treated as global CMS content | Templates are label-owned; DAL takes `organizationId` |
+
 ## Database & schema
 
 | Anti-pattern | Rule |

@@ -39,6 +39,7 @@ function makeMockDb(results: QueryResult[]): DbClient {
 }
 
 const folderRow: Database['public']['Tables']['asset_folders']['Row'] = {
+  organization_id: '00000000-0000-0000-0000-000000000000',
   id: 'folder-1',
   name: 'Press Kit',
   parent_id: null,

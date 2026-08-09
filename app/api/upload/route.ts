@@ -19,7 +19,7 @@ import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { extname } from 'path'
 import { createAssetRecord, getAssetByHash } from '@/lib/api/assets'
-import { extractBearerToken, verifyAdminOrEditor } from '@/lib/adminAuth'
+import { requireAdminOrEditorFromRequest } from '@/lib/adminAuth'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { createR2Client } from '@/lib/r2Utils'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
@@ -28,8 +28,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 const MAX_ADMIN_FILE_SIZE = 100 * 1024 * 1024
 
 export const POST = withErrorHandler(async (request: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(request.headers.get('authorization'))
-  const userId = await verifyAdminOrEditor(token)
+  const { userId, organizationId } = await requireAdminOrEditorFromRequest(request)
 
   let formData: FormData
   try {
@@ -68,13 +67,14 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     const { data: rootFolder } = await supabase
       .from('asset_folders')
       .select('id')
+      .eq('organization_id', organizationId)
       .eq('artist_id', artistId)
       .is('parent_id', null)
       .maybeSingle()
     if (rootFolder?.id) resolvedFolderId = rootFolder.id
   }
 
-  const existingAsset = await getAssetByHash(supabase, sha256Hash)
+  const existingAsset = await getAssetByHash(supabase, sha256Hash, organizationId)
   if (existingAsset) {
     return NextResponse.json({
       duplicate: true,
@@ -110,6 +110,7 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
   const publicUrl = `${serverEnv.CLOUDFLARE_R2_PUBLIC_URL.replace(/\/$/, '')}/${r2Key}`
   const filename = r2Key.split('/').pop() ?? r2Key
   const asset = await createAssetRecord(supabase, {
+    organization_id: organizationId,
     filename,
     original_filename: file.name,
     mime_type: mimeType,

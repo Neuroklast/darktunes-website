@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import type { AssetFolder } from '@/types'
 import type { Database } from '@/types/database'
 
@@ -17,21 +18,33 @@ function rowToFolder(row: FolderRow): AssetFolder {
   }
 }
 
-export async function getFolders(db: DbClient): Promise<AssetFolder[]> {
+export async function getFolders(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<AssetFolder[]> {
   const { data, error } = await db
     .from('asset_folders')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('name', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []).map(rowToFolder)
 }
 
-export async function getFoldersByParent(db: DbClient, parentId: string | null): Promise<AssetFolder[]> {
-  const query = db.from('asset_folders').select('*').order('name', { ascending: true })
+export async function getFoldersByParent(
+  db: DbClient,
+  parentId: string | null,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<AssetFolder[]> {
+  let query = db
+    .from('asset_folders')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .order('name', { ascending: true })
   if (parentId === null) {
-    query.is('parent_id', null)
+    query = query.is('parent_id', null)
   } else {
-    query.eq('parent_id', parentId)
+    query = query.eq('parent_id', parentId)
   }
   const { data, error } = await query
   if (error) throw new Error(error.message)
@@ -44,16 +57,18 @@ export async function createFolder(
   parentId: string | null,
   artistId: string | null,
   createdBy: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<AssetFolder> {
-  // Check for an existing folder with the same name in the same parent
-  const dupQuery = db
+  // Check for an existing folder with the same name in the same parent (same org)
+  let dupQuery = db
     .from('asset_folders')
     .select('id')
+    .eq('organization_id', organizationId)
     .eq('name', name)
   if (parentId === null) {
-    dupQuery.is('parent_id', null)
+    dupQuery = dupQuery.is('parent_id', null)
   } else {
-    dupQuery.eq('parent_id', parentId)
+    dupQuery = dupQuery.eq('parent_id', parentId)
   }
   const { data: existing } = await dupQuery.maybeSingle()
   if (existing) {
@@ -62,7 +77,13 @@ export async function createFolder(
 
   const { data, error } = await db
     .from('asset_folders')
-    .insert({ name, parent_id: parentId, artist_id: artistId, created_by: createdBy })
+    .insert({
+      name,
+      parent_id: parentId,
+      artist_id: artistId,
+      created_by: createdBy,
+      organization_id: organizationId,
+    })
     .select()
     .single()
   if (error) throw new Error(error.message)

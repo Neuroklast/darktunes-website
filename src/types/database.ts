@@ -1092,6 +1092,7 @@ export interface Database {
       }
       epk_templates: {
         Row: {
+          organization_id: string
           id: string
           name: string
           description: string | null
@@ -1102,6 +1103,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           description?: string | null
@@ -1112,6 +1114,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           description?: string | null
@@ -3026,6 +3029,7 @@ export interface Database {
       }
       asset_folders: {
         Row: {
+          organization_id: string
           id: string
           name: string
           parent_id: string | null
@@ -3035,6 +3039,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           parent_id?: string | null
@@ -3044,6 +3049,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           parent_id?: string | null

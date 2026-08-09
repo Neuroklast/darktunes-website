@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { batchDeleteAssets } from '@/lib/api/assets'
 import { deleteFolder, getFolders, moveFolder, renameFolder } from '@/lib/api/assetFolders'
-import { extractBearerToken, verifyPermission } from '@/lib/adminAuth'
+import { requireAdminOrEditorFromRequest } from '@/lib/adminAuth'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { collectDescendantFolderIds, deleteR2Objects, getAssetsInFolders } from '../../_utils'
@@ -26,8 +26,7 @@ function isDescendant(targetId: string, folderId: string, folders: Awaited<Retur
 }
 
 export const PATCH = withErrorHandler(async (request: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(request.headers.get('authorization'))
-  await verifyPermission(token, 'can_view_admin_panel')
+  const { organizationId } = await requireAdminOrEditorFromRequest(request)
 
   const id = extractId(request)
   if (!id) throw new ApiError(400, 'Missing folder id')
@@ -45,7 +44,7 @@ export const PATCH = withErrorHandler(async (request: NextRequest): Promise<Next
   if ('parentId' in body) {
     if (body.parentId === id) throw new ApiError(400, 'Folder cannot be moved into itself')
     if (body.parentId) {
-      const folders = await getFolders(supabase)
+      const folders = await getFolders(supabase, organizationId)
       if (isDescendant(body.parentId, id, folders)) {
         throw new ApiError(400, 'Folder cannot be moved into one of its descendants')
       }
@@ -59,8 +58,7 @@ export const PATCH = withErrorHandler(async (request: NextRequest): Promise<Next
 })
 
 export const DELETE = withErrorHandler(async (request: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(request.headers.get('authorization'))
-  await verifyPermission(token, 'can_view_admin_panel')
+  await requireAdminOrEditorFromRequest(request)
 
   const id = extractId(request)
   if (!id) throw new ApiError(400, 'Missing folder id')

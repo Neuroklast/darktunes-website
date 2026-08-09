@@ -220,7 +220,12 @@ export async function updateAsset(
     if (syncErr) throw new Error(syncErr.message)
     // Move into artist folder (single) or collabs under primary (multi)
     if (updates.artistIds.length > 0) {
-      await ensureArtistFolderPlacement(db, id, updates.artistIds)
+      await ensureArtistFolderPlacement(
+        db,
+        id,
+        updates.artistIds,
+        data.organization_id ?? DEFAULT_ORGANIZATION_ID,
+      )
       const { data: refreshed, error: refreshErr } = await db
         .from('assets')
         .select('*')
@@ -250,20 +255,21 @@ async function ensureArtistFolderPlacement(
   db: DbClient,
   assetId: string,
   artistIds: string[],
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<void> {
   if (artistIds.length === 0) return
 
   const primaryArtistId = artistIds[0]
   if (!primaryArtistId) return
 
-  const folderIdByArtist = await resolveArtistFolderIds(db, artistIds)
+  const folderIdByArtist = await resolveArtistFolderIds(db, artistIds, organizationId)
   const primaryFolderId = folderIdByArtist.get(primaryArtistId)
   if (!primaryFolderId) return
 
   let targetFolderId = primaryFolderId
 
   if (artistIds.length > 1) {
-    targetFolderId = await ensureCollabsSubfolder(db, primaryFolderId, primaryArtistId)
+    targetFolderId = await ensureCollabsSubfolder(db, primaryFolderId, primaryArtistId, organizationId)
   }
 
   const { error } = await db
@@ -273,10 +279,14 @@ async function ensureArtistFolderPlacement(
   if (error) throw new Error(error.message)
 }
 
-async function ensureArtistsRootFolder(db: DbClient): Promise<string> {
+async function ensureArtistsRootFolder(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<string> {
   const { data: existing } = await db
     .from('asset_folders')
     .select('id')
+    .eq('organization_id', organizationId)
     .eq('name', 'artists')
     .is('parent_id', null)
     .maybeSingle()
@@ -285,7 +295,13 @@ async function ensureArtistsRootFolder(db: DbClient): Promise<string> {
 
   const { data: created, error } = await db
     .from('asset_folders')
-    .insert({ name: 'artists', parent_id: null, artist_id: null, created_by: null })
+    .insert({
+      organization_id: organizationId,
+      name: 'artists',
+      parent_id: null,
+      artist_id: null,
+      created_by: null,
+    })
     .select('id')
     .single()
   if (error) throw new Error(error.message)
@@ -300,6 +316,7 @@ async function ensureArtistsRootFolder(db: DbClient): Promise<string> {
 async function resolveArtistFolderIds(
   db: DbClient,
   artistIds: string[],
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<Map<string, string>> {
   const result = new Map<string, string>()
   if (artistIds.length === 0) return result
@@ -307,6 +324,7 @@ async function resolveArtistFolderIds(
   const { data: folders, error } = await db
     .from('asset_folders')
     .select('id, artist_id, name, parent_id')
+    .eq('organization_id', organizationId)
     .in('artist_id', artistIds)
   if (error) throw new Error(error.message)
 
@@ -331,10 +349,11 @@ async function resolveArtistFolderIds(
   const missing = artistIds.filter((id) => !result.has(id))
   if (missing.length === 0) return result
 
-  const artistsRootId = await ensureArtistsRootFolder(db)
+  const artistsRootId = await ensureArtistsRootFolder(db, organizationId)
   const { data: artists, error: artistsErr } = await db
     .from('artists')
     .select('id, name')
+    .eq('organization_id', organizationId)
     .in('id', missing)
   if (artistsErr) throw new Error(artistsErr.message)
 
@@ -342,6 +361,7 @@ async function resolveArtistFolderIds(
     const { data: created, error: createErr } = await db
       .from('asset_folders')
       .insert({
+        organization_id: organizationId,
         name: artist.name,
         parent_id: artistsRootId,
         artist_id: artist.id,
@@ -355,6 +375,7 @@ async function resolveArtistFolderIds(
       const { data: racedRows } = await db
         .from('asset_folders')
         .select('id, name')
+        .eq('organization_id', organizationId)
         .eq('artist_id', artist.id)
       const raced = (racedRows ?? []).find((f) => f.name.toLowerCase() !== 'collabs')
       if (raced?.id) {
@@ -373,10 +394,12 @@ async function ensureCollabsSubfolder(
   db: DbClient,
   parentFolderId: string,
   artistId: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<string> {
   const { data: existing } = await db
     .from('asset_folders')
     .select('id')
+    .eq('organization_id', organizationId)
     .eq('parent_id', parentFolderId)
     .ilike('name', 'collabs')
     .maybeSingle()
@@ -386,6 +409,7 @@ async function ensureCollabsSubfolder(
   const { data: created, error } = await db
     .from('asset_folders')
     .insert({
+      organization_id: organizationId,
       name: 'collabs',
       parent_id: parentFolderId,
       artist_id: artistId,
@@ -398,6 +422,7 @@ async function ensureCollabsSubfolder(
     const { data: raced } = await db
       .from('asset_folders')
       .select('id')
+      .eq('organization_id', organizationId)
       .eq('parent_id', parentFolderId)
       .ilike('name', 'collabs')
       .maybeSingle()
@@ -408,8 +433,17 @@ async function ensureCollabsSubfolder(
   return created.id
 }
 
-export async function getAssetByHash(db: DbClient, hash: string): Promise<Asset | null> {
-  const { data, error } = await db.from('assets').select('*').eq('sha256_hash', hash).maybeSingle()
+export async function getAssetByHash(
+  db: DbClient,
+  hash: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Asset | null> {
+  const { data, error } = await db
+    .from('assets')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .eq('sha256_hash', hash)
+    .maybeSingle()
   if (error) throw new Error(error.message)
   return data ? rowToAsset(data) : null
 }

@@ -25,6 +25,12 @@
 - [ ] Inbox sort: Newest / Unread first / Subject A–Z change list order
 - [ ] Drag conversation onto a custom folder (or Trash) files/deletes the whole thread
 
+## Multi-tenant isolation (SaaS)
+- [ ] Host A File Explorer lists only Host A assets/folders; Host B never appears
+- [ ] Admin upload on Host A sets `assets.organization_id` for Host A; hash dedupe is per-org
+- [ ] EPK templates admin list/create is per host org; portal published templates match that org
+- [ ] Apply multi-tenant block of `supabase/reset.sql` (incl. `asset_folders` / `epk_templates` columns) on staging before pilot hosts
+
 ## Security
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)
 - [ ] Validate protected API endpoints reject missing/invalid authentication
