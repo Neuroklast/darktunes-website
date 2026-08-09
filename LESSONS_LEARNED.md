@@ -20,6 +20,9 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Portal feature flags as global `id` PK | Composite PK `(organization_id, id)`; seed catalog on `createOrganization`; portal/admin always pass host org |
 | Staff RLS only checks role, not organization | Use `user_can_access_organization(org_id)` on staff SELECT bypass + INSERT/UPDATE/DELETE for CMS and media tables |
 | Public SELECT “staff sees all” without org gate | Split: public visibility path OR (staff role AND org access) so Host B drafts never leak to Host A staff JWT |
+| Accounting tables have `organization_id` but admin policy is still role-only | Gate Sales Statement presets/workspaces/summaries/batches, settlement_periods, and flag writes the same way as CMS |
+| Artist-scoped finance rows (no org column) open to all staff | Nest admin policies via `EXISTS (artists … user_can_access_organization(a.organization_id))` |
+| Stripe checkout trusts body `organizationId` without auth | Require session + membership/platform_admin (`assertBillingOrganizationAccess`); signup uses `/api/onboarding/register` |
 | One global sync uploadFn for multi-org drain | Create `createSyncUploadFn(…, job.organizationId)` per job so cover-art keys stay tenant-scoped |
 | Calling the product “SOS” in user/docs copy | User-facing name is **Sales Statement**; `sos_*` code paths may stay for expand→migrate |
 | CI only stubs org isolation | `check:organization-scope` must fail when audited files lose markers |

@@ -69,9 +69,12 @@ Legacy `profiles.role` admin/editor maps to Org #0 membership during backfill.
 
 - Label pays the platform (Stripe Billing). Not Connect for fan payments.
 - Checkout + webhook patterns: port from PR #417 `app/api/stripe/*`.
-- Webhook handlers must be idempotent.
+- **Existing-org checkout** (`POST /api/stripe/checkout`): authenticated caller + `assertBillingOrganizationAccess` (platform_admin or `organization_users` row). No Org #0 free-pass — unlike staff CMS transitional access.
+- **New-label signup** (`POST /api/onboarding/register`): creates org (status `pending`) then optional Checkout session; no prior membership required.
+- Webhook handlers must be idempotent (`stripe_webhook_events` dedupe).
 - Plan slugs (PR #417): `starter` | `professional` | `business`.
 - Enforce limits server-side (`organizationHasFeature` / entitlements), not UI-only.
+- Manual E2E: test keys → register or member checkout → `checkout.session.completed` → subscription row + plan features + org `active`.
 
 ## Zero downtime for darkTunes
 
@@ -92,11 +95,11 @@ Never take `darktunes.com` offline for SaaS launch.
 | 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
 | 2 | Host context in `proxy.ts` | Done — DB slug/custom-domain lookup; suspended gate; `MULTI_TENANT_STRICT_HOSTS` |
 | 3 | DAL/API `organization_id` batches | Stronger — site_settings + **portal_feature_flags** + feature toggles + settlement periods + message templates + Sales Statements + CMS + File Explorer/EPK + storage + feedback; platform KV on Org #0 |
-| 4 | Membership + RLS hardening | Portal + admin host-org auth; **`user_can_access_organization`** on staff CMS + assets + **sync_queue** + **release_submissions** staff policies |
+| 4 | Membership + RLS hardening | Portal + admin host-org auth; **`user_can_access_organization`** on staff CMS + assets + sync_queue + release_submissions + **Sales Statement / settlement / flags** + **nested** sales_statements / ledger / carry-forwards via `artists.organization_id` |
 | 5 | Cache tags + R2 prefixes | Stronger — public caches org-keyed; tenant keys + dual-read; **sync cover-art** uses `createSyncUploadFn(…, job.organizationId)` |
 | 6 | Cron/sync/credentials per org | Sync queue multi-org enqueue + **staff RLS on sync_queue**; execute job-org credentials; manual `/api/sync/artist` host-org gated |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |
-| 8 | Stripe + provisioning | Done (env-gated) |
+| 8 | Stripe + provisioning | Env-gated; **`/api/stripe/checkout`** requires session + `assertBillingOrganizationAccess` (membership or platform_admin); open signup still via `/api/onboarding/register` |
 | 9 | Onboarding / assistenz | Partial — register flow ported |
 | 10 | Custom domains | DAL + admin API ported; full DNS ops TBD |
 | 11 | Platform ops console | Partial — `/admin/organizations` |

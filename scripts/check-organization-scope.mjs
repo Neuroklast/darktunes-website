@@ -178,6 +178,23 @@ const REQUIRED = [
     file: 'app/api/sync/artist/route.ts',
     markers: ['createSyncUploadFn', 'organizationId'],
   },
+  {
+    file: 'app/api/stripe/checkout/route.ts',
+    markers: ['assertBillingOrganizationAccess', 'organizationId'],
+  },
+  {
+    file: 'src/lib/stripe/assertBillingOrganizationAccess.ts',
+    markers: ['organization_users', 'platform_admins'],
+  },
+  {
+    file: 'supabase/reset.sql',
+    markers: [
+      'sos_rules_presets: admin all',
+      'settlement_periods: admin all',
+      'sales_statements: admin all',
+      'user_can_access_organization',
+    ],
+  },
 ]
 
 const failures = []

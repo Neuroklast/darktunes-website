@@ -7956,3 +7956,155 @@ CREATE POLICY "release_submissions: editor+ update" ON public.release_submission
   );
 
 -- sync_queue / release_submissions staff RLS
+
+-- =============================================================================
+-- Sales Statement / settlement / portal flags staff RLS (organization_id)
+-- Admin policies require user_can_access_organization. Artist-linked SELECT
+-- policies on distributor batches stay unchanged.
+-- =============================================================================
+
+-- Sales Statement rule presets
+DROP POLICY IF EXISTS "sos_rules_presets: admin all" ON public.sos_rules_presets;
+CREATE POLICY "sos_rules_presets: admin all" ON public.sos_rules_presets
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Sales Statement accounting workspaces
+DROP POLICY IF EXISTS "sos_accounting_workspaces: admin/editor all" ON public.sos_accounting_workspaces;
+CREATE POLICY "sos_accounting_workspaces: admin/editor all" ON public.sos_accounting_workspaces
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Sales Statement period summaries
+DROP POLICY IF EXISTS "sos_period_summaries: admin all" ON public.sos_period_summaries;
+CREATE POLICY "sos_period_summaries: admin all" ON public.sos_period_summaries
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Bronze import batches (Sales Statement chain-of-custody)
+DROP POLICY IF EXISTS "distributor_import_batches: admin all" ON public.distributor_import_batches;
+CREATE POLICY "distributor_import_batches: admin all" ON public.distributor_import_batches
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Settlement register periods
+DROP POLICY IF EXISTS "settlement_periods: admin all" ON public.settlement_periods;
+CREATE POLICY "settlement_periods: admin all" ON public.settlement_periods
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Portal feature flags: staff write limited to accessible orgs
+DROP POLICY IF EXISTS "portal_feature_flags: admin write" ON public.portal_feature_flags;
+CREATE POLICY "portal_feature_flags: admin write" ON public.portal_feature_flags
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Sales Statement / settlement / portal flags staff RLS
+
+-- =============================================================================
+-- Nested staff RLS: artist-scoped financial rows (via artists.organization_id)
+-- =============================================================================
+
+DROP POLICY IF EXISTS "sales_statements: admin all" ON public.sales_statements;
+CREATE POLICY "sales_statements: admin all" ON public.sales_statements
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = sales_statements.artist_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = sales_statements.artist_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "settlement_ledger: admin all" ON public.artist_settlement_ledger;
+CREATE POLICY "settlement_ledger: admin all" ON public.artist_settlement_ledger
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = artist_settlement_ledger.artist_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = artist_settlement_ledger.artist_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "carry_forwards: admin all" ON public.period_carry_forwards;
+CREATE POLICY "carry_forwards: admin all" ON public.period_carry_forwards
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = period_carry_forwards.artist_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = period_carry_forwards.artist_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  );
+
+-- Nested staff RLS (sales_statements / settlement ledger / carry-forwards)

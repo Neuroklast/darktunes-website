@@ -40,10 +40,14 @@
 - [ ] Editor tools toggle is per host org (disable on A does not disable editor on B)
 - [ ] Admin Feature Flags on Host A do not change Host B portal modules; new orgs get default flag catalog
 - [ ] Staff JWT cannot list Host B assets/folders/artists/releases/news via browser Supabase (RLS `user_can_access_organization`)
+- [ ] Staff JWT cannot read Host B Sales Statement presets/workspaces/batches/settlement periods
+- [ ] Staff JWT cannot read Host B `sales_statements` / settlement ledger (nested via `artists.organization_id`)
 - [ ] Press apply / promo pool / ZIP toggles follow host org flags and site feature_toggles
 - [ ] Sync for pilot org writes cover-art under `tenants/{orgId}/cover-art/…`; Org #0 stays flat
 - [ ] Staff JWT cannot list Host B sync_queue / release_submissions rows
-- [ ] Apply multi-tenant block of `supabase/reset.sql` (staff CMS + sync/submissions RLS) on staging before pilot hosts
+- [ ] Stripe: unauthenticated checkout → 401; non-member org id → 403; member/platform_admin → session URL when Stripe env set
+- [ ] Stripe webhook (test): `checkout.session.completed` upserts subscription + plan features + org `active`; event id replay is no-op
+- [ ] Apply multi-tenant block of `supabase/reset.sql` (staff CMS + Sales Statement/settlement + sync/submissions RLS) on staging before pilot hosts
 
 ## Security
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)
