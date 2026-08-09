@@ -5,6 +5,7 @@ import * as releasesApi from '@/lib/api/releases'
 import { logEditorActivity } from '@/lib/editorActivityLogger'
 import { revalidateContentCache } from '@/lib/admin/revalidateContentCache'
 import { waitForSyncQueueIdle } from '@/lib/sync/waitForSyncQueue'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import type { Release } from '@/types'
 import type { Database } from '@/types/database'
 import type { SyncAllResult } from '@/lib/sync/syncAll'
@@ -37,7 +38,7 @@ export function useReleases() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await releasesApi.getReleases(supabase)
+      const data = await releasesApi.getReleases(supabase, getClientOrganizationId())
       setReleases(data)
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
@@ -60,7 +61,10 @@ export function useReleases() {
   }, [supabase])
 
   const createRelease = async (data: ReleaseInsert): Promise<void> => {
-    const created = await releasesApi.createRelease(supabase, data)
+    const created = await releasesApi.createRelease(supabase, {
+      ...data,
+      organization_id: data.organization_id ?? getClientOrganizationId(),
+    })
     await logEditorActivity(supabase, {
       action: 'create',
       entityType: 'release',

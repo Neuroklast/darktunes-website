@@ -3,6 +3,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/env'
 import * as newsApi from '@/lib/api/news'
 import { logEditorActivity } from '@/lib/editorActivityLogger'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import type { NewsPost } from '@/types'
 import type { Database } from '@/types/database'
 
@@ -42,7 +43,7 @@ export function useNews() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await newsApi.getNewsPosts(supabase)
+      const data = await newsApi.getNewsPosts(supabase, getClientOrganizationId())
       setNews(data)
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
@@ -53,7 +54,10 @@ export function useNews() {
   }, [supabase])
 
   const createNewsPost = async (data: NewsInsert): Promise<void> => {
-    const created = await newsApi.createNewsPost(supabase, data)
+    const created = await newsApi.createNewsPost(supabase, {
+      ...data,
+      organization_id: data.organization_id ?? getClientOrganizationId(),
+    })
     await logEditorActivity(supabase, {
       action: 'create',
       entityType: 'news_post',

@@ -3,6 +3,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/env'
 import * as artistsApi from '@/lib/api/artists'
 import { logEditorActivity } from '@/lib/editorActivityLogger'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import type { Artist } from '@/types'
 import type { Database } from '@/types/database'
 
@@ -23,7 +24,7 @@ export function useArtists() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await artistsApi.getArtists(supabase)
+      const data = await artistsApi.getArtists(supabase, getClientOrganizationId())
       setArtists(data)
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
@@ -34,7 +35,10 @@ export function useArtists() {
   }, [supabase])
 
   const createArtist = async (data: ArtistInsert): Promise<Artist> => {
-    const createdArtist = await artistsApi.createArtist(supabase, data)
+    const createdArtist = await artistsApi.createArtist(supabase, {
+      ...data,
+      organization_id: data.organization_id ?? getClientOrganizationId(),
+    })
     await logEditorActivity(supabase, {
       action: 'create',
       entityType: 'artist',

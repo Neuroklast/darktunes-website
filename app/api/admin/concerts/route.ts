@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { withErrorHandler, ApiError } from '@/lib/errors'
-import { extractBearerToken, verifyAdminOrEditor } from '@/lib/adminAuth'
+import { requireAdminOrEditorFromRequest } from '@/lib/adminAuth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createConcert, updateConcert, deleteConcert, setConcertArtists } from '@/lib/api/concerts'
 
@@ -85,14 +85,24 @@ const updateSchema = z.object({
 })
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const userId = await verifyAdminOrEditor(token)
+  const { userId, organizationId } = await requireAdminOrEditorFromRequest(req)
 
   const body = createSchema.parse(await req.json())
   const supabase = await createServerSupabaseClient()
 
+  // Ensure artist belongs to this organization when schema is multi-tenant
+  const { data: artistRow } = await supabase
+    .from('artists')
+    .select('id, organization_id')
+    .eq('id', body.artistId)
+    .maybeSingle()
+  if (artistRow?.organization_id && artistRow.organization_id !== organizationId) {
+    throw new ApiError(403, 'Artist not in this organization')
+  }
+
   const concert = await createConcert(supabase, {
     artist_id: body.artistId,
+    organization_id: organizationId,
     event_name: body.eventName,
     concert_date: body.concertDate,
     event_time: body.concertTime ?? null,
@@ -120,8 +130,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 })
 
 export const PATCH = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdminOrEditor(token)
+  await requireAdminOrEditorFromRequest(req)
 
   const body = updateSchema.parse(await req.json())
   const supabase = await createServerSupabaseClient()
@@ -152,8 +161,7 @@ export const PATCH = withErrorHandler(async (req: NextRequest) => {
 })
 
 export const DELETE = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdminOrEditor(token)
+  await requireAdminOrEditorFromRequest(req)
 
   let id = req.nextUrl.searchParams.get('id')
   if (!id) {
