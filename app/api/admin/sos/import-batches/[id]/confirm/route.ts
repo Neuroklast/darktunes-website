@@ -47,6 +47,7 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
     batch.r2Key,
     s3,
     serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
+    organizationId,
   )
   if (computedHash !== normalizedHash) {
     await writeAppLog({

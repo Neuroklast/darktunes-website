@@ -140,6 +140,14 @@ const REQUIRED = [
     file: 'src/lib/health/heartbeats.ts',
     markers: ['organization_id', 'DEFAULT_ORGANIZATION_ID', 'organization_id,key'],
   },
+  {
+    file: 'src/lib/r2Utils.ts',
+    markers: ['resolveTenantObjectKeyCandidates', 'organizationId'],
+  },
+  {
+    file: 'app/api/upload-epk/route.ts',
+    markers: ['buildTenantObjectKey', 'organizationId'],
+  },
 ]
 
 const failures = []

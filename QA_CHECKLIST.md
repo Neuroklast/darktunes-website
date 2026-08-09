@@ -35,6 +35,8 @@
 - [ ] Host A admin Settings / public brand (label name, theme, legal pages) differ from Host B; Header/Footer use host org settings
 - [ ] Settlement periods list is per host org; locking one label’s period does not block another
 - [ ] Pilot label uploads land under `tenants/{orgId}/…` in R2; darkTunes Org #0 still uses flat keys
+- [ ] Sales Statement bronze reprocess/download/hash works for both legacy and tenants/ keys (dual-read)
+- [ ] Portal asset upload for pilot org stores tenant-prefixed `r2_key`
 - [ ] Editor tools toggle is per host org (disable on A does not disable editor on B)
 - [ ] Apply multi-tenant block of `supabase/reset.sql` (site_settings PK, settlement periods, folders, Sales Statement tables) on staging before pilot hosts
 

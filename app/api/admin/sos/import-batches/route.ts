@@ -73,7 +73,12 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   const batchId = randomUUID()
   const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_')
   const hashPrefix = file_hash?.slice(0, 12) ?? createHash('sha256').update(`${batchId}-${filename}`).digest('hex').slice(0, 12)
-  const r2Key = `sos-imports/${batchId}/${hashPrefix}_${safeName}`
+  const { buildTenantObjectKey } = await import('@/lib/organizations/r2Keys')
+  // Sales Statement bronze CSV archive (path prefix remains sos-imports for expand→migrate)
+  const r2Key = buildTenantObjectKey(
+    organizationId,
+    `sos-imports/${batchId}/${hashPrefix}_${safeName}`,
+  )
 
   await assertSettlementPeriodWritable(
     serviceSupabase,

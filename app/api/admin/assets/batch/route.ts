@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { batchDeleteAssets } from '@/lib/api/assets'
-import { extractBearerToken, verifyPermission } from '@/lib/adminAuth'
+import { requireAdminOrEditorFromRequest } from '@/lib/adminAuth'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { deleteR2Objects, getAssetsForDeletion } from '../_utils'
@@ -10,8 +10,7 @@ interface BatchDeleteBody {
 }
 
 export const DELETE = withErrorHandler(async (request: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(request.headers.get('authorization'))
-  await verifyPermission(token, 'can_view_admin_panel')
+  const { organizationId } = await requireAdminOrEditorFromRequest(request)
 
   const body = (await request.json()) as BatchDeleteBody
   const ids = body.ids?.filter((id): id is string => typeof id === 'string' && id.length > 0) ?? []
@@ -20,7 +19,7 @@ export const DELETE = withErrorHandler(async (request: NextRequest): Promise<Nex
   const supabase = await createServerSupabaseClient()
   const assets = await getAssetsForDeletion(supabase, ids)
 
-  await deleteR2Objects(assets)
+  await deleteR2Objects(assets, organizationId)
   await batchDeleteAssets(supabase, ids)
 
   return NextResponse.json({ success: true, deleted: assets.length })

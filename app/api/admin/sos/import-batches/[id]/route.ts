@@ -90,7 +90,12 @@ export const DELETE = withErrorHandler(async (req: NextRequest): Promise<NextRes
     serverEnv.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
   )
   try {
-    await deleteObjectFromR2(batch.r2Key, s3, serverEnv.CLOUDFLARE_R2_BUCKET_NAME)
+    await deleteObjectFromR2(
+      batch.r2Key,
+      s3,
+      serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
+      organizationId,
+    )
   } catch (err) {
     // best effort; do not block DB cleanup
     console.warn('[import-batches] R2 delete best-effort failed for batch', id, err)

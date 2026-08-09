@@ -45,7 +45,12 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   await updateImportBatchStatus(serviceSupabase, id, 'processing')
 
   try {
-    const csvContent = await downloadObjectFromR2(batch.r2Key, s3, serverEnv.CLOUDFLARE_R2_BUCKET_NAME)
+    const csvContent = await downloadObjectFromR2(
+      batch.r2Key,
+      s3,
+      serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
+      organizationId,
+    )
     const workspace = await getWorkspaceForPeriod(
       serviceSupabase,
       batch.periodStart,

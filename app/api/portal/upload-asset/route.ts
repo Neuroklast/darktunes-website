@@ -36,10 +36,15 @@ async function uploadAssetToR2(
   s3: S3Client,
   bucket: string,
   r2PublicUrl: string,
+  organizationId: string,
 ): Promise<{ key: string; url: string }> {
   const contentType = file.type || 'application/octet-stream'
   const ext = extFromMimeType(contentType)
-  const key = `artist-assets/${artistId}/${randomUUID()}.${ext}`
+  const { buildTenantObjectKey } = await import('@/lib/organizations/r2Keys')
+  const key = buildTenantObjectKey(
+    organizationId,
+    `artist-assets/${artistId}/${randomUUID()}.${ext}`,
+  )
 
   const buffer = Buffer.from(await file.arrayBuffer())
 
@@ -168,6 +173,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     s3,
     serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
     serverEnv.CLOUDFLARE_R2_PUBLIC_URL,
+    organizationId,
   )
 
   const isLandingUpload = source === 'landing'

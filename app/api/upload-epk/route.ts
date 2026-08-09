@@ -16,15 +16,16 @@
  * Returns: { r2Key, publicUrl }
  *
  * Note: Vercel's serverless body limit is 4.5 MB on Hobby and 50 MB on Pro.
- * SOS bronze CSVs use chunked multipart via /api/admin/sos/import-batches/* instead.
+ * Sales Statement bronze CSVs use chunked multipart via /api/admin/sos/import-batches/* instead.
  * Browser presigned PUT requires R2 bucket CORS (see DEPLOYMENT.md §3).
  */
 
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { extractBearerToken, verifyAdminOrEditor } from '@/lib/adminAuth'
+import { requireAdminOrEditorFromRequest } from '@/lib/adminAuth'
 import { ApiError, buildApiError, withErrorHandler } from '@/lib/errors'
+import { buildTenantObjectKey } from '@/lib/organizations/r2Keys'
 import { createR2Client } from '@/lib/r2Utils'
 
 const ALLOWED_CATEGORIES = ['press-photos', 'promo-tracks'] as const
@@ -35,9 +36,8 @@ function isAllowedCategory(v: string | null): v is EpkCategory {
 }
 
 export const POST = withErrorHandler(async (request: NextRequest): Promise<NextResponse> => {
-  // 1. Auth — admin only (EPK content is sensitive)
-  const token = extractBearerToken(request.headers.get('authorization'))
-  await verifyAdminOrEditor(token)
+  // 1. Auth — admin/editor for host organization (EPK content is sensitive)
+  const { organizationId } = await requireAdminOrEditorFromRequest(request)
 
   // 2. Parse form data
   let formData: FormData
@@ -76,9 +76,9 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     throw buildApiError('CONFIG_ERROR', 500)
   }
 
-  // 4. Upload to R2 server-side
+  // 4. Upload to R2 server-side (tenant-prefixed for non–Org-#0)
   const ext = file.name.split('.').pop() ?? 'bin'
-  const r2Key = `${category}/${randomUUID()}.${ext}`
+  const r2Key = buildTenantObjectKey(organizationId, `${category}/${randomUUID()}.${ext}`)
   const publicUrl = `${CLOUDFLARE_R2_PUBLIC_URL.replace(/\/$/, '')}/${r2Key}`
   const mimeType = file.type || 'application/octet-stream'
   const buffer = Buffer.from(await file.arrayBuffer())

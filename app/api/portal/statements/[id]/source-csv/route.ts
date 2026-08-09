@@ -13,6 +13,7 @@ import {
   getSalesStatementById,
 } from '@/lib/api/salesStatements'
 import { getImportBatchById } from '@/lib/api/distributorImportBatches'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { createR2Client, downloadObjectFromR2 } from '@/lib/r2Utils'
 
 const ROUTE = 'GET /api/portal/statements/[id]/source-csv'
@@ -68,7 +69,13 @@ export const GET = withErrorHandler(async (req: NextRequest): Promise<NextRespon
     serverEnv.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
   )
 
-  const csvText = await downloadObjectFromR2(batch.r2Key, s3, serverEnv.CLOUDFLARE_R2_BUCKET_NAME)
+  const organizationId = await getRequestOrganizationId(ctx.userDb).catch(() => undefined)
+  const csvText = await downloadObjectFromR2(
+    batch.r2Key,
+    s3,
+    serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
+    organizationId,
+  )
   const filename = filenameFromR2Key(batch.r2Key, batch.distributor)
 
   return new NextResponse(csvText, {

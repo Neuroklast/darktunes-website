@@ -165,43 +165,87 @@ export function createSyncUploadFn(
 
 /**
  * Deletes a single object from R2 by its key.
+ * When `organizationId` is set, tries dual-read key candidates (legacy + tenants/…).
  *
  * @param r2Key - The object key to delete (e.g. 'uploads/uuid.jpg')
  * @param s3    - Pre-configured S3Client for R2
  * @param bucket - R2 bucket name
+ * @param organizationId - Optional host org for dual-delete candidates
  */
 export async function deleteObjectFromR2(
   r2Key: string,
   s3: S3Client,
   bucket: string,
+  organizationId?: string,
 ): Promise<void> {
-  await s3.send(
-    new DeleteObjectCommand({
-      Bucket: bucket,
-      Key: r2Key,
-    }),
-  )
+  const { resolveTenantObjectKeyCandidates } = await import('@/lib/organizations/r2Keys')
+  const keys = organizationId
+    ? resolveTenantObjectKeyCandidates(organizationId, r2Key)
+    : [r2Key]
+
+  let lastErr: unknown
+  for (const key of keys) {
+    try {
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: bucket,
+          Key: key,
+        }),
+      )
+      // Delete is idempotent; attempt all candidates so dual-written objects are cleared
+    } catch (err) {
+      lastErr = err
+    }
+  }
+  // S3 DeleteObject is typically silent for missing keys; only rethrow if every call failed hard
+  if (lastErr && keys.length === 0) throw lastErr
+}
+
+async function getObjectResponse(
+  r2Key: string,
+  s3: S3Client,
+  bucket: string,
+  organizationId?: string,
+) {
+  const { resolveTenantObjectKeyCandidates } = await import('@/lib/organizations/r2Keys')
+  const keys = organizationId
+    ? resolveTenantObjectKeyCandidates(organizationId, r2Key)
+    : [r2Key]
+
+  let lastError: unknown
+  for (const key of keys) {
+    try {
+      const response = await s3.send(
+        new GetObjectCommand({
+          Bucket: bucket,
+          Key: key,
+        }),
+      )
+      if (response.Body) return { response, key }
+    } catch (err) {
+      lastError = err
+      if (!isNotFoundError(err)) throw err
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`R2 object not found: ${r2Key}`)
 }
 
 /**
  * Downloads an R2 object body as UTF-8 text (for bronze CSV re-processing).
+ * Optional organizationId enables dual-read (legacy + tenants/{org}/…).
  */
 export async function downloadObjectFromR2(
   r2Key: string,
   s3: S3Client,
   bucket: string,
+  organizationId?: string,
 ): Promise<string> {
-  const response = await s3.send(
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: r2Key,
-    }),
-  )
-
+  const { response, key } = await getObjectResponse(r2Key, s3, bucket, organizationId)
   if (!response.Body) {
-    throw new Error(`R2 object body empty: ${r2Key}`)
+    throw new Error(`R2 object body empty: ${key}`)
   }
-
   return response.Body.transformToString('utf-8')
 }
 
@@ -212,18 +256,12 @@ export async function downloadObjectBufferFromR2(
   r2Key: string,
   s3: S3Client,
   bucket: string,
+  organizationId?: string,
 ): Promise<Uint8Array> {
-  const response = await s3.send(
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: r2Key,
-    }),
-  )
-
+  const { response, key } = await getObjectResponse(r2Key, s3, bucket, organizationId)
   if (!response.Body) {
-    throw new Error(`R2 object body empty: ${r2Key}`)
+    throw new Error(`R2 object body empty: ${key}`)
   }
-
   return response.Body.transformToByteArray()
 }
 
@@ -234,16 +272,11 @@ export async function sha256HexFromR2Object(
   r2Key: string,
   s3: S3Client,
   bucket: string,
+  organizationId?: string,
 ): Promise<string> {
-  const response = await s3.send(
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: r2Key,
-    }),
-  )
-
+  const { response, key } = await getObjectResponse(r2Key, s3, bucket, organizationId)
   if (!response.Body) {
-    throw new Error(`R2 object body empty: ${r2Key}`)
+    throw new Error(`R2 object body empty: ${key}`)
   }
 
   const hash = createHash('sha256')

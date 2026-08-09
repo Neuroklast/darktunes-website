@@ -1,7 +1,12 @@
 import { createHash } from 'crypto'
 import { beforeEach, describe, it, expect, vi } from 'vitest'
-import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
-import { resetR2UploadConcurrencyForTests, uploadUrlToR2 } from './r2Utils'
+import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
+import {
+  downloadObjectFromR2,
+  resetR2UploadConcurrencyForTests,
+  uploadUrlToR2,
+} from './r2Utils'
 
 const IMAGE_BYTES = new Uint8Array([1, 2, 3])
 const EXPECTED_HASH = createHash('sha256').update(Buffer.from(IMAGE_BYTES)).digest('hex')
@@ -106,5 +111,36 @@ describe('uploadUrlToR2', () => {
     expect(url).toBe(`https://cdn.example.com/cover-art/${EXPECTED_HASH}.png`)
     expect(putAttempts).toBe(2)
     expect(fetchFn).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('downloadObjectFromR2 dual-read', () => {
+  it('tries legacy then tenants/ path for Org #0', async () => {
+    let calls = 0
+    const send = vi.fn().mockImplementation(async (command: unknown) => {
+      if (!(command instanceof GetObjectCommand)) throw new Error('unexpected')
+      calls += 1
+      if (calls === 1) {
+        const err = new Error('NotFound')
+        err.name = 'NotFound'
+        throw err
+      }
+      return {
+        Body: {
+          transformToString: async () => 'csv,data',
+        },
+      }
+    })
+    const s3 = { send } as unknown as S3Client
+    const text = await downloadObjectFromR2(
+      'sos-imports/b/file.csv',
+      s3,
+      'bucket',
+      DEFAULT_ORGANIZATION_ID,
+    )
+    expect(text).toBe('csv,data')
+    expect(send).toHaveBeenCalledTimes(2)
+    const secondKey = (send.mock.calls[1][0] as GetObjectCommand).input.Key
+    expect(secondKey).toBe(`tenants/${DEFAULT_ORGANIZATION_ID}/sos-imports/b/file.csv`)
   })
 })

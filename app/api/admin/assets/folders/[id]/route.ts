@@ -58,7 +58,7 @@ export const PATCH = withErrorHandler(async (request: NextRequest): Promise<Next
 })
 
 export const DELETE = withErrorHandler(async (request: NextRequest): Promise<NextResponse> => {
-  await requireAdminOrEditorFromRequest(request)
+  const { organizationId } = await requireAdminOrEditorFromRequest(request)
 
   const id = extractId(request)
   if (!id) throw new ApiError(400, 'Missing folder id')
@@ -67,7 +67,7 @@ export const DELETE = withErrorHandler(async (request: NextRequest): Promise<Nex
   const folderIds = await collectDescendantFolderIds(supabase, id)
   const assets = await getAssetsInFolders(supabase, folderIds)
 
-  await deleteR2Objects(assets)
+  await deleteR2Objects(assets, organizationId)
   await batchDeleteAssets(supabase, assets.map((asset) => asset.id))
   await deleteFolder(supabase, id)
 
