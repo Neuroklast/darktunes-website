@@ -12,6 +12,7 @@ import { withErrorHandler, ApiError } from '@/lib/errors'
 import { extractBearerToken, verifySyncTrigger } from '@/lib/adminAuth'
 import { isValidCronSecret } from '@/lib/cronAuth'
 import { enqueueArtistSyncJobs, getSyncQueueStats } from '@/lib/api/syncQueue'
+import { listActiveOrganizations } from '@/lib/api/listActiveOrganizations'
 import { recordHealthHeartbeat } from '@/lib/health/heartbeats'
 
 // Route-segment config: allow up to 300 seconds on Vercel Pro.
@@ -48,24 +49,61 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
   const { serverEnv } = await import('@/lib/env.server')
   const db = createServiceDb(serverEnv)
 
-  const { data: artists, error: artistsError } = await db
-    .from('artists')
-    .select('id')
-    .order('name', { ascending: true })
+  const orgs = await listActiveOrganizations(db)
+  let queued = 0
+  let total = 0
+  const perOrg: Array<{ organizationId: string; slug: string; total: number; queued: number }> =
+    []
 
-  if (artistsError) {
-    throw new ApiError(500, 'Failed to load artists: ' + artistsError.message)
+  for (const org of orgs) {
+    const { data: artists, error: artistsError } = await db
+      .from('artists')
+      .select('id')
+      .eq('organization_id', org.id)
+      .order('name', { ascending: true })
+
+    if (artistsError) {
+      // Column missing: fall back to unscoped list for Org #0 only
+      if (orgs.length === 1) {
+        const fallback = await db.from('artists').select('id').order('name', { ascending: true })
+        if (fallback.error) {
+          throw new ApiError(500, 'Failed to load artists: ' + fallback.error.message)
+        }
+        const artistIds = (fallback.data ?? []).map((a) => a.id)
+        const q = await enqueueArtistSyncJobs(db, artistIds, 'full', org.id)
+        queued += q
+        total += artistIds.length
+        perOrg.push({
+          organizationId: org.id,
+          slug: org.slug,
+          total: artistIds.length,
+          queued: q,
+        })
+        break
+      }
+      throw new ApiError(500, 'Failed to load artists: ' + artistsError.message)
+    }
+
+    const artistIds = (artists ?? []).map((a) => a.id)
+    const q = await enqueueArtistSyncJobs(db, artistIds, 'full', org.id)
+    queued += q
+    total += artistIds.length
+    perOrg.push({
+      organizationId: org.id,
+      slug: org.slug,
+      total: artistIds.length,
+      queued: q,
+    })
   }
 
-  const artistIds = (artists ?? []).map((a) => a.id)
-
-  const queued = await enqueueArtistSyncJobs(db, artistIds, 'full')
   await recordHealthHeartbeat(db, 'sync_queue')
 
   return NextResponse.json({
     queued,
-    total: artistIds.length,
-    message: queued + ' sync job(s) enqueued.',
+    total,
+    organizations: perOrg.length,
+    perOrg,
+    message: queued + ' sync job(s) enqueued across ' + perOrg.length + ' organization(s).',
   })
 })
 

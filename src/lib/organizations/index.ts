@@ -17,3 +17,8 @@ export {
   type RequestOrganizationContext,
 } from '@/lib/organizations/requestContext'
 export { orgTag, orgEntityTag } from '@/lib/organizations/cacheTags'
+export { assertAdminOrganizationAccess } from '@/lib/organizations/assertAdminOrganizationAccess'
+export {
+  lookupOrganizationForRequest,
+  isSuspendedOrgAllowedPath,
+} from '@/lib/organizations/lookupOrganization'
