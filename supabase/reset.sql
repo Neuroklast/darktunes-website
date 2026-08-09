@@ -7704,3 +7704,220 @@ CREATE POLICY "site_settings_public_read" ON public.site_settings
     ]::text[])
   );
 -- site_settings_public_read org gate
+
+-- =============================================================================
+-- CMS staff RLS: artists/releases/news/videos/concerts/genres
+-- Public SELECT stays open for visible content (app filters host org).
+-- Staff bypass paths require user_can_access_organization(organization_id).
+-- =============================================================================
+
+-- artists
+DROP POLICY IF EXISTS "artists: public read visible" ON public.artists;
+CREATE POLICY "artists: public read visible" ON public.artists
+  FOR SELECT USING (
+    is_visible = TRUE
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "artists: can_manage_artists insert" ON public.artists;
+CREATE POLICY "artists: can_manage_artists insert" ON public.artists
+  FOR INSERT WITH CHECK (
+    (public.has_permission('can_manage_artists') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "artists: can_manage_artists update" ON public.artists;
+CREATE POLICY "artists: can_manage_artists update" ON public.artists
+  FOR UPDATE USING (
+    (public.has_permission('can_manage_artists') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    (public.has_permission('can_manage_artists') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "artists: admin delete" ON public.artists;
+CREATE POLICY "artists: admin delete" ON public.artists
+  FOR DELETE USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- releases
+DROP POLICY IF EXISTS "releases: public read visible" ON public.releases;
+CREATE POLICY "releases: public read visible" ON public.releases
+  FOR SELECT USING (
+    (
+      is_visible = TRUE
+      AND (
+        artist_id IS NULL
+        OR EXISTS (
+          SELECT 1 FROM public.artists a
+          WHERE a.id = artist_id AND a.is_visible = TRUE
+        )
+      )
+    )
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "releases: can_manage_releases insert" ON public.releases;
+CREATE POLICY "releases: can_manage_releases insert" ON public.releases
+  FOR INSERT WITH CHECK (
+    (public.has_permission('can_manage_releases') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "releases: can_manage_releases update" ON public.releases;
+CREATE POLICY "releases: can_manage_releases update" ON public.releases
+  FOR UPDATE USING (
+    (public.has_permission('can_manage_releases') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    (public.has_permission('can_manage_releases') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "releases: admin delete" ON public.releases;
+CREATE POLICY "releases: admin delete" ON public.releases
+  FOR DELETE USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- news_posts
+DROP POLICY IF EXISTS "news_posts: public read" ON public.news_posts;
+CREATE POLICY "news_posts: public read" ON public.news_posts
+  FOR SELECT USING (
+    (
+      status IN ('published', 'scheduled')
+      AND published_at <= NOW()
+      AND is_press_only = false
+    )
+    OR (
+      (
+        public.has_permission('can_edit_news')
+        OR public.has_permission('can_publish_news')
+        OR public.get_my_role() IN ('admin', 'editor', 'journalist')
+      )
+      AND public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "news_posts: can_publish_news insert" ON public.news_posts;
+CREATE POLICY "news_posts: can_publish_news insert" ON public.news_posts
+  FOR INSERT WITH CHECK (
+    (public.has_permission('can_publish_news') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "news_posts: can_edit_news update" ON public.news_posts;
+CREATE POLICY "news_posts: can_edit_news update" ON public.news_posts
+  FOR UPDATE USING (
+    (public.has_permission('can_edit_news') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    (public.has_permission('can_edit_news') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "news_posts: admin delete" ON public.news_posts;
+CREATE POLICY "news_posts: admin delete" ON public.news_posts
+  FOR DELETE USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- videos
+DROP POLICY IF EXISTS "videos: public read" ON public.videos;
+CREATE POLICY "videos: public read" ON public.videos
+  FOR SELECT USING (
+    is_visible = TRUE
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "videos: can_manage_videos insert" ON public.videos;
+CREATE POLICY "videos: can_manage_videos insert" ON public.videos
+  FOR INSERT WITH CHECK (
+    (public.has_permission('can_manage_videos') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "videos: can_manage_videos update" ON public.videos;
+CREATE POLICY "videos: can_manage_videos update" ON public.videos
+  FOR UPDATE USING (
+    (public.has_permission('can_manage_videos') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    (public.has_permission('can_manage_videos') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "videos: admin delete" ON public.videos;
+CREATE POLICY "videos: admin delete" ON public.videos
+  FOR DELETE USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- concerts (staff admin policies; artist-own policies unchanged)
+DROP POLICY IF EXISTS "concerts: public read visible" ON public.concerts;
+CREATE POLICY "concerts: public read visible" ON public.concerts
+  FOR SELECT USING (
+    artist_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = artist_id AND a.is_visible = TRUE
+    )
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "Allow admin inserts on concerts" ON public.concerts;
+CREATE POLICY "Allow admin inserts on concerts" ON public.concerts
+  FOR INSERT WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "Allow admin updates on concerts" ON public.concerts;
+CREATE POLICY "Allow admin updates on concerts" ON public.concerts
+  FOR UPDATE USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "Allow admin deletes on concerts" ON public.concerts;
+CREATE POLICY "Allow admin deletes on concerts" ON public.concerts
+  FOR DELETE USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- genres catalogue
+DROP POLICY IF EXISTS "genres_write_admin" ON public.genres;
+CREATE POLICY "genres_write_admin" ON public.genres
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- CMS staff RLS: artists/releases/news/videos/concerts/genres

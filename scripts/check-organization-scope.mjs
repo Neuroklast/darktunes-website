@@ -158,7 +158,13 @@ const REQUIRED = [
   },
   {
     file: 'supabase/reset.sql',
-    markers: ['user_can_access_organization', 'user_belongs_to_organization'],
+    markers: [
+      'user_can_access_organization',
+      'user_belongs_to_organization',
+      'artists: can_manage_artists insert',
+      'releases: can_manage_releases insert',
+      'news_posts: can_publish_news insert',
+    ],
   },
   {
     file: 'src/lib/pressAccess.ts',

@@ -39,9 +39,9 @@
 - [ ] Portal asset upload for pilot org stores tenant-prefixed `r2_key`
 - [ ] Editor tools toggle is per host org (disable on A does not disable editor on B)
 - [ ] Admin Feature Flags on Host A do not change Host B portal modules; new orgs get default flag catalog
-- [ ] Staff JWT cannot list Host B assets/folders via browser Supabase client (RLS `user_can_access_organization`)
+- [ ] Staff JWT cannot list Host B assets/folders/artists/releases/news via browser Supabase (RLS `user_can_access_organization`)
 - [ ] Press apply / promo pool / ZIP toggles follow host org flags and site feature_toggles
-- [ ] Apply multi-tenant block of `supabase/reset.sql` (incl. staff RLS helper + asset/settings policies) on staging before pilot hosts
+- [ ] Apply multi-tenant block of `supabase/reset.sql` (incl. staff CMS RLS policies) on staging before pilot hosts
 
 ## Security
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)
