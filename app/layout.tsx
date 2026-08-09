@@ -60,15 +60,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   let organizationBranding = null
   try {
     organizationId = await getRequestOrganizationId()
-    organizationBranding = await getOrganizationBranding(
-      createPublicSupabaseClient(),
-      organizationId,
-    )
   } catch {
-    organizationBranding = null
+    organizationId = null
   }
 
-  const settings = await getCachedSiteSettings(organizationId ?? undefined).catch(() => null)
+  // Branding + CMS settings in parallel so a slow org branding lookup never
+  // serializes behind (or blocks) first paint of the public shell.
+  const [brandingResult, settings] = await Promise.all([
+    organizationId
+      ? getOrganizationBranding(createPublicSupabaseClient(), organizationId).catch(() => null)
+      : Promise.resolve(null),
+    getCachedSiteSettings(organizationId ?? undefined).catch(() => null),
+  ])
+  organizationBranding = brandingResult
   const { labelShortName } = resolveBrandFromSettings(settings ?? SITE_SETTINGS_DEFAULTS)
 
   return (

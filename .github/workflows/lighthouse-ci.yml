@@ -64,6 +64,10 @@ jobs:
 
       - name: Collect Lighthouse reports
         run: node_modules/.bin/lhci collect --config=lighthouserc.cjs
+        env:
+          # Runtime server (next start) needs the same public env as build for multi-tenant layout.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' && secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' && secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key-for-ci-build' }}
 
       - name: Assert Lighthouse budgets
         run: node_modules/.bin/lhci assert --config=lighthouserc.cjs
