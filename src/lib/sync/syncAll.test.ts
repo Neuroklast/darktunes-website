@@ -47,6 +47,7 @@ function makeMockDb(factory: (table: string) => QueryResult): DbClient {
 
 const mockArtist: ArtistRow = {
   id: 'artist-1',
+  organization_id: '00000000-0000-0000-0000-000000000000',
   name: 'Test Artist',
   slug: 'test-artist',
   bio: null,

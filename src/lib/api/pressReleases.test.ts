@@ -30,6 +30,7 @@ function makeMockDb(data: unknown = null, error: unknown = null): DbClient {
 
 const mockRow: NewsRow = {
   id: 'press-1',
+  organization_id: '00000000-0000-0000-0000-000000000000',
   title: 'New Signing',
   slug: 'new-signing',
   excerpt: 'Excerpt',

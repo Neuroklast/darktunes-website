@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { Artist } from '@/types'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { sanitizeArtistWrite } from '@/lib/sanitizeTextContent'
 import { rowToArtist } from './artistRowMapper'
 import {
@@ -36,10 +37,14 @@ export async function getRelatedArtists(
   return getPublicRelatedArtists(db, currentArtistId, genres, limit)
 }
 
-export async function getArtists(db: DbClient): Promise<Artist[]> {
+export async function getArtists(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Artist[]> {
   const { data, error } = await db
     .from('artists')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('name', { ascending: true })
   if (error) throw new Error(error.message)
   const rows = data ?? []
@@ -54,8 +59,11 @@ export async function getArtists(db: DbClient): Promise<Artist[]> {
  * Public-facing query: visible artists, public columns only.
  * Never selects bandsintown_api_key, email, vat_number, notes, user_id, etc.
  */
-export async function getPublicArtists(db: DbClient): Promise<PublicArtist[]> {
-  return getPublicArtistsSafe(db)
+export async function getPublicArtists(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<PublicArtist[]> {
+  return getPublicArtistsSafe(db, organizationId)
 }
 
 export async function getArtistById(db: DbClient, id: string): Promise<Artist | null> {
@@ -96,6 +104,7 @@ export async function createArtist(db: DbClient, artistData: ArtistInsert): Prom
   const { publicFields, privateFields, hasPrivateFields } = splitArtistUpdatePayload(sanitized)
   // Insert requires name/slug from original payload; private splitter only clears secrets.
   const insertRow = {
+    organization_id: artistData.organization_id ?? DEFAULT_ORGANIZATION_ID,
     ...sanitized,
     ...publicFields,
     name: sanitized.name,

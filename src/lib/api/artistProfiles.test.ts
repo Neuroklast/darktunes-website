@@ -109,6 +109,7 @@ const mockProfileRow: ArtistProfileRow = {
 
 const mockArtistRow: ArtistRow = {
   id: 'artist-uuid',
+  organization_id: '00000000-0000-0000-0000-000000000000',
   name: 'C Z A R I N A',
   slug: 'czarina',
   bio: null,

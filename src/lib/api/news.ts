@@ -118,11 +118,15 @@ export async function publishScheduledNewsPosts(db: DbClient): Promise<number> {
   return data?.length ?? 0
 }
 
-export async function getPublicNewsPosts(db: DbClient): Promise<NewsPost[]> {
+export async function getPublicNewsPosts(
+  db: DbClient,
+  organizationId: string = '00000000-0000-0000-0000-000000000000',
+): Promise<NewsPost[]> {
   const now = new Date().toISOString()
   const { data, error } = await db
     .from('news_posts')
     .select('*')
+    .eq('organization_id', organizationId)
     .in('status', ['published', 'scheduled'])
     .eq('is_press_only', false)
     .lte('published_at', now)

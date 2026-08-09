@@ -21,6 +21,8 @@ import { getPublicVideos } from '@/lib/api/videos'
 import { getAllVisibleConcertsForCalendar, getPublicConcerts } from '@/lib/api/concerts'
 import { getPublicArtists, type PublicArtist } from '@/lib/api/publicArtist'
 import { getSiteSettings } from '@/lib/api/siteSettings'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
+import { orgTag } from '@/lib/organizations/cacheTags'
 import type { Release, NewsPost, Video, Concert, SiteSettings } from '@/types'
 
 // Rely on on-demand revalidateTag() webhooks (/api/revalidate-content) rather than
@@ -29,12 +31,14 @@ import type { Release, NewsPost, Video, Concert, SiteSettings } from '@/types'
 // the Supabase Cron → Edge Function pipeline to keep the read path read-only.
 const TTL = 3600 // seconds
 
-/** All public releases, cache-keyed to the `releases` tag. */
+/** All public releases, cache-keyed to the `releases` tag (org-scoped). */
 export const getCachedPublicReleases = cache(unstable_cache(
   async (): Promise<Release[]> =>
-    getPublicReleases(createPublicSupabaseClient()).catch(() => [] as Release[]),
-  ['public-releases'],
-  { revalidate: TTL, tags: ['releases'] },
+    getPublicReleases(createPublicSupabaseClient(), DEFAULT_ORGANIZATION_ID).catch(
+      () => [] as Release[],
+    ),
+  ['public-releases', DEFAULT_ORGANIZATION_ID],
+  { revalidate: TTL, tags: ['releases', orgTag(DEFAULT_ORGANIZATION_ID, 'releases')] },
 ))
 
 /**

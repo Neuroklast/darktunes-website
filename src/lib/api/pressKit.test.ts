@@ -52,6 +52,7 @@ function makeMockDb(results: QueryResult[]): DbClient {
 
 const mockAssetRow: AssetRow = {
   id: 'asset-1',
+  organization_id: '00000000-0000-0000-0000-000000000000',
   filename: 'photo.jpg',
   original_filename: 'Band Live',
   mime_type: 'image/jpeg',

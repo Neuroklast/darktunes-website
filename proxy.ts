@@ -29,6 +29,33 @@ import {
 } from '@/lib/rbac'
 import { isSupabaseEnvConfigured } from '@/lib/supabase/isConfigured'
 import type { UserRole } from '@/types/users'
+import {
+  DEFAULT_ORGANIZATION_ID,
+  DEFAULT_ORGANIZATION_SLUG,
+  HEADER_ORGANIZATION_ID,
+  HEADER_ORGANIZATION_SLUG,
+  HEADER_SURFACE,
+} from '@/lib/organizations/constants'
+import { resolveOrganizationSlugFromHost } from '@/lib/organizations/resolveFromHost'
+
+/** Attach org/surface headers for downstream RSC and route handlers. */
+function applyOrganizationHeaders(res: NextResponse, request: NextRequest): NextResponse {
+  const host = request.headers.get('host')
+  const resolved = resolveOrganizationSlugFromHost(host)
+  // DB slug→id lookup happens in requestContext; proxy sets slug + surface always.
+  // Org #0 id is known without DB; other orgs resolve later via getRequestOrganizationId.
+  const organizationId =
+    resolved.organizationSlug === DEFAULT_ORGANIZATION_SLUG
+      ? DEFAULT_ORGANIZATION_ID
+      : (request.headers.get(HEADER_ORGANIZATION_ID) ?? '')
+
+  if (organizationId) {
+    res.headers.set(HEADER_ORGANIZATION_ID, organizationId)
+  }
+  res.headers.set(HEADER_ORGANIZATION_SLUG, resolved.organizationSlug)
+  res.headers.set(HEADER_SURFACE, resolved.surface)
+  return res
+}
 
 function classifyRoute(pathname: string) {
   return {
@@ -85,7 +112,7 @@ export async function proxy(request: NextRequest) {
   if (!protectedRoute && !route.isLoginPage) {
     const res = NextResponse.next({ request })
     res.headers.set('x-pathname', pathname)
-    return res
+    return applyOrganizationHeaders(res, request)
   }
 
   // CI placeholder credentials: enforce route redirects without calling Supabase
@@ -96,7 +123,7 @@ export async function proxy(request: NextRequest) {
     }
     const res = NextResponse.next({ request })
     res.headers.set('x-pathname', pathname)
-    return res
+    return applyOrganizationHeaders(res, request)
   }
 
   let supabaseResponse = NextResponse.next({ request })
@@ -295,7 +322,7 @@ export async function proxy(request: NextRequest) {
   // Forward the full URL (including query string) so portal layout can extract ?artistId
   supabaseResponse.headers.set('x-url', request.url)
 
-  return supabaseResponse
+  return applyOrganizationHeaders(supabaseResponse, request)
 }
 
 export const config = {

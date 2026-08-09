@@ -130,6 +130,7 @@
     "serwist": "^9.5.12",
     "sharp": "^0.35.3",
     "sonner": "^2.0.1",
+    "stripe": "^22.4.0",
     "swiper": "^14.0.7",
     "tailwind-merge": "^3.0.2",
     "tw-animate-css": "^1.2.4",

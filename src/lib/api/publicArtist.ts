@@ -8,6 +8,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { Artist } from '@/types'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { toSlug } from '@/lib/slugify'
 import { stripEmojis } from '@/lib/stripEmojis'
 import { PUBLIC_QUERY_LIMITS } from './queryLimits'
@@ -201,10 +202,14 @@ export function artistToPublicArtist(artist: Artist): PublicArtist {
   }
 }
 
-export async function getPublicArtists(db: DbClient): Promise<PublicArtist[]> {
+export async function getPublicArtists(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<PublicArtist[]> {
   const { data, error } = await db
     .from('artists')
     .select(PUBLIC_ARTIST_COLUMNS)
+    .eq('organization_id', organizationId)
     .eq('is_visible', true)
     .order('featured', { ascending: false })
     .order('name', { ascending: true })
@@ -220,17 +225,26 @@ export async function getPublicArtists(db: DbClient): Promise<PublicArtist[]> {
 export async function getPublicArtistBySlug(
   db: DbClient,
   slug: string,
-  options: { requireVisible?: boolean } = {},
+  options: { requireVisible?: boolean; organizationId?: string } = {},
 ): Promise<PublicArtist | null> {
   const requireVisible = options.requireVisible !== false
-  let query = db.from('artists').select(PUBLIC_ARTIST_COLUMNS).eq('slug', slug)
+  const organizationId = options.organizationId ?? DEFAULT_ORGANIZATION_ID
+  let query = db
+    .from('artists')
+    .select(PUBLIC_ARTIST_COLUMNS)
+    .eq('organization_id', organizationId)
+    .eq('slug', slug)
   if (requireVisible) query = query.eq('is_visible', true)
   const { data, error } = await query.maybeSingle()
   if (error) throw new Error(error.message)
   if (data) return toPublicArtist(data as unknown as PublicArtistRow)
 
   // Legacy rows with empty/null slug: resolve via name-derived slug (public columns only).
-  let legacy = db.from('artists').select(PUBLIC_ARTIST_COLUMNS).or('slug.is.null,slug.eq.')
+  let legacy = db
+    .from('artists')
+    .select(PUBLIC_ARTIST_COLUMNS)
+    .eq('organization_id', organizationId)
+    .or('slug.is.null,slug.eq.')
   if (requireVisible) legacy = legacy.eq('is_visible', true)
   const { data: nullSlugArtists, error: nullSlugError } = await legacy
   if (nullSlugError) throw new Error(nullSlugError.message)
@@ -247,11 +261,13 @@ export async function getPublicRelatedArtists(
   currentArtistId: string,
   genres: string[],
   limit = 6,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<PublicArtist[]> {
   if (!genres.length) return []
   const { data, error } = await db
     .from('artists')
     .select(PUBLIC_ARTIST_COLUMNS)
+    .eq('organization_id', organizationId)
     .eq('is_visible', true)
     .neq('id', currentArtistId)
     .filter('genres', 'ov', `{${genres.join(',')}}`)

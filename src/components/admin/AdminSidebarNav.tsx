@@ -58,6 +58,7 @@ import {
   Globe,
   Question,
   ChatTeardropDots,
+  Buildings,
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -99,6 +100,7 @@ type NavItemKey =
   | 'colors'
   | 'settings'
   | 'apiKeys'
+  | 'organizations'
   | 'support'
   | 'system'
 
@@ -172,6 +174,7 @@ const NAV_GROUPS: NavGroup[] = [
       { labelKey: 'messages', href: '/admin/messages', icon: ChatCircle, adminOnly: true, badgeKey: 'messages' },
       { labelKey: 'promotionActivity', href: '/admin/promo-log', editorHref: getCmsPromoLogPath('editor'), icon: MegaphoneSimple, adminOnly: false },
       { labelKey: 'users', href: '/admin/users', icon: UsersThree, adminOnly: true },
+      { labelKey: 'organizations', href: '/admin/organizations', icon: Buildings, adminOnly: true },
     ],
   },
   {

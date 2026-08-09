@@ -6904,3 +6904,431 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+-- =============================================================================
+-- MULTI-TENANCY (organizations) — SaaS foundation (ported from PR #417)
+-- Sentinel UUID 00000000-0000-0000-0000-000000000000 = darkTunes (Org #0).
+-- Additive + idempotent. Apply after core schema exists.
+-- =============================================================================
+
+DO $$ BEGIN
+  CREATE TYPE public.organization_status AS ENUM ('active', 'suspended', 'pending');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.organization_user_role AS ENUM (
+    'owner', 'admin', 'finance', 'marketing', 'artist_manager', 'member'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.subscription_status AS ENUM (
+    'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'paused'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.custom_domain_status AS ENUM ('pending', 'verified', 'active', 'failed');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS public.organizations (
+  id          UUID                        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        TEXT                        NOT NULL,
+  slug        TEXT                        NOT NULL UNIQUE,
+  status      public.organization_status  NOT NULL DEFAULT 'active',
+  created_at  TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ                 NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_organizations_slug ON public.organizations (slug);
+CREATE INDEX IF NOT EXISTS idx_organizations_status ON public.organizations (status);
+
+DROP TRIGGER IF EXISTS trg_organizations_updated_at ON public.organizations;
+CREATE TRIGGER trg_organizations_updated_at
+  BEFORE UPDATE ON public.organizations
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+INSERT INTO public.organizations (id, name, slug, status) VALUES
+  ('00000000-0000-0000-0000-000000000000', 'darkTunes Music Group', 'darktunes', 'active')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.organizations (id, name, slug, status) VALUES
+  ('11111111-1111-1111-1111-111111111111', 'Demo Label', 'demo-label', 'active')
+ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS public.organization_users (
+  organization_id UUID                           NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  user_id         UUID                           NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
+  role            public.organization_user_role  NOT NULL DEFAULT 'member',
+  created_at      TIMESTAMPTZ                    NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (organization_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_organization_users_user_id ON public.organization_users (user_id);
+
+CREATE TABLE IF NOT EXISTS public.organization_branding (
+  organization_id UUID        PRIMARY KEY REFERENCES public.organizations (id) ON DELETE CASCADE,
+  logo_url        TEXT,
+  primary_color   TEXT,
+  secondary_color TEXT,
+  font_family     TEXT,
+  favicon_url     TEXT,
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+DROP TRIGGER IF EXISTS trg_organization_branding_updated_at ON public.organization_branding;
+CREATE TRIGGER trg_organization_branding_updated_at
+  BEFORE UPDATE ON public.organization_branding
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE OR REPLACE FUNCTION public.user_belongs_to_organization(org_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.organization_users ou
+    WHERE ou.organization_id = org_id
+      AND ou.user_id = auth.uid()
+  );
+$$;
+
+ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_branding ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "organizations: member read" ON public.organizations;
+DROP POLICY IF EXISTS "organizations: admin all" ON public.organizations;
+CREATE POLICY "organizations: member read" ON public.organizations
+  FOR SELECT USING (public.user_belongs_to_organization(id));
+CREATE POLICY "organizations: admin all" ON public.organizations
+  FOR ALL
+  USING (public.get_my_role() = 'admin')
+  WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_users: own read" ON public.organization_users;
+DROP POLICY IF EXISTS "organization_users: admin all" ON public.organization_users;
+CREATE POLICY "organization_users: own read" ON public.organization_users
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "organization_users: admin all" ON public.organization_users
+  FOR ALL
+  USING (public.get_my_role() = 'admin')
+  WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_branding: member read" ON public.organization_branding;
+DROP POLICY IF EXISTS "organization_branding: admin all" ON public.organization_branding;
+CREATE POLICY "organization_branding: member read" ON public.organization_branding
+  FOR SELECT USING (public.user_belongs_to_organization(organization_id));
+CREATE POLICY "organization_branding: admin all" ON public.organization_branding
+  FOR ALL
+  USING (public.get_my_role() = 'admin')
+  WITH CHECK (public.get_my_role() = 'admin');
+
+ALTER TABLE public.artists ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.releases ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.news_posts ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.videos ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.concerts ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.release_submissions ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.genres ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.sync_queue ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.artists SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.releases SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.news_posts SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.videos SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.concerts SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.release_submissions SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.genres SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.assets SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.sync_queue SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+
+ALTER TABLE public.artists ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.artists ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.releases ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.releases ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.news_posts ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.news_posts ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.videos ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.videos ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.concerts ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.concerts ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.release_submissions ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.release_submissions ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.genres ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.genres ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.assets ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.assets ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.sync_queue ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.sync_queue ALTER COLUMN organization_id SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_artists_organization_id ON public.artists (organization_id);
+CREATE INDEX IF NOT EXISTS idx_releases_organization_id ON public.releases (organization_id);
+CREATE INDEX IF NOT EXISTS idx_news_posts_organization_id ON public.news_posts (organization_id);
+CREATE INDEX IF NOT EXISTS idx_videos_organization_id ON public.videos (organization_id);
+CREATE INDEX IF NOT EXISTS idx_concerts_organization_id ON public.concerts (organization_id);
+CREATE INDEX IF NOT EXISTS idx_release_submissions_organization_id ON public.release_submissions (organization_id);
+CREATE INDEX IF NOT EXISTS idx_genres_organization_id ON public.genres (organization_id);
+CREATE INDEX IF NOT EXISTS idx_assets_organization_id ON public.assets (organization_id);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_organization_id ON public.sync_queue (organization_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_artists_organization_slug ON public.artists (organization_id, slug);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_news_posts_organization_slug ON public.news_posts (organization_id, slug);
+
+CREATE TABLE IF NOT EXISTS public.organization_api_keys (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  UUID        NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  name             TEXT        NOT NULL,
+  key_prefix       TEXT        NOT NULL,
+  key_hash         TEXT        NOT NULL,
+  scopes           TEXT[]      NOT NULL DEFAULT '{read}',
+  revoked_at       TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_used_at     TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_organization_api_keys_org ON public.organization_api_keys (organization_id);
+CREATE INDEX IF NOT EXISTS idx_organization_api_keys_hash ON public.organization_api_keys (key_hash);
+
+CREATE TABLE IF NOT EXISTS public.organization_webhook_endpoints (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  UUID        NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  url              TEXT        NOT NULL,
+  secret           TEXT        NOT NULL,
+  events           TEXT[]      NOT NULL DEFAULT '{}',
+  enabled          BOOLEAN     NOT NULL DEFAULT TRUE,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_organization_webhooks_org ON public.organization_webhook_endpoints (organization_id);
+
+DROP TRIGGER IF EXISTS trg_organization_webhook_endpoints_updated_at ON public.organization_webhook_endpoints;
+CREATE TRIGGER trg_organization_webhook_endpoints_updated_at
+  BEFORE UPDATE ON public.organization_webhook_endpoints
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.organization_webhook_deliveries (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  endpoint_id      UUID        NOT NULL REFERENCES public.organization_webhook_endpoints (id) ON DELETE CASCADE,
+  event_type       TEXT        NOT NULL,
+  payload          JSONB       NOT NULL,
+  status           TEXT        NOT NULL DEFAULT 'pending',
+  response_status  INTEGER,
+  error_message    TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_endpoint ON public.organization_webhook_deliveries (endpoint_id);
+
+CREATE TABLE IF NOT EXISTS public.plans (
+  id                      UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug                    TEXT        NOT NULL UNIQUE,
+  name                    TEXT        NOT NULL,
+  price_monthly_cents     INTEGER     NOT NULL DEFAULT 0,
+  price_yearly_cents      INTEGER     NOT NULL DEFAULT 0,
+  stripe_price_monthly_id TEXT,
+  stripe_price_yearly_id  TEXT,
+  is_active               BOOLEAN     NOT NULL DEFAULT TRUE,
+  sort_order              INTEGER     NOT NULL DEFAULT 0,
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.plan_features (
+  plan_id      UUID NOT NULL REFERENCES public.plans (id) ON DELETE CASCADE,
+  feature_key  TEXT NOT NULL,
+  value        TEXT NOT NULL DEFAULT 'true',
+  PRIMARY KEY (plan_id, feature_key)
+);
+
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+  id                      UUID                          PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id         UUID                          NOT NULL UNIQUE REFERENCES public.organizations (id) ON DELETE CASCADE,
+  plan_id                 UUID                          NOT NULL REFERENCES public.plans (id),
+  stripe_customer_id      TEXT,
+  stripe_subscription_id  TEXT,
+  status                  public.subscription_status    NOT NULL DEFAULT 'incomplete',
+  billing_interval        TEXT                          NOT NULL DEFAULT 'month',
+  current_period_end      TIMESTAMPTZ,
+  cancel_at_period_end    BOOLEAN                       NOT NULL DEFAULT FALSE,
+  created_at              TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
+  updated_at              TIMESTAMPTZ                   NOT NULL DEFAULT NOW()
+);
+
+DROP TRIGGER IF EXISTS trg_subscriptions_updated_at ON public.subscriptions;
+CREATE TRIGGER trg_subscriptions_updated_at
+  BEFORE UPDATE ON public.subscriptions
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.organization_features (
+  organization_id UUID NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  feature_key     TEXT NOT NULL,
+  enabled         BOOLEAN NOT NULL DEFAULT TRUE,
+  PRIMARY KEY (organization_id, feature_key)
+);
+
+CREATE TABLE IF NOT EXISTS public.custom_domains (
+  id                  UUID                          PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id     UUID                          NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  domain              TEXT                          NOT NULL UNIQUE,
+  status              public.custom_domain_status   NOT NULL DEFAULT 'pending',
+  verification_token  TEXT                          NOT NULL,
+  verified_at         TIMESTAMPTZ,
+  created_at          TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ                   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_custom_domains_org ON public.custom_domains (organization_id);
+
+DROP TRIGGER IF EXISTS trg_custom_domains_updated_at ON public.custom_domains;
+CREATE TRIGGER trg_custom_domains_updated_at
+  BEFORE UPDATE ON public.custom_domains
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.organization_audit_log (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  UUID        NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  user_id          UUID        REFERENCES public.users (id) ON DELETE SET NULL,
+  action           TEXT        NOT NULL,
+  target_type      TEXT,
+  target_id        TEXT,
+  metadata         JSONB,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_organization_audit_log_org ON public.organization_audit_log (organization_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.stripe_webhook_events (
+  id           TEXT PRIMARY KEY,
+  type         TEXT NOT NULL,
+  processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  payload      JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE TABLE IF NOT EXISTS public.platform_admins (
+  user_id    UUID PRIMARY KEY REFERENCES public.users (id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.organization_api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_webhook_endpoints ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_webhook_deliveries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plan_features ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_features ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.custom_domains ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stripe_webhook_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.platform_admins ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "organization_api_keys: admin all" ON public.organization_api_keys;
+CREATE POLICY "organization_api_keys: admin all" ON public.organization_api_keys
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_webhooks: admin all" ON public.organization_webhook_endpoints;
+CREATE POLICY "organization_webhooks: admin all" ON public.organization_webhook_endpoints
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_webhook_deliveries: admin all" ON public.organization_webhook_deliveries;
+CREATE POLICY "organization_webhook_deliveries: admin all" ON public.organization_webhook_deliveries
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "plans: public read" ON public.plans;
+CREATE POLICY "plans: public read" ON public.plans FOR SELECT USING (is_active = TRUE);
+
+DROP POLICY IF EXISTS "plan_features: public read" ON public.plan_features;
+CREATE POLICY "plan_features: public read" ON public.plan_features FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "subscriptions: member read" ON public.subscriptions;
+DROP POLICY IF EXISTS "subscriptions: admin all" ON public.subscriptions;
+CREATE POLICY "subscriptions: member read" ON public.subscriptions
+  FOR SELECT USING (public.user_belongs_to_organization(organization_id));
+CREATE POLICY "subscriptions: admin all" ON public.subscriptions
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_features: member read" ON public.organization_features;
+DROP POLICY IF EXISTS "organization_features: admin all" ON public.organization_features;
+CREATE POLICY "organization_features: member read" ON public.organization_features
+  FOR SELECT USING (public.user_belongs_to_organization(organization_id));
+CREATE POLICY "organization_features: admin all" ON public.organization_features
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "custom_domains: member read" ON public.custom_domains;
+DROP POLICY IF EXISTS "custom_domains: admin all" ON public.custom_domains;
+CREATE POLICY "custom_domains: member read" ON public.custom_domains
+  FOR SELECT USING (public.user_belongs_to_organization(organization_id));
+CREATE POLICY "custom_domains: admin all" ON public.custom_domains
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_audit_log: member read" ON public.organization_audit_log;
+DROP POLICY IF EXISTS "organization_audit_log: admin all" ON public.organization_audit_log;
+CREATE POLICY "organization_audit_log: member read" ON public.organization_audit_log
+  FOR SELECT USING (public.user_belongs_to_organization(organization_id));
+CREATE POLICY "organization_audit_log: admin all" ON public.organization_audit_log
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "platform_admins: self read" ON public.platform_admins;
+CREATE POLICY "platform_admins: self read" ON public.platform_admins
+  FOR SELECT USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "platform_admins: admin all" ON public.platform_admins;
+CREATE POLICY "platform_admins: admin all" ON public.platform_admins
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+INSERT INTO public.organization_branding (organization_id, primary_color, secondary_color) VALUES
+  ('00000000-0000-0000-0000-000000000000', '#c41e3a', '#1a1a2e'),
+  ('11111111-1111-1111-1111-111111111111', '#2563eb', '#0f172a')
+ON CONFLICT (organization_id) DO NOTHING;
+
+INSERT INTO public.plans (id, slug, name, price_monthly_cents, price_yearly_cents, sort_order) VALUES
+  ('22222222-2222-2222-2222-222222222221', 'starter', 'Starter', 4900, 47000, 1),
+  ('22222222-2222-2222-2222-222222222222', 'professional', 'Professional', 12900, 123000, 2),
+  ('22222222-2222-2222-2222-222222222223', 'business', 'Business', 29900, 287000, 3)
+ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO public.plan_features (plan_id, feature_key, value) VALUES
+  ('22222222-2222-2222-2222-222222222221', 'max_artists', '10'),
+  ('22222222-2222-2222-2222-222222222221', 'epk_builder', 'true'),
+  ('22222222-2222-2222-2222-222222222221', 'custom_domain', 'false'),
+  ('22222222-2222-2222-2222-222222222222', 'max_artists', '50'),
+  ('22222222-2222-2222-2222-222222222222', 'epk_builder', 'true'),
+  ('22222222-2222-2222-2222-222222222222', 'advanced_analytics', 'true'),
+  ('22222222-2222-2222-2222-222222222222', 'custom_domain', 'true'),
+  ('22222222-2222-2222-2222-222222222223', 'max_artists', 'unlimited'),
+  ('22222222-2222-2222-2222-222222222223', 'epk_builder', 'true'),
+  ('22222222-2222-2222-2222-222222222223', 'advanced_analytics', 'true'),
+  ('22222222-2222-2222-2222-222222222223', 'custom_domain', 'true'),
+  ('22222222-2222-2222-2222-222222222223', 'partner_api', 'true')
+ON CONFLICT (plan_id, feature_key) DO NOTHING;
+
+INSERT INTO public.organization_features (organization_id, feature_key, enabled) VALUES
+  ('00000000-0000-0000-0000-000000000000', 'partner_api', TRUE),
+  ('00000000-0000-0000-0000-000000000000', 'custom_domain', TRUE),
+  ('00000000-0000-0000-0000-000000000000', 'advanced_analytics', TRUE),
+  ('11111111-1111-1111-1111-111111111111', 'partner_api', TRUE),
+  ('11111111-1111-1111-1111-111111111111', 'custom_domain', TRUE)
+ON CONFLICT (organization_id, feature_key) DO NOTHING;
+
+INSERT INTO public.organization_users (organization_id, user_id, role)
+SELECT
+  '00000000-0000-0000-0000-000000000000',
+  u.id,
+  CASE WHEN u.role::text = 'admin' THEN 'admin'::public.organization_user_role
+       ELSE 'member'::public.organization_user_role END
+FROM public.users u
+WHERE u.role::text IN ('admin', 'editor')
+ON CONFLICT (organization_id, user_id) DO NOTHING;
+

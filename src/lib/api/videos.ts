@@ -35,11 +35,13 @@ export async function getVideos(db: DbClient): Promise<Video[]> {
 /** Public-facing: only returns visible videos. */
 export async function getPublicVideos(
   db: DbClient,
-  options: { excludeShorts?: boolean } = {},
+  options: { excludeShorts?: boolean; organizationId?: string } = {},
 ): Promise<Video[]> {
+  const organizationId = options.organizationId ?? '00000000-0000-0000-0000-000000000000'
   let query = db
     .from('videos')
     .select('*, artists(name)')
+    .eq('organization_id', organizationId)
     .eq('is_visible', true)
     .order('published_at', { ascending: false })
   if (options.excludeShorts) {

@@ -57,6 +57,7 @@ function makeMockDb(results: QueryResult[]): DbClient {
 
 const mockRow: AssetRow = {
   id: 'asset-uuid-1',
+  organization_id: '00000000-0000-0000-0000-000000000000',
   filename: 'abc.jpg',
   original_filename: 'photo.jpg',
   mime_type: 'image/jpeg',
@@ -240,7 +241,8 @@ describe('assets DAL', () => {
       {
         data: [
           { id: artistFolderId, artist_id: 'artist-1', name: 'Band A', parent_id: 'artists-root' },
-          { id: 'artist-folder-2', artist_id: 'artist-2', name: 'Band B', parent_id: 'artists-root' },
+          { id: 'artist-folder-2',
+  organization_id: '00000000-0000-0000-0000-000000000000', artist_id: 'artist-2', name: 'Band B', parent_id: 'artists-root' },
         ],
         error: null,
       }, // resolve folders

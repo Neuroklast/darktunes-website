@@ -86,22 +86,22 @@ Never take `darktunes.com` offline for SaaS launch.
 
 ## Phase checklist (summary)
 
-| Phase | Focus |
-|-------|--------|
-| 0 | Docs, constants, env placeholders (this program) |
-| 1 | Schema + Org #0 seed |
-| 2 | Host context in `proxy.ts` |
-| 3 | DAL/API `organization_id` batches |
-| 4 | Membership + RLS hardening |
-| 5 | Cache tags + R2 prefixes |
-| 6 | Cron/sync/credentials per org |
-| 7 | Marketing + platform account UI |
-| 8 | Stripe + provisioning |
-| 9 | Onboarding / assistenz |
-| 10 | Custom domains |
-| 11 | Platform ops console |
-| 12 | Isolation QA + pilots |
-| 13 | Cleanup |
+| Phase | Focus | Status on `feat/multi-tenant-saas` |
+|-------|--------|-------------------------------------|
+| 0 | Docs, constants, env placeholders | Done |
+| 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
+| 2 | Host context in `proxy.ts` | Done |
+| 3 | DAL/API `organization_id` batches | Partial — public catalog + artists; expand remaining DAL |
+| 4 | Membership + RLS hardening | Partial — org RLS + admin backfill; portal tenant assert TBD |
+| 5 | Cache tags + R2 prefixes | Partial — helpers + public releases cache |
+| 6 | Cron/sync/credentials per org | Open |
+| 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |
+| 8 | Stripe + provisioning | Done (env-gated) |
+| 9 | Onboarding / assistenz | Partial — register flow ported |
+| 10 | Custom domains | DAL + admin API ported; full DNS ops TBD |
+| 11 | Platform ops console | Partial — `/admin/organizations` |
+| 12 | Isolation QA + pilots | Partial — unit tests; e2e isolation TBD |
+| 13 | Cleanup | Open |
 
 ## PR #417 port map
 

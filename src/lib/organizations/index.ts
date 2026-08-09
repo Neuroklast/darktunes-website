@@ -10,3 +10,10 @@ export {
   type AppSurface,
   type HostResolution,
 } from '@/lib/organizations/resolveFromHost'
+export {
+  getRequestOrganizationId,
+  getRequestOrganizationContext,
+  requireOrganizationId,
+  type RequestOrganizationContext,
+} from '@/lib/organizations/requestContext'
+export { orgTag, orgEntityTag } from '@/lib/organizations/cacheTags'

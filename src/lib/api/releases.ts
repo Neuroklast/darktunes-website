@@ -223,11 +223,15 @@ export async function getPromoReleases(db: DbClient): Promise<Release[]> {
  * Public-facing query: returns only visible releases whose artist is also visible.
  * Used by the public homepage (Server Component). The admin uses getReleases instead.
  */
-export async function getPublicReleases(db: DbClient): Promise<Release[]> {
+export async function getPublicReleases(
+  db: DbClient,
+  organizationId: string = '00000000-0000-0000-0000-000000000000',
+): Promise<Release[]> {
   // Fetch IDs of hidden artists so we can exclude their releases
   const { data: hiddenArtistRows, error: hiddenErr } = await db
     .from('artists')
     .select('id')
+    .eq('organization_id', organizationId)
     .eq('is_visible', false)
   if (hiddenErr) throw new Error(hiddenErr.message)
 
@@ -236,6 +240,7 @@ export async function getPublicReleases(db: DbClient): Promise<Release[]> {
   let builder = db
     .from('releases')
     .select('*')
+    .eq('organization_id', organizationId)
     .eq('is_visible', true)
     .eq('is_promo', false)
     .order('release_date', { ascending: false })

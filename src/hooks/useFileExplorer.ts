@@ -207,7 +207,14 @@ export function useFileExplorer(initialFolderId: string | null = null): UseFileE
       setAllFolders(mappedFolders)
       setFolders(mappedFolders.filter((folder) => folder.parentId === folderId))
       setFolderPath(buildFolderPath(mappedFolders, folderId))
-      setAssets((assetData ?? []).map(mapAsset))
+      setAssets(
+        (assetData ?? []).map((row) =>
+          mapAsset({
+            organization_id: '00000000-0000-0000-0000-000000000000',
+            ...row,
+          }),
+        ),
+      )
     } finally {
       setIsLoading(false)
     }

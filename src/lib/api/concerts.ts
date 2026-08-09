@@ -135,13 +135,17 @@ export async function deleteConcert(db: DbClient, id: string): Promise<void> {
  * Public-facing query: returns only concerts for visible artists.
  * Used by the public homepage (Server Component). The admin uses getConcerts instead.
  */
-export async function getPublicConcerts(db: DbClient): Promise<Concert[]> {
+export async function getPublicConcerts(
+  db: DbClient,
+  organizationId: string = '00000000-0000-0000-0000-000000000000',
+): Promise<Concert[]> {
   const today = new Date().toISOString().split('T')[0]
 
   // Fetch IDs of hidden artists to exclude their concerts
   const { data: hiddenArtistRows, error: hiddenErr } = await db
     .from('artists')
     .select('id')
+    .eq('organization_id', organizationId)
     .eq('is_visible', false)
   if (hiddenErr) throw new Error(hiddenErr.message)
 
@@ -150,6 +154,7 @@ export async function getPublicConcerts(db: DbClient): Promise<Concert[]> {
   let builder = db
     .from('concerts')
     .select('*, artists(name)')
+    .eq('organization_id', organizationId)
     .gte('concert_date', today)
     .order('concert_date', { ascending: true })
     .limit(PUBLIC_QUERY_LIMITS.concerts)
