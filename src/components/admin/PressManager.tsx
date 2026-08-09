@@ -63,7 +63,11 @@ export function PressManager() {
         getPromoTracks(supabase, organizationId).catch(() => []),
         getArtists(supabase, organizationId).catch(() => []),
         listRequests(supabase, organizationId).catch(() => []),
-        supabase.from('journalist_downloads').select('id', { count: 'exact', head: false }).then(({ data }) => data ?? [], () => []),
+        supabase
+          .from('journalist_downloads')
+          .select('id', { count: 'exact', head: false })
+          .eq('organization_id', organizationId)
+          .then(({ data }) => data ?? [], () => []),
         supabase.from('press_kit_items').select('id', { count: 'exact', head: true }).then(({ count }) => count ?? 0, () => 0),
       ])
       setApplications(appsRes.applications ?? [])

@@ -27,6 +27,9 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Mailbox folders/rules global across labels | `message_folders` / `message_rules` need `organization_id` + DAL filter; rule apply uses artist org |
 | Promo pool / press applications shared across labels | `promo_tracks`, `journalist_applications`, `accreditation_requests` need `organization_id`; journalist track SELECT should require approved app for that org |
 | Admin journalist APIs auth without host org | Use `requireAdminFromRequest` so list/approve is host-scoped, not global service-role dump |
+| Press download logs global across labels | `journalist_downloads.organization_id` on insert + admin SELECT gate; analytics/history always pass host org |
+| `api_credentials` admin policy ignores `label_id` | Treat `label_id` as organization id in RLS (`user_can_access_organization(label_id)`) |
+| Stripe webhook logic only in route handler | Extract `processStripeWebhookEvent` for unit tests (dedupe + activate + past_due) |
 | Stripe checkout trusts body `organizationId` without auth | Require session + membership/platform_admin (`assertBillingOrganizationAccess`); signup uses `/api/onboarding/register` |
 | One global sync uploadFn for multi-org drain | Create `createSyncUploadFn(…, job.organizationId)` per job so cover-art keys stay tenant-scoped |
 | Calling the product “SOS” in user/docs copy | User-facing name is **Sales Statement**; `sos_*` code paths may stay for expand→migrate |

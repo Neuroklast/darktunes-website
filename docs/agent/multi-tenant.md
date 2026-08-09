@@ -94,12 +94,12 @@ Never take `darktunes.com` offline for SaaS launch.
 | 0 | Docs, constants, env placeholders | Done |
 | 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
 | 2 | Host context in `proxy.ts` | Done — DB slug/custom-domain lookup; suspended gate; `MULTI_TENANT_STRICT_HOSTS` |
-| 3 | DAL/API `organization_id` batches | Stronger — CMS/settings/flags/settlements/Sales Statements/media + **message_folders/rules** + **promo_tracks** + **journalist_applications** + **accreditation_requests** |
-| 4 | Membership + RLS hardening | Staff org/artist helpers across CMS, finance, tour, mailbox, EPK; press kit staff via assets; promo journalist SELECT only for approved-org apps; interview_requests staff nested |
+| 3 | DAL/API `organization_id` batches | Stronger — CMS/settings/flags/settlements/Sales Statements/media/mailbox/press + **journalist_downloads** |
+| 4 | Membership + RLS hardening | Staff org/artist helpers; press kit via assets; promo journalist SELECT via approved apps; **api_credentials** gated on `label_id` as org |
 | 5 | Cache tags + R2 prefixes | Stronger — public caches org-keyed; tenant keys + dual-read; **sync cover-art** uses `createSyncUploadFn(…, job.organizationId)` |
 | 6 | Cron/sync/credentials per org | Sync queue multi-org enqueue + **staff RLS on sync_queue**; execute job-org credentials; manual `/api/sync/artist` host-org gated |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |
-| 8 | Stripe + provisioning | Env-gated; **`/api/stripe/checkout`** requires session + `assertBillingOrganizationAccess` (membership or platform_admin); open signup still via `/api/onboarding/register` |
+| 8 | Stripe + provisioning | Env-gated checkout membership; webhook logic in **`processStripeWebhookEvent`** (unit-tested: checkout activate, payment_failed, dedupe) |
 | 9 | Onboarding / assistenz | Partial — register flow ported |
 | 10 | Custom domains | DAL + admin API ported; full DNS ops TBD |
 | 11 | Platform ops console | Partial — `/admin/organizations` |

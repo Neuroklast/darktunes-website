@@ -51,6 +51,9 @@
 - [ ] Promo tracks and press applications on Host A never appear on Host B admin/press surfaces
 - [ ] Journalist approved only on Host A cannot list Host B promo tracks (JWT RLS)
 - [ ] Accreditation requests are per host org; staff JWT cannot approve Host B rows
+- [ ] Journalist download history on Host A never includes Host B keys; admin analytics press downloads are org-scoped
+- [ ] API credentials UI/list for Host A cannot read Host B `label_id` rows (RLS)
+- [ ] Stripe webhook unit path: replaying same event id is duplicate; checkout activates subscription for metadata org
 - [ ] Press apply / promo pool / ZIP toggles follow host org flags and site feature_toggles
 - [ ] Sync for pilot org writes cover-art under `tenants/{orgId}/cover-art/…`; Org #0 stays flat
 - [ ] Staff JWT cannot list Host B sync_queue / release_submissions rows

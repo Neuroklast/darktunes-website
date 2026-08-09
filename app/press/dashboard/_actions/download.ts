@@ -6,6 +6,8 @@ import { generatePresignedDownloadUrl } from '@/lib/portal/presignedUrl'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getUserRoleWithClient } from '@/lib/getUserRole'
 import { logDownload } from '@/lib/api/journalistDownloads'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 export async function getJournalistDownloadUrl(
   assetKey: string,
@@ -45,12 +47,18 @@ export async function getJournalistDownloadUrl(
       })
     }
 
-    await logDownload(supabase, {
-      journalist_id: user.id,
-      release_id: releaseId,
-      asset_id: assetId ?? null,
-      asset_key: assetKey,
-    })
+    const organizationId =
+      (await getRequestOrganizationId().catch(() => undefined)) ?? DEFAULT_ORGANIZATION_ID
+    await logDownload(
+      supabase,
+      {
+        journalist_id: user.id,
+        release_id: releaseId,
+        asset_id: assetId ?? null,
+        asset_key: assetKey,
+      },
+      organizationId,
+    )
     return { url }
   } catch {
     return { url: null }

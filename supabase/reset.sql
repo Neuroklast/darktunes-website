@@ -8972,3 +8972,73 @@ CREATE POLICY "interview_requests: admin all" ON public.interview_requests
   );
 
 -- Press / promo organization isolation
+
+-- =============================================================================
+-- journalist_downloads organization_id + api_credentials org-gated staff RLS
+-- =============================================================================
+
+ALTER TABLE public.journalist_downloads ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.journalist_downloads
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+-- Best-effort backfill from linked asset or release org when present
+UPDATE public.journalist_downloads jd
+SET organization_id = a.organization_id
+FROM public.assets a
+WHERE jd.asset_id = a.id
+  AND jd.organization_id = '00000000-0000-0000-0000-000000000000'
+  AND a.organization_id IS NOT NULL
+  AND a.organization_id <> '00000000-0000-0000-0000-000000000000';
+
+UPDATE public.journalist_downloads jd
+SET organization_id = r.organization_id
+FROM public.releases r
+WHERE jd.release_id = r.id
+  AND jd.organization_id = '00000000-0000-0000-0000-000000000000'
+  AND r.organization_id IS NOT NULL
+  AND r.organization_id <> '00000000-0000-0000-0000-000000000000';
+
+ALTER TABLE public.journalist_downloads ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.journalist_downloads ALTER COLUMN organization_id SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_journalist_downloads_organization_id
+  ON public.journalist_downloads (organization_id);
+
+DROP POLICY IF EXISTS "journalist_downloads: own read" ON public.journalist_downloads;
+CREATE POLICY "journalist_downloads: own read" ON public.journalist_downloads
+  FOR SELECT USING (journalist_id = auth.uid());
+
+DROP POLICY IF EXISTS "journalist_downloads: own insert" ON public.journalist_downloads;
+CREATE POLICY "journalist_downloads: own insert" ON public.journalist_downloads
+  FOR INSERT WITH CHECK (
+    journalist_id = auth.uid()
+    AND (
+      public.get_my_role() IN ('journalist', 'admin')
+      OR public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "journalist_downloads: admin read" ON public.journalist_downloads;
+CREATE POLICY "journalist_downloads: admin read" ON public.journalist_downloads
+  FOR SELECT USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- api_credentials.label_id is the organization key (DEFAULT_LABEL_ID = Org #0)
+DROP POLICY IF EXISTS "api_credentials_admin_only" ON public.api_credentials;
+CREATE POLICY "api_credentials_admin_only" ON public.api_credentials
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(label_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(label_id)
+  );
+
+-- journalist_downloads + api_credentials org isolation

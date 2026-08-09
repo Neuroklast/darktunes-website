@@ -18,7 +18,7 @@ export default async function PressProfilePage() {
     (await getRequestOrganizationId().catch(() => undefined)) ?? DEFAULT_ORGANIZATION_ID
 
   const [history, application] = await Promise.all([
-    getDownloadHistory(supabase, user.id).catch(() => []),
+    getDownloadHistory(supabase, user.id, organizationId).catch(() => []),
     getJournalistApplicationByUserId(supabase, user.id, organizationId).catch(() => null),
   ])
 

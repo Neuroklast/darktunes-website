@@ -3843,6 +3843,7 @@ export interface Database {
       }
       journalist_downloads: {
         Row: {
+          organization_id: string
           id: string
           journalist_id: string
           release_id: string | null
@@ -3851,6 +3852,7 @@ export interface Database {
           downloaded_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           journalist_id: string
           release_id?: string | null
@@ -3859,6 +3861,7 @@ export interface Database {
           downloaded_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           journalist_id?: string
           release_id?: string | null

@@ -224,6 +224,22 @@ const REQUIRED = [
     file: 'app/api/journalist-applications/route.ts',
     markers: ['organizationId', 'requireAdminFromRequest'],
   },
+  {
+    file: 'src/lib/api/journalistDownloads.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'src/lib/stripe/processWebhookEvent.ts',
+    markers: ['organization_id', 'stripe_webhook_events', 'subscriptions'],
+  },
+  {
+    file: 'supabase/reset.sql',
+    markers: [
+      'journalist_downloads: admin read',
+      'api_credentials_admin_only',
+      'user_can_access_organization(label_id)',
+    ],
+  },
 ]
 
 const failures = []

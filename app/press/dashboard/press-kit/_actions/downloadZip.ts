@@ -6,6 +6,7 @@ import { generatePresignedDownloadUrl } from '@/lib/portal/presignedUrl'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getUserRoleWithClient } from '@/lib/getUserRole'
 import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { isPressZipDownloadEnabled } from '@/lib/pressAccess'
 import { logDownload } from '@/lib/api/journalistDownloads'
 
@@ -51,7 +52,13 @@ export async function getPressKitUrls(r2Keys: string[]): Promise<{ urls: Array<{
           })
         }
         urls.push({ key, url })
-        await logDownload(supabase, { journalist_id: user.id, release_id: null, asset_key: key })
+        const organizationId =
+          (await getRequestOrganizationId().catch(() => undefined)) ?? DEFAULT_ORGANIZATION_ID
+        await logDownload(
+          supabase,
+          { journalist_id: user.id, release_id: null, asset_key: key },
+          organizationId,
+        )
       } catch {
         // skip individual failures
       }
