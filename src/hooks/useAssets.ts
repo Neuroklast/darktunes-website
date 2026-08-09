@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/env'
 import * as assetsApi from '@/lib/api/assets'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import type { Asset } from '@/types'
 import type { Database } from '@/types/database'
 
@@ -21,7 +22,7 @@ export function useAssets() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await assetsApi.getAssets(supabase)
+      const data = await assetsApi.getAssets(supabase, getClientOrganizationId())
       setAssets(data)
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
@@ -32,7 +33,10 @@ export function useAssets() {
   }, [supabase])
 
   const createAssetRecord = async (data: AssetInsert): Promise<void> => {
-    await assetsApi.createAssetRecord(supabase, data)
+    await assetsApi.createAssetRecord(supabase, {
+      ...data,
+      organization_id: data.organization_id ?? getClientOrganizationId(),
+    })
     await load()
   }
 

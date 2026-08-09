@@ -29,7 +29,7 @@ export default async function PressPage() {
       console.error('[press/page] Failed to fetch artists:', err)
       return []
     }),
-    getPressOnlyNewsPosts(supabase).then((posts) => posts.slice(0, 6)).catch((err: unknown) => {
+    getPressOnlyNewsPosts(supabase, orgId).then((posts) => posts.slice(0, 6)).catch((err: unknown) => {
       console.error('[press/page] Failed to fetch press releases:', err)
       return []
     }),

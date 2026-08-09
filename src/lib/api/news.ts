@@ -198,11 +198,15 @@ export async function getPublicNewsPostsByArtistId(db: DbClient, artistId: strin
   return attachNewsArtists(db, legacyPosts)
 }
 
-export async function getPressOnlyNewsPosts(db: DbClient): Promise<NewsPost[]> {
+export async function getPressOnlyNewsPosts(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<NewsPost[]> {
   const now = new Date().toISOString()
   const { data, error } = await db
     .from('news_posts')
     .select('*')
+    .eq('organization_id', organizationId)
     .eq('is_press_only', true)
     .in('status', ['published', 'scheduled'])
     .lte('published_at', now)
@@ -213,17 +217,22 @@ export async function getPressOnlyNewsPosts(db: DbClient): Promise<NewsPost[]> {
   return (data ?? []).map(rowToNewsPost)
 }
 
-export async function getPressReleaseBySlug(db: DbClient, slug: string): Promise<NewsPost | null> {
+export async function getPressReleaseBySlug(
+  db: DbClient,
+  slug: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<NewsPost | null> {
   const now = new Date().toISOString()
   const { data, error } = await db
     .from('news_posts')
     .select('*')
+    .eq('organization_id', organizationId)
     .eq('slug', slug)
     .eq('is_press_only', true)
     .in('status', ['published', 'scheduled'])
     .lte('published_at', now)
     .or(`embargo_until.is.null,embargo_until.lte.${now}`)
-    .single()
+    .maybeSingle()
   if (error) {
     if (error.code === 'PGRST116') return null
     throw new Error(error.message)

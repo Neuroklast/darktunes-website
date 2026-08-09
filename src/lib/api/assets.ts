@@ -424,10 +424,15 @@ export async function batchDeleteAssets(db: DbClient, ids: string[]): Promise<vo
   if (error) throw new Error(error.message)
 }
 
-export async function getAssetsByArtist(db: DbClient, artistId: string): Promise<Asset[]> {
+export async function getAssetsByArtist(
+  db: DbClient,
+  artistId: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Asset[]> {
   const { data, error } = await db
     .from('assets')
     .select('*')
+    .eq('organization_id', organizationId)
     .eq('artist_id', artistId)
     .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
