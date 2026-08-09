@@ -11,6 +11,7 @@ export type SettlementPeriodStatus = SettlementPeriodRow['status']
 
 export interface SettlementPeriod {
   id: string
+  organizationId: string
   periodStart: string
   periodEnd: string
   label: string
@@ -27,6 +28,7 @@ export interface SettlementPeriod {
 function rowToPeriod(row: SettlementPeriodRow): SettlementPeriod {
   return {
     id: row.id,
+    organizationId: row.organization_id,
     periodStart: row.period_start,
     periodEnd: row.period_end,
     label: row.label,
@@ -159,6 +161,7 @@ export async function lockSettlementPeriod(
     entityId: id,
     action: 'lock',
     actorId,
+    organizationId: existing.organizationId,
     beforeData: { status: existing.status },
     afterData: { status: 'locked', locked_at: now },
   })
@@ -201,6 +204,7 @@ export async function archiveSettlementPeriod(
     entityId: id,
     action: 'archive',
     actorId,
+    organizationId: existing.organizationId,
     beforeData: { status: existing.status },
     afterData: { status: 'archived', archived_at: now },
   })

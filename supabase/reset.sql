@@ -9346,3 +9346,91 @@ CREATE POLICY "message_events: staff all" ON public.message_events
   );
 
 -- Org SaaS + submissions + mailbox notes isolation
+
+-- =============================================================================
+-- financial_audit_events + apify_usage_months organization isolation
+-- =============================================================================
+
+ALTER TABLE public.financial_audit_events ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.financial_audit_events
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+ALTER TABLE public.financial_audit_events ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.financial_audit_events ALTER COLUMN organization_id SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_financial_audit_organization_id
+  ON public.financial_audit_events (organization_id);
+
+DROP POLICY IF EXISTS "financial_audit: admin read" ON public.financial_audit_events;
+CREATE POLICY "financial_audit: admin read" ON public.financial_audit_events
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "financial_audit: admin insert" ON public.financial_audit_events;
+CREATE POLICY "financial_audit: admin insert" ON public.financial_audit_events
+  FOR INSERT WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Apify usage is per-organization (each label has its own monthly URL budget)
+ALTER TABLE public.apify_usage_months ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.apify_usage_months
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+ALTER TABLE public.apify_usage_months ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.apify_usage_months ALTER COLUMN organization_id SET NOT NULL;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'apify_usage_months_pkey'
+      AND conrelid = 'public.apify_usage_months'::regclass
+  ) THEN
+    IF (
+      SELECT count(*) FROM pg_attribute a
+      JOIN pg_constraint c ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+      WHERE c.conname = 'apify_usage_months_pkey' AND NOT a.attisdropped
+    ) = 1 THEN
+      ALTER TABLE public.apify_usage_months DROP CONSTRAINT apify_usage_months_pkey;
+    END IF;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'apify_usage_months_pkey'
+      AND conrelid = 'public.apify_usage_months'::regclass
+  ) THEN
+    ALTER TABLE public.apify_usage_months
+      ADD CONSTRAINT apify_usage_months_pkey PRIMARY KEY (organization_id, year_month);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_apify_usage_months_organization_id
+  ON public.apify_usage_months (organization_id);
+
+DROP POLICY IF EXISTS "apify_usage_months: admin all" ON public.apify_usage_months;
+CREATE POLICY "apify_usage_months: admin all" ON public.apify_usage_months
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- financial_audit + apify_usage organization isolation

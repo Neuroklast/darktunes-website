@@ -46,7 +46,7 @@ async function AnalyticsContent() {
       artistCountWithData: 0,
     })),
     getAllJournalistDownloads(supabase, 2000, organizationId).catch(() => []),
-    listRecentFinancialAuditEvents(supabase, 150).catch(() => []),
+    listRecentFinancialAuditEvents(supabase, 150, organizationId).catch(() => []),
     getLabelPageEngagementStats(supabase).catch(() => ({
       totalViews: 0,
       last30DaysViews: 0,

@@ -345,6 +345,8 @@ describe('supabase/reset.sql — static analysis', () => {
     expect(sql).toMatch(
       /ALTER TABLE public\.apify_usage_months\s+ENABLE ROW LEVEL SECURITY/,
     )
+    expect(sql).toMatch(/apify_usage_months_pkey PRIMARY KEY \(organization_id, year_month\)/)
+    expect(sql).toMatch(/financial_audit_events.*organization_id|idx_financial_audit_organization_id/)
   })
 
   it('guards artists CREATE columns with ADD COLUMN IF NOT EXISTS (prod CREATE is a no-op)', () => {

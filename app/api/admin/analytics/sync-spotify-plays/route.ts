@@ -6,6 +6,7 @@
  * that have a Spotify id/url. Token from Admin → API Keys (not Vercel env).
  *
  * Auth: admin cookie/Bearer, or CRON_SECRET (scheduled monthly job).
+ * Host organization scopes roster + Apify monthly budget (Org #0 for cron).
  */
 
 import { NextResponse, type NextRequest } from 'next/server'
@@ -22,12 +23,15 @@ import {
   syncSpotifyPlayCounts,
   type SpotifyPlaySyncScope,
 } from '@/lib/analytics/syncSpotifyPlayCounts'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 export const maxDuration = 300
 
 const SCOPES = new Set<SpotifyPlaySyncScope>(['artists', 'releases', 'all'])
 
-async function authorize(req: NextRequest): Promise<void> {
+async function authorize(
+  req: NextRequest,
+): Promise<{ organizationId: string }> {
   const isCron = req.headers.get('x-vercel-cron') === '1'
   const authHeader = req.headers.get('authorization') ?? ''
   const cronSecret = process.env.CRON_SECRET
@@ -36,29 +40,29 @@ async function authorize(req: NextRequest): Promise<void> {
     if (!cronSecret || !isValidCronSecret(authHeader, cronSecret)) {
       throw new ApiError(401, 'Unauthorized')
     }
-    return
+    return { organizationId: DEFAULT_ORGANIZATION_ID }
   }
 
   if (cronSecret && isValidCronSecret(authHeader, cronSecret)) {
-    return
+    return { organizationId: DEFAULT_ORGANIZATION_ID }
   }
 
   // Prefer admin session (cookie or Bearer) for the Admin UI
   try {
-    await requireAdminFromRequest(req)
-    return
+    const auth = await requireAdminFromRequest(req)
+    return { organizationId: auth.organizationId }
   } catch (err) {
     if (err instanceof ApiError && err.status === 401 && authHeader.startsWith('Bearer ')) {
       const token = extractBearerToken(authHeader)
       await verifySyncTrigger(token)
-      return
+      return { organizationId: DEFAULT_ORGANIZATION_ID }
     }
     throw err
   }
 }
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await authorize(req)
+  const { organizationId } = await authorize(req)
 
   let scope: SpotifyPlaySyncScope = 'all'
   let dryRun = false
@@ -90,6 +94,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   const result = await syncSpotifyPlayCounts(serviceSupabase, apifyToken, {
     scope,
     dryRun,
+    organizationId,
   })
 
   const status =
@@ -123,6 +128,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
       batches: result.batches,
       partial: result.partial,
       upserted: result.upserted,
+      organization_id: organizationId,
     },
   })
 

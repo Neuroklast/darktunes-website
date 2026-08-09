@@ -18,6 +18,7 @@ import {
   createApifyPlayCountClient,
 } from '@/lib/analytics/apifySpotifyPlayCountClient'
 import { utcPeriodMonth } from '@/lib/analytics/periodMonth'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type ServiceClient = SupabaseClient<Database>
 
@@ -26,6 +27,8 @@ export type SpotifyPlaySyncScope = 'artists' | 'releases' | 'all'
 export interface SpotifyPlaySyncOptions {
   scope?: SpotifyPlaySyncScope
   dryRun?: boolean
+  /** Host organization for roster + Apify budget (default Org #0) */
+  organizationId?: string
   /** Inject for tests */
   client?: ApifyPlayCountClient
   /** Inject for tests — wall clock limit for multi-batch processing */
@@ -82,11 +85,13 @@ function isArtistItem(item: ApifyDatasetItem): boolean {
 
 export async function loadEligibleArtistTargets(
   db: ServiceClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<{ targets: SpotifyPlayTarget[]; skippedInvalidUrl: number }> {
   const { data, error } = await db
     .from('artists')
     .select('id, spotify_id, spotify_url')
     .eq('is_visible', true)
+    .eq('organization_id', organizationId)
 
   if (error) throw new Error(error.message)
 
@@ -116,11 +121,13 @@ export async function loadEligibleArtistTargets(
 
 export async function loadEligibleReleaseTargets(
   db: ServiceClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<{ targets: SpotifyPlayTarget[]; skippedInvalidUrl: number }> {
   const { data: visibleArtists, error: artistError } = await db
     .from('artists')
     .select('id')
     .eq('is_visible', true)
+    .eq('organization_id', organizationId)
 
   if (artistError) throw new Error(artistError.message)
   const visibleArtistIds = new Set((visibleArtists ?? []).map((a) => a.id))
@@ -132,6 +139,7 @@ export async function loadEligibleReleaseTargets(
     .from('releases')
     .select('id, artist_id, spotify_id, spotify_url')
     .eq('is_visible', true)
+    .eq('organization_id', organizationId)
 
   if (error) throw new Error(error.message)
 
@@ -287,11 +295,12 @@ export async function syncSpotifyPlayCounts(
   const started = Date.now()
   const scope: SpotifyPlaySyncScope = options.scope ?? 'all'
   const dryRun = options.dryRun === true
+  const organizationId = options.organizationId ?? DEFAULT_ORGANIZATION_ID
   const now = options.now ?? new Date()
   const period = utcPeriodMonth(now)
   const timeBudgetMs = options.timeBudgetMs ?? 280_000
 
-  const usage = await getApifyUsageMonth(db, period)
+  const usage = await getApifyUsageMonth(db, period, organizationId)
   const budgetLimit = usage.budget || APIFY_MONTHLY_URL_BUDGET
   const usedBefore = usage.urlsCharged
   const remainingBudget = Math.max(0, budgetLimit - usedBefore)
@@ -309,12 +318,12 @@ export async function syncSpotifyPlayCounts(
   let skippedInvalidUrl = 0
 
   if (scope === 'artists' || scope === 'all') {
-    const a = await loadEligibleArtistTargets(db)
+    const a = await loadEligibleArtistTargets(db, organizationId)
     artistTargets = a.targets
     skippedInvalidUrl += a.skippedInvalidUrl
   }
   if (scope === 'releases' || scope === 'all') {
-    const r = await loadEligibleReleaseTargets(db)
+    const r = await loadEligibleReleaseTargets(db, organizationId)
     releaseTargets = r.targets
     skippedInvalidUrl += r.skippedInvalidUrl
   }
@@ -412,7 +421,7 @@ export async function syncSpotifyPlayCounts(
         )
       }
 
-      await incrementApifyUsage(db, period, run.urlsInBatch, budgetLimit)
+      await incrementApifyUsage(db, period, run.urlsInBatch, budgetLimit, organizationId)
       urlsCharged += run.urlsInBatch
     } catch (err) {
       if (err instanceof ApiError) {

@@ -57,6 +57,8 @@
 - [ ] Admin video submissions list only Host A artists; update foreign id → 404
 - [ ] Admin nav badges (video/release/feedback/fan-page) count only host org
 - [ ] Non-platform label admin cannot SELECT/UPDATE Host B organization rows or `platform_admins`
+- [ ] Financial audit feed on Host A never shows Host B settlement/invoice events
+- [ ] Apify Spotify sync on Host A only scrapes Host A roster and only increments Host A monthly budget
 - [ ] Press apply / promo pool / ZIP toggles follow host org flags and site feature_toggles
 - [ ] Sync for pilot org writes cover-art under `tenants/{orgId}/cover-art/…`; Org #0 stays flat
 - [ ] Staff JWT cannot list Host B sync_queue / release_submissions rows

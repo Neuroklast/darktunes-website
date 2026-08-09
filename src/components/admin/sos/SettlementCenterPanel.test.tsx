@@ -42,6 +42,7 @@ function makeRevenue(artist: string): ArtistRevenue {
 
 const mockPeriod: SettlementPeriod = {
   id: 'period-1',
+  organizationId: '00000000-0000-0000-0000-000000000000',
   periodStart: '2026-01-01',
   periodEnd: '2026-01-31',
   label: '2026-01',

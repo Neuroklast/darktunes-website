@@ -32,6 +32,7 @@ export const DELETE = withErrorHandler(async (req: NextRequest) => {
       entityId: id,
       action: 'draft_deleted',
       actorId: userId,
+      organizationId,
       beforeData: {
         artistId: deleted.artistId,
         period: deleted.period,

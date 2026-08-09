@@ -251,6 +251,18 @@ const REQUIRED = [
     file: 'app/api/admin/video-submissions/route.ts',
     markers: ['organizationId', 'requireAdminOrEditorFromRequest'],
   },
+  {
+    file: 'src/lib/api/financialAudit.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'src/lib/api/apifyUsage.ts',
+    markers: ['organization_id', 'organizationId', 'organization_id,year_month'],
+  },
+  {
+    file: 'src/lib/analytics/syncSpotifyPlayCounts.ts',
+    markers: ['organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
 ]
 
 const failures = []

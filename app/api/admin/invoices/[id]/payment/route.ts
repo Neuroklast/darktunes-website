@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { getAdminInvoiceById, recordInvoicePayment } from '@/lib/api/artistInvoices'
 import { assertSettlementPeriodWritableById } from '@/lib/api/settlementPeriods'
 import { appendLedgerEntry, hasLedgerEntry } from '@/lib/api/settlementLedger'
@@ -23,8 +23,7 @@ const paymentSchema = z.object({
 })
 
 export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const userId = await verifyAdmin(token)
+  const { userId, organizationId } = await requireAdminFromRequest(req)
 
   const id = req.nextUrl.pathname.split('/').at(-2)
   if (!id) throw new ApiError(400, 'Missing invoice id')
@@ -101,6 +100,7 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
       entityId: id,
       action: 'record_payment',
       actorId: userId,
+      organizationId,
       afterData: {
         status: invoice.status,
         paid_amount_cents: invoice.paidAmountCents,

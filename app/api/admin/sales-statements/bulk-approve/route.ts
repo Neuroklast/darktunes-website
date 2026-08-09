@@ -69,6 +69,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
         entityId: id,
         action: 'approve',
         actorId: userId,
+        organizationId,
         afterData: {
           batch_id: batchId,
           email_sent: outcome.emailSent,
@@ -99,6 +100,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
       entityId: batchId,
       action: 'bulk_approve',
       actorId: userId,
+      organizationId,
       afterData: {
         approved,
         emailed,

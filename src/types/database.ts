@@ -308,6 +308,7 @@ export interface Database {
       }
       financial_audit_events: {
         Row: {
+          organization_id: string
           id: string
           entity_type: string
           entity_id: string
@@ -318,6 +319,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           entity_type: string
           entity_id: string
@@ -328,6 +330,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           entity_type?: string
           entity_id?: string
@@ -1687,18 +1690,21 @@ export interface Database {
       }
       apify_usage_months: {
         Row: {
+          organization_id: string
           year_month: string
           urls_charged: number
           budget: number
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           year_month: string
           urls_charged?: number
           budget?: number
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           year_month?: string
           urls_charged?: number
           budget?: number

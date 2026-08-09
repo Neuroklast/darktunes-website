@@ -109,27 +109,27 @@ describe('assertSettlementPeriodWritable', () => {
 
 describe('assertSettlementPeriodWritableById', () => {
   it('rejects archived periods', async () => {
+    const row = {
+      id: 'period-1',
+      organization_id: '00000000-0000-0000-0000-000000000000',
+      period_start: '2025-01-01',
+      period_end: '2025-03-31',
+      label: '2025-01-01 – 2025-03-31',
+      status: 'archived',
+      notes: null,
+      locked_at: '2025-04-01T00:00:00Z',
+      locked_by: 'user-1',
+      archived_at: '2025-05-01T00:00:00Z',
+      archived_by: 'user-1',
+      created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-05-01T00:00:00Z',
+    }
     const db = {
       from: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: {
-            id: 'period-1',
-            period_start: '2025-01-01',
-            period_end: '2025-03-31',
-            label: '2025-01-01 – 2025-03-31',
-            status: 'archived',
-            notes: null,
-            locked_at: '2025-04-01T00:00:00Z',
-            locked_by: 'user-1',
-            archived_at: '2025-05-01T00:00:00Z',
-            archived_by: 'user-1',
-            created_at: '2025-01-01T00:00:00Z',
-            updated_at: '2025-05-01T00:00:00Z',
-          },
-          error: null,
-        }),
+        single: vi.fn().mockResolvedValue({ data: row, error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: row, error: null }),
       }),
     } as unknown as DbClient
 

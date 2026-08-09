@@ -94,10 +94,10 @@ Never take `darktunes.com` offline for SaaS launch.
 | 0 | Docs, constants, env placeholders | Done |
 | 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
 | 2 | Host context in `proxy.ts` | Done — DB slug/custom-domain lookup; suspended gate; `MULTI_TENANT_STRICT_HOSTS` |
-| 3 | DAL/API `organization_id` batches | Stronger — CMS/settings/flags/settlements/Sales Statements/media/mailbox/press + **journalist_downloads** |
-| 4 | Membership + RLS hardening | Staff org/artist helpers; press/promo/downloads; **org SaaS tables** gated; **video_submissions/portal_feedback** nested; mailbox notes via messages; **platform_admins** only via `user_is_platform_admin()` |
+| 3 | DAL/API `organization_id` batches | Stronger — CMS/settings/flags/settlements/Sales Statements/media/mailbox/press/submissions + **financial_audit_events** + **apify_usage_months** |
+| 4 | Membership + RLS hardening | Staff org/artist helpers; press/promo/downloads; org SaaS tables; video/feedback/mailbox notes; platform_admins helper; Apify budget per org |
 | 5 | Cache tags + R2 prefixes | Stronger — public caches org-keyed; tenant keys + dual-read; **sync cover-art** uses `createSyncUploadFn(…, job.organizationId)` |
-| 6 | Cron/sync/credentials per org | Sync queue multi-org enqueue + **staff RLS on sync_queue**; execute job-org credentials; manual `/api/sync/artist` host-org gated |
+| 6 | Cron/sync/credentials per org | Sync queue multi-org; **Apify Spotify plays** host-org budget + roster filter (cron → Org #0); staff RLS on sync_queue |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |
 | 8 | Stripe + provisioning | Env-gated checkout membership; webhook logic in **`processStripeWebhookEvent`** (unit-tested: checkout activate, payment_failed, dedupe) |
 | 9 | Onboarding / assistenz | Partial — register flow ported |
