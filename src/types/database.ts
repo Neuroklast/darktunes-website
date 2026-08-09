@@ -3509,6 +3509,7 @@ export interface Database {
       }
       message_folders: {
         Row: {
+          organization_id: string
           id: string
           name: string
           icon: string | null
@@ -3516,6 +3517,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           icon?: string | null
@@ -3523,6 +3525,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           icon?: string | null
@@ -3533,6 +3536,7 @@ export interface Database {
       }
       message_rules: {
         Row: {
+          organization_id: string
           id: string
           name: string
           condition_field: string
@@ -3544,6 +3548,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           condition_field: string
@@ -3555,6 +3560,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           condition_field?: string

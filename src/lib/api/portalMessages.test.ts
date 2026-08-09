@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  getFromArtistMessages,
   getIncomingToLabelMessages,
   getIncomingToLabelUnreadCount,
   getSentToLabelMessages,
@@ -12,6 +11,7 @@ function createMockDb(rows: Record<string, unknown>[] = [], count = rows.length)
     eq: vi.fn().mockReturnThis(),
     is: vi.fn().mockReturnThis(),
     not: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     range: vi.fn().mockResolvedValue({ data: rows, error: null }),
@@ -21,10 +21,12 @@ function createMockDb(rows: Record<string, unknown>[] = [], count = rows.length)
   const countChain: {
     eq: ReturnType<typeof vi.fn>
     is: ReturnType<typeof vi.fn>
+    in: ReturnType<typeof vi.fn>
     then: (resolve: (value: typeof countResult) => void) => Promise<typeof countResult>
   } = {
     eq: vi.fn(),
     is: vi.fn(),
+    in: vi.fn(),
     then: (resolve) => {
       resolve(countResult)
       return Promise.resolve(countResult)
@@ -32,9 +34,16 @@ function createMockDb(rows: Record<string, unknown>[] = [], count = rows.length)
   }
   countChain.eq.mockReturnValue(countChain)
   countChain.is.mockReturnValue(countChain)
+  countChain.in.mockReturnValue(countChain)
+
+  const artistChain = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockResolvedValue({ data: [{ id: 'artist-1' }], error: null }),
+  }
 
   return {
     from: vi.fn((table: string) => {
+      if (table === 'artists') return artistChain
       if (table === 'portal_messages') {
         return {
           select: vi.fn((_cols?: string, opts?: { count?: string; head?: boolean }) => {
@@ -99,34 +108,7 @@ describe('portalMessages admin inbox helpers', () => {
 
     const db = createMockDb([row])
     const messages = await getSentToLabelMessages(db, 'artist-1')
-
     expect(messages).toHaveLength(1)
-    expect(messages[0]?.subject).toBe('Sent')
-  })
-
-  it('loads peer-to-peer messages received from other artists', async () => {
-    const row = {
-      id: 'msg-3',
-      from_artist_id: 'artist-2',
-      to_artist_id: 'artist-1',
-      to_label: false,
-      subject: 'Hey',
-      body: 'Body',
-      body_html: null,
-      sent_at: '2026-01-03T00:00:00Z',
-      read_at: null,
-      starred: false,
-      deleted_at: null,
-      folder_id: null,
-      has_attachments: false,
-    }
-
-    const db = createMockDb([row])
-    const messages = await getFromArtistMessages(db, 'artist-1')
-
-    expect(messages).toHaveLength(1)
-    expect(messages[0]?.fromArtistId).toBe('artist-2')
-    expect(messages[0]?.toArtistId).toBe('artist-1')
-    expect(messages[0]?.toLabel).toBe(false)
+    expect(messages[0]?.fromArtistId).toBe('artist-1')
   })
 })

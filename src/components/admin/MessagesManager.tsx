@@ -340,17 +340,20 @@ export function MessagesManager() {
         access_token: session.access_token,
         refresh_token: session.refresh_token,
       })
+      const organizationId = getClientOrganizationId()
       const [artistRes, folderRes, ruleRes] = await Promise.allSettled([
-        getArtists(supabase),
-        getFolders(supabase),
-        getRules(supabase),
+        getArtists(supabase, organizationId),
+        getFolders(supabase, organizationId),
+        getRules(supabase, organizationId),
       ])
       if (artistRes.status === 'fulfilled') {
         setArtists(artistRes.value.map((a) => ({ id: a.id, name: a.name })))
       }
       if (folderRes.status === 'fulfilled') setFolders(folderRes.value)
       if (ruleRes.status === 'fulfilled') setRules(ruleRes.value)
-      const fromArtists = await getIncomingToLabelMessages(supabase)
+      const fromArtists = await getIncomingToLabelMessages(supabase, {
+        organizationId: getClientOrganizationId(),
+      })
       setFromArtistMessages(fromArtists)
       await refreshMessages(searchStateRef.current)
     } catch (e) {
@@ -589,18 +592,18 @@ export function MessagesManager() {
 
   // Folder management
   const handleCreateFolder = useCallback(async (name: string) => {
-    const folder = await createFolder(supabase, name)
+    const folder = await createFolder(supabase, name, undefined, undefined, getClientOrganizationId())
     setFolders((cur) => [...cur, folder])
   }, [supabase])
 
   const handleDeleteFolder = useCallback(async (id: string) => {
-    await deleteFolder(supabase, id)
+    await deleteFolder(supabase, id, getClientOrganizationId())
     setFolders((cur) => cur.filter((f) => f.id !== id))
     if (selectedFolder === id) setSelectedFolder('inbox')
   }, [supabase, selectedFolder])
 
   const handleRenameFolder = useCallback(async (id: string, name: string) => {
-    const updated = await updateFolder(supabase, id, { name })
+    const updated = await updateFolder(supabase, id, { name }, getClientOrganizationId())
     setFolders((cur) => cur.map((f) => (f.id === id ? updated : f)))
   }, [supabase])
 
@@ -655,17 +658,17 @@ export function MessagesManager() {
 
   // Rule management
   const handleCreateRule = useCallback(async (rule: Omit<MessageRule, 'id' | 'createdAt'>) => {
-    const created = await createRule(supabase, rule)
+    const created = await createRule(supabase, rule, getClientOrganizationId())
     setRules((cur) => [...cur, created])
   }, [supabase])
 
   const handleToggleRule = useCallback(async (id: string, active: boolean) => {
-    const updated = await updateRule(supabase, id, { active })
+    const updated = await updateRule(supabase, id, { active }, getClientOrganizationId())
     setRules((cur) => cur.map((r) => (r.id === id ? updated : r)))
   }, [supabase])
 
   const handleDeleteRule = useCallback(async (id: string) => {
-    await deleteRule(supabase, id)
+    await deleteRule(supabase, id, getClientOrganizationId())
     setRules((cur) => cur.filter((r) => r.id !== id))
   }, [supabase])
 

@@ -45,6 +45,9 @@
 - [ ] Staff JWT cannot read Host B invoices, billing profiles, documents, or `artist_private_data` (PII)
 - [ ] Staff JWT cannot read Host B label/portal messages or EPK admin rows for foreign artists
 - [ ] Staff JWT cannot read Host B streaming/territory metrics or statement line items
+- [ ] Staff JWT cannot read Host B tour planner rows (tours/stops/crew/merch/finance)
+- [ ] Admin mailbox folders and rules are per host org; Host B rules do not fire on Host A messages
+- [ ] Admin inbox “from artists” list only includes artists of the host org
 - [ ] Press apply / promo pool / ZIP toggles follow host org flags and site feature_toggles
 - [ ] Sync for pilot org writes cover-art under `tenants/{orgId}/cover-art/…`; Org #0 stays flat
 - [ ] Staff JWT cannot list Host B sync_queue / release_submissions rows

@@ -23,6 +23,8 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Accounting tables have `organization_id` but admin policy is still role-only | Gate Sales Statement presets/workspaces/summaries/batches, settlement_periods, and flag writes the same way as CMS |
 | Artist-scoped finance rows (no org column) open to all staff | Use `user_can_access_artist(artist_id)` (joins artists → org) on invoices, billing, docs, metrics, messages, EPK admin policies |
 | Staff bypass on `artist_private_data` via role alone | PII policies must require org/artist access, not only `get_my_role() IN ('admin','editor')` |
+| Tour planner admin policies query `users.role` only | Nest via `user_can_access_artist` (or tour → artist org) so Host A staff cannot open Host B logistics |
+| Mailbox folders/rules global across labels | `message_folders` / `message_rules` need `organization_id` + DAL filter; rule apply uses artist org |
 | Stripe checkout trusts body `organizationId` without auth | Require session + membership/platform_admin (`assertBillingOrganizationAccess`); signup uses `/api/onboarding/register` |
 | One global sync uploadFn for multi-org drain | Create `createSyncUploadFn(…, job.organizationId)` per job so cover-art keys stay tenant-scoped |
 | Calling the product “SOS” in user/docs copy | User-facing name is **Sales Statement**; `sos_*` code paths may stay for expand→migrate |

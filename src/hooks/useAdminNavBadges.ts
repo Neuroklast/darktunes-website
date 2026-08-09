@@ -5,6 +5,7 @@ import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { getIncomingToLabelUnreadCount } from '@/lib/api/portalMessages'
 import { safeCount } from '@/lib/api/safeCount'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import type { Database } from '@/types/database'
 
 export type AdminBadgeKey =
@@ -35,7 +36,7 @@ export function useAdminNavBadges(userId: string | null, enabled: boolean) {
 
     const [portalUnread, releasePending, videoPending, fanPagePending, feedbackNew] =
       await Promise.all([
-        getIncomingToLabelUnreadCount(supabase).catch(() => 0),
+        getIncomingToLabelUnreadCount(supabase, getClientOrganizationId()).catch(() => 0),
         safeCount(
           supabase
             .from('release_submissions')

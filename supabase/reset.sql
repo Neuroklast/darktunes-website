@@ -8554,3 +8554,275 @@ CREATE POLICY "epk_download_events: admin all" ON public.epk_download_events
   );
 
 -- Nested staff RLS via user_can_access_artist
+
+-- =============================================================================
+-- Tour planner + promo_log + concert_artists nested staff RLS
+-- =============================================================================
+
+DROP POLICY IF EXISTS "tours: admin all" ON public.tours;
+CREATE POLICY "tours: admin all" ON public.tours
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_stops: admin all" ON public.tour_stops;
+CREATE POLICY "tour_stops: admin all" ON public.tour_stops
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_contacts: admin all" ON public.tour_contacts;
+CREATE POLICY "tour_contacts: admin all" ON public.tour_contacts
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_tasks: admin all" ON public.tour_tasks;
+CREATE POLICY "tour_tasks: admin all" ON public.tour_tasks
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_crew: admin all" ON public.tour_crew_members;
+CREATE POLICY "tour_crew: admin all" ON public.tour_crew_members
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.tours t
+      WHERE t.id = tour_id
+        AND public.user_can_access_artist(t.artist_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.tours t
+      WHERE t.id = tour_id
+        AND public.user_can_access_artist(t.artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "tour_merch_items: admin all" ON public.tour_merch_items;
+CREATE POLICY "tour_merch_items: admin all" ON public.tour_merch_items
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_merch_settlements: admin all" ON public.tour_merch_settlements;
+CREATE POLICY "tour_merch_settlements: admin all" ON public.tour_merch_settlements
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_share_links: admin all" ON public.tour_share_links;
+CREATE POLICY "tour_share_links: admin all" ON public.tour_share_links
+  FOR ALL
+  USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_share_links: artist manage" ON public.tour_share_links;
+CREATE POLICY "tour_share_links: artist manage" ON public.tour_share_links
+  FOR ALL
+  USING (
+    artist_id IN (SELECT am.artist_id FROM public.artist_members am WHERE am.user_id = auth.uid())
+    OR (
+      (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+      AND public.user_can_access_artist(artist_id)
+    )
+  )
+  WITH CHECK (
+    artist_id IN (SELECT am.artist_id FROM public.artist_members am WHERE am.user_id = auth.uid())
+    OR (
+      (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+      AND public.user_can_access_artist(artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "tour_collaborators: admin all" ON public.tour_collaborators;
+CREATE POLICY "tour_collaborators: admin all" ON public.tour_collaborators
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.tours t
+      WHERE t.id = tour_id
+        AND public.user_can_access_artist(t.artist_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.tours t
+      WHERE t.id = tour_id
+        AND public.user_can_access_artist(t.artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "tour_stop_performing_artists: admin all" ON public.tour_stop_performing_artists;
+CREATE POLICY "tour_stop_performing_artists: admin all" ON public.tour_stop_performing_artists
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.tour_stops ts
+      WHERE ts.id = stop_id
+        AND public.user_can_access_artist(ts.artist_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.tour_stops ts
+      WHERE ts.id = stop_id
+        AND public.user_can_access_artist(ts.artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "tour_stop_artist_private: admin all" ON public.tour_stop_artist_private;
+CREATE POLICY "tour_stop_artist_private: admin all" ON public.tour_stop_artist_private
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_artist_finance: admin all" ON public.tour_artist_finance;
+CREATE POLICY "tour_artist_finance: admin all" ON public.tour_artist_finance
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "concert_artists: admin all" ON public.concert_artists;
+CREATE POLICY "concert_artists: admin all" ON public.concert_artists
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.concerts c
+      WHERE c.id = concert_id
+        AND public.user_can_access_organization(c.organization_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.concerts c
+      WHERE c.id = concert_id
+        AND public.user_can_access_organization(c.organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "promo_log: admin all" ON public.promo_log_entries;
+CREATE POLICY "promo_log: admin all" ON public.promo_log_entries
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- =============================================================================
+-- message_folders / message_rules: expand organization_id + staff RLS
+-- =============================================================================
+
+ALTER TABLE public.message_folders ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.message_rules ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.message_folders
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+UPDATE public.message_rules
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+ALTER TABLE public.message_folders ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.message_folders ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.message_rules ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.message_rules ALTER COLUMN organization_id SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_message_folders_organization_id ON public.message_folders (organization_id);
+CREATE INDEX IF NOT EXISTS idx_message_rules_organization_id ON public.message_rules (organization_id);
+
+DROP POLICY IF EXISTS "message_folders: admin all" ON public.message_folders;
+CREATE POLICY "message_folders: admin all" ON public.message_folders
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "message_rules: admin all" ON public.message_rules;
+CREATE POLICY "message_rules: admin all" ON public.message_rules
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Tour planner + mailbox folders/rules org isolation

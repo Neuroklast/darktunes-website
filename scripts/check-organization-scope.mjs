@@ -196,7 +196,17 @@ const REQUIRED = [
       'user_can_access_artist',
       'artist_invoices: admin all',
       'label_messages: admin all',
+      'tours: admin all',
+      'message_folders: admin all',
     ],
+  },
+  {
+    file: 'src/lib/api/messageFolders.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'src/lib/api/messageRules.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
   },
 ]
 
