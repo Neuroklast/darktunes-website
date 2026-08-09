@@ -14,6 +14,7 @@ import {
   createJournalistApplication,
 } from '@/lib/api/journalistApplications'
 import { isPressApplicationsEnabled } from '@/lib/pressAccess'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { z } from 'zod'
 import { checkRateLimit, getClientIp } from '@/lib/ipRateLimit'
 import { emitNotification } from '@/lib/notifications/emit'
@@ -50,7 +51,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const { email, name, outlet, message } = ApplySchema.parse(body)
 
   const db = await createServiceRoleSupabaseClient()
-  const applicationsEnabled = await isPressApplicationsEnabled(db)
+  const organizationId = await getRequestOrganizationId().catch(() => undefined)
+  const applicationsEnabled = await isPressApplicationsEnabled(db, organizationId)
   if (!applicationsEnabled) {
     throw new ApiError(403, 'Press applications are currently disabled', 'FEATURE_DISABLED')
   }

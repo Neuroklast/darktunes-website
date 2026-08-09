@@ -16,9 +16,10 @@ export default async function PressDashboardPage() {
   } = await supabase.auth.getUser()
   if (!user) return null
 
+  const organizationId = await getRequestOrganizationId().catch(() => undefined)
   const [flags, promoPoolEnabled, downloads, interviewRequests, accreditationRows] = await Promise.all([
-    getFeatureFlagsForRole(supabase, 'journalist', await getRequestOrganizationId().catch(() => undefined)).catch(() => ({} as Record<string, boolean>)),
-    isPromoPoolEnabled(supabase),
+    getFeatureFlagsForRole(supabase, 'journalist', organizationId).catch(() => ({} as Record<string, boolean>)),
+    isPromoPoolEnabled(supabase, organizationId),
     getDownloadHistory(supabase, user.id).catch(() => []),
     getInterviewRequestsByJournalistId(supabase, user.id).catch(() => []),
     supabase

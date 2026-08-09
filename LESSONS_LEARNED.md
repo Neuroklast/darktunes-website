@@ -18,6 +18,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Shared R2 prefixes across labels | New non-Org-#0 objects use `tenants/{organizationId}/…`; dual-read candidates for expand phase |
 | Download only the stored `r2_key` after key-layout change | Pass `organizationId` into `downloadObjectFromR2` / `sha256HexFromR2Object` / delete helpers so legacy + tenants/ keys both resolve |
 | Portal feature flags as global `id` PK | Composite PK `(organization_id, id)`; seed catalog on `createOrganization`; portal/admin always pass host org |
+| Staff RLS only checks role, not organization | Use `user_can_access_organization(org_id)` (platform admin / membership / Org #0 legacy) on staff asset and settings policies |
 | Calling the product “SOS” in user/docs copy | User-facing name is **Sales Statement**; `sos_*` code paths may stay for expand→migrate |
 | CI only stubs org isolation | `check:organization-scope` must fail when audited files lose markers |
 

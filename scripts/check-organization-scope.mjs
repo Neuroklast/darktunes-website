@@ -156,6 +156,14 @@ const REQUIRED = [
     file: 'app/api/admin/feature-flags/[id]/route.ts',
     markers: ['organizationId'],
   },
+  {
+    file: 'supabase/reset.sql',
+    markers: ['user_can_access_organization', 'user_belongs_to_organization'],
+  },
+  {
+    file: 'src/lib/pressAccess.ts',
+    markers: ['organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
 ]
 
 const failures = []

@@ -92,7 +92,7 @@ Never take `darktunes.com` offline for SaaS launch.
 | 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
 | 2 | Host context in `proxy.ts` | Done — DB slug/custom-domain lookup; suspended gate; `MULTI_TENANT_STRICT_HOSTS` |
 | 3 | DAL/API `organization_id` batches | Stronger — site_settings + **portal_feature_flags** + feature toggles + settlement periods + message templates + Sales Statements + CMS + File Explorer/EPK + storage + feedback; platform KV on Org #0 |
-| 4 | Membership + RLS hardening | Portal + admin host-org auth; **portal_feature_flags** org-scoped read policy (artist_members / org_users / staff) |
+| 4 | Membership + RLS hardening | Portal + admin host-org auth; portal_feature_flags org read; **`user_can_access_organization`** gates staff assets/folders/EPK templates/message templates/site_settings write+staff-read |
 | 5 | Cache tags + R2 prefixes | Stronger — public caches org-keyed; **`buildTenantObjectKey`** + **dual-read** on download/hash/delete (`downloadObjectFromR2(…, organizationId)`); admin/portal uploads tenant-prefixed |
 | 6 | Cron/sync/credentials per org | Sync queue multi-org enqueue; **execute uses job.organizationId credentials**; manual `/api/sync/artist` host-org gated; credentials API per org |
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |

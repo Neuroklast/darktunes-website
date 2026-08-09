@@ -15,6 +15,7 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { hasPressDashboardAccess, resolveEffectiveAccess } from '@/lib/rbac'
 import { isPromoPoolEnabled } from '@/lib/pressAccess'
 import { getJournalistApplicationByUserId } from '@/lib/api/journalistApplications'
@@ -38,7 +39,8 @@ export default async function PromoPoolLayout({ children }: { children: ReactNod
   // Middleware handles the unauthenticated case; user is always defined here.
   if (!user) return null
 
-  const promoPoolEnabled = await isPromoPoolEnabled(supabase)
+  const organizationId = await getRequestOrganizationId().catch(() => undefined)
+  const promoPoolEnabled = await isPromoPoolEnabled(supabase, organizationId)
 
   if (!promoPoolEnabled) {
     return (

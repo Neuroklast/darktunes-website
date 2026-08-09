@@ -7533,3 +7533,174 @@ FROM public.users u
 WHERE u.role::text IN ('admin', 'editor')
 ON CONFLICT (organization_id, user_id) DO NOTHING;
 
+-- =============================================================================
+-- MULTI-TENANT RLS: staff isolation for organization-scoped tables
+-- Aligns with assertAdminOrganizationAccess (platform admin / membership / Org #0 legacy)
+-- Public anon key lists stay host-agnostic; app DAL still filters by host org for public.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.user_can_access_organization(org_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    EXISTS (
+      SELECT 1 FROM public.platform_admins pa WHERE pa.user_id = auth.uid()
+    )
+    OR public.user_belongs_to_organization(org_id)
+    OR (
+      org_id = '00000000-0000-0000-0000-000000000000'::uuid
+      AND public.get_my_role() IN ('admin', 'editor')
+    );
+$$;
+
+COMMENT ON FUNCTION public.user_can_access_organization(UUID) IS
+  'Staff may access org data: platform_admins, organization_users membership, or Org #0 legacy admin/editor';
+
+-- Assets: staff read/write limited to accessible organizations
+DROP POLICY IF EXISTS "assets: staff read" ON public.assets;
+CREATE POLICY "assets: staff read" ON public.assets
+  FOR SELECT USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() IN ('admin', 'editor'))
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "assets: can_view_admin_panel insert" ON public.assets;
+CREATE POLICY "assets: can_view_admin_panel insert" ON public.assets
+  FOR INSERT WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "assets: can_view_admin_panel update" ON public.assets;
+CREATE POLICY "assets: can_view_admin_panel update" ON public.assets
+  FOR UPDATE USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "assets: admin delete" ON public.assets;
+CREATE POLICY "assets: admin delete" ON public.assets
+  FOR DELETE USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Asset folders
+DROP POLICY IF EXISTS "asset_folders: staff read" ON public.asset_folders;
+CREATE POLICY "asset_folders: staff read" ON public.asset_folders
+  FOR SELECT TO authenticated
+  USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() IN ('admin', 'editor'))
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "asset_folders: can_view_admin_panel write" ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: can_view_admin_panel update" ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: editor+ write" ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: editor+ update" ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: admin delete" ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: staff write" ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: staff update" ON public.asset_folders;
+
+CREATE POLICY "asset_folders: staff write" ON public.asset_folders
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() IN ('admin', 'editor'))
+    AND public.user_can_access_organization(organization_id)
+  );
+
+CREATE POLICY "asset_folders: staff update" ON public.asset_folders
+  FOR UPDATE TO authenticated
+  USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() IN ('admin', 'editor'))
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() IN ('admin', 'editor'))
+    AND public.user_can_access_organization(organization_id)
+  );
+
+CREATE POLICY "asset_folders: admin delete" ON public.asset_folders
+  FOR DELETE TO authenticated
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- EPK templates (admin)
+DROP POLICY IF EXISTS "epk_templates: admin all" ON public.epk_templates;
+CREATE POLICY "epk_templates: admin all" ON public.epk_templates
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Message templates
+DROP POLICY IF EXISTS "message_templates: admin all" ON public.message_templates;
+CREATE POLICY "message_templates: admin all" ON public.message_templates
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- site_settings staff write limited to accessible orgs
+DROP POLICY IF EXISTS "site_settings_admin_write" ON public.site_settings;
+CREATE POLICY "site_settings_admin_write" ON public.site_settings
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- site_settings staff SELECT must also be org-gated (public key list remains open)
+DROP POLICY IF EXISTS "site_settings_public_read" ON public.site_settings;
+CREATE POLICY "site_settings_public_read" ON public.site_settings
+  FOR SELECT USING (
+    (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_organization(organization_id)
+    )
+    OR key = ANY (ARRAY[
+      'label_name','label_short_name','label_tagline','contact_email','privacy_policy_url','terms_url',
+      'instagram_url','youtube_url','spotify_url','spotify_playlist_uri','spotify_playlists',
+      'hero_badge','hero_news_badge','hero_description','hero_content_type','hero_featured_id',
+      'hero_custom_bg_url','hero_default_primary_btn_label','hero_default_secondary_btn_label',
+      'seo_title','seo_description','og_title','og_description',
+      'impressum_company_name','impressum_legal_form','impressum_representative','impressum_address',
+      'impressum_vat_id','impressum_register_court','impressum_register_number','impressum_phone','impressum_email',
+      'datenschutz_content','datenschutz_content_en','agb_content','agb_content_en','portal_terms_version',
+      'consent_placeholder_url','noise_opacity','crt_scanlines_enabled','vignette_intensity','shopify_store_url',
+      'submit_hub_url','submit_hub_label','submit_hub_description','submit_hub_section_heading',
+      'show_about_in_header','show_about_in_footer','about_nav_label','youtube_channel_id','carousel_autoplay_ms',
+      'videos_per_page','videos_link_to_page','exclude_shorts_from_public','concerts_per_page','concerts_link_to_page',
+      'feature_toggles','logo_url','favicon_url','about_headline','about_subheading','about_body',
+      'newsletter_heading','newsletter_description','spotify_section_heading','spotify_section_subheading',
+      'videos_section_heading','videos_section_subheading','news_section_heading','news_section_subheading',
+      'concerts_section_heading','concerts_section_subheading','releases_section_heading','releases_section_subheading',
+      'homepage_section_order','homepage_news_count','contact_topics','custom_social_links',
+      'theme_primary','theme_secondary','theme_background','theme_foreground','theme_card','theme_muted',
+      'theme_accent','theme_border','theme_gradient_hero_from','theme_gradient_hero_to','theme_gradient_hero_dir',
+      'theme_gradient_accent_from','theme_gradient_accent_to','theme_gradient_accent_dir','theme_config'
+    ]::text[])
+  );
+-- site_settings_public_read org gate

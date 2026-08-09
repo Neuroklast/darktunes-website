@@ -5,6 +5,7 @@ import { createR2Client } from '@/lib/r2Utils'
 import { generatePresignedDownloadUrl } from '@/lib/portal/presignedUrl'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getUserRoleWithClient } from '@/lib/getUserRole'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { isPressZipDownloadEnabled } from '@/lib/pressAccess'
 import { logDownload } from '@/lib/api/journalistDownloads'
 
@@ -19,7 +20,8 @@ export async function getPressKitUrls(r2Keys: string[]): Promise<{ urls: Array<{
     const role = await getUserRoleWithClient(supabase, user.id)
     if (!role || !['journalist', 'admin'].includes(role)) return { urls: [], error: 'Unauthorized' }
 
-    const zipDownloadEnabled = await isPressZipDownloadEnabled(supabase)
+    const organizationId = await getRequestOrganizationId().catch(() => undefined)
+    const zipDownloadEnabled = await isPressZipDownloadEnabled(supabase, organizationId)
     if (!zipDownloadEnabled) return { urls: [], error: 'ZIP download is currently disabled' }
 
     const { serverEnv } = await import('@/lib/env.server')

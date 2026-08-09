@@ -26,9 +26,10 @@ export default async function PressDashboardLayout({ children }: { children: Rea
   } = await supabase.auth.getUser()
   if (!user) return null
 
+  const organizationId = await getRequestOrganizationId().catch(() => undefined)
   const [flags, promoPoolEnabled] = await Promise.all([
-    getFeatureFlagsForRole(supabase, 'journalist', await getRequestOrganizationId().catch(() => undefined)).catch(() => ({} as Record<string, boolean>)),
-    isPromoPoolEnabled(supabase),
+    getFeatureFlagsForRole(supabase, 'journalist', organizationId).catch(() => ({} as Record<string, boolean>)),
+    isPromoPoolEnabled(supabase, organizationId),
   ])
   const links = [
     { href: '/press/dashboard', label: t('overview'), enabled: true },

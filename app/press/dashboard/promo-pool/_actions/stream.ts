@@ -5,6 +5,7 @@ import { createR2Client } from '@/lib/r2Utils'
 import { generatePresignedDownloadUrl } from '@/lib/portal/presignedUrl'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getUserRoleWithClient } from '@/lib/getUserRole'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { isPressAudioPreviewEnabled, isPromoPoolEnabled } from '@/lib/pressAccess'
 
 export async function getPromoStreamUrl(r2Key: string): Promise<{ url: string | null }> {
@@ -18,9 +19,10 @@ export async function getPromoStreamUrl(r2Key: string): Promise<{ url: string | 
     const role = await getUserRoleWithClient(supabase, user.id)
     if (!role || !['journalist', 'admin'].includes(role)) return { url: null }
 
+    const organizationId = await getRequestOrganizationId().catch(() => undefined)
     const [promoPoolEnabled, audioPreviewEnabled] = await Promise.all([
-      isPromoPoolEnabled(supabase),
-      isPressAudioPreviewEnabled(supabase),
+      isPromoPoolEnabled(supabase, organizationId),
+      isPressAudioPreviewEnabled(supabase, organizationId),
     ])
     if (!promoPoolEnabled || !audioPreviewEnabled) return { url: null }
 
