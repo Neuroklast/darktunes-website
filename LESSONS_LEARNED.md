@@ -43,6 +43,8 @@ Distilled anti-patterns from project history. **Append session findings before o
 | One global sync uploadFn for multi-org drain | Create `createSyncUploadFn(…, job.organizationId)` per job so cover-art keys stay tenant-scoped |
 | Calling the product “SOS” in user/docs copy | User-facing name is **Sales Statement**; `sos_*` code paths may stay for expand→migrate |
 | CI only stubs org isolation | `check:organization-scope` must fail when audited files lose markers |
+| Admin “purge all releases” has no org filter | Service-role maintenance must use `requireAdmin*FromRequest` + host `organizationId` (or Org #0-only for platform-wide logs) |
+| Portal FAQ is a global catalogue | Label help content needs `organization_id` + per-org slug uniqueness |
 
 ## Database & schema
 

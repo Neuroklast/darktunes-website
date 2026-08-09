@@ -9434,3 +9434,69 @@ CREATE POLICY "apify_usage_months: admin all" ON public.apify_usage_months
   );
 
 -- financial_audit + apify_usage organization isolation
+
+-- ---------------------------------------------------------------------------
+-- portal_faq_categories / portal_faq_items organization isolation
+-- Each label has its own portal help FAQ; seed stays Org #0.
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.portal_faq_categories ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.portal_faq_categories
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+ALTER TABLE public.portal_faq_categories ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.portal_faq_categories ALTER COLUMN organization_id SET NOT NULL;
+
+ALTER TABLE public.portal_faq_items ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.portal_faq_items
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+ALTER TABLE public.portal_faq_items ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.portal_faq_items ALTER COLUMN organization_id SET NOT NULL;
+
+-- Slug uniqueness is per organization (each label may re-use dashboard, music, etc.)
+ALTER TABLE public.portal_faq_categories DROP CONSTRAINT IF EXISTS portal_faq_categories_slug_key;
+DROP INDEX IF EXISTS portal_faq_categories_slug_key;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_portal_faq_categories_org_slug
+  ON public.portal_faq_categories (organization_id, slug);
+
+ALTER TABLE public.portal_faq_items DROP CONSTRAINT IF EXISTS portal_faq_items_slug_key;
+DROP INDEX IF EXISTS portal_faq_items_slug_key;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_portal_faq_items_org_slug
+  ON public.portal_faq_items (organization_id, slug);
+
+CREATE INDEX IF NOT EXISTS idx_portal_faq_categories_organization_id
+  ON public.portal_faq_categories (organization_id);
+CREATE INDEX IF NOT EXISTS idx_portal_faq_items_organization_id
+  ON public.portal_faq_items (organization_id);
+
+DROP POLICY IF EXISTS "portal_faq_categories: editor+ write" ON public.portal_faq_categories;
+CREATE POLICY "portal_faq_categories: editor+ write" ON public.portal_faq_categories
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "portal_faq_items: editor+ write" ON public.portal_faq_items;
+CREATE POLICY "portal_faq_items: editor+ write" ON public.portal_faq_items
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- portal_faq organization isolation

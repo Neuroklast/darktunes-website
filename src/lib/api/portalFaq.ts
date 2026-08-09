@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { PortalFaqCategory, PortalFaqItem, PortalFaqTree } from '@/types'
 import { stripEmojis, stripEmojisFromHtml } from '@/lib/stripEmojis'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type CategoryRow = Database['public']['Tables']['portal_faq_categories']['Row']
@@ -74,16 +75,21 @@ function buildTree(categories: PortalFaqCategory[], items: PortalFaqItem[]): Por
     .filter((group) => group.items.length > 0 || !group.category.isPublished)
 }
 
-export async function getPublishedPortalFaq(db: DbClient): Promise<PortalFaqTree[]> {
+export async function getPublishedPortalFaq(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<PortalFaqTree[]> {
   const [categoriesRes, itemsRes] = await Promise.all([
     db
       .from('portal_faq_categories')
       .select('*')
+      .eq('organization_id', organizationId)
       .eq('is_published', true)
       .order('sort_order', { ascending: true }),
     db
       .from('portal_faq_items')
       .select('*')
+      .eq('organization_id', organizationId)
       .eq('is_published', true)
       .order('sort_order', { ascending: true }),
   ])
@@ -100,27 +106,38 @@ export async function getPublishedPortalFaq(db: DbClient): Promise<PortalFaqTree
   return buildTree(categories, items)
 }
 
-export async function getAllPortalFaqCategories(db: DbClient): Promise<PortalFaqCategory[]> {
+export async function getAllPortalFaqCategories(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<PortalFaqCategory[]> {
   const { data, error } = await db
     .from('portal_faq_categories')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('sort_order', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []).map(rowToCategory)
 }
 
-export async function getAllPortalFaqItems(db: DbClient): Promise<PortalFaqItem[]> {
+export async function getAllPortalFaqItems(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<PortalFaqItem[]> {
   const { data, error } = await db
     .from('portal_faq_items')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('sort_order', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []).map(rowToItem)
 }
 
-export async function getAdminPortalFaq(db: DbClient): Promise<PortalFaqTree[]> {
-  const categories = await getAllPortalFaqCategories(db)
-  const items = await getAllPortalFaqItems(db)
+export async function getAdminPortalFaq(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<PortalFaqTree[]> {
+  const categories = await getAllPortalFaqCategories(db, organizationId)
+  const items = await getAllPortalFaqItems(db, organizationId)
   return buildTree(categories, items)
 }
 
@@ -163,11 +180,15 @@ export function sanitizeItemWrite(
 export async function upsertPortalFaqCategory(
   db: DbClient,
   input: CategoryInsert & { id?: string },
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<PortalFaqCategory> {
-  const payload = sanitizeCategoryWrite(input) as CategoryInsert
+  const payload = sanitizeCategoryWrite({
+    ...input,
+    organization_id: organizationId,
+  }) as CategoryInsert
   const { data, error } = await db
     .from('portal_faq_categories')
-    .upsert(payload, { onConflict: 'slug' })
+    .upsert(payload, { onConflict: 'organization_id,slug' })
     .select()
     .single()
   if (error) throw new Error(error.message)
@@ -179,12 +200,16 @@ export async function updatePortalFaqCategory(
   db: DbClient,
   id: string,
   input: CategoryUpdate,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<PortalFaqCategory> {
   const payload = sanitizeCategoryWrite(input) as CategoryUpdate
+  // Never allow re-parenting a category to another org via update payload.
+  delete (payload as { organization_id?: string }).organization_id
   const { data, error } = await db
     .from('portal_faq_categories')
     .update(payload)
     .eq('id', id)
+    .eq('organization_id', organizationId)
     .select()
     .single()
   if (error) throw new Error(error.message)
@@ -192,19 +217,41 @@ export async function updatePortalFaqCategory(
   return rowToCategory(data)
 }
 
-export async function deletePortalFaqCategory(db: DbClient, id: string): Promise<void> {
-  const { error } = await db.from('portal_faq_categories').delete().eq('id', id)
+export async function deletePortalFaqCategory(
+  db: DbClient,
+  id: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<void> {
+  const { error } = await db
+    .from('portal_faq_categories')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', organizationId)
   if (error) throw new Error(error.message)
 }
 
 export async function upsertPortalFaqItem(
   db: DbClient,
   input: ItemInsert & { id?: string },
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<PortalFaqItem> {
-  const payload = sanitizeItemWrite(input) as ItemInsert
+  // Category must belong to the same organization.
+  const { data: category, error: catError } = await db
+    .from('portal_faq_categories')
+    .select('id')
+    .eq('id', input.category_id)
+    .eq('organization_id', organizationId)
+    .maybeSingle()
+  if (catError) throw new Error(catError.message)
+  if (!category) throw new Error('FAQ category not found for this organization')
+
+  const payload = sanitizeItemWrite({
+    ...input,
+    organization_id: organizationId,
+  }) as ItemInsert
   const { data, error } = await db
     .from('portal_faq_items')
-    .upsert(payload, { onConflict: 'slug' })
+    .upsert(payload, { onConflict: 'organization_id,slug' })
     .select()
     .single()
   if (error) throw new Error(error.message)
@@ -216,12 +263,26 @@ export async function updatePortalFaqItem(
   db: DbClient,
   id: string,
   input: ItemUpdate,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<PortalFaqItem> {
+  if (input.category_id) {
+    const { data: category, error: catError } = await db
+      .from('portal_faq_categories')
+      .select('id')
+      .eq('id', input.category_id)
+      .eq('organization_id', organizationId)
+      .maybeSingle()
+    if (catError) throw new Error(catError.message)
+    if (!category) throw new Error('FAQ category not found for this organization')
+  }
+
   const payload = sanitizeItemWrite(input) as ItemUpdate
+  delete (payload as { organization_id?: string }).organization_id
   const { data, error } = await db
     .from('portal_faq_items')
     .update(payload)
     .eq('id', id)
+    .eq('organization_id', organizationId)
     .select()
     .single()
   if (error) throw new Error(error.message)
@@ -229,7 +290,15 @@ export async function updatePortalFaqItem(
   return rowToItem(data)
 }
 
-export async function deletePortalFaqItem(db: DbClient, id: string): Promise<void> {
-  const { error } = await db.from('portal_faq_items').delete().eq('id', id)
+export async function deletePortalFaqItem(
+  db: DbClient,
+  id: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<void> {
+  const { error } = await db
+    .from('portal_faq_items')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', organizationId)
   if (error) throw new Error(error.message)
 }

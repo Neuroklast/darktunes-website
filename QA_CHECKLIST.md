@@ -73,7 +73,10 @@ Full staging sequence: [docs/agent/multi-tenant.md](docs/agent/multi-tenant.md) 
 - [ ] Staff JWT cannot list Host B sync_queue / release_submissions rows
 - [ ] Stripe: unauthenticated checkout → 401; non-member org id → 403; member/platform_admin → session URL when Stripe env set
 - [ ] Stripe webhook (test): `checkout.session.completed` upserts subscription + plan features + org `active`; event id replay is no-op
-- [ ] Apply multi-tenant block of `supabase/reset.sql` (staff CMS + Sales Statement/settlement + sync/submissions RLS) on staging before pilot hosts
+- [ ] Portal FAQ admin on Host A never lists/edits Host B categories or items; portal help shows host org FAQ only
+- [ ] Maintenance purge-releases / clear-stats / clear-accreditations on Host A does not delete Host B rows
+- [ ] Maintenance clear-logs for app_logs/admin_audit/rbac only succeeds on Org #0 host; pilot host gets 403 for platform-wide tables
+- [ ] Apply multi-tenant block of `supabase/reset.sql` (staff CMS + Sales Statement/settlement + sync/submissions + portal FAQ RLS) on staging before pilot hosts
 
 ## Security
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)

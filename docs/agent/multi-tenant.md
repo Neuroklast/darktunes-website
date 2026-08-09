@@ -121,6 +121,8 @@ Never take `darktunes.com` offline for SaaS launch.
 | `submission_form_schema` global catalogue | Keep | Label-agnostic form definition |
 | Global role tables (`users`, `role_permissions`) | Keep | Platform-wide; not per-label data |
 | Organization branding injector | Done | `OrganizationBrandingInjector` in root `app/layout.tsx` |
+| Portal FAQ (`portal_faq_*`) | Done | `organization_id` + org unique slugs; admin/portal APIs host-scoped |
+| Admin maintenance destructive routes | Done | purge/strip/clear/reset/cleanup filter host `organizationId`; platform-wide logs Org #0 only |
 
 ## Pilot staging runbook
 

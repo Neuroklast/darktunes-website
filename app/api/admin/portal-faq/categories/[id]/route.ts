@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { withErrorHandler } from '@/lib/errors'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
-import { extractBearerToken, verifyAdminOrEditor } from '@/lib/adminAuth'
+import { requireAdminOrEditorFromRequest } from '@/lib/adminAuth'
 import { deletePortalFaqCategory, updatePortalFaqCategory } from '@/lib/api/portalFaq'
 
 const patchSchema = z.object({
@@ -19,20 +19,18 @@ function extractId(req: NextRequest): string {
 }
 
 export const PATCH = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdminOrEditor(token)
+  const { organizationId } = await requireAdminOrEditorFromRequest(req)
   const supabase = await createServiceRoleSupabaseClient()
   const id = extractId(req)
   const body = patchSchema.parse(await req.json())
-  const category = await updatePortalFaqCategory(supabase, id, body)
+  const category = await updatePortalFaqCategory(supabase, id, body, organizationId)
   return NextResponse.json(category)
 })
 
 export const DELETE = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdminOrEditor(token)
+  const { organizationId } = await requireAdminOrEditorFromRequest(req)
   const supabase = await createServiceRoleSupabaseClient()
   const id = extractId(req)
-  await deletePortalFaqCategory(supabase, id)
+  await deletePortalFaqCategory(supabase, id, organizationId)
   return NextResponse.json({ deleted: true })
 })

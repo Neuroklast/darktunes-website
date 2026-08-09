@@ -299,6 +299,42 @@ const REQUIRED = [
     file: 'app/api/admin/organizations/[id]/export/route.ts',
     markers: ['assertAdminOrganizationAccess', 'requireAdminFromRequest'],
   },
+  {
+    file: 'src/lib/api/portalFaq.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'app/api/admin/portal-faq/categories/route.ts',
+    markers: ['organizationId', 'requireAdminOrEditorFromRequest'],
+  },
+  {
+    file: 'app/api/admin/portal-faq/items/route.ts',
+    markers: ['organizationId', 'requireAdminOrEditorFromRequest'],
+  },
+  {
+    file: 'app/api/portal/faq/route.ts',
+    markers: ['organizationId', 'getRequestOrganizationId'],
+  },
+  {
+    file: 'app/api/admin/maintenance/purge-releases/route.ts',
+    markers: ['organizationId', 'requireAdminFromRequest'],
+  },
+  {
+    file: 'app/api/admin/maintenance/clear-stats/route.ts',
+    markers: ['organizationId', 'requireAdminFromRequest'],
+  },
+  {
+    file: 'app/api/admin/maintenance/clear-accreditations/route.ts',
+    markers: ['organizationId', 'requireAdminFromRequest'],
+  },
+  {
+    file: 'app/api/admin/maintenance/clear-logs/route.ts',
+    markers: ['organizationId', 'DEFAULT_ORGANIZATION_ID', 'requireAdminFromRequest'],
+  },
+  {
+    file: 'app/api/admin/cleanup-orphaned-releases/route.ts',
+    markers: ['organizationId', 'requireAdminOrEditorFromRequest'],
+  },
 ]
 
 const failures = []

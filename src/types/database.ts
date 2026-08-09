@@ -4728,6 +4728,7 @@ export interface Database {
       portal_faq_categories: {
         Row: {
           id: string
+          organization_id: string
           slug: string
           title_en: string
           title_de: string | null
@@ -4738,6 +4739,7 @@ export interface Database {
         }
         Insert: {
           id?: string
+          organization_id?: string
           slug: string
           title_en: string
           title_de?: string | null
@@ -4748,6 +4750,7 @@ export interface Database {
         }
         Update: {
           id?: string
+          organization_id?: string
           slug?: string
           title_en?: string
           title_de?: string | null
@@ -4756,11 +4759,20 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "portal_faq_categories_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       portal_faq_items: {
         Row: {
           id: string
+          organization_id: string
           category_id: string
           slug: string
           question_en: string
@@ -4776,6 +4788,7 @@ export interface Database {
         }
         Insert: {
           id?: string
+          organization_id?: string
           category_id: string
           slug: string
           question_en: string
@@ -4791,6 +4804,7 @@ export interface Database {
         }
         Update: {
           id?: string
+          organization_id?: string
           category_id?: string
           slug?: string
           question_en?: string
@@ -4810,6 +4824,13 @@ export interface Database {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "portal_faq_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_faq_items_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           }
         ]
