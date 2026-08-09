@@ -22,7 +22,7 @@ function makeDb(rows: ReleaseRow[]) {
   const updateEqIdMock = vi.fn(() => ({
     eq: vi.fn(async () => ({ error: null })),
   }))
-  const updateMock = vi.fn(() => ({ eq: updateEqIdMock }))
+  const updateMock = vi.fn((_payload: { title: string }) => ({ eq: updateEqIdMock }))
 
   const fromMock = vi.fn(() => ({
     select: selectMock,
