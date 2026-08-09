@@ -1,11 +1,11 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { withErrorHandler } from '@/lib/errors'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { withErrorHandler, ApiError } from '@/lib/errors'
+import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
+import { assertAdminOrganizationAccess } from '@/lib/organizations/assertAdminOrganizationAccess'
 import { createCustomDomain, listCustomDomainsByOrganization } from '@/lib/api/customDomains'
 import { organizationHasFeature } from '@/lib/organizations/features'
-import { ApiError } from '@/lib/errors'
 import { writeOrganizationAuditLog } from '@/lib/api/organizationAuditLog'
 
 const postSchema = z.object({
@@ -14,28 +14,35 @@ const postSchema = z.object({
 })
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdmin(token)
+  const { userId } = await requireAdminFromRequest(req)
   const orgId = new URL(req.url).searchParams.get('organizationId')
-  if (!orgId) return NextResponse.json({ error: 'organizationId required' }, { status: 400 })
+  if (!orgId) throw new ApiError(400, 'organizationId required')
 
-  const supabase = await createServerSupabaseClient()
-  const domains = await listCustomDomainsByOrganization(supabase, orgId)
+  const db = await createServiceRoleSupabaseClient()
+  await assertAdminOrganizationAccess(db, userId, orgId)
+
+  const domains = await listCustomDomainsByOrganization(db, orgId)
   return NextResponse.json(domains)
 })
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const userId = await verifyAdmin(token)
+  const { userId } = await requireAdminFromRequest(req)
   const body = postSchema.parse(await req.json())
-  const supabase = await createServerSupabaseClient()
-  const customDomainEnabled = await organizationHasFeature(supabase, body.organizationId, 'custom_domain')
+  const db = await createServiceRoleSupabaseClient()
+  await assertAdminOrganizationAccess(db, userId, body.organizationId)
+
+  const customDomainEnabled = await organizationHasFeature(
+    db,
+    body.organizationId,
+    'custom_domain',
+  )
   if (!customDomainEnabled) {
     throw new ApiError(403, 'Custom domains are not enabled for this plan', 'CUSTOM_DOMAIN_DISABLED')
   }
-  const domain = await createCustomDomain(supabase, body.organizationId, body.domain)
 
-  await writeOrganizationAuditLog(supabase, {
+  const domain = await createCustomDomain(db, body.organizationId, body.domain)
+
+  await writeOrganizationAuditLog(db, {
     organizationId: body.organizationId,
     userId,
     action: 'custom_domain.created',

@@ -182,7 +182,9 @@ export function OrganizationsManager() {
       })
       if (!res.ok) throw new Error('Failed to add domain')
       const domain = (await res.json()) as { verificationToken: string; domain: string }
-      toast.success(`Add TXT record: ${domain.verificationToken}`)
+      toast.success(
+        `Publish TXT "${domain.verificationToken}" on ${domain.domain} (or _darktunes-verify.${domain.domain})`,
+      )
       setNewDomain('')
       void fetchCustomDomains(selectedOrgId)
     } catch {
@@ -201,11 +203,14 @@ export function OrganizationsManager() {
         },
         body: JSON.stringify({ domainId }),
       })
-      if (!res.ok) throw new Error('Verification failed')
-      toast.success('Domain marked verified')
+      if (!res.ok) {
+        const errBody = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+        throw new Error(errBody.error ?? errBody.message ?? 'Verification failed')
+      }
+      toast.success('Domain verified via DNS TXT')
       void fetchCustomDomains(selectedOrgId)
-    } catch {
-      toast.error('Failed to verify domain')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to verify domain')
     }
   }
 
@@ -342,6 +347,10 @@ export function OrganizationsManager() {
           <CardTitle>Custom Domains</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Add a TXT record with the verification value, then run Check DNS. After verification, point CNAME/ALIAS
+            traffic to the platform tenant host.
+          </p>
           <div className="flex flex-wrap gap-2">
             <Input
               placeholder="label.com"
@@ -361,16 +370,20 @@ export function OrganizationsManager() {
                   key={domain.id}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3"
                 >
-                  <div>
+                  <div className="min-w-0 space-y-1">
                     <p className="text-sm font-medium">{domain.domain}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {domain.status}
-                      {domain.status === 'pending' && ` ┬À TXT: ${domain.verificationToken}`}
-                    </p>
+                    <p className="text-xs text-muted-foreground">Status: {domain.status}</p>
+                    {domain.status === 'pending' && (
+                      <p className="break-all font-mono text-xs text-muted-foreground">
+                        TXT: {domain.verificationToken}
+                        <br />
+                        Hosts: {domain.domain} or _darktunes-verify.{domain.domain}
+                      </p>
+                    )}
                   </div>
                   {domain.status === 'pending' && (
                     <Button variant="ghost" size="sm" onClick={() => void verifyCustomDomain(domain.id)}>
-                      Mark verified
+                      Check DNS
                     </Button>
                   )}
                 </li>

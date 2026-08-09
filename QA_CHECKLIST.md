@@ -62,6 +62,8 @@
 - [ ] Cron/sync-trigger Apify run processes each active org (or skips empty pilots) without mixing budgets
 - [ ] Portal billing profile save stamps financial_audit_events with host organization_id
 - [ ] Admin analytics website engagement top-artists only includes host org artists
+- [ ] Custom domain: without TXT record, Check DNS fails; after publishing `darktunes-verify=…` TXT, status becomes verified
+- [ ] Admin cannot list/verify custom domains for an organization they cannot access
 - [ ] Press apply / promo pool / ZIP toggles follow host org flags and site feature_toggles
 - [ ] Sync for pilot org writes cover-art under `tenants/{orgId}/cover-art/…`; Org #0 stays flat
 - [ ] Staff JWT cannot list Host B sync_queue / release_submissions rows

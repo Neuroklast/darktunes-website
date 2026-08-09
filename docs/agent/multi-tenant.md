@@ -101,7 +101,7 @@ Never take `darktunes.com` offline for SaaS launch.
 | 7 | Marketing + platform account UI | Partial — `/pricing`, `/onboarding` |
 | 8 | Stripe + provisioning | Env-gated checkout membership; webhook logic in **`processStripeWebhookEvent`** (unit-tested: checkout activate, payment_failed, dedupe) |
 | 9 | Onboarding / assistenz | Partial — register flow ported |
-| 10 | Custom domains | DAL + admin API ported; full DNS ops TBD |
+| 10 | Custom domains | DAL + admin API; **DNS TXT verification** (`verifyDomainTxtToken`); force-verify only non-prod |
 | 11 | Platform ops console | Partial — `/admin/organizations` |
 | 12 | Isolation QA + pilots | Unit isolation + e2e + **`npm run check:organization-scope`** CI gate (marker audit) |
 | 13 | Cleanup | Partial — platform_admins helper; org SaaS writes gated; residual inventory below |
@@ -112,7 +112,7 @@ Never take `darktunes.com` offline for SaaS launch.
 |------|--------|--------|
 | Apply `supabase/reset.sql` on staging/prod | **Ops** | Required before pilot hosts; all RLS/column expands land here |
 | Stripe live E2E (test keys + webhook forward) | Open | Checkout membership + `processStripeWebhookEvent` unit-covered |
-| Custom domain DNS verification ops | Partial | DAL + admin API; DNS checklist in DEPLOYMENT |
+| Custom domain DNS verification ops | Stronger | Real TXT check (`verifyDomainTxtToken`); org-gated admin APIs; checklist in DEPLOYMENT |
 | Platform super-admin UI polish | Partial | `/admin/organizations` exists |
 | Partner API / Believe multi-tenant | Later | Not core isolation |
 | Portal billing audit org stamp | Done | `ctx.organizationId` via `withPortalMembership` |

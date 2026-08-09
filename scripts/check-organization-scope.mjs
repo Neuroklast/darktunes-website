@@ -275,6 +275,18 @@ const REQUIRED = [
     file: 'src/lib/api/pageEvents.ts',
     markers: ['organizationId', 'DEFAULT_ORGANIZATION_ID', 'organization_id'],
   },
+  {
+    file: 'src/lib/organizations/verifyDomainDns.ts',
+    markers: ['verifyDomainTxtToken', 'darktunes-verify', '_darktunes-verify'],
+  },
+  {
+    file: 'app/api/admin/custom-domains/verify/route.ts',
+    markers: ['verifyDomainTxtToken', 'assertAdminOrganizationAccess', 'DNS_VERIFY_FAILED'],
+  },
+  {
+    file: 'app/api/admin/custom-domains/route.ts',
+    markers: ['assertAdminOrganizationAccess', 'requireAdminFromRequest'],
+  },
 ]
 
 const failures = []
