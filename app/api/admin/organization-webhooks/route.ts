@@ -1,8 +1,9 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { withErrorHandler } from '@/lib/errors'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { withErrorHandler, ApiError } from '@/lib/errors'
+import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
+import { assertAdminOrganizationAccess } from '@/lib/organizations/assertAdminOrganizationAccess'
 import {
   createOrganizationWebhookEndpoint,
   generateWebhookSecret,
@@ -14,36 +15,46 @@ const postSchema = z.object({
   organizationId: z.string().uuid(),
   url: z.string().url(),
   events: z
-    .array(z.enum(['artist.created', 'release.submitted', 'release.approved', 'release.rejected', '*']))
+    .array(
+      z.enum([
+        'artist.created',
+        'release.submitted',
+        'release.approved',
+        'release.rejected',
+        '*',
+      ]),
+    )
     .min(1),
 })
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdmin(token)
+  const { userId } = await requireAdminFromRequest(req)
   const orgId = new URL(req.url).searchParams.get('organizationId')
-  if (!orgId) return NextResponse.json({ error: 'organizationId required' }, { status: 400 })
+  if (!orgId) throw new ApiError(400, 'organizationId required')
 
-  const supabase = await createServerSupabaseClient()
-  const endpoints = await listOrganizationWebhookEndpoints(supabase, orgId)
+  const db = await createServiceRoleSupabaseClient()
+  await assertAdminOrganizationAccess(db, userId, orgId)
+
+  const endpoints = await listOrganizationWebhookEndpoints(db, orgId)
   return NextResponse.json(endpoints)
 })
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const userId = await verifyAdmin(token)
+  const { userId } = await requireAdminFromRequest(req)
   const body = postSchema.parse(await req.json())
   const secret = generateWebhookSecret()
 
-  const supabase = await createServerSupabaseClient()
-  const endpoint = await createOrganizationWebhookEndpoint(supabase, {
+  const db = await createServiceRoleSupabaseClient()
+  await assertAdminOrganizationAccess(db, userId, body.organizationId)
+
+  const endpoint = await createOrganizationWebhookEndpoint(db, {
     organization_id: body.organizationId,
     url: body.url,
     events: body.events,
     secret,
   })
 
-  await writeOrganizationAuditLog(supabase, {
+  await writeOrganizationAuditLog(db, {
     organizationId: body.organizationId,
     userId,
     action: 'webhook_endpoint.created',

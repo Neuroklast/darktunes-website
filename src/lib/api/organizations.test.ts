@@ -6,7 +6,9 @@ import {
   getDefaultOrganization,
   getOrganizationById,
   getOrganizationBySlug,
+  isUserPlatformAdmin,
   listOrganizations,
+  listOrganizationsAccessibleToUser,
 } from './organizations'
 
 type DbClient = SupabaseClient<Database>
@@ -17,8 +19,9 @@ function makeBuilder(data: unknown = null, error: unknown = null) {
   return {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
-    maybeSingle: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue(result),
     then: p.then.bind(p),
     catch: p.catch.bind(p),
     finally: p.finally.bind(p),
@@ -65,8 +68,33 @@ describe('organizations DAL', () => {
     expect(result[0]?.slug).toBe('darktunes')
   })
 
+  it('isUserPlatformAdmin is true when row exists', async () => {
+    const db = makeMockDb({ user_id: 'u1' })
+    await expect(isUserPlatformAdmin(db, 'u1')).resolves.toBe(true)
+  })
+
+  it('listOrganizationsAccessibleToUser returns all orgs for platform admin', async () => {
+    const demo = {
+      ...orgRow,
+      id: '11111111-1111-1111-1111-111111111111',
+      name: 'Demo',
+      slug: 'demo-label',
+    }
+    const db = {
+      from: vi.fn((table: string) => {
+        if (table === 'platform_admins') {
+          return makeBuilder({ user_id: 'u1' })
+        }
+        return makeBuilder([orgRow, demo])
+      }),
+    } as unknown as DbClient
+    const result = await listOrganizationsAccessibleToUser(db, 'u1')
+    expect(result).toHaveLength(2)
+  })
+
   it('throws on database error', async () => {
     const db = makeMockDb(null, { message: 'DB error' })
     await expect(getOrganizationById(db, 'x')).rejects.toThrow('DB error')
   })
 })
+

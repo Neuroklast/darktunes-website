@@ -64,6 +64,8 @@
 - [ ] Admin analytics website engagement top-artists only includes host org artists
 - [ ] Custom domain: without TXT record, Check DNS fails; after publishing `darktunes-verify=…` TXT, status becomes verified
 - [ ] Admin cannot list/verify custom domains for an organization they cannot access
+- [ ] Non-platform admin on Org #0 does not see pilot orgs in `/admin/organizations` unless membership exists
+- [ ] Org export / webhooks / API keys / audit log return 403 for foreign organizationId
 - [ ] Press apply / promo pool / ZIP toggles follow host org flags and site feature_toggles
 - [ ] Sync for pilot org writes cover-art under `tenants/{orgId}/cover-art/…`; Org #0 stays flat
 - [ ] Staff JWT cannot list Host B sync_queue / release_submissions rows

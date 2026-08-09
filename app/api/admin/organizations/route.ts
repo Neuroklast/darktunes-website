@@ -1,13 +1,12 @@
-﻿import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { withErrorHandler } from '@/lib/errors'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
-import { listOrganizations } from '@/lib/api/organizations'
+import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
+import { listOrganizationsAccessibleToUser } from '@/lib/api/organizations'
 
-export const GET = withErrorHandler(async (req) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdmin(token)
-  const supabase = await createServerSupabaseClient()
-  const organizations = await listOrganizations(supabase)
+export const GET = withErrorHandler(async (req: NextRequest) => {
+  const { userId } = await requireAdminFromRequest(req)
+  const db = await createServiceRoleSupabaseClient()
+  const organizations = await listOrganizationsAccessibleToUser(db, userId)
   return NextResponse.json(organizations)
 })

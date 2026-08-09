@@ -287,6 +287,18 @@ const REQUIRED = [
     file: 'app/api/admin/custom-domains/route.ts',
     markers: ['assertAdminOrganizationAccess', 'requireAdminFromRequest'],
   },
+  {
+    file: 'src/lib/api/organizations.ts',
+    markers: ['listOrganizationsAccessibleToUser', 'isUserPlatformAdmin', 'organization_users'],
+  },
+  {
+    file: 'app/api/admin/organizations/route.ts',
+    markers: ['listOrganizationsAccessibleToUser', 'requireAdminFromRequest'],
+  },
+  {
+    file: 'app/api/admin/organizations/[id]/export/route.ts',
+    markers: ['assertAdminOrganizationAccess', 'requireAdminFromRequest'],
+  },
 ]
 
 const failures = []

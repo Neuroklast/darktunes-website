@@ -35,6 +35,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Shared Apify monthly budget across labels | `apify_usage_months` PK must be `(organization_id, year_month)`; sync filters roster by host org |
 | Cron Apify only runs Org #0 | Fan-out `listActiveOrganizations` with shared wall-clock budget; admin UI stays host-scoped |
 | Custom domain “verify” is a trust-on-click admin button | Prove ownership with public DNS TXT (`verifyDomainTxtToken`); gate admin domain APIs with `assertAdminOrganizationAccess` |
+| Platform org console lists every tenant for any admin | `listOrganizationsAccessibleToUser`: platform_admins see all; others only memberships + Org #0 |
 | Portal financial audit defaults to Org #0 | `withPortalMembership` must expose `organizationId` from host context for stamps |
 | Financial audit trail is global | Stamp `organization_id` on insert; admin analytics list filters host org |
 | Stripe checkout trusts body `organizationId` without auth | Require session + membership/platform_admin (`assertBillingOrganizationAccess`); signup uses `/api/onboarding/register` |

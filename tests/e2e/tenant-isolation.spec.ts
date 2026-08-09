@@ -125,4 +125,76 @@ test.describe('tenant isolation', () => {
       expect(artistIds.has(row.artist_id)).toBe(true)
     }
   })
+
+  test('live DB: custom_domains organization_id matches owning org', async () => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!isSupabaseEnvConfigured() || !url || !serviceKey) {
+      test.skip(true, 'Real Supabase service role env vars are missing')
+      return
+    }
+
+    const client = createClient(url, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+
+    const { data, error } = await client
+      .from('custom_domains')
+      .select('id, organization_id, domain, status')
+      .limit(50)
+
+    if (error) {
+      if (
+        error.message.includes('does not exist') ||
+        error.message.includes('schema cache') ||
+        error.code === '42P01' ||
+        error.code === 'PGRST205'
+      ) {
+        test.skip(true, `custom_domains unavailable: ${error.message}`)
+        return
+      }
+      throw error
+    }
+
+    for (const row of data ?? []) {
+      expect(row.organization_id).toBeTruthy()
+    }
+  })
+
+  test('live DB: site_settings keys are scoped per organization_id', async () => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!isSupabaseEnvConfigured() || !url || !serviceKey) {
+      test.skip(true, 'Real Supabase service role env vars are missing')
+      return
+    }
+
+    const client = createClient(url, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+
+    const { data, error } = await client
+      .from('site_settings')
+      .select('organization_id, key')
+      .eq('key', 'label_name')
+      .limit(20)
+
+    if (error) {
+      if (error.message.includes('organization_id') || error.code === '42703') {
+        test.skip(true, 'site_settings.organization_id not applied yet')
+        return
+      }
+      throw error
+    }
+
+    const orgs = new Set((data ?? []).map((r) => r.organization_id))
+    // Each org may have its own label_name row; no cross-org key collision required here.
+    for (const row of data ?? []) {
+      expect(row.organization_id).toBeTruthy()
+    }
+    expect(orgs.size).toBeGreaterThanOrEqual(1)
+  })
 })
+

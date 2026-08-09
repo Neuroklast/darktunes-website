@@ -1,17 +1,19 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
-import { withErrorHandler } from '@/lib/errors'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { NextRequest, NextResponse } from 'next/server'
+import { withErrorHandler, ApiError } from '@/lib/errors'
+import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
+import { assertAdminOrganizationAccess } from '@/lib/organizations/assertAdminOrganizationAccess'
 import { listOrganizationAuditLogs } from '@/lib/api/organizationAuditLog'
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdmin(token)
+  const { userId } = await requireAdminFromRequest(req)
   const orgId = new URL(req.url).searchParams.get('organizationId')
-  if (!orgId) return NextResponse.json({ error: 'organizationId required' }, { status: 400 })
+  if (!orgId) throw new ApiError(400, 'organizationId required')
 
   const limit = Math.min(100, parseInt(new URL(req.url).searchParams.get('limit') ?? '50', 10) || 50)
-  const supabase = await createServerSupabaseClient()
-  const entries = await listOrganizationAuditLogs(supabase, orgId, limit)
+  const db = await createServiceRoleSupabaseClient()
+  await assertAdminOrganizationAccess(db, userId, orgId)
+
+  const entries = await listOrganizationAuditLogs(db, orgId, limit)
   return NextResponse.json(entries)
 })

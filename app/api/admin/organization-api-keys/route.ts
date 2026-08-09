@@ -1,8 +1,9 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { withErrorHandler } from '@/lib/errors'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { withErrorHandler, ApiError } from '@/lib/errors'
+import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
+import { assertAdminOrganizationAccess } from '@/lib/organizations/assertAdminOrganizationAccess'
 import { generatePartnerApiKey } from '@/lib/partner-api/auth'
 import { writeOrganizationAuditLog } from '@/lib/api/organizationAuditLog'
 
@@ -12,31 +13,32 @@ const postSchema = z.object({
 })
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const userId = await verifyAdmin(token)
+  const { userId } = await requireAdminFromRequest(req)
   const orgId = new URL(req.url).searchParams.get('organizationId')
-  if (!orgId) return NextResponse.json({ error: 'organizationId required' }, { status: 400 })
+  if (!orgId) throw new ApiError(400, 'organizationId required')
 
-  const supabase = await createServerSupabaseClient()
-  const { data, error } = await supabase
+  const db = await createServiceRoleSupabaseClient()
+  await assertAdminOrganizationAccess(db, userId, orgId)
+
+  const { data, error } = await db
     .from('organization_api_keys')
     .select('id, name, key_prefix, scopes, revoked_at, created_at, last_used_at')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
-  void userId
   return NextResponse.json(data ?? [])
 })
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const userId = await verifyAdmin(token)
+  const { userId } = await requireAdminFromRequest(req)
   const body = postSchema.parse(await req.json())
   const { rawKey, prefix, hash } = generatePartnerApiKey()
 
-  const supabase = await createServerSupabaseClient()
-  const { data, error } = await supabase
+  const db = await createServiceRoleSupabaseClient()
+  await assertAdminOrganizationAccess(db, userId, body.organizationId)
+
+  const { data, error } = await db
     .from('organization_api_keys')
     .insert({
       organization_id: body.organizationId,
@@ -50,7 +52,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
   if (error) throw new Error(error.message)
 
-  await writeOrganizationAuditLog(supabase, {
+  await writeOrganizationAuditLog(db, {
     organizationId: body.organizationId,
     userId,
     action: 'api_key.created',

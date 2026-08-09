@@ -1,4 +1,4 @@
-﻿import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
@@ -85,10 +85,75 @@ export async function createOrganization(
   return org
 }
 
+/** Unfiltered list — prefer listOrganizationsAccessibleToUser for admin UIs. */
 export async function listOrganizations(db: DbClient): Promise<Organization[]> {
   const { data, error } = await db
     .from('organizations')
     .select('*')
+    .order('name', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(rowToOrganization)
+}
+
+export async function isUserPlatformAdmin(db: DbClient, userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await db
+      .from('platform_admins')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (error) {
+      // Table missing during expand → treat as non-platform
+      const msg = error.message.toLowerCase()
+      if (
+        msg.includes('does not exist') ||
+        msg.includes('schema cache') ||
+        error.code === '42P01' ||
+        error.code === 'PGRST205'
+      ) {
+        return false
+      }
+      return false
+    }
+    return Boolean(data)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Organizations the staff user may administer in the ops console.
+ * - platform_admins: all rows
+ * - otherwise: organization_users memberships + Org #0 (legacy single-tenant admin)
+ */
+export async function listOrganizationsAccessibleToUser(
+  db: DbClient,
+  userId: string,
+): Promise<Organization[]> {
+  if (await isUserPlatformAdmin(db, userId)) {
+    return listOrganizations(db)
+  }
+
+  const allowedIds = new Set<string>([DEFAULT_ORGANIZATION_ID])
+
+  try {
+    const { data: memberships, error } = await db
+      .from('organization_users')
+      .select('organization_id')
+      .eq('user_id', userId)
+    if (!error && memberships) {
+      for (const row of memberships) {
+        allowedIds.add(row.organization_id)
+      }
+    }
+  } catch {
+    // membership table missing → Org #0 only
+  }
+
+  const { data, error } = await db
+    .from('organizations')
+    .select('*')
+    .in('id', [...allowedIds])
     .order('name', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []).map(rowToOrganization)
