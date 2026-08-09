@@ -11,6 +11,8 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Client explorer selects assets without `organization_id` filter | Always filter + write `organization_id` from host context (`getClientOrganizationId` / `requireAdmin*FromRequest`) |
 | Hash dedupe or “artists” root folder shared across labels | Scope `getAssetByHash` and `asset_folders` uniqueness per org |
 | EPK templates treated as global CMS content | Templates are label-owned; DAL takes `organizationId` |
+| Storage RPC / feedback admin unscoped with service role | Pass host `organizationId` into aggregates and artist-joined feedback queries |
+| CI only stubs org isolation | `check:organization-scope` must fail when audited files lose markers |
 
 ## Database & schema
 

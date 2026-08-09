@@ -26,7 +26,7 @@ function extractId(req: NextRequest): string {
 }
 
 export const PATCH = withErrorHandler(async (req: NextRequest) => {
-  await requireAdminOrEditorFromRequest(req)
+  const { organizationId } = await requireAdminOrEditorFromRequest(req)
 
   const idParsed = idSchema.safeParse(extractId(req))
   if (!idParsed.success) throw new ApiError(400, 'Invalid feedback id')
@@ -49,6 +49,7 @@ export const PATCH = withErrorHandler(async (req: NextRequest) => {
       supabase,
       idParsed.data,
       parsed.data.status,
+      organizationId,
     )
     return NextResponse.json(updated)
   } catch (err) {

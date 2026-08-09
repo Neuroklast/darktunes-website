@@ -25,7 +25,7 @@ const querySchema = z.object({
 })
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
-  await requireAdminOrEditorFromRequest(req)
+  const { organizationId } = await requireAdminOrEditorFromRequest(req)
 
   const sp = req.nextUrl.searchParams
   const parsed = querySchema.safeParse({
@@ -46,6 +46,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     search: parsed.data.q,
     limit: parsed.data.limit,
     offset: parsed.data.offset,
+    organizationId,
   })
 
   return NextResponse.json(result)

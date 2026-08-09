@@ -1,9 +1,11 @@
 /**
  * Catalog storage totals for Admin → Assets explorer bar.
  * Prefer server-side aggregation (no PostgREST 1000-row cap).
+ * Scoped by organization_id so each label only sees its own catalog usage.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import type { Database } from '@/types/database'
 
 export type StorageStatsSource = 'rpc' | 'aggregate' | 'paginated'
@@ -81,8 +83,13 @@ export function parseAggregateSum(data: unknown): number | null {
 
 type ServiceDb = SupabaseClient<Database>
 
-async function tryRpc(db: ServiceDb): Promise<CatalogStorageStats | null> {
-  const { data, error } = await db.rpc('get_assets_storage_stats')
+async function tryRpc(
+  db: ServiceDb,
+  organizationId: string,
+): Promise<CatalogStorageStats | null> {
+  const { data, error } = await db.rpc('get_assets_storage_stats', {
+    p_organization_id: organizationId,
+  })
   if (error) return null
   const parsed = parseRpcStats(data)
   if (!parsed) return null
@@ -94,9 +101,15 @@ async function tryRpc(db: ServiceDb): Promise<CatalogStorageStats | null> {
   }
 }
 
-async function tryAggregate(db: ServiceDb): Promise<CatalogStorageStats | null> {
+async function tryAggregate(
+  db: ServiceDb,
+  organizationId: string,
+): Promise<CatalogStorageStats | null> {
   // Single-row aggregate — no 1000-row cap
-  const sumResult = await db.from('assets').select('size_bytes.sum()')
+  const sumResult = await db
+    .from('assets')
+    .select('size_bytes.sum()')
+    .eq('organization_id', organizationId)
   if (sumResult.error) return null
   const usedBytes = parseAggregateSum(sumResult.data)
   if (usedBytes === null) return null
@@ -104,6 +117,7 @@ async function tryAggregate(db: ServiceDb): Promise<CatalogStorageStats | null> 
   const countResult = await db
     .from('assets')
     .select('*', { count: 'exact', head: true })
+    .eq('organization_id', organizationId)
   if (countResult.error) return null
   const assetCount = countResult.count ?? 0
 
@@ -112,6 +126,7 @@ async function tryAggregate(db: ServiceDb): Promise<CatalogStorageStats | null> 
   const zeroResult = await db
     .from('assets')
     .select('*', { count: 'exact', head: true })
+    .eq('organization_id', organizationId)
     .eq('size_bytes', 0)
   if (!zeroResult.error && typeof zeroResult.count === 'number') {
     zeroSizeCount = zeroResult.count
@@ -128,7 +143,10 @@ async function tryAggregate(db: ServiceDb): Promise<CatalogStorageStats | null> 
 /**
  * Last-resort page through size_bytes. Must order by stable key for range pagination.
  */
-export async function sumSizeBytesPaginated(db: ServiceDb): Promise<CatalogStorageStats> {
+export async function sumSizeBytesPaginated(
+  db: ServiceDb,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<CatalogStorageStats> {
   const pageSize = 1000
   let usedBytes = 0
   let assetCount = 0
@@ -139,6 +157,7 @@ export async function sumSizeBytesPaginated(db: ServiceDb): Promise<CatalogStora
     const { data, error } = await db
       .from('assets')
       .select('size_bytes')
+      .eq('organization_id', organizationId)
       .order('id', { ascending: true })
       .range(from, from + pageSize - 1)
 
@@ -160,13 +179,17 @@ export async function sumSizeBytesPaginated(db: ServiceDb): Promise<CatalogStora
 /**
  * Resolve catalog storage with multi-strategy fallback:
  * RPC → PostgREST aggregate → paginated sum.
+ * Always scoped to one organization.
  */
-export async function resolveCatalogStorageStats(db: ServiceDb): Promise<CatalogStorageStats> {
-  const fromRpc = await tryRpc(db)
+export async function resolveCatalogStorageStats(
+  db: ServiceDb,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<CatalogStorageStats> {
+  const fromRpc = await tryRpc(db, organizationId)
   if (fromRpc) return fromRpc
 
-  const fromAgg = await tryAggregate(db)
+  const fromAgg = await tryAggregate(db, organizationId)
   if (fromAgg) return fromAgg
 
-  return sumSizeBytesPaginated(db)
+  return sumSizeBytesPaginated(db, organizationId)
 }

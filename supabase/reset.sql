@@ -1224,9 +1224,12 @@ CREATE INDEX IF NOT EXISTS idx_assets_sha256_hash ON public.assets (sha256_hash)
 
 -- Aggregate catalog storage (avoids PostgREST row-limit undercount on SELECT size_bytes).
 -- Returns JSON object so PostgREST/supabase-js always yields a single object (not empty set edge cases).
--- DROP first: CREATE OR REPLACE cannot change return type (e.g. TABLE → json).
+-- DROP first: CREATE OR REPLACE cannot change return type / arg list (e.g. TABLE → json, add org filter).
 DROP FUNCTION IF EXISTS public.get_assets_storage_stats();
-CREATE OR REPLACE FUNCTION public.get_assets_storage_stats()
+DROP FUNCTION IF EXISTS public.get_assets_storage_stats(UUID);
+CREATE OR REPLACE FUNCTION public.get_assets_storage_stats(
+  p_organization_id UUID DEFAULT NULL
+)
 RETURNS json
 LANGUAGE sql
 STABLE
@@ -1238,14 +1241,16 @@ AS $$
     'asset_count', COUNT(*)::bigint,
     'zero_size_count', COUNT(*) FILTER (WHERE a.size_bytes = 0)::bigint
   )
-  FROM public.assets a;
+  FROM public.assets a
+  WHERE p_organization_id IS NULL
+     OR a.organization_id = p_organization_id;
 $$;
 
-COMMENT ON FUNCTION public.get_assets_storage_stats() IS
-  'JSON: used_bytes, asset_count, zero_size_count over public.assets for admin storage bar';
+COMMENT ON FUNCTION public.get_assets_storage_stats(UUID) IS
+  'JSON: used_bytes, asset_count, zero_size_count over public.assets (optional org filter) for admin storage bar';
 
-REVOKE ALL ON FUNCTION public.get_assets_storage_stats() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.get_assets_storage_stats() TO service_role;
+REVOKE ALL ON FUNCTION public.get_assets_storage_stats(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_assets_storage_stats(UUID) TO service_role;
 CREATE INDEX IF NOT EXISTS idx_assets_release_id  ON public.assets (release_id);
 CREATE INDEX IF NOT EXISTS idx_assets_press_approved ON public.assets (is_press_approved) WHERE is_press_approved = TRUE;
 CREATE INDEX IF NOT EXISTS idx_assets_press_suggested ON public.assets (press_suggested) WHERE press_suggested = TRUE;

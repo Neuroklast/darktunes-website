@@ -5651,7 +5651,7 @@ export interface Database {
         Returns: boolean
       }
       get_assets_storage_stats: {
-        Args: Record<string, never>
+        Args: { p_organization_id?: string | null }
         /** JSON object: used_bytes, asset_count, zero_size_count */
         Returns: {
           used_bytes: number

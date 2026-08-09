@@ -29,7 +29,9 @@
 - [ ] Host A File Explorer lists only Host A assets/folders; Host B never appears
 - [ ] Admin upload on Host A sets `assets.organization_id` for Host A; hash dedupe is per-org
 - [ ] EPK templates admin list/create is per host org; portal published templates match that org
-- [ ] Apply multi-tenant block of `supabase/reset.sql` (incl. `asset_folders` / `epk_templates` columns) on staging before pilot hosts
+- [ ] Admin Assets storage bar on Host A counts only Host A assets (RPC/aggregate org filter)
+- [ ] Admin feedback inbox lists only feedback from artists of the host org; status update on foreign id → 404
+- [ ] Apply multi-tenant block of `supabase/reset.sql` (incl. `asset_folders` / `epk_templates` / storage RPC org arg) on staging before pilot hosts
 
 ## Security
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)

@@ -91,7 +91,7 @@ Never take `darktunes.com` offline for SaaS launch.
 | 0 | Docs, constants, env placeholders | Done |
 | 1 | Schema + Org #0 seed | Done (apply `reset.sql` on staging/prod) |
 | 2 | Host context in `proxy.ts` | Done — DB slug/custom-domain lookup; suspended gate; `MULTI_TENANT_STRICT_HOSTS` |
-| 3 | DAL/API `organization_id` batches | Stronger — public + admin CMS + Sales Statements + **File Explorer / upload / asset_folders / EPK templates** |
+| 3 | DAL/API `organization_id` batches | Stronger — CMS + Sales Statements + File Explorer/upload/folders/EPK + **storage stats + portal feedback admin** |
 | 4 | Membership + RLS hardening | Portal + **admin request auth** binds host org (`assertAdminOrganizationAccess`; Org #0 legacy allow) |
 | 5 | Cache tags + R2 prefixes | Partial — public catalog caches org-keyed; R2 helper only |
 | 6 | Cron/sync/credentials per org | Sync queue multi-org enqueue; **execute uses job.organizationId credentials**; manual `/api/sync/artist` host-org gated; credentials API per org |
@@ -100,7 +100,7 @@ Never take `darktunes.com` offline for SaaS launch.
 | 9 | Onboarding / assistenz | Partial — register flow ported |
 | 10 | Custom domains | DAL + admin API ported; full DNS ops TBD |
 | 11 | Platform ops console | Partial — `/admin/organizations` |
-| 12 | Isolation QA + pilots | Unit isolation + e2e `tenant-isolation.spec.ts` (skips without env/schema) |
+| 12 | Isolation QA + pilots | Unit isolation + e2e + **`npm run check:organization-scope`** CI gate (marker audit) |
 | 13 | Cleanup | Open |
 
 ## PR #417 port map

@@ -27,11 +27,11 @@ function resolveLimitBytes(): number {
 
 export const GET = withErrorHandler(async (request: NextRequest): Promise<NextResponse> => {
   // Cookie + Bearer (stale Bearer falls through to cookies — see adminAuth)
-  await requireAdminOrEditorFromRequest(request)
+  const { organizationId } = await requireAdminOrEditorFromRequest(request)
 
   const supabase = await createServiceRoleSupabaseClient()
   const limitBytes = resolveLimitBytes()
-  const stats = await resolveCatalogStorageStats(supabase)
+  const stats = await resolveCatalogStorageStats(supabase, organizationId)
 
   return NextResponse.json(
     {
