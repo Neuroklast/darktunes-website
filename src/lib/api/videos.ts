@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { Video } from '@/types'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type VideoRow = Database['public']['Tables']['videos']['Row']
@@ -23,10 +24,14 @@ function rowToVideo(row: VideoRowWithArtist): Video {
   }
 }
 
-export async function getVideos(db: DbClient): Promise<Video[]> {
+export async function getVideos(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Video[]> {
   const { data, error } = await db
     .from('videos')
     .select('*, artists(name)')
+    .eq('organization_id', organizationId)
     .order('published_at', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []).map(rowToVideo)
@@ -92,7 +97,11 @@ export async function getPublicVideosByArtistId(
 }
 
 export async function createVideo(db: DbClient, videoData: VideoInsert): Promise<Video> {
-  const { data, error } = await db.from('videos').insert(videoData).select('*, artists(name)').single()
+  const payload = {
+    ...videoData,
+    organization_id: videoData.organization_id ?? DEFAULT_ORGANIZATION_ID,
+  }
+  const { data, error } = await db.from('videos').insert(payload).select('*, artists(name)').single()
   if (error) throw new Error(error.message)
   if (!data) throw new Error('No data returned from createVideo')
   return rowToVideo(data)

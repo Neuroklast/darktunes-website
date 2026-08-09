@@ -9,6 +9,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
 import { getCachedPublicReleases } from '@/lib/cache/publicQueries'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { ReleasesPageContent } from './_components/ReleasesPageContent'
 import { getMetadataBrand, pageTitle } from '@/lib/seo/metadata'
 
@@ -23,8 +24,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ReleasesPage() {
+  const orgId = await getRequestOrganizationId()
   const [releases, tPages, tReleases] = await Promise.all([
-    getCachedPublicReleases(),
+    getCachedPublicReleases(orgId),
     getTranslations('pages'),
     getTranslations('releases'),
   ])

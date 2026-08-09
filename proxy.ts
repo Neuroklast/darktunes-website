@@ -34,26 +34,66 @@ import {
   DEFAULT_ORGANIZATION_SLUG,
   HEADER_ORGANIZATION_ID,
   HEADER_ORGANIZATION_SLUG,
+  HEADER_ORGANIZATION_STATUS,
   HEADER_SURFACE,
 } from '@/lib/organizations/constants'
+import {
+  isSuspendedOrgAllowedPath,
+  lookupOrganizationForRequest,
+} from '@/lib/organizations/lookupOrganization'
 import { resolveOrganizationSlugFromHost } from '@/lib/organizations/resolveFromHost'
 
-/** Attach org/surface headers for downstream RSC and route handlers. */
-function applyOrganizationHeaders(res: NextResponse, request: NextRequest): NextResponse {
+/**
+ * Attach org/surface headers. Looks up non-default slugs in DB so
+ * x-organization-id is set before RSC runs (not only Org #0).
+ */
+async function applyOrganizationHeaders(
+  res: NextResponse,
+  request: NextRequest,
+): Promise<NextResponse> {
   const host = request.headers.get('host')
   const resolved = resolveOrganizationSlugFromHost(host)
-  // DB slug→id lookup happens in requestContext; proxy sets slug + surface always.
-  // Org #0 id is known without DB; other orgs resolve later via getRequestOrganizationId.
-  const organizationId =
-    resolved.organizationSlug === DEFAULT_ORGANIZATION_SLUG
-      ? DEFAULT_ORGANIZATION_ID
-      : (request.headers.get(HEADER_ORGANIZATION_ID) ?? '')
+  const pathname = request.nextUrl.pathname
 
-  if (organizationId) {
-    res.headers.set(HEADER_ORGANIZATION_ID, organizationId)
-  }
   res.headers.set(HEADER_ORGANIZATION_SLUG, resolved.organizationSlug)
   res.headers.set(HEADER_SURFACE, resolved.surface)
+
+  if (resolved.surface === 'marketing') {
+    res.headers.set(HEADER_ORGANIZATION_ID, DEFAULT_ORGANIZATION_ID)
+    res.headers.set(HEADER_ORGANIZATION_STATUS, 'active')
+    return res
+  }
+
+  const lookup = await lookupOrganizationForRequest(host, resolved.organizationSlug)
+  res.headers.set(HEADER_ORGANIZATION_ID, lookup.id)
+  res.headers.set(HEADER_ORGANIZATION_STATUS, lookup.status)
+  res.headers.set(HEADER_ORGANIZATION_SLUG, lookup.slug || resolved.organizationSlug)
+
+  // Unknown pilot subdomain: optional strict mode
+  const strictHosts = process.env.MULTI_TENANT_STRICT_HOSTS === 'true'
+  if (
+    strictHosts &&
+    !lookup.found &&
+    resolved.organizationSlug !== DEFAULT_ORGANIZATION_SLUG &&
+    !resolved.isApex
+  ) {
+    return new NextResponse('Site not found', { status: 404 })
+  }
+
+  // Suspended / non-active tenants: block public surface except billing paths
+  if (
+    lookup.found &&
+    lookup.status !== 'active' &&
+    lookup.status !== 'pending' &&
+    !isSuspendedOrgAllowedPath(pathname)
+  ) {
+    const body = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Unavailable</title></head><body style="font-family:system-ui;padding:2rem;max-width:32rem"><h1>Site unavailable</h1><p>This label site is not active. If you manage the account, sign in to update billing.</p><p><a href="/login">Sign in</a> · <a href="/pricing">Plans</a></p></body></html>`
+    return new NextResponse(body, {
+      status: 503,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })
+  }
+
   return res
 }
 

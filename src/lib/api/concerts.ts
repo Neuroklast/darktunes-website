@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { Concert } from '@/types'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { PUBLIC_QUERY_LIMITS } from './queryLimits'
 
 type DbClient = SupabaseClient<Database>
@@ -83,11 +84,15 @@ export async function getConcertsByArtistId(db: DbClient, artistId: string): Pro
   return attachConcertArtists(db, concerts)
 }
 
-export async function getConcerts(db: DbClient): Promise<Concert[]> {
+export async function getConcerts(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Concert[]> {
   const today = new Date().toISOString().split('T')[0]
   const { data, error } = await db
     .from('concerts')
     .select('*, artists(name)')
+    .eq('organization_id', organizationId)
     .gte('concert_date', today)
     .order('concert_date', { ascending: true })
 
@@ -104,7 +109,11 @@ export async function getConcerts(db: DbClient): Promise<Concert[]> {
 }
 
 export async function createConcert(db: DbClient, concertData: ConcertInsert): Promise<Concert> {
-  const { data, error } = await db.from('concerts').insert(concertData).select('*, artists(name)').single()
+  const payload = {
+    ...concertData,
+    organization_id: concertData.organization_id ?? DEFAULT_ORGANIZATION_ID,
+  }
+  const { data, error } = await db.from('concerts').insert(payload).select('*, artists(name)').single()
   if (error) throw new Error(error.message)
   if (!data) throw new Error('No data returned from createConcert')
   return rowToConcert(data)
@@ -330,10 +339,14 @@ function mapCalendarConcertRow(row: CalendarConcertRow): Concert | null {
  * Calendar query: all label concerts (past + upcoming) for the portal month grid.
  * Prefer `getCachedCalendarConcerts` on the portal page.
  */
-export async function getAllVisibleConcertsForCalendar(db: DbClient): Promise<Concert[]> {
+export async function getAllVisibleConcertsForCalendar(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Concert[]> {
   const { data, error } = await db
     .from('concerts')
     .select(CALENDAR_CONCERT_SELECT)
+    .eq('organization_id', organizationId)
     .order('concert_date', { ascending: true })
     .limit(PUBLIC_QUERY_LIMITS.concerts)
 

@@ -28,6 +28,7 @@ import {
   getPublicArtists,
   getPublicRelatedArtists,
 } from '@/lib/api/publicArtist'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { getReleasesByArtistId } from '@/lib/api/releases'
 import { getConcertsByArtistId } from '@/lib/api/concerts'
 import { getPublicVideosByArtistId } from '@/lib/api/videos'
@@ -57,13 +58,13 @@ export const dynamicParams = true
  * This allows targeted revalidation per artist slug (via revalidateTag) in
  * addition to the global 'artists' tag used by list pages.
  */
-function makeGetArtistData(slug: string) {
+function makeGetArtistData(slug: string, organizationId: string) {
   return unstable_cache(
     async () => {
       const client = createPublicSupabaseClient()
       // Public artist path: column whitelist only (no secrets in RSC payload).
       // EPK uses service role after Phase-2 RLS drops anon read on artist_epks.
-      const artist = await getPublicArtistBySlug(client, slug)
+      const artist = await getPublicArtistBySlug(client, slug, { organizationId })
       if (!artist) return null
       const serviceDb = await createServiceRoleSupabaseClient()
       const [releases, concerts, videos, news, publicEpk, relatedArtists] = await Promise.all([
@@ -72,12 +73,14 @@ function makeGetArtistData(slug: string) {
         getPublicVideosByArtistId(client, artist.id),
         getPublicNewsPostsByArtistId(client, artist.id).then((posts) => posts.slice(0, 3)),
         getPublicArtistEpkByArtistId(serviceDb, artist.id).catch(() => null),
-        getPublicRelatedArtists(client, artist.id, artist.genres).catch(() => []),
+        getPublicRelatedArtists(client, artist.id, artist.genres, 6, organizationId).catch(
+          () => [],
+        ),
       ])
       const galleryPhotos = (publicEpk?.profile.epkGalleryPhotos ?? []).filter(Boolean)
       return { artist, releases, concerts, videos, news, galleryPhotos, relatedArtists }
     },
-    [`artist-${slug}`],
+    [`artist-${slug}`, organizationId],
     // Granular tags: 'artists' invalidates all artist lists;
     // `artist-${slug}` invalidates only this specific artist page.
     { revalidate: 60, tags: ['artists', `artist-${slug}`] },
@@ -86,6 +89,7 @@ function makeGetArtistData(slug: string) {
 
 export async function generateStaticParams() {
   const client = createPublicSupabaseClient()
+  // Build-time SSG uses Org #0 (darkTunes); other orgs render via dynamicParams.
   const artists = await getPublicArtists(client).catch((error) => {
     console.error('generateStaticParams(/artists/[slug]) failed:', error)
     return []
@@ -97,7 +101,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   // Silently swallow errors only in metadata generation — a missing artist
   // just returns a generic title; the page itself will show the proper 404.
-  const data = await makeGetArtistData(slug)().catch(() => null)
+  const orgId = await getRequestOrganizationId()
+  const data = await makeGetArtistData(slug, orgId)().catch(() => null)
   const { labelName } = await getMetadataBrand()
   if (!data) return { title: pageTitle('Artist not found', labelName) }
   const { artist } = data
@@ -116,10 +121,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ArtistDetailPage({ params }: Props) {
+  const orgId = await getRequestOrganizationId()
   const { slug } = await params
   // Do NOT swallow errors here — a Supabase failure must propagate so that
   // Next.js returns a 500 (uncached) rather than caching a false 404 for 60s.
-  const data = await makeGetArtistData(slug)()
+  const data = await makeGetArtistData(slug, orgId)()
   if (!data) notFound()
   const { artist, releases, concerts, videos, news, galleryPhotos, relatedArtists } = data
   return (

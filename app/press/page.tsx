@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import type { Metadata } from 'next'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getPublicArtists } from '@/lib/api/publicArtist'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { getPressOnlyNewsPosts } from '@/lib/api/pressReleases'
 import { getSiteSettings, SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
 import { PressLandingClient } from './_components/PressLandingClient'
@@ -20,10 +21,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function PressPage() {
+  const orgId = await getRequestOrganizationId()
   const supabase = await createServerSupabaseClient()
 
   const [artists, pressReleases, siteSettings] = await Promise.all([
-    getPublicArtists(supabase).catch((err: unknown) => {
+    getPublicArtists(supabase, orgId).catch((err: unknown) => {
       console.error('[press/page] Failed to fetch artists:', err)
       return []
     }),

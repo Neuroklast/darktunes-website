@@ -198,20 +198,28 @@ export async function getReleasesByArtistId(db: DbClient, artistId: string): Pro
   return attachReleaseArtists(db, legacyReleases)
 }
 
-export async function getReleases(db: DbClient): Promise<Release[]> {
+export async function getReleases(
+  db: DbClient,
+  organizationId: string = '00000000-0000-0000-0000-000000000000',
+): Promise<Release[]> {
   const { data, error } = await db
     .from('releases')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('release_date', { ascending: false })
   if (error) throw new Error(error.message)
   const releases = (data ?? []).map(rowToRelease)
   return attachReleaseArtists(db, releases)
 }
 
-export async function getPromoReleases(db: DbClient): Promise<Release[]> {
+export async function getPromoReleases(
+  db: DbClient,
+  organizationId: string = '00000000-0000-0000-0000-000000000000',
+): Promise<Release[]> {
   const { data, error } = await db
     .from('releases')
     .select('*')
+    .eq('organization_id', organizationId)
     .eq('is_promo', true)
     .order('release_date', { ascending: false })
   if (error) throw new Error(error.message)
@@ -257,8 +265,16 @@ export async function getPublicReleases(
   return attachReleaseArtists(db, releases)
 }
 
-export async function getReleaseById(db: DbClient, id: string): Promise<Release | null> {
-  const { data, error } = await db.from('releases').select('*').eq('id', id).single()
+export async function getReleaseById(
+  db: DbClient,
+  id: string,
+  organizationId?: string,
+): Promise<Release | null> {
+  let query = db.from('releases').select('*').eq('id', id)
+  if (organizationId) {
+    query = query.eq('organization_id', organizationId)
+  }
+  const { data, error } = await query.maybeSingle()
   if (error) {
     if (error.code === 'PGRST116') return null
     throw new Error(error.message)
@@ -269,7 +285,11 @@ export async function getReleaseById(db: DbClient, id: string): Promise<Release 
 }
 
 export async function createRelease(db: DbClient, releaseData: ReleaseInsert): Promise<Release> {
-  const { data, error } = await db.from('releases').insert(sanitizeReleaseWrite(releaseData)).select().single()
+  const payload = sanitizeReleaseWrite({
+    ...releaseData,
+    organization_id: releaseData.organization_id ?? '00000000-0000-0000-0000-000000000000',
+  })
+  const { data, error } = await db.from('releases').insert(payload).select().single()
   if (error) throw new Error(error.message)
   if (!data) throw new Error('No data returned from createRelease')
   return rowToRelease(data)
@@ -411,10 +431,14 @@ function mapCalendarRow(row: CalendarReleaseRow): Release | null {
  * Prefer `getCachedCalendarReleases` from `src/lib/cache/publicQueries.ts` on the
  * portal page so cold navigations reuse the Data Cache (`releases` tag).
  */
-export async function getAllVisibleReleasesForCalendar(db: DbClient): Promise<Release[]> {
+export async function getAllVisibleReleasesForCalendar(
+  db: DbClient,
+  organizationId: string = '00000000-0000-0000-0000-000000000000',
+): Promise<Release[]> {
   const { data, error } = await db
     .from('releases')
     .select(CALENDAR_RELEASE_SELECT)
+    .eq('organization_id', organizationId)
     .eq('is_visible', true)
     .eq('is_promo', false)
     .order('release_date', { ascending: true })

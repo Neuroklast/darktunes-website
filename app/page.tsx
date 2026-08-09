@@ -22,6 +22,7 @@ import {
   getCachedPublicConcerts,
   getCachedPublicArtists,
 } from '@/lib/cache/publicQueries'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
 import type { SiteSettings } from '@/types'
 import {
@@ -62,14 +63,15 @@ const getCachedSiteSettings = unstable_cache(
 // ---------------------------------------------------------------------------
 
 export default async function HomePage() {
+  const orgId = await getRequestOrganizationId()
   // Fetch all data in parallel on the server
   const [releases, news, videos, concerts, siteSettings, artists] = await Promise.all([
-    getCachedPublicReleases(),
-    getCachedPublicNews(),
-    getCachedPublicVideos(),
-    getCachedPublicConcerts(),
+    getCachedPublicReleases(orgId),
+    getCachedPublicNews(orgId),
+    getCachedPublicVideos({ organizationId: orgId }),
+    getCachedPublicConcerts(orgId),
     getCachedSiteSettings(),
-    getCachedPublicArtists(),
+    getCachedPublicArtists(orgId),
   ])
 
   return (

@@ -3,6 +3,7 @@ import type { Database } from '@/types/database'
 import type { NewsPost } from '@/types'
 import { parseJunctionRows } from '@/lib/types/jsonColumns'
 import { stripEmojis, stripEmojisFromHtml } from '@/lib/stripEmojis'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { PUBLIC_QUERY_LIMITS } from './queryLimits'
 import { sanitizeNewsWrite } from '@/lib/sanitizeTextContent'
 
@@ -88,10 +89,14 @@ async function attachNewsArtists(db: DbClient, posts: NewsPost[]): Promise<NewsP
   }))
 }
 
-export async function getNewsPosts(db: DbClient): Promise<NewsPost[]> {
+export async function getNewsPosts(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<NewsPost[]> {
   const { data, error } = await db
     .from('news_posts')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('published_at', { ascending: false })
   if (error) throw new Error(error.message)
   const posts = (data ?? []).map(rowToNewsPost)
@@ -268,7 +273,11 @@ export async function getNewsPostById(db: DbClient, id: string): Promise<NewsPos
 }
 
 export async function createNewsPost(db: DbClient, newsData: NewsInsert): Promise<NewsPost> {
-  const { data, error } = await db.from('news_posts').insert(sanitizeNewsWrite(newsData)).select().single()
+  const payload = sanitizeNewsWrite({
+    ...newsData,
+    organization_id: newsData.organization_id ?? DEFAULT_ORGANIZATION_ID,
+  })
+  const { data, error } = await db.from('news_posts').insert(payload).select().single()
   if (error) throw new Error(error.message)
   if (!data) throw new Error('No data returned from createNewsPost')
   return rowToNewsPost(data)
