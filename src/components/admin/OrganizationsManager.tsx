@@ -1,11 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { ScrollPanel } from '@/components/ui/scroll-panel'
 import { toast } from 'sonner'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
@@ -27,6 +29,7 @@ async function getToken(): Promise<string> {
 }
 
 export function OrganizationsManager() {
+  const tToast = useTranslations('admin.toast')
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedOrgId, setSelectedOrgId] = useState(DEFAULT_ORGANIZATION_ID)
@@ -46,15 +49,15 @@ export function OrganizationsManager() {
       const res = await fetch('/api/admin/organizations', {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!res.ok) throw new Error('Failed to load organizations')
+      if (!res.ok) throw new Error('load failed')
       const data = (await res.json()) as Organization[]
       setOrganizations(data)
     } catch {
-      toast.error('Failed to load organizations')
+      toast.error(tToast('failed_load_organizations'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [tToast])
 
   const fetchWebhookEndpoints = useCallback(async (orgId: string) => {
     try {
@@ -117,12 +120,12 @@ export function OrganizationsManager() {
         },
         body: JSON.stringify({ organizationId: selectedOrgId, name: apiKeyName }),
       })
-      if (!res.ok) throw new Error('Failed to create API key')
+      if (!res.ok) throw new Error('create failed')
       const data = (await res.json()) as { key: string }
       setCreatedKey(data.key)
-      toast.success('Partner API key created ÔÇö copy it now, it will not be shown again.')
+      toast.success(tToast('partner_api_key_created'))
     } catch {
-      toast.error('Failed to create API key')
+      toast.error(tToast('failed_create_api_key'))
     }
   }
 
@@ -142,14 +145,14 @@ export function OrganizationsManager() {
           events: [...DEFAULT_WEBHOOK_EVENTS],
         }),
       })
-      if (!res.ok) throw new Error('Failed to create webhook')
+      if (!res.ok) throw new Error('create failed')
       const data = (await res.json()) as { secret: string }
       setCreatedWebhookSecret(data.secret)
       setWebhookUrl('')
-      toast.success('Webhook endpoint created ÔÇö copy the signing secret now.')
+      toast.success(tToast('webhook_endpoint_created'))
       void fetchWebhookEndpoints(selectedOrgId)
     } catch {
-      toast.error('Failed to create webhook endpoint')
+      toast.error(tToast('failed_create_webhook'))
     }
   }
 
@@ -160,11 +163,11 @@ export function OrganizationsManager() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!res.ok) throw new Error('Failed to delete webhook')
-      toast.success('Webhook endpoint removed')
+      if (!res.ok) throw new Error('delete failed')
+      toast.success(tToast('webhook_endpoint_removed'))
       void fetchWebhookEndpoints(selectedOrgId)
     } catch {
-      toast.error('Failed to delete webhook endpoint')
+      toast.error(tToast('failed_delete_webhook'))
     }
   }
 
@@ -180,15 +183,15 @@ export function OrganizationsManager() {
         },
         body: JSON.stringify({ organizationId: selectedOrgId, domain: newDomain.trim() }),
       })
-      if (!res.ok) throw new Error('Failed to add domain')
+      if (!res.ok) throw new Error('add failed')
       const domain = (await res.json()) as { verificationToken: string; domain: string }
       toast.success(
-        `Publish TXT "${domain.verificationToken}" on ${domain.domain} (or _darktunes-verify.${domain.domain})`,
+        tToast('domain_txt_publish', { token: domain.verificationToken, domain: domain.domain }),
       )
       setNewDomain('')
       void fetchCustomDomains(selectedOrgId)
     } catch {
-      toast.error('Failed to add custom domain')
+      toast.error(tToast('failed_add_custom_domain'))
     }
   }
 
@@ -207,10 +210,10 @@ export function OrganizationsManager() {
         const errBody = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
         throw new Error(errBody.error ?? errBody.message ?? 'Verification failed')
       }
-      toast.success('Domain verified via DNS TXT')
+      toast.success(tToast('domain_verified_dns'))
       void fetchCustomDomains(selectedOrgId)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to verify domain')
+      toast.error(err instanceof Error ? err.message : tToast('failed_verify_domain'))
     }
   }
 
@@ -228,14 +231,14 @@ export function OrganizationsManager() {
       anchor.download = `org-export-${selectedOrgId}.json`
       anchor.click()
       URL.revokeObjectURL(url)
-      toast.success('Organization data exported')
+      toast.success(tToast('organization_data_exported'))
       void fetchAuditLogs(selectedOrgId)
     } catch {
-      toast.error('Failed to export organization data')
+      toast.error(tToast('failed_export_organization'))
     }
   }
 
-  if (loading) return <p className="text-muted-foreground">Loading organizationsÔÇª</p>
+  if (loading) return <p className="text-muted-foreground">Loading organizations…</p>
 
   return (
     <div className="space-y-6">
@@ -402,14 +405,16 @@ export function OrganizationsManager() {
             Export organization data (JSON)
           </Button>
           {auditLogs.length > 0 && (
-            <ul className="max-h-64 space-y-2 overflow-y-auto text-sm" aria-label="Audit log">
-              {auditLogs.map((entry) => (
-                <li key={entry.id} className="rounded-md border border-border px-3 py-2">
-                  <span className="font-medium">{entry.action}</span>
-                  <span className="text-muted-foreground"> ┬À {new Date(entry.createdAt).toLocaleString()}</span>
-                </li>
-              ))}
-            </ul>
+            <ScrollPanel className="max-h-64" aria-label="Audit log">
+              <ul className="space-y-2 text-sm">
+                {auditLogs.map((entry) => (
+                  <li key={entry.id} className="rounded-md border border-border px-3 py-2">
+                    <span className="font-medium">{entry.action}</span>
+                    <span className="text-muted-foreground"> · {new Date(entry.createdAt).toLocaleString()}</span>
+                  </li>
+                ))}
+              </ul>
+            </ScrollPanel>
           )}
         </CardContent>
       </Card>

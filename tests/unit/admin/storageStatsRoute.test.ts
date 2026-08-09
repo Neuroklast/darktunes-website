@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 const requireAdminOrEditorFromRequest = vi.fn()
 const createServiceRoleSupabaseClient = vi.fn()
@@ -17,7 +18,11 @@ describe('GET /api/admin/assets/storage-stats', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
-    requireAdminOrEditorFromRequest.mockResolvedValue({ userId: 'u1', role: 'admin' })
+    requireAdminOrEditorFromRequest.mockResolvedValue({
+      userId: 'u1',
+      role: 'admin',
+      organizationId: DEFAULT_ORGANIZATION_ID,
+    })
   })
 
   it('returns RPC totals with coerced bigint strings', async () => {
@@ -56,15 +61,27 @@ describe('GET /api/admin/assets/storage-stats', () => {
       data: [{ size_bytes: 100 }, { size_bytes: 50 }],
       error: null,
     })
-    const select = vi.fn().mockImplementation((sel: string) => {
+    const order = vi.fn().mockReturnValue({ range })
+    const eq = vi.fn().mockReturnValue({ order, eq: vi.fn().mockReturnThis() })
+    const select = vi.fn().mockImplementation((sel: string, opts?: { count?: string; head?: boolean }) => {
+      if (opts?.head) {
+        return {
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
+            then: (resolve: (v: unknown) => unknown) =>
+              Promise.resolve({ count: 2, error: null }).then(resolve),
+            catch: (fn: (e: unknown) => unknown) => Promise.resolve({ count: 2, error: null }).catch(fn),
+          }),
+        }
+      }
       if (typeof sel === 'string' && sel.includes('sum')) {
-        return Promise.resolve({ data: null, error: { message: 'no agg' } })
+        // Aggregate path fails → force paginated fallback
+        return {
+          eq: vi.fn().mockResolvedValue({ data: null, error: { message: 'no agg' } }),
+        }
       }
-      return {
-        order: vi.fn().mockReturnThis(),
-        range,
-        eq: vi.fn().mockReturnThis(),
-      }
+      // paginated select('size_bytes')
+      return { eq: vi.fn().mockReturnValue({ order }) }
     })
     createServiceRoleSupabaseClient.mockResolvedValue({
       rpc: vi.fn().mockResolvedValue({ data: null, error: { message: 'missing fn' } }),

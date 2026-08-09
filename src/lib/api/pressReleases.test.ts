@@ -18,6 +18,7 @@ function makeBuilder(data: unknown = null, error: unknown = null) {
     or: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     single: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue(result),
     then: p.then.bind(p),
     catch: p.catch.bind(p),
     finally: p.finally.bind(p),

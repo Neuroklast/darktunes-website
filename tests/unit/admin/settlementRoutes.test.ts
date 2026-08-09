@@ -124,6 +124,11 @@ describe('GET /api/admin/settlements/register', () => {
 describe('GET /api/admin/settlements/periods', () => {
   beforeEach(() => {
     verifyAdminMock.mockResolvedValue('admin-user-1')
+    requireAdminFromRequestMock.mockResolvedValue({
+      userId: 'admin-user-1',
+      role: 'admin',
+      organizationId: '00000000-0000-0000-0000-000000000000',
+    })
     createServerSupabaseClientMock.mockResolvedValue(MOCK_DB)
     listSettlementPeriodsMock.mockResolvedValue([{ id: 'period-1', status: 'open' }])
   })
@@ -142,7 +147,10 @@ describe('GET /api/admin/settlements/periods', () => {
     await expect(response.json()).resolves.toEqual({
       periods: [{ id: 'period-1', status: 'open' }],
     })
-    expect(listSettlementPeriodsMock).toHaveBeenCalledWith(MOCK_DB)
+    expect(listSettlementPeriodsMock).toHaveBeenCalledWith(
+      MOCK_DB,
+      '00000000-0000-0000-0000-000000000000',
+    )
   })
 })
 
