@@ -22,7 +22,7 @@ function extractBatchIdFromPath(pathname: string): string | null {
 }
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
   const id = extractBatchIdFromPath(new URL(req.url).pathname)
   if (!id) throw new ApiError(400, 'Invalid import batch multipart abort path')
 
@@ -34,7 +34,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   if (!uploadId) throw new ApiError(400, 'upload_id is required')
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  const batch = await getWritableImportBatch(serviceSupabase, id)
+  const batch = await getWritableImportBatch(serviceSupabase, id, organizationId)
   const ctx = await createBronzeMultipartR2Context()
   await abortBronzeMultipartUpload(ctx, batch.r2Key, uploadId)
 

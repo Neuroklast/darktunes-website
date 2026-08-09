@@ -42,7 +42,7 @@ function parseParts(value: unknown): BronzeMultipartPartRef[] {
 }
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
   const id = extractBatchIdFromPath(new URL(req.url).pathname)
   if (!id) throw new ApiError(400, 'Invalid import batch multipart complete path')
 
@@ -56,7 +56,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   const parts = parseParts(body.parts)
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  const batch = await getWritableImportBatch(serviceSupabase, id)
+  const batch = await getWritableImportBatch(serviceSupabase, id, organizationId)
   const ctx = await createBronzeMultipartR2Context()
   await completeBronzeMultipartUpload(ctx, batch.r2Key, uploadId, parts)
 
