@@ -14,6 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { Artist } from '@/types'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { rowToArtist } from './artistRowMapper'
 import { parseCustomLinks } from '@/lib/types/jsonColumns'
 
@@ -246,6 +247,8 @@ export async function getArtistByUserId(db: DbClient, userId: string): Promise<A
  * - If `artistId` is omitted and the user has multiple memberships: returns the
  *   first artist (callers that want multi-artist selection should pass `artistId`).
  * - Returns `null` if the user has no artist memberships.
+ * - When `organizationId` is set, the artist must belong to that organization
+ *   (host/tenant isolation). Default is Org #0 (darkTunes) for backward compat.
  *
  * Throws `Error` with an HTTP-hint message for security rejections so that
  * route handlers can map them to the appropriate ApiError.
@@ -254,6 +257,7 @@ export async function resolvePortalArtist(
   db: DbClient,
   userId: string,
   artistId?: string | null,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<Artist | null> {
   if (artistId) {
     // Validate membership for the requested artistId
@@ -267,14 +271,36 @@ export async function resolvePortalArtist(
     if (memberErr) throw new Error(memberErr.message)
     if (!membership) throw new Error('FORBIDDEN: not a member of this artist')
 
-    const { data, error } = await db.from('artists').select('*').eq('id', artistId).single()
-    if (error) {
-      if (error.code === 'PGRST116') return null
-      throw new Error(error.message)
-    }
-    return data ? rowToArtist(data as ArtistRow) : null
+    const { data, error } = await db
+      .from('artists')
+      .select('*')
+      .eq('id', artistId)
+      .eq('organization_id', organizationId)
+      .maybeSingle()
+    if (error) throw new Error(error.message)
+    if (!data) throw new Error('FORBIDDEN: artist not in this organization')
+    return rowToArtist(data as ArtistRow)
   }
 
-  // No artistId specified — fall back to first membership
-  return getArtistByUserId(db, userId)
+  // No artistId specified — fall back to first membership in this organization
+  const { data: memberships, error: memberErr } = await db
+    .from('artist_members')
+    .select('artist_id')
+    .eq('user_id', userId)
+    .limit(20)
+
+  if (memberErr) throw new Error(memberErr.message)
+  const ids = (memberships ?? []).map((m) => m.artist_id)
+  if (ids.length === 0) return null
+
+  const { data: artists, error } = await db
+    .from('artists')
+    .select('*')
+    .in('id', ids)
+    .eq('organization_id', organizationId)
+    .limit(1)
+
+  if (error) throw new Error(error.message)
+  const row = artists?.[0]
+  return row ? rowToArtist(row as ArtistRow) : null
 }

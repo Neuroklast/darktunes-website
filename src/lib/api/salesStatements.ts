@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { appendLedgerEntry, hasLedgerEntry } from '@/lib/api/settlementLedger'
 import { getOrCreateSettlementPeriod } from '@/lib/api/settlementPeriods'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { PUBLIC_QUERY_LIMITS } from './queryLimits'
 
 type DbClient = SupabaseClient<Database>
@@ -261,8 +262,22 @@ export async function updateSalesStatementStatus(
 export async function getSalesSummariesForAdmin(
   db: DbClient,
   status?: SalesStatementStatus,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<SalesStatement[]> {
-  let query = db.from('sales_statements').select('*').order('created_at', { ascending: false })
+  // sales_statements has no organization_id — isolate via artists.organization_id
+  const { data: orgArtists, error: artistsError } = await db
+    .from('artists')
+    .select('id')
+    .eq('organization_id', organizationId)
+  if (artistsError) throw new Error(artistsError.message)
+  const artistIds = (orgArtists ?? []).map((a) => a.id)
+  if (artistIds.length === 0) return []
+
+  let query = db
+    .from('sales_statements')
+    .select('*')
+    .in('artist_id', artistIds)
+    .order('created_at', { ascending: false })
 
   if (status) {
     query = query.eq('status', status)

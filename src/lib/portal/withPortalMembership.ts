@@ -13,6 +13,7 @@ import type { User } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from '@/lib/errors'
 import { resolvePortalArtist } from '@/lib/api/artistProfiles'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { authenticatePortalBearer } from '@/lib/portal/bearerAuth'
 import {
@@ -54,10 +55,11 @@ export async function withPortalMembership(
   }
 
   const { token, user, supabase: userDb } = await authenticatePortalBearer(req)
+  const organizationId = await getRequestOrganizationId(userDb)
 
   let artist: Artist | null
   try {
-    artist = await resolvePortalArtist(userDb, user.id, trimmed || undefined)
+    artist = await resolvePortalArtist(userDb, user.id, trimmed || undefined, organizationId)
   } catch (err) {
     const msg = err instanceof Error ? err.message : ''
     if (msg.startsWith('FORBIDDEN')) {

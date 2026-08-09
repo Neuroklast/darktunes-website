@@ -15,6 +15,7 @@ import type { User } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from '@/lib/errors'
 import { resolvePortalArtist } from '@/lib/api/artistProfiles'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import {
   createBearerAuthSupabaseClient,
   createServerSupabaseClient,
@@ -80,10 +81,12 @@ export async function authenticatePortalBearerWithArtist(
   }
 
   const auth = await authenticatePortalBearer(req)
+  const organizationId = await getRequestOrganizationId(auth.supabase)
   const artist = await resolvePortalArtist(
     auth.supabase,
     auth.user.id,
     trimmed || undefined,
+    organizationId,
   ).catch((err) => {
     const msg = err instanceof Error ? err.message : ''
     if (msg.startsWith('FORBIDDEN')) throw new ApiError(403, 'No artist linked to this account')
