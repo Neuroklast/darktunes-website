@@ -26,6 +26,8 @@
 - [ ] Drag conversation onto a custom folder (or Trash) files/deletes the whole thread
 
 ## Multi-tenant isolation (SaaS)
+
+Full staging sequence: [docs/agent/multi-tenant.md](docs/agent/multi-tenant.md) → **Pilot staging runbook**.
 - [ ] Host A File Explorer lists only Host A assets/folders; Host B never appears
 - [ ] Admin upload on Host A sets `assets.organization_id` for Host A; hash dedupe is per-org
 - [ ] EPK templates admin list/create is per host org; portal published templates match that org

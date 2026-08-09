@@ -36,6 +36,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Cron Apify only runs Org #0 | Fan-out `listActiveOrganizations` with shared wall-clock budget; admin UI stays host-scoped |
 | Custom domain “verify” is a trust-on-click admin button | Prove ownership with public DNS TXT (`verifyDomainTxtToken`); gate admin domain APIs with `assertAdminOrganizationAccess` |
 | Platform org console lists every tenant for any admin | `listOrganizationsAccessibleToUser`: platform_admins see all; others only memberships + Org #0 |
+| Security docs only describe artist multi-tenancy | Document **label** isolation (`organization_id`, host headers, staff RLS helpers) separately from portal artist membership |
 | Portal financial audit defaults to Org #0 | `withPortalMembership` must expose `organizationId` from host context for stamps |
 | Financial audit trail is global | Stamp `organization_id` on insert; admin analytics list filters host org |
 | Stripe checkout trusts body `organizationId` without auth | Require session + membership/platform_admin (`assertBillingOrganizationAccess`); signup uses `/api/onboarding/register` |

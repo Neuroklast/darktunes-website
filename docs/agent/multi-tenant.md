@@ -103,8 +103,8 @@ Never take `darktunes.com` offline for SaaS launch.
 | 9 | Onboarding / assistenz | Partial — register flow ported |
 | 10 | Custom domains | DAL + admin API; **DNS TXT verification** (`verifyDomainTxtToken`); force-verify only non-prod |
 | 11 | Platform ops console | Stronger — accessible org list; export/domains/webhooks/keys require org access |
-| 12 | Isolation QA + pilots | Unit isolation + e2e + **`npm run check:organization-scope`** CI gate (marker audit) |
-| 13 | Cleanup | Partial — platform_admins helper; org SaaS writes gated; residual inventory below |
+| 12 | Isolation QA + pilots | Unit isolation + e2e + **`check:organization-scope`**; pilot runbook below |
+| 13 | Cleanup | Partial — residual inventory; ops apply `reset.sql` still open |
 
 ## Residual isolation inventory (phase 13)
 
@@ -120,6 +120,52 @@ Never take `darktunes.com` offline for SaaS launch.
 | Public page_events label analytics | Done | Filtered via org artist id set |
 | `submission_form_schema` global catalogue | Keep | Label-agnostic form definition |
 | Global role tables (`users`, `role_permissions`) | Keep | Platform-wide; not per-label data |
+| Organization branding injector | Done | `OrganizationBrandingInjector` in root `app/layout.tsx` |
+
+## Pilot staging runbook
+
+Run this on **staging** after merging or deploying `feat/multi-tenant-saas`. Full DNS/Stripe env notes: [DEPLOYMENT.md](../../DEPLOYMENT.md) (Multi-tenant SaaS section).
+
+### 1. Schema
+
+1. Backup staging DB.
+2. Run full `supabase/reset.sql` in Supabase SQL Editor.
+3. Smoke SQL:
+
+```sql
+SELECT public.user_can_access_organization('00000000-0000-0000-0000-000000000000');
+SELECT COUNT(*) FROM public.organizations;
+SELECT COUNT(*) FROM public.artists WHERE organization_id IS NULL; -- expect 0
+```
+
+### 2. darkTunes continuity (Org #0)
+
+1. Open staging apex host (or localhost) — public home/roster load.
+2. Admin login → File Explorer, Sales Statements, Settings still work.
+3. No 500s from missing columns (`organization_id`, composite PKs).
+
+### 3. Host / pilot org
+
+1. Ensure seed/demo org exists (e.g. slug `demo-label`, id `11111111-…` if seeded).
+2. Hit `{slug}.{PLATFORM_ROOT_DOMAIN}` (or hosts file) — `x-organization-id` must resolve to pilot, not Org #0 when strict hosts enabled.
+3. Create one artist/release on pilot only; confirm Org #0 admin list does not show them when scoped.
+
+### 4. Staff isolation smoke
+
+1. Label A admin JWT (browser Supabase): cannot `select` Host B `assets` / `artists` drafts (RLS).
+2. `/admin/organizations` lists only accessible orgs for non-platform staff.
+3. Custom domain: pending domain → Check DNS fails without TXT; with TXT → verified.
+
+### 5. Stripe (test mode)
+
+1. Set Stripe test env vars; webhook → `/api/stripe/webhook`.
+2. `/onboarding` → checkout → `checkout.session.completed` → subscription + features + org `active`.
+3. Replay same event id → `duplicate: true`.
+
+### 6. Cron / Apify
+
+1. Manual admin Spotify sync on Host A only charges Host A budget.
+2. Cron/sync-trigger returns `multiOrg: true` and per-org rows without mixing budgets.
 
 ## PR #417 port map
 
