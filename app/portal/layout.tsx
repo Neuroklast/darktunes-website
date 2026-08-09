@@ -26,6 +26,7 @@ import { getArtistsByUserId, getArtistProfileByArtistId } from '@/lib/api/artist
 import { shouldRedirectToOnboarding } from '@/lib/portal/onboardingGate'
 import { needsPortalTermsAcceptance } from '@/lib/portal/termsGate'
 import { getSiteSettings } from '@/lib/api/siteSettings'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { DEFAULT_PORTAL_TERMS_VERSION } from '@/lib/legal/defaults'
 import { PortalTermsGate } from './_components/PortalTermsGate'
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
@@ -192,7 +193,7 @@ async function PortalLayoutContent({ children }: { children: ReactNode }) {
       ? getArtistProfileByArtistId(supabase, artist.id).catch(() => null)
       : Promise.resolve(null),
     getCachedPortalFaq(),
-    getSiteSettings(supabase).catch(() => null),
+    getSiteSettings(supabase, await getRequestOrganizationId(supabase).catch(() => undefined)).catch(() => null),
   ])
 
   if (shouldRedirectToOnboarding(artist, artistProfile, currentPath)) {

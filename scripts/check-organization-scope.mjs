@@ -116,6 +116,18 @@ const REQUIRED = [
     file: 'app/api/admin/sos/presets/route.ts',
     markers: ['organizationId'],
   },
+  {
+    file: 'src/lib/api/siteSettings.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'src/lib/api/settlementPeriods.ts',
+    markers: ['organization_id', 'organizationId', 'DEFAULT_ORGANIZATION_ID'],
+  },
+  {
+    file: 'src/lib/cache/publicQueries.ts',
+    markers: ['getCachedSiteSettings', 'organizationId', 'orgTag'],
+  },
 ]
 
 const failures = []

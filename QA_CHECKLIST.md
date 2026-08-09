@@ -32,7 +32,9 @@
 - [ ] Admin Assets storage bar on Host A counts only Host A assets (RPC/aggregate org filter)
 - [ ] Admin feedback inbox lists only feedback from artists of the host org; status update on foreign id → 404
 - [ ] Sales Statement workspaces/presets/period summaries/import batches on Host A never show Host B data
-- [ ] Apply multi-tenant block of `supabase/reset.sql` (folders, EPK templates, storage RPC, Sales Statement tables) on staging before pilot hosts
+- [ ] Host A admin Settings / public brand (label name, theme, legal pages) differ from Host B; Header/Footer use host org settings
+- [ ] Settlement periods list is per host org; locking one label’s period does not block another
+- [ ] Apply multi-tenant block of `supabase/reset.sql` (site_settings PK, settlement periods, folders, Sales Statement tables) on staging before pilot hosts
 
 ## Security
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)

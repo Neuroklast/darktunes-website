@@ -18,6 +18,7 @@ import {
   normalizeInviteLinkExpiryHours,
 } from '@/lib/auth/inviteLinkExpiry'
 import { DEFAULT_PORTAL_TERMS_VERSION } from '@/lib/legal/defaults'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 
@@ -328,11 +329,17 @@ function rowsToSettings(rows: { key: string; value: string }[]): SiteSettings {
 }
 
 /**
- * Fetch all site settings rows and return a typed SiteSettings object.
+ * Fetch all site settings rows for one organization and return a typed SiteSettings object.
  * Missing keys fall back to hardcoded defaults so the site never breaks.
  */
-export async function getSiteSettings(db: DbClient): Promise<SiteSettings> {
-  const { data, error } = await db.from('site_settings').select('key, value')
+export async function getSiteSettings(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<SiteSettings> {
+  const { data, error } = await db
+    .from('site_settings')
+    .select('key, value')
+    .eq('organization_id', organizationId)
   if (error) throw new Error(error.message)
   return rowsToSettings(data ?? [])
 }
@@ -345,11 +352,15 @@ export async function upsertSiteSetting(
   db: DbClient,
   key: string,
   value: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<void> {
   const sanitized = sanitizeSiteSettingsWrite({ [key]: value })[key] ?? value
   const { error } = await db
     .from('site_settings')
-    .upsert({ key, value: sanitized }, { onConflict: 'key' })
+    .upsert(
+      { organization_id: organizationId, key, value: sanitized },
+      { onConflict: 'organization_id,key' },
+    )
   if (error) throw new Error(error.message)
 }
 
@@ -360,11 +371,18 @@ export async function upsertSiteSetting(
 export async function upsertSiteSettings(
   db: DbClient,
   settings: Partial<Record<string, string>>,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<void> {
   const sanitized = sanitizeSiteSettingsWrite(settings)
-  const rows = Object.entries(sanitized).map(([key, value]) => ({ key, value: value ?? '' }))
+  const rows = Object.entries(sanitized).map(([key, value]) => ({
+    organization_id: organizationId,
+    key,
+    value: value ?? '',
+  }))
   if (rows.length === 0) return
-  const { error } = await db.from('site_settings').upsert(rows, { onConflict: 'key' })
+  const { error } = await db
+    .from('site_settings')
+    .upsert(rows, { onConflict: 'organization_id,key' })
   if (error) throw new Error(error.message)
 }
 
@@ -373,10 +391,14 @@ export async function upsertSiteSettings(
  * Falls back to reconstructing a ThemeConfig from the legacy flat theme_* keys.
  * Returns null only when the DB cannot be reached.
  */
-export async function readThemeConfig(db: DbClient): Promise<ThemeConfig | null> {
+export async function readThemeConfig(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<ThemeConfig | null> {
   const { data, error } = await db
     .from('site_settings')
     .select('key, value')
+    .eq('organization_id', organizationId)
     .in('key', [
       'theme_config',
       'theme_primary', 'theme_secondary', 'theme_background', 'theme_foreground',
@@ -410,25 +432,31 @@ export async function readThemeConfig(db: DbClient): Promise<ThemeConfig | null>
  * Persist a ThemeConfig atomically as the `theme_config` JSON key in site_settings.
  * Also back-fills the legacy flat keys so older code paths still read correct values.
  */
-export async function upsertThemeConfig(db: DbClient, config: ThemeConfig): Promise<void> {
-  const rows: Array<{ key: string; value: string }> = [
-    { key: 'theme_config', value: JSON.stringify(config) },
+export async function upsertThemeConfig(
+  db: DbClient,
+  config: ThemeConfig,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<void> {
+  const rows: Array<{ organization_id: string; key: string; value: string }> = [
+    { organization_id: organizationId, key: 'theme_config', value: JSON.stringify(config) },
     // Keep legacy flat keys in sync so old read paths remain correct.
-    { key: 'theme_primary',               value: config.colors.primary },
-    { key: 'theme_secondary',             value: config.colors.secondary },
-    { key: 'theme_background',            value: config.colors.background },
-    { key: 'theme_foreground',            value: config.colors.foreground },
-    { key: 'theme_card',                  value: config.colors.card },
-    { key: 'theme_muted',                 value: config.colors.muted },
-    { key: 'theme_accent',                value: config.colors.accent },
-    { key: 'theme_border',                value: config.colors.border },
-    { key: 'theme_gradient_hero_from',    value: config.gradients.heroFrom    ?? '' },
-    { key: 'theme_gradient_hero_to',      value: config.gradients.heroTo      ?? '' },
-    { key: 'theme_gradient_hero_dir',     value: config.gradients.heroDir     ?? '135deg' },
-    { key: 'theme_gradient_accent_from',  value: config.gradients.accentFrom  ?? '' },
-    { key: 'theme_gradient_accent_to',    value: config.gradients.accentTo    ?? '' },
-    { key: 'theme_gradient_accent_dir',   value: config.gradients.accentDir   ?? '135deg' },
+    { organization_id: organizationId, key: 'theme_primary',               value: config.colors.primary },
+    { organization_id: organizationId, key: 'theme_secondary',             value: config.colors.secondary },
+    { organization_id: organizationId, key: 'theme_background',            value: config.colors.background },
+    { organization_id: organizationId, key: 'theme_foreground',            value: config.colors.foreground },
+    { organization_id: organizationId, key: 'theme_card',                  value: config.colors.card },
+    { organization_id: organizationId, key: 'theme_muted',                 value: config.colors.muted },
+    { organization_id: organizationId, key: 'theme_accent',                value: config.colors.accent },
+    { organization_id: organizationId, key: 'theme_border',                value: config.colors.border },
+    { organization_id: organizationId, key: 'theme_gradient_hero_from',    value: config.gradients.heroFrom    ?? '' },
+    { organization_id: organizationId, key: 'theme_gradient_hero_to',      value: config.gradients.heroTo      ?? '' },
+    { organization_id: organizationId, key: 'theme_gradient_hero_dir',     value: config.gradients.heroDir     ?? '135deg' },
+    { organization_id: organizationId, key: 'theme_gradient_accent_from',  value: config.gradients.accentFrom  ?? '' },
+    { organization_id: organizationId, key: 'theme_gradient_accent_to',    value: config.gradients.accentTo    ?? '' },
+    { organization_id: organizationId, key: 'theme_gradient_accent_dir',   value: config.gradients.accentDir   ?? '135deg' },
   ]
-  const { error } = await db.from('site_settings').upsert(rows, { onConflict: 'key' })
+  const { error } = await db
+    .from('site_settings')
+    .upsert(rows, { onConflict: 'organization_id,key' })
   if (error) throw new Error(error.message)
 }

@@ -27,8 +27,10 @@ const fontVariables: CSSProperties = {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  const organizationId = await getRequestOrganizationId().catch(() => null)
   const settings =
-    (await getCachedSiteSettings().catch(() => null)) ?? SITE_SETTINGS_DEFAULTS
+    (await getCachedSiteSettings(organizationId ?? undefined).catch(() => null))
+    ?? SITE_SETTINGS_DEFAULTS
   return buildRootLayoutMetadata(settings)
 }
 
@@ -53,8 +55,6 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = (await getLocale()) as Locale
   const messages = await getMessages()
-  const settings = await getCachedSiteSettings().catch(() => null)
-  const { labelShortName } = resolveBrandFromSettings(settings ?? SITE_SETTINGS_DEFAULTS)
 
   let organizationId: string | null = null
   let organizationBranding = null
@@ -67,6 +67,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   } catch {
     organizationBranding = null
   }
+
+  const settings = await getCachedSiteSettings(organizationId ?? undefined).catch(() => null)
+  const { labelShortName } = resolveBrandFromSettings(settings ?? SITE_SETTINGS_DEFAULTS)
 
   return (
     <html

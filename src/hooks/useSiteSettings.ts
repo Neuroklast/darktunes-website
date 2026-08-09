@@ -3,6 +3,7 @@ import { DEFAULT_SECTION_ORDER } from '@/config/sections'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/env'
 import { getSiteSettings, SITE_SETTINGS_DEFAULTS, upsertSiteSettings } from '@/lib/api/siteSettings'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import type { SiteSettings, ContactTopicConfig } from '@/types'
 
 /** Maps a SiteSettings domain object back to DB key-value pairs. */
@@ -108,7 +109,7 @@ export function useSiteSettings() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await getSiteSettings(supabase)
+      const data = await getSiteSettings(supabase, getClientOrganizationId())
       setSettings(data)
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
@@ -123,7 +124,7 @@ export function useSiteSettings() {
    */
   const saveSettings = useCallback(
     async (updated: SiteSettings): Promise<void> => {
-      await upsertSiteSettings(supabase, settingsToRecord(updated))
+      await upsertSiteSettings(supabase, settingsToRecord(updated), getClientOrganizationId())
       setSettings(updated)
       // Revalidate the Next.js server cache so the public site picks up changes.
       // Throw if the API returns an error so the caller (e.g. ColorThemeManager)

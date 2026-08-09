@@ -14,7 +14,7 @@ function getCachedAboutData(organizationId: string) {
     async () => {
       const client = createPublicSupabaseClient()
       const [siteSettings, artists, news] = await Promise.all([
-        getSiteSettings(client),
+        getSiteSettings(client, organizationId),
         getPublicArtists(client, organizationId),
         getPublicNewsPosts(client, organizationId),
       ])

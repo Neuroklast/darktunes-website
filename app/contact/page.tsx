@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/ssr'
 import { getTranslations } from 'next-intl/server'
 import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { ContactForm } from './_components/ContactForm'
 import { getMetadataBrand, pageTitle } from '@/lib/seo/metadata'
 
@@ -19,10 +20,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ContactPage() {
+  const orgId = await getRequestOrganizationId()
   const [tPages, tContact, settings] = await Promise.all([
     getTranslations('pages'),
     getTranslations('contact'),
-    getCachedSiteSettings().catch(() => null),
+    getCachedSiteSettings(orgId).catch(() => null),
   ])
   const submitHubUrl = settings?.submitHubUrl || ''
   const submitHubHeading = settings?.submitHubSectionHeading || tContact('submitMusicHeading')

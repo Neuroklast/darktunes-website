@@ -33,7 +33,7 @@ export default async function PressPage() {
       console.error('[press/page] Failed to fetch press releases:', err)
       return []
     }),
-    getSiteSettings(supabase).catch((err: unknown) => {
+    getSiteSettings(supabase, orgId).catch((err: unknown) => {
       console.error('[press/page] Failed to fetch site settings:', err)
       return SITE_SETTINGS_DEFAULTS
     }),

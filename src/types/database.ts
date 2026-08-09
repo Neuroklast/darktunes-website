@@ -155,6 +155,7 @@ export interface Database {
       }
       settlement_periods: {
         Row: {
+          organization_id: string
           id: string
           period_start: string
           period_end: string
@@ -169,6 +170,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           period_start: string
           period_end: string
@@ -183,6 +185,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           period_start?: string
           period_end?: string
@@ -3147,16 +3150,19 @@ export interface Database {
       }
       site_settings: {
         Row: {
+          organization_id: string
           key: string
           value: string
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           key: string
           value: string
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           key?: string
           value?: string
           updated_at?: string
@@ -3443,6 +3449,7 @@ export interface Database {
       }
       message_templates: {
         Row: {
+          organization_id: string
           id: string
           name: string
           subject: string
@@ -3450,6 +3457,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           subject?: string
@@ -3457,6 +3465,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           subject?: string

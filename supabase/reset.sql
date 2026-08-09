@@ -7063,6 +7063,12 @@ ALTER TABLE public.sos_period_summaries ADD COLUMN IF NOT EXISTS organization_id
   DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
 ALTER TABLE public.distributor_import_batches ADD COLUMN IF NOT EXISTS organization_id UUID
   DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.settlement_periods ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.message_templates ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
 
 UPDATE public.artists SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 UPDATE public.releases SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
@@ -7079,6 +7085,9 @@ UPDATE public.sos_rules_presets SET organization_id = '00000000-0000-0000-0000-0
 UPDATE public.sos_accounting_workspaces SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 UPDATE public.sos_period_summaries SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 UPDATE public.distributor_import_batches SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.site_settings SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.settlement_periods SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.message_templates SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
 
 ALTER TABLE public.artists ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
 ALTER TABLE public.artists ALTER COLUMN organization_id SET NOT NULL;
@@ -7110,6 +7119,12 @@ ALTER TABLE public.sos_period_summaries ALTER COLUMN organization_id SET DEFAULT
 ALTER TABLE public.sos_period_summaries ALTER COLUMN organization_id SET NOT NULL;
 ALTER TABLE public.distributor_import_batches ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
 ALTER TABLE public.distributor_import_batches ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.site_settings ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.site_settings ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.settlement_periods ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.settlement_periods ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.message_templates ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.message_templates ALTER COLUMN organization_id SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_artists_organization_id ON public.artists (organization_id);
 CREATE INDEX IF NOT EXISTS idx_releases_organization_id ON public.releases (organization_id);
@@ -7126,6 +7141,46 @@ CREATE INDEX IF NOT EXISTS idx_sos_rules_presets_organization_id ON public.sos_r
 CREATE INDEX IF NOT EXISTS idx_sos_accounting_workspaces_organization_id ON public.sos_accounting_workspaces (organization_id);
 CREATE INDEX IF NOT EXISTS idx_sos_period_summaries_organization_id ON public.sos_period_summaries (organization_id);
 CREATE INDEX IF NOT EXISTS idx_distributor_import_batches_organization_id ON public.distributor_import_batches (organization_id);
+CREATE INDEX IF NOT EXISTS idx_site_settings_organization_id ON public.site_settings (organization_id);
+CREATE INDEX IF NOT EXISTS idx_settlement_periods_organization_id ON public.settlement_periods (organization_id);
+CREATE INDEX IF NOT EXISTS idx_message_templates_organization_id ON public.message_templates (organization_id);
+
+-- site_settings: composite PK so each label has its own key/value CMS bag.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'site_settings_pkey'
+      AND conrelid = 'public.site_settings'::regclass
+  ) THEN
+    -- Only drop when still single-column (key) primary key
+    IF (
+      SELECT count(*) FROM pg_attribute a
+      JOIN pg_constraint c ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+      WHERE c.conname = 'site_settings_pkey' AND NOT a.attisdropped
+    ) = 1 THEN
+      ALTER TABLE public.site_settings DROP CONSTRAINT site_settings_pkey;
+    END IF;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'site_settings_pkey'
+      AND conrelid = 'public.site_settings'::regclass
+  ) THEN
+    ALTER TABLE public.site_settings
+      ADD CONSTRAINT site_settings_pkey PRIMARY KEY (organization_id, key);
+  END IF;
+END $$;
+
+-- Settlement periods uniqueness per organization
+ALTER TABLE public.settlement_periods
+  DROP CONSTRAINT IF EXISTS settlement_periods_period_start_period_end_key;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_settlement_periods_org_dates
+  ON public.settlement_periods (organization_id, period_start, period_end);
 
 -- Sales Statement uniqueness is per organization (periods / preset names may repeat across labels).
 DROP INDEX IF EXISTS uq_sos_rules_presets_name_ci;

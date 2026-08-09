@@ -24,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function VideosPage() {
   const orgId = await getRequestOrganizationId()
   const [settings] = await Promise.all([
-    getCachedSiteSettings(),
+    getCachedSiteSettings(orgId),
   ])
 
   const videos = await getCachedPublicVideos({

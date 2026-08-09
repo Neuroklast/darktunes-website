@@ -244,8 +244,15 @@ export async function hardDeleteMessages(db: DbClient, ids: string[]): Promise<v
   if (error) throw new Error(error.message)
 }
 
-export async function getMessageTemplates(db: DbClient): Promise<MessageTemplate[]> {
-  const { data, error } = await db.from('message_templates').select('*').order('name')
+export async function getMessageTemplates(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<MessageTemplate[]> {
+  const { data, error } = await db
+    .from('message_templates')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .order('name')
   if (error) throw new Error(error.message)
   return (data ?? []).map(rowToTemplate)
 }
@@ -255,15 +262,29 @@ export async function saveMessageTemplate(
   name: string,
   subject: string,
   bodyHtml: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<MessageTemplate> {
-  const payload: TemplateInsert = { name, subject, body_html: bodyHtml }
+  const payload: TemplateInsert = {
+    organization_id: organizationId,
+    name,
+    subject,
+    body_html: bodyHtml,
+  }
   const { data, error } = await db.from('message_templates').insert(payload).select().single()
   if (error) throw new Error(error.message)
   if (!data) throw new Error('No data returned from saveMessageTemplate')
   return rowToTemplate(data)
 }
 
-export async function deleteMessageTemplate(db: DbClient, id: string): Promise<void> {
-  const { error } = await db.from('message_templates').delete().eq('id', id)
+export async function deleteMessageTemplate(
+  db: DbClient,
+  id: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<void> {
+  const { error } = await db
+    .from('message_templates')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', organizationId)
   if (error) throw new Error(error.message)
 }

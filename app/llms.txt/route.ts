@@ -28,6 +28,7 @@ import { getPublicReleases } from '@/lib/api/releases'
 import { getSiteSettings, SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
 import { buildDefaultSeoDescription } from '@/lib/brand/tenantDefaults'
 import { resolveSiteUrl } from '@/lib/brand'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import type { Release, SiteSettings } from '@/types'
 
 // ISR: regenerate at most once every 5 minutes
@@ -149,12 +150,13 @@ function buildLlmsTxt(
 export async function GET() {
   const baseUrl = resolveSiteUrl()
   const db = createPublicClient()
+  const organizationId = await getRequestOrganizationId(db).catch(() => undefined)
 
   // Fetch all public data in parallel; gracefully degrade on errors
   const [settings, artists, releases] = await Promise.all([
-    getSiteSettings(db).catch(() => null),
-    getPublicArtists(db).catch(() => [] as PublicArtist[]),
-    getPublicReleases(db).catch(() => [] as Release[]),
+    getSiteSettings(db, organizationId).catch(() => null),
+    getPublicArtists(db, organizationId).catch(() => [] as PublicArtist[]),
+    getPublicReleases(db, organizationId).catch(() => [] as Release[]),
   ])
 
   const text = buildLlmsTxt(settings, artists, releases, baseUrl)

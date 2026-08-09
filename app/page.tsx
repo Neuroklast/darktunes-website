@@ -48,15 +48,17 @@ export const metadata: Metadata = {
 // is sufficient — those components use optional chaining on every field.
 // ---------------------------------------------------------------------------
 
-const getCachedSiteSettings = unstable_cache(
-  async (): Promise<SiteSettings> => {
-    return getSiteSettings(createPublicSupabaseClient()).catch(
-      (): SiteSettings => SITE_SETTINGS_DEFAULTS,
-    )
-  },
-  ['site-settings'],
-  { revalidate: 60, tags: ['site-settings'] },
-)
+function getCachedHomeSiteSettings(organizationId: string): Promise<SiteSettings> {
+  return unstable_cache(
+    async (): Promise<SiteSettings> => {
+      return getSiteSettings(createPublicSupabaseClient(), organizationId).catch(
+        (): SiteSettings => SITE_SETTINGS_DEFAULTS,
+      )
+    },
+    ['site-settings', organizationId],
+    { revalidate: 60, tags: ['site-settings', `o:${organizationId}:site-settings`] },
+  )()
+}
 
 // ---------------------------------------------------------------------------
 // Page component
@@ -70,7 +72,7 @@ export default async function HomePage() {
     getCachedPublicNews(orgId),
     getCachedPublicVideos({ organizationId: orgId }),
     getCachedPublicConcerts(orgId),
-    getCachedSiteSettings(),
+    getCachedHomeSiteSettings(orgId),
     getCachedPublicArtists(orgId),
   ])
 

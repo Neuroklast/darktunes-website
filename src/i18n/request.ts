@@ -4,6 +4,7 @@ import { SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
 import { resolveBrandFromSettings } from '@/lib/brand'
 import { brandI18nValues } from '@/lib/brand/i18nValues'
 import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { resolveBrandPlaceholders } from '@/i18n/resolveBrandPlaceholders'
 import type { Locale } from './types'
 import { isAppLocale, parseAcceptLanguage } from './locales'
@@ -32,8 +33,9 @@ export default getRequestConfig(async () => {
   const { loadMessages, resolveBundle } = await import('./loadMessages')
   const bundle = resolveBundle(pathname)
   const rawMessages = await loadMessages(locale, bundle)
+  const organizationId = await getRequestOrganizationId().catch(() => undefined)
   const settings =
-    (await getCachedSiteSettings().catch(() => null)) ?? SITE_SETTINGS_DEFAULTS
+    (await getCachedSiteSettings(organizationId).catch(() => null)) ?? SITE_SETTINGS_DEFAULTS
   const brand = brandI18nValues(resolveBrandFromSettings(settings))
 
   return {

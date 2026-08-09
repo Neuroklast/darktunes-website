@@ -8,6 +8,7 @@ import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
 import { resolvePortalArtist } from '@/lib/api/artistProfiles'
 import { getSalesStatementById } from '@/lib/api/salesStatements'
 import { getSiteSettings, SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { resolveLabelClientInfo } from '@/lib/portal/labelBilling'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -70,7 +71,10 @@ async function InvoicesContent({
   const selectedStatement = artist && statement
     ? await getSalesStatementById(supabase, statement, artist.id).catch(() => null)
     : null
-  const siteSettings = await getSiteSettings(supabase).catch(() => SITE_SETTINGS_DEFAULTS)
+  const siteSettings = await getSiteSettings(
+    supabase,
+    await getRequestOrganizationId(supabase).catch(() => undefined),
+  ).catch(() => SITE_SETTINGS_DEFAULTS)
   const labelClient = resolveLabelClientInfo(siteSettings)
 
   return (

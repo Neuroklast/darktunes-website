@@ -8,9 +8,11 @@
 
 import { Header } from '@/components/Header'
 import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 
 export async function SiteHeader() {
-  const settings = await getCachedSiteSettings().catch(() => null)
+  const orgId = await getRequestOrganizationId()
+  const settings = await getCachedSiteSettings(orgId).catch(() => null)
 
   return (
     <Header

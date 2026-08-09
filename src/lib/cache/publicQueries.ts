@@ -129,12 +129,18 @@ export function getCachedPublicArtists(
   )()
 }
 
-/** Site-wide settings (still global until site_settings is multi-org). */
-export function getCachedSiteSettings(): Promise<SiteSettings | null> {
+/** Per-organization CMS settings (label name, theme, legal, …). */
+export function getCachedSiteSettings(
+  organizationId?: string | null,
+): Promise<SiteSettings | null> {
+  const orgId = organizationId?.trim() || DEFAULT_ORGANIZATION_ID
   return unstable_cache(
     async (): Promise<SiteSettings | null> =>
-      getSiteSettings(createPublicSupabaseClient()).catch(() => null),
-    ['public-site-settings'],
-    { revalidate: TTL, tags: ['site-settings'] },
+      getSiteSettings(createPublicSupabaseClient(), orgId).catch(() => null),
+    ['public-site-settings', orgId],
+    {
+      revalidate: TTL,
+      tags: ['site-settings', orgTag(orgId, 'site-settings')],
+    },
   )()
 }

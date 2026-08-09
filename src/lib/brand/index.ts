@@ -4,6 +4,7 @@ import type { SiteSettings } from '@/types'
 import { getSiteSettings, SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
 import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
 import { deriveShortName } from '@/lib/brand/deriveShortName'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 
@@ -41,9 +42,12 @@ export function resolveBrandFromSettings(
   }
 }
 
-export async function getBrandContext(db?: DbClient): Promise<BrandContext> {
+export async function getBrandContext(
+  db?: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<BrandContext> {
   const settings = db
-    ? await getSiteSettings(db)
-    : (await getCachedSiteSettings().catch(() => null)) ?? SITE_SETTINGS_DEFAULTS
+    ? await getSiteSettings(db, organizationId)
+    : (await getCachedSiteSettings(organizationId).catch(() => null)) ?? SITE_SETTINGS_DEFAULTS
   return resolveBrandFromSettings(settings)
 }

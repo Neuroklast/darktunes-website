@@ -15,6 +15,7 @@ import { renderLegalTemplate } from '@/lib/legal/placeholders'
 import type { SiteSettings } from '@/types'
 import type { Database } from '@/types/database'
 import { getLocale, getTranslations } from 'next-intl/server'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { DatenschutzContent } from '../datenschutz/_components/DatenschutzContent'
 
 function createPublicSupabaseClient() {
@@ -24,13 +25,15 @@ function createPublicSupabaseClient() {
   )
 }
 
-const getCachedSettings = unstable_cache(
-  async (): Promise<SiteSettings> => {
-    return getSiteSettings(createPublicSupabaseClient())
-  },
-  ['site-settings'],
-  { revalidate: 60, tags: ['site-settings'] },
-)
+function getCachedSettings(organizationId: string) {
+  return unstable_cache(
+    async (): Promise<SiteSettings> => {
+      return getSiteSettings(createPublicSupabaseClient(), organizationId)
+    },
+    ['site-settings', organizationId],
+    { revalidate: 60, tags: ['site-settings', `o:${organizationId}:site-settings`] },
+  )()
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale()
@@ -42,8 +45,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AgbPage() {
+  const organizationId = await getRequestOrganizationId()
   const [settings, locale, tPages] = await Promise.all([
-    getCachedSettings().catch((): SiteSettings => SITE_SETTINGS_DEFAULTS),
+    getCachedSettings(organizationId).catch((): SiteSettings => SITE_SETTINGS_DEFAULTS),
     getLocale(),
     getTranslations('pages'),
   ])
