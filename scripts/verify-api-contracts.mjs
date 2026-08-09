@@ -74,7 +74,8 @@ function hasMutation(content) {
 }
 
 function hasWithErrorHandler(content) {
-  return /withErrorHandler/.test(content)
+  // withPartnerAuth composes withErrorHandler internally (partner v1 routes).
+  return /withErrorHandler/.test(content) || /withPartnerAuth/.test(content)
 }
 
 function hasPortalAuth(content) {
