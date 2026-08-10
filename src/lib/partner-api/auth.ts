@@ -1,22 +1,11 @@
-﻿import { createHash } from 'node:crypto'
-import type { SupabaseClient } from '@supabase/supabase-js'
+﻿import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { ApiError } from '@/lib/errors'
+import { PARTNER_API_KEY_PREFIX, hashPartnerApiKey } from './hash'
+
+export { PARTNER_API_KEY_PREFIX, hashPartnerApiKey, generatePartnerApiKey } from './hash'
 
 type DbClient = SupabaseClient<Database>
-
-export const PARTNER_API_KEY_PREFIX = 'dt_live_'
-
-export function hashPartnerApiKey(rawKey: string): string {
-  return createHash('sha256').update(rawKey, 'utf8').digest('hex')
-}
-
-export function generatePartnerApiKey(): { rawKey: string; prefix: string; hash: string } {
-  const bytes = createHash('sha256').update(`${Date.now()}-${Math.random()}`).digest('hex').slice(0, 32)
-  const rawKey = `${PARTNER_API_KEY_PREFIX}${bytes}`
-  const prefix = rawKey.slice(0, 16)
-  return { rawKey, prefix, hash: hashPartnerApiKey(rawKey) }
-}
 
 export function extractPartnerApiKey(authHeader: string | null): string | null {
   if (!authHeader) return null

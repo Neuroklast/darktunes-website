@@ -25,7 +25,7 @@ import { test, expect } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { isSupabaseEnvConfigured } from '@/lib/supabase/isConfigured'
 import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
-import { hashPartnerApiKey, PARTNER_API_KEY_PREFIX } from '@/lib/partner-api/auth'
+import { hashPartnerApiKey, PARTNER_API_KEY_PREFIX } from '@/lib/partner-api/hash'
 import type { Database } from '@/types/database'
 
 const DEMO_ORG_ID = '11111111-1111-1111-1111-111111111111'
