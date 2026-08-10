@@ -12,6 +12,13 @@ const PUBLIC_ROUTES = [
   '/impressum',
   '/datenschutz',
   '/agb',
+  // Platform/marketing surface pages, but confirmed HTTP 200 on the default
+  // (localhost / tenant surface) host too — resolveOrganizationSlugFromHost
+  // treats localhost as a BUILTIN_APEX_HOST (surface 'tenant'), and neither
+  // page nor proxy.ts gates them by surface, so they're safe unconditional
+  // public routes here rather than needing a dedicated marketing-Host test.
+  '/pricing',
+  '/onboarding',
 ]
 const PROTECTED_PREFIXES = ['/admin/', '/portal/', '/press/dashboard/', '/promo-pool/']
 const MAX_CRAWL_PAGES = 100

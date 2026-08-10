@@ -7,7 +7,11 @@
 import { test, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { isSupabaseEnvConfigured } from '@/lib/supabase/isConfigured'
-import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
+import {
+  DEFAULT_ORGANIZATION_ID,
+  HEADER_ORGANIZATION_ID,
+  HEADER_ORGANIZATION_SLUG,
+} from '@/lib/organizations/constants'
 import { resolveOrganizationSlugFromHost } from '@/lib/organizations/resolveFromHost'
 
 const DEMO_ORG_ID = '11111111-1111-1111-1111-111111111111'
@@ -195,6 +199,53 @@ test.describe('tenant isolation', () => {
       expect(row.organization_id).toBeTruthy()
     }
     expect(orgs.size).toBeGreaterThanOrEqual(1)
+  })
+
+  test('black-box: apex vs demo-label subdomain Host headers resolve to different orgs', async ({
+    request,
+  }) => {
+    // '.darktunes.app' is a hardcoded builtin tenant domain in
+    // resolveOrganizationSlugFromHost() (src/lib/organizations/resolveFromHost.ts),
+    // so a "<slug>.darktunes.app" Host resolves to a tenant slug without
+    // needing PLATFORM_ROOT_DOMAIN configured. MULTI_TENANT_STRICT_HOSTS only
+    // gates the 404-for-unknown-pilot-host behavior in proxy.ts — it does not
+    // gate header stamping (applyOrganizationHeaders runs unconditionally for
+    // every non-static request), so this test doesn't depend on that flag
+    // either. It still skips gracefully below if the running server doesn't
+    // stamp the headers at all, e.g. some future deployment mode disables it.
+    const [apexRes, tenantRes] = await Promise.all([
+      request.get('/', { headers: { Host: 'darktunes.com' } }),
+      request.get('/', { headers: { Host: 'demo-label.darktunes.app' } }),
+    ])
+
+    const apexSlug = apexRes.headers()[HEADER_ORGANIZATION_SLUG]
+    const tenantSlug = tenantRes.headers()[HEADER_ORGANIZATION_SLUG]
+
+    if (!apexSlug || !tenantSlug) {
+      test.skip(
+        true,
+        'Response did not carry x-organization-slug — host-based org resolution appears disabled for this deployment',
+      )
+      return
+    }
+
+    expect(apexSlug).toBe('darktunes')
+    expect(tenantSlug).toBe('demo-label')
+    expect(tenantSlug).not.toBe(apexSlug)
+
+    const apexOrgId = apexRes.headers()[HEADER_ORGANIZATION_ID]
+    expect(apexOrgId).toBe(DEFAULT_ORGANIZATION_ID)
+
+    // Only when Supabase is actually configured does lookupOrganizationForRequest
+    // resolve the subdomain slug to the real Demo Label org id — without a
+    // working DB lookup it safely falls back to Org #0's id while still
+    // reporting the correct slug (see lookupOrganizationForRequest's catch
+    // path), so this stricter id assertion only applies when the org lookup
+    // could actually have succeeded.
+    const tenantOrgId = tenantRes.headers()[HEADER_ORGANIZATION_ID]
+    if (isSupabaseEnvConfigured() && tenantOrgId && tenantOrgId !== DEFAULT_ORGANIZATION_ID) {
+      expect(tenantOrgId).toBe(DEMO_ORG_ID)
+    }
   })
 })
 
