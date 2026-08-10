@@ -16,8 +16,9 @@
  * defensive fallback for the same condition.
  */
 import { test, expect } from '@playwright/test'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { isSupabaseEnvConfigured } from '@/lib/supabase/isConfigured'
+import { createServiceRoleTestClient } from '../helpers/supabase'
 import type { Database } from '@/types/database'
 
 function randomSlug(prefix: string): string {
@@ -43,9 +44,7 @@ test.beforeAll(async () => {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!isSupabaseEnvConfigured() || !url || !serviceKey) return
 
-  client = createClient<Database>(url, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+  client = createServiceRoleTestClient(url, serviceKey)
 
   const probe = await client.from('organizations').select('id').limit(1)
   schemaReady = !probe.error

@@ -39,11 +39,12 @@
  */
 
 import { test, expect, type Page, type Request as PWRequest } from '@playwright/test'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { isSupabaseEnvConfigured } from '@/lib/supabase/isConfigured'
 import { loginAsAdmin } from '../helpers/auth'
 import { waitForPageSettled } from '../helpers/pageSettle'
 import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
+import { createServiceRoleTestClient } from '../helpers/supabase'
 import type { Database } from '@/types/database'
 
 /** app/error.tsx's boundary — same check as admin-sections.spec.ts's expectNoErrorBoundary. */
@@ -80,11 +81,24 @@ async function captureAdminBearerToken(page: Page): Promise<string> {
 test.describe('Admin organizations', () => {
   let page: Page
   let adminToken = ''
+  let schemaReady = false
 
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage()
     await loginAsAdmin(page)
     adminToken = await captureAdminBearerToken(page)
+
+    // Schema may not be applied yet on this DB — same probe pattern as
+    // tenant-isolation.spec.ts / partner-api.spec.ts. Bail out (leaving
+    // schemaReady false) rather than throwing, so DB-backed tests below skip
+    // cleanly instead of hard-failing on a 500 from a missing table.
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (isSupabaseEnvConfigured() && url && serviceKey) {
+      const probeClient = createServiceRoleTestClient(url, serviceKey)
+      const probe = await probeClient.from('organizations').select('id').limit(1)
+      schemaReady = !probe.error
+    }
   })
 
   test.afterAll(async () => {
@@ -110,6 +124,7 @@ test.describe('Admin organizations', () => {
     })
 
     test('org list loads and includes Org #0 (darktunes)', async () => {
+      test.skip(!schemaReady, 'multi-tenant schema (organizations) not applied to this DB')
       // Tenants Card renders each org's name + `${slug}.darktunes.app`.
       await expect(page.getByText('darkTunes Music Group')).toBeVisible()
       await expect(page.getByText('darktunes.darktunes.app')).toBeVisible()
@@ -135,6 +150,7 @@ test.describe('Admin organizations', () => {
 
   test.describe('authenticated API', () => {
     test('GET /api/admin/organizations → 200, includes Org #0', async ({ request }) => {
+      test.skip(!schemaReady, 'multi-tenant schema (organizations) not applied to this DB')
       test.skip(!adminToken, 'Could not capture the admin bearer token from the browser session')
 
       const res = await request.get('/api/admin/organizations', {
@@ -185,9 +201,7 @@ test.describe('Admin organizations', () => {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
       if (!isSupabaseEnvConfigured() || !url || !serviceKey) return
-      serviceClient = createClient<Database>(url, serviceKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      })
+      serviceClient = createServiceRoleTestClient(url, serviceKey)
     })
 
     test.afterAll(async () => {
@@ -204,6 +218,7 @@ test.describe('Admin organizations', () => {
     })
 
     test.beforeEach(() => {
+      test.skip(!schemaReady, 'multi-tenant schema (organizations) not applied to this DB')
       test.skip(!adminToken, 'Could not capture the admin bearer token from the browser session')
       test.skip(
         !serviceClient,

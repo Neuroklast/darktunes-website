@@ -22,10 +22,11 @@
  * at each other.
  */
 import { test, expect } from '@playwright/test'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { isSupabaseEnvConfigured } from '@/lib/supabase/isConfigured'
 import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { hashPartnerApiKey, PARTNER_API_KEY_PREFIX } from '@/lib/partner-api/hash'
+import { createServiceRoleTestClient } from '../helpers/supabase'
 import type { Database } from '@/types/database'
 
 const DEMO_ORG_ID = '11111111-1111-1111-1111-111111111111'
@@ -83,9 +84,7 @@ test.describe('partner API scopes, isolation, and feature gate (DB required)', (
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!isSupabaseEnvConfigured() || !url || !serviceKey) return
 
-    client = createClient<Database>(url, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
+    client = createServiceRoleTestClient(url, serviceKey)
 
     // Schema may not be applied yet on this DB — same probe pattern as
     // tenant-isolation.spec.ts. Bail out (leaving schemaReady false) rather

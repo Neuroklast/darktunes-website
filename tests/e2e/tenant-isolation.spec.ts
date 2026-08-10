@@ -5,8 +5,8 @@
  * (same pattern as rls-validation.spec.ts) and the multi-tenant schema seed.
  */
 import { test, expect } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
 import { isSupabaseEnvConfigured } from '@/lib/supabase/isConfigured'
+import { createServiceRoleTestClient } from '../helpers/supabase'
 import {
   DEFAULT_ORGANIZATION_ID,
   HEADER_ORGANIZATION_ID,
@@ -34,9 +34,7 @@ test.describe('tenant isolation', () => {
       return
     }
 
-    const client = createClient(url, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
+    const client = createServiceRoleTestClient(url, serviceKey)
 
     // Schema may not be applied yet on older DBs — skip gracefully.
     const { error: orgError } = await client
@@ -93,9 +91,7 @@ test.describe('tenant isolation', () => {
       return
     }
 
-    const client = createClient(url, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
+    const client = createServiceRoleTestClient(url, serviceKey)
 
     const { data: orgArtists, error: artistsError } = await client
       .from('artists')
@@ -139,9 +135,7 @@ test.describe('tenant isolation', () => {
       return
     }
 
-    const client = createClient(url, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
+    const client = createServiceRoleTestClient(url, serviceKey)
 
     const { data, error } = await client
       .from('custom_domains')
@@ -175,9 +169,7 @@ test.describe('tenant isolation', () => {
       return
     }
 
-    const client = createClient(url, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
+    const client = createServiceRoleTestClient(url, serviceKey)
 
     const { data, error } = await client
       .from('site_settings')

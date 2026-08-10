@@ -36,6 +36,17 @@ export function createTestSupabaseClient(): TestClient {
   })
 }
 
+/** Service-role client for E2E specs that must seed/read across orgs (bypassing
+ * RLS). Same Node-20 `ws` realtime-transport workaround as
+ * createTestSupabaseClient — see that function's comment. Callers pass the
+ * already-validated env values so their graceful-skip guard stays in charge. */
+export function createServiceRoleTestClient(url: string, serviceKey: string): TestClient {
+  return createClient<Database>(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    realtime: { transport: ws as unknown as WebSocketLikeConstructor },
+  })
+}
+
 export async function getVisibleArtists(limit = 20): Promise<ArtistRouteRow[]> {
   const client = createTestSupabaseClient()
   const { data, error } = await client

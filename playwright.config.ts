@@ -145,9 +145,13 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_ANON_KEY:
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0',
-      SUPABASE_SERVICE_ROLE_KEY:
-        process.env.SUPABASE_SERVICE_ROLE_KEY ||
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU',
+      /* SECURITY: never hardcode a service-role key — it bypasses RLS. Unlike
+       * the anon key above (public by design), the service-role key must come
+       * only from the environment: `.env.e2e.local` (written by
+       * `npm run db:e2e:start`, loaded via dotenv at the top of this file) or
+       * CI secrets. If it's absent, env.server.ts fails fast telling you to
+       * start the stack — the correct behavior, not a silently embedded secret. */
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
       CLOUDFLARE_R2_ACCOUNT_ID: process.env.CLOUDFLARE_R2_ACCOUNT_ID || 'placeholder-r2-account',
       CLOUDFLARE_R2_ACCESS_KEY_ID:
         process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || 'placeholder-r2-access-key',
