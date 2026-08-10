@@ -56,8 +56,43 @@ export const CONTENT_SECURITY_POLICY_DIRECTIVES: Record<string, readonly string[
   'worker-src': ["'self'", 'blob:'],
 } as const
 
+/** Loopback hosts used by the Supabase CLI's local dev stack (never a real
+ * production Supabase project, so allowing them can't weaken prod CSP). */
+const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1'])
+
+/** When NEXT_PUBLIC_SUPABASE_URL points at the local Supabase CLI stack
+ * (dev / E2E against `supabase start`) rather than a hosted *.supabase.co
+ * project, connect-src needs that origin too, or the browser blocks
+ * supabase-js's fetch/websocket calls outright. */
+function localSupabaseConnectHosts(): string[] {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!url) return []
+
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return []
+  }
+
+  if (!LOOPBACK_HOSTNAMES.has(parsed.hostname)) return []
+
+  const origin = parsed.origin
+  const wsOrigin = `${parsed.protocol === 'https:' ? 'wss:' : 'ws:'}//${parsed.host}`
+  return [origin, wsOrigin]
+}
+
 export function buildContentSecurityPolicy(): string {
-  return Object.entries(CONTENT_SECURITY_POLICY_DIRECTIVES)
+  const localHosts = localSupabaseConnectHosts()
+  const directives =
+    localHosts.length === 0
+      ? CONTENT_SECURITY_POLICY_DIRECTIVES
+      : {
+          ...CONTENT_SECURITY_POLICY_DIRECTIVES,
+          'connect-src': [...CONTENT_SECURITY_POLICY_DIRECTIVES['connect-src'], ...localHosts],
+        }
+
+  return Object.entries(directives)
     .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
     .join('; ')
 }

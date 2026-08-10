@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { getIncomingToLabelUnreadCount } from '@/lib/api/portalMessages'
@@ -29,6 +29,7 @@ type NotificationRow = Database['public']['Tables']['notifications']['Row']
 
 export function useAdminNavBadges(userId: string | null, enabled: boolean) {
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
+  const instanceId = useId().replace(/:/g, '')
   const [badges, setBadges] = useState<AdminNavBadges>(EMPTY_BADGES)
 
   const refresh = useCallback(async () => {
@@ -84,7 +85,7 @@ export function useAdminNavBadges(userId: string | null, enabled: boolean) {
     if (!enabled) return
 
     const portalChannel = supabase
-      .channel('admin-nav-portal-messages')
+      .channel(`admin-nav-portal-messages-${instanceId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'portal_messages', filter: 'to_label=eq.true' },
@@ -93,7 +94,7 @@ export function useAdminNavBadges(userId: string | null, enabled: boolean) {
       .subscribe()
 
     const submissionChannel = supabase
-      .channel('admin-nav-submissions')
+      .channel(`admin-nav-submissions-${instanceId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'release_submissions' },
@@ -120,13 +121,13 @@ export function useAdminNavBadges(userId: string | null, enabled: boolean) {
       void supabase.removeChannel(portalChannel)
       void supabase.removeChannel(submissionChannel)
     }
-  }, [enabled, refresh, supabase])
+  }, [enabled, instanceId, refresh, supabase])
 
   useEffect(() => {
     if (!enabled || !userId) return
 
     const channel = supabase
-      .channel(`admin-nav-notifications-${userId}`)
+      .channel(`admin-nav-notifications-${userId}-${instanceId}`)
       .on(
         'postgres_changes',
         {
@@ -144,7 +145,7 @@ export function useAdminNavBadges(userId: string | null, enabled: boolean) {
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [enabled, refresh, supabase, userId])
+  }, [enabled, instanceId, refresh, supabase, userId])
 
   return badges
 }

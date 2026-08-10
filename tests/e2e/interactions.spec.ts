@@ -10,7 +10,6 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { isSupabaseE2EConfigured } from '../helpers/supabase'
 
 // ---------------------------------------------------------------------------
 // Helper: collect all focusable / clickable elements and check touch targets
@@ -79,11 +78,6 @@ test.describe('Touch Target Sizes (mobile only)', () => {
 
 test.describe('Video Modal', () => {
   test('opens when a video thumbnail is clicked', async ({ page }) => {
-    if (!isSupabaseE2EConfigured()) {
-      test.skip(true, 'Supabase env missing — homepage videos not available')
-      return
-    }
-
     await page.goto('/')
     await page.waitForLoadState('domcontentloaded')
 
@@ -112,11 +106,6 @@ test.describe('Video Modal', () => {
   })
 
   test('closes when the close button is clicked', async ({ page }) => {
-    if (!isSupabaseE2EConfigured()) {
-      test.skip(true, 'Supabase env missing — homepage videos not available')
-      return
-    }
-
     await page.goto('/')
     await page.waitForLoadState('domcontentloaded')
 

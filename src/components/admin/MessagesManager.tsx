@@ -1,7 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   PencilSimple,
@@ -182,6 +182,7 @@ export function MessagesManager() {
 
   const { loading: authLoading, session } = useAuthContext()
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
+  const instanceId = useId().replace(/:/g, '')
   const searchStateRef = useRef<SearchState>(DEFAULT_SEARCH)
 
   // Core data
@@ -369,7 +370,7 @@ export function MessagesManager() {
   // Realtime subscriptions
   useEffect(() => {
     const msgCh = supabase
-      .channel('admin-label-messages')
+      .channel(`admin-label-messages-${instanceId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'label_messages' }, (payload: RealtimePostgresInsertPayload<MessageRow>) => {
         const next = rowToMessage(payload.new)
         const state = searchStateRef.current
@@ -380,7 +381,7 @@ export function MessagesManager() {
       })
       .subscribe()
     const replyCh = supabase
-      .channel('admin-artist-replies')
+      .channel(`admin-artist-replies-${instanceId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'artist_replies' }, (payload: RealtimePostgresInsertPayload<ReplyRow>) => {
         const next = rowToReply(payload.new)
         setRepliesByMessageId((cur) => {
@@ -396,7 +397,7 @@ export function MessagesManager() {
       })
       .subscribe()
     const portalCh = supabase
-      .channel('admin-portal-messages')
+      .channel(`admin-portal-messages-${instanceId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'portal_messages', filter: 'to_label=eq.true' }, (payload: RealtimePostgresInsertPayload<PortalMessageRow>) => {
         const next = rowToPortalMessage(payload.new)
         setFromArtistMessages((cur) => [next, ...cur.filter((m) => m.id !== next.id)])
@@ -409,7 +410,7 @@ export function MessagesManager() {
       void supabase.removeChannel(replyCh)
       void supabase.removeChannel(portalCh)
     }
-  }, [refreshMessages, supabase])
+  }, [refreshMessages, supabase, instanceId])
 
   // Load attachments when a message is selected
   useEffect(() => {

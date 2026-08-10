@@ -1,0 +1,202 @@
+name: E2E on PR comment
+
+# On-demand E2E for a PR: a maintainer comments `/e2e` and this runs the
+# Playwright suite against a fresh local Supabase stack on the PR's HEAD.
+#
+# Complements qa.yml, which gates the e2e-tests job to dev/main pushes only —
+# this gives per-PR runs without loosening that gate.
+#
+# Notes:
+# - Steps deliberately duplicate qa.yml's e2e-tests job (no reusable-workflow
+#   refactor, to avoid touching that file). Keep them in sync by hand.
+# - Gated to write-access commenters (author_association) so arbitrary users —
+#   especially from forks — can't trigger runs on PR-HEAD code.
+# - The E2E job uses only the local Supabase stack + placeholder env (no repo
+#   secrets), which limits the blast radius of running PR-HEAD code.
+# - issue_comment events check out the base repo/default branch by default, so
+#   we explicitly `gh pr checkout` to test the PR's actual code.
+# - Scope matches qa.yml: full browser matrix (Desktop Chrome + Mobile Safari
+#   + Mobile Chrome).
+
+on:
+  issue_comment:
+    types: [created]
+  # Manual trigger for testing the job's steps before the `/e2e` comment path
+  # is live on the default branch. Pick any branch as the run ref, then supply
+  # the PR number to check out and report against.
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'PR number to run E2E against'
+        required: true
+        type: string
+
+concurrency:
+  group: e2e-comment-${{ github.event.issue.number || inputs.pr }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  # Lets the job write a commit status onto the PR HEAD so the run shows up in
+  # the PR's checks/merge box (issue_comment runs aren't linked to a SHA on their own).
+  statuses: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  e2e:
+    # Manual dispatch always runs (already gated to write-access by Actions).
+    # Otherwise: only PR comments, only `/e2e`, only from write-access users.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '/e2e') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    env:
+      # PR number for either trigger: the commented PR, or the dispatch input.
+      PR_NUMBER: ${{ github.event.issue.number || inputs.pr }}
+      # Cloudflare R2 isn't exercised by any E2E test — static placeholders just
+      # satisfy env validation.
+      CLOUDFLARE_R2_ACCOUNT_ID: placeholder-r2-account
+      CLOUDFLARE_R2_ACCESS_KEY_ID: placeholder-r2-access-key
+      CLOUDFLARE_R2_SECRET_ACCESS_KEY: placeholder-r2-secret-key
+      CLOUDFLARE_R2_BUCKET_NAME: placeholder-bucket
+      CLOUDFLARE_R2_PUBLIC_URL: https://cdn.placeholder.example
+      # Required by src/lib/env.server.ts's Zod schema (64-char hex); no E2E test
+      # exercises real encrypted credentials, so a fixed placeholder is fine.
+      API_CREDENTIALS_ENCRYPTION_KEY: a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8
+      # Stop the Docker stack at the end of the run (see tests/e2e/global-teardown.ts).
+      E2E_STOP_DB_AFTER_TESTS: '1'
+    steps:
+      - name: Acknowledge the command (👍)
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X POST \
+            "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -f content=+1
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # issue_comment checks out the default branch — switch to the PR's HEAD so
+      # we actually test the PR's code.
+      - name: Check out the PR HEAD
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr checkout ${{ env.PR_NUMBER }}
+
+      # Record the PR HEAD SHA — the commit statuses below attach to it so the
+      # E2E result renders inside the PR (checks/merge box), not just Actions.
+      - name: Capture PR HEAD SHA
+        id: sha
+        run: echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Mark PR check pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X POST "repos/${{ github.repository }}/statuses/${{ steps.sha.outputs.head }}" \
+            -f state=pending \
+            -f context="E2E (full browser matrix)" \
+            -f description="Running Playwright suite…" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Ensure psql client is available
+        run: command -v psql >/dev/null || (sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client)
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Next.js cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**/*.[jt]s', 'app/**/*.[jt]sx', 'src/**/*.[jt]s', 'src/**/*.[jt]sx', 'next.config.*') }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            next-${{ runner.os }}-
+
+      - name: Playwright browser cache
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      - name: Install Playwright browsers
+        # Full matrix (incl. WebKit for Mobile Safari) to match qa.yml.
+        run: npx playwright install --with-deps
+
+      - name: Start local Supabase stack + seed fixtures
+        run: npm run db:e2e:start
+
+      # Build MUST see real local-stack credentials (NEXT_PUBLIC_* are inlined).
+      - name: Build against the local Supabase stack
+        run: |
+          set -a
+          . ./.env.e2e.local
+          set +a
+          npm run build
+
+      - name: Run E2E (full browser matrix)
+        run: |
+          set -a
+          . ./.env.e2e.local
+          set +a
+          SKIP_BUILD=1 npx playwright test \
+            --project="Desktop Chrome" \
+            --project="Mobile Safari" \
+            --project="Mobile Chrome"
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-pr-${{ env.PR_NUMBER }}
+          path: playwright-report/
+          retention-days: 14
+
+      # Final PR check state (shows in the PR checks/merge box). Guarded on a
+      # captured SHA so a run cancelled before checkout doesn't error here.
+      - name: Report final PR check status
+        if: always() && steps.sha.outputs.head != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          case "$JOB_STATUS" in
+            success)   state=success; desc="Playwright suite passed" ;;
+            cancelled) state=error;   desc="Run cancelled" ;;
+            *)         state=failure; desc="Playwright suite failed" ;;
+          esac
+          gh api -X POST "repos/${{ github.repository }}/statuses/${{ steps.sha.outputs.head }}" \
+            -f state="$state" \
+            -f context="E2E (full browser matrix)" \
+            -f description="$desc" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Post result back to the PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ env.PR_NUMBER }} --body \
+            "**E2E (Desktop Chrome): \`${{ job.status }}\`** — [logs & report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"

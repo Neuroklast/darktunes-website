@@ -1,7 +1,9 @@
 name: QA Pipeline
 
-# E2E only — lint/unit/security/perf live in dedicated workflows (no duplicates).
-# PRs: Desktop Chrome only. main: full browser matrix (Chrome + Mobile Safari + Mobile Chrome).
+# E2E against a local Supabase stack (Docker). Lint/unit/security/perf live in
+# dedicated workflows (no duplicates).
+# Full browser matrix (Desktop Chrome + Mobile Safari + Mobile Chrome) on every
+# PR to main, on dev/main pushes, and on manual dispatch.
 
 on:
   pull_request:
@@ -9,17 +11,11 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - 'CHANGELOG.md'
-      - 'LESSONS_LEARNED.md'
-      - 'QA_CHECKLIST.md'
   push:
     branches: [main]
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - 'CHANGELOG.md'
-      - 'LESSONS_LEARNED.md'
-      - 'QA_CHECKLIST.md'
   workflow_dispatch:
 
 concurrency:
@@ -31,21 +27,48 @@ permissions:
 
 env:
   NODE_VERSION: '20'
-  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' && secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' && secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key-for-ci-build' }}
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' && secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role-key-for-ci' }}
-  CLOUDFLARE_R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_R2_ACCOUNT_ID != '' && secrets.CLOUDFLARE_R2_ACCOUNT_ID || 'placeholder-r2-account' }}
-  CLOUDFLARE_R2_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID != '' && secrets.CLOUDFLARE_R2_ACCESS_KEY_ID || 'placeholder-r2-access-key' }}
-  CLOUDFLARE_R2_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY != '' && secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY || 'placeholder-r2-secret-key' }}
-  CLOUDFLARE_R2_BUCKET_NAME: ${{ secrets.CLOUDFLARE_R2_BUCKET_NAME != '' && secrets.CLOUDFLARE_R2_BUCKET_NAME || 'placeholder-bucket' }}
-  CLOUDFLARE_R2_PUBLIC_URL: ${{ secrets.CLOUDFLARE_R2_PUBLIC_URL != '' && secrets.CLOUDFLARE_R2_PUBLIC_URL || 'https://cdn.placeholder.example' }}
-  # 32-byte hex placeholder so env.server validation succeeds in CI (not a real secret)
-  API_CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.API_CREDENTIALS_ENCRYPTION_KEY != '' && secrets.API_CREDENTIALS_ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' }}
 
 jobs:
-  e2e-tests:
-    name: E2E
+  lint-and-unit-tests:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+
+  e2e-tests:
+    # Run E2E on PRs to main, on pushes to long-lived branches (dev/main), and
+    # on manual dispatch. The full browser matrix (incl. mobile) runs in every
+    # case (see the run step below).
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+       (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    env:
+      # Cloudflare R2 isn't exercised by any E2E test (no test hits real
+      # object storage) — static placeholders just satisfy env validation.
+      # Safe to keep set for every step, unlike the Supabase vars below.
+      CLOUDFLARE_R2_ACCOUNT_ID: placeholder-r2-account
+      CLOUDFLARE_R2_ACCESS_KEY_ID: placeholder-r2-access-key
+      CLOUDFLARE_R2_SECRET_ACCESS_KEY: placeholder-r2-secret-key
+      CLOUDFLARE_R2_BUCKET_NAME: placeholder-bucket
+      CLOUDFLARE_R2_PUBLIC_URL: https://cdn.placeholder.example
+      # Required by src/lib/env.server.ts's Zod schema (64-char hex) wherever
+      # api_credentials encrypt/decrypt code runs (e.g. /portal at runtime,
+      # not just build) — no E2E test exercises real encrypted credentials,
+      # so a fixed placeholder is fine. Safe to keep set for every step.
+      API_CREDENTIALS_ENCRYPTION_KEY: a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8
+      # Have global-teardown.ts stop the Docker stack at the end of the run
+      # (default off locally so iterative dev doesn't repay container startup
+      # cost every time — see tests/e2e/global-teardown.ts).
+      E2E_STOP_DB_AFTER_TESTS: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,6 +78,14 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Ensure psql client is available
+        run: command -v psql >/dev/null || (sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client)
 
       - name: Install dependencies
         run: npm ci
@@ -78,27 +109,31 @@ jobs:
             playwright-${{ runner.os }}-
 
       - name: Install Playwright browsers
-        run: |
-          # PR + manual branch runs: Chromium only. Full matrix on main pushes only.
-          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            npx playwright install --with-deps
-          else
-            npx playwright install --with-deps chromium
-          fi
+        # Full matrix (incl. WebKit for Mobile Safari) runs on every trigger.
+        run: npx playwright install --with-deps
 
-      - name: Build
-        run: npm run build
+      # Starts local Supabase (Docker), applies reset.sql, seeds fixtures + auth users,
+      # writes .env.e2e.local — see scripts/e2e-db-setup.mjs and E2E-TESTS.md.
+      - name: Start local Supabase stack + seed fixtures
+        run: npm run db:e2e:start
 
-      - name: Run E2E
+      # Build MUST see real local-stack credentials (NEXT_PUBLIC_* are inlined).
+      - name: Build against the local Supabase stack
         run: |
-          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            SKIP_BUILD=1 npx playwright test \
-              --project="Desktop Chrome" \
-              --project="Mobile Safari" \
-              --project="Mobile Chrome"
-          else
-            SKIP_BUILD=1 npx playwright test --project="Desktop Chrome"
-          fi
+          set -a
+          . ./.env.e2e.local
+          set +a
+          npm run build
+
+      - name: Run E2E (full browser matrix)
+        run: |
+          set -a
+          . ./.env.e2e.local
+          set +a
+          SKIP_BUILD=1 npx playwright test \
+            --project="Desktop Chrome" \
+            --project="Mobile Safari" \
+            --project="Mobile Chrome"
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
