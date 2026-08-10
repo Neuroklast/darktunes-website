@@ -32,6 +32,34 @@ export function getTestUser(role: TestUserRole): TestUserCredentials {
   return creds
 }
 
+/**
+ * Fills a controlled input so the value survives React hydration. On slower
+ * engines (WebKit) Playwright's first fill can land before the login form's
+ * onChange handlers are wired, so React re-renders the controlled input back to
+ * '' and the typed value is lost. Retrying fill + asserting the value stuck via
+ * expect.toPass() waits out hydration: once the value holds, onChange is live.
+ */
+async function fillStable(page: Page, locator: ReturnType<Page['getByLabel']>, value: string) {
+  await locator.waitFor({ state: 'visible' })
+  await expect(async () => {
+    await locator.fill(value)
+    await expect(locator).toHaveValue(value, { timeout: 500 })
+  }).toPass({ timeout: 15_000 })
+}
+
+/** Robustly fills the central login form and submits it, defeating the
+ * hydration race described in fillStable. */
+async function submitLogin(page: Page, creds: TestUserCredentials) {
+  const email = page.getByLabel(/email/i)
+  const password = page.getByLabel(/password/i).first()
+  await fillStable(page, email, creds.email)
+  await fillStable(page, password, creds.password)
+  // A late hydration pass could still have reset email while we filled the
+  // password — re-assert it holds before we commit the sign-in.
+  await expect(email).toHaveValue(creds.email)
+  await page.getByRole('button', { name: /sign in|login|anmelden/i }).first().click()
+}
+
 export async function loginAsAdmin(page: Page): Promise<void> {
   const creds = getTestUser('admin')
 
@@ -42,9 +70,7 @@ export async function loginAsAdmin(page: Page): Promise<void> {
   // on the *pre-login* /login page itself, resolving waitForURL before the session
   // cookie is written. Matching on pathname avoids that trap entirely.
   await page.goto('/login', { waitUntil: 'domcontentloaded' })
-  await page.getByLabel(/email/i).fill(creds.email)
-  await page.getByLabel(/password/i).first().fill(creds.password)
-  await page.getByRole('button', { name: /sign in|login|anmelden/i }).first().click()
+  await submitLogin(page, creds)
 
   await page.waitForURL((url) => /^\/admin(\/|$)/.test(url.pathname), { timeout: 20_000 })
   await expect.poll(() => new URL(page.url()).pathname).toMatch(/^\/admin(\/|$)/)
@@ -71,9 +97,7 @@ export async function loginForPressDashboard(page: Page): Promise<void> {
   // and every follow-up goto then died with ERR_ABORTED. Callers navigate to
   // their own target afterwards.
   await page.goto('/login', { waitUntil: 'domcontentloaded' })
-  await page.getByLabel(/email/i).fill(creds.email)
-  await page.getByLabel(/password/i).fill(creds.password)
-  await page.getByRole('button', { name: /sign in/i }).click()
+  await submitLogin(page, creds)
 
   await page.waitForURL(/\/(press\/dashboard|admin)(\/|\?|$)/, { timeout: 15_000 })
   await expect(page).toHaveURL(/\/(press\/dashboard|admin)(\/|\?|$)/)
@@ -87,9 +111,7 @@ export async function loginAsArtist(page: Page): Promise<void> {
   // URL-substring/regex wait on the pre-login /login page itself. Matching on
   // pathname (below) avoids that trap entirely.
   await page.goto('/login', { waitUntil: 'domcontentloaded' })
-  await page.getByLabel(/email/i).fill(creds.email)
-  await page.getByLabel(/password/i).first().fill(creds.password)
-  await page.getByRole('button', { name: /sign in|login|anmelden/i }).first().click()
+  await submitLogin(page, creds)
 
   // Onboarding gate may send incomplete profiles to /portal/onboarding — fixture
   // artist is seeded complete so we expect the overview (or any /portal/*).
