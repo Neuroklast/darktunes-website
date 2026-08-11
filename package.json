@@ -97,7 +97,7 @@
     "@tiptap/react": "^3.29.2",
     "@tiptap/starter-kit": "^3.29.2",
     "@types/papaparse": "^5.5.2",
-    "@vercel/functions": "^3.7.7",
+    "@vercel/functions": "^3.9.1",
     "apify-client": "^2.24.0",
     "busboy": "^1.6.0",
     "class-variance-authority": "^0.7.1",
@@ -173,7 +173,7 @@
     "tailwindcss": "^4.1.11",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.66.0",
-    "vitest": "^4.1.5",
+    "vitest": "^4.1.10",
     "ws": "^8.21.1"
   },
   "overrides": {

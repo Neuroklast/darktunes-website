@@ -14,6 +14,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Dependencies (Dependabot #554–#558):** `marked` 15→18, `@radix-ui/react-label` 2.1.15, `@radix-ui/react-menubar` 1.1.24, `@radix-ui/react-slider` 1.4.7, `@vitejs/plugin-react` 6.0.5.
 - **Dependencies (Dependabot groups #562–#564):** `@radix-ui/*` patch/minor batch, `@aws-sdk/*` 3.1106.0, `eslint` 9.39.5, `eslint-config-next` 16.3.0, `typescript-eslint` 8.66.0.
 - **Dependencies (Dependabot #566–#569):** `framer-motion` 12→13, `@tanstack/react-query` 5.101.4, `@tailwindcss/postcss` 4.3.3.
+- **Dependencies (Dependabot #570–#571):** `@vercel/functions` 3.9.1, `vitest` 4.1.10.
 
 ## [1.6.0] — 2026-08-11
 
