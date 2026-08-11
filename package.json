@@ -173,7 +173,7 @@
     "tailwindcss": "^4.1.11",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.65.0",
-    "vitest": "^4.1.5",
+    "vitest": "^4.1.10",
     "ws": "^8.21.1"
   },
   "overrides": {
