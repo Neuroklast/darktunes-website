@@ -109,7 +109,7 @@
     "embla-carousel-react": "^8.5.2",
     "exceljs": "^4.4.0",
     "fontkit": "^2.0.4",
-    "framer-motion": "^12.6.2",
+    "framer-motion": "^13.0.0",
     "idb-keyval": "^6.2.6",
     "immer": "^11.1.8",
     "input-otp": "^1.4.2",
