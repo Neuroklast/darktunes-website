@@ -537,6 +537,16 @@ export interface SiteSettings {
   videosLinkToPage: boolean
   /** When true, YouTube Shorts (≤180 s or #shorts tag) are hidden from the public /videos page. Default: false. */
   excludeShortsFromPublic: boolean
+  /**
+   * Grid rows of videos shown on `/artists/[slug]` before "Show all".
+   * Visible items = rows × responsive columns (1 / 2 md / 3 xl). Default: 2.
+   */
+  artistProfileVideoRows: number
+  /**
+   * Grid rows of news shown on `/artists/[slug]` before "Show all".
+   * Visible items = rows × responsive columns (1 / 2 md). Default: 2.
+   */
+  artistProfileNewsRows: number
   /** Number of concerts shown per page in the Events section. Default: 8. */
   concertsPerPage: number
   /** When true, the Events section on the homepage shows only the first page and links to /events for all events. */

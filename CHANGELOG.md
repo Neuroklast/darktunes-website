@@ -10,6 +10,9 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## [Unreleased]
 
+### Added
+- **Artist profile preview rows:** Admin → Settings can set how many **grid rows** of videos and news show on `/artists/[slug]` before an in-place **Show all** control (defaults: 2 rows each). Responsive columns match the existing grids (videos 1/2/3, news 1/2). Personal/Fan page unchanged.
+
 ### Changed
 - **Dependencies (Dependabot #554–#558):** `marked` 15→18, `@radix-ui/react-label` 2.1.15, `@radix-ui/react-menubar` 1.1.24, `@radix-ui/react-slider` 1.4.7, `@vitejs/plugin-react` 6.0.5.
 - **Dependencies (Dependabot groups #562–#564):** `@radix-ui/*` patch/minor batch, `@aws-sdk/*` 3.1106.0, `eslint` 9.39.5, `eslint-config-next` 16.3.0, `typescript-eslint` 8.66.0.

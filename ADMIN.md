@@ -138,6 +138,7 @@ Manage all global site content from the **Settings** tab — no code changes nee
 - **Global**: Label name, tagline, contact email, privacy policy URL, terms URL
 - **Social Links**: Instagram, YouTube, Spotify profile URLs (leave blank to hide the icon)
 - **Homepage**: Spotify playlist URI and multi-playlist entries (label + URI) for instant tab-based player swaps on the homepage
+- **Artist profile (`/artists/[slug]`)**: **Artist profile video rows** and **Artist profile news rows** — how many grid rows to show before the in-place “Show all” button (default **2** each). Visible tiles = rows × responsive columns (videos: 1 / md 2 / xl 3; news: 1 / md 2). Does **not** apply to the Personal Artist Page.
 - **Hero Section**: Fallback background image, badge text, and descriptions used when featured releases or news posts lack data
 - **SEO / Meta**: Page title, meta description, Open Graph title and description
 

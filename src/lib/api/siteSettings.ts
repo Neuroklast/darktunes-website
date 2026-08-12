@@ -72,6 +72,8 @@ function createSiteSettingsDefaults(): SiteSettings {
   videosPerPage: 9,
   videosLinkToPage: false,
   excludeShortsFromPublic: false,
+  artistProfileVideoRows: 2,
+  artistProfileNewsRows: 2,
   concertsPerPage: 8,
   concertsLinkToPage: false,
   carouselAutoplayMs: 0,
@@ -234,6 +236,12 @@ function rowsToSettings(rows: { key: string; value: string }[]): SiteSettings {
     videosPerPage: parseInt(map['videos_per_page'] ?? '') || SITE_SETTINGS_DEFAULTS.videosPerPage,
     videosLinkToPage: map['videos_link_to_page'] === 'true',
     excludeShortsFromPublic: map['exclude_shorts_from_public'] === 'true',
+    artistProfileVideoRows:
+      parseInt(map['artist_profile_video_rows'] ?? '', 10) ||
+      SITE_SETTINGS_DEFAULTS.artistProfileVideoRows,
+    artistProfileNewsRows:
+      parseInt(map['artist_profile_news_rows'] ?? '', 10) ||
+      SITE_SETTINGS_DEFAULTS.artistProfileNewsRows,
     concertsPerPage: parseInt(map['concerts_per_page'] ?? '') || SITE_SETTINGS_DEFAULTS.concertsPerPage,
     concertsLinkToPage: map['concerts_link_to_page'] === 'true',
     carouselAutoplayMs: parseInt(map['carousel_autoplay_ms'] ?? '0', 10) || 0,

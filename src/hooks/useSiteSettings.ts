@@ -65,6 +65,8 @@ function settingsToRecord(s: SiteSettings): Record<string, string> {
     videos_per_page: String(s.videosPerPage ?? 9),
     videos_link_to_page: String(s.videosLinkToPage ?? false),
     exclude_shorts_from_public: String(s.excludeShortsFromPublic ?? false),
+    artist_profile_video_rows: String(s.artistProfileVideoRows ?? 2),
+    artist_profile_news_rows: String(s.artistProfileNewsRows ?? 2),
     feature_toggles: JSON.stringify(s.featureToggles ?? { promoPool: true, editorTools: true }),
     logo_url: s.logoUrl ?? '',
     favicon_url: s.faviconUrl ?? '',

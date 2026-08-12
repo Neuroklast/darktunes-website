@@ -4,6 +4,8 @@
 - [ ] Validate all public routes load successfully (`/`, `/about`, `/artists`, `/releases`, `/news`, `/contact`, `/press`, `/offline`)
 - [ ] Crawl internal links and confirm no broken links / 404 pages
 - [ ] Validate dynamic routes for artist and release detail pages
+- [ ] Artist profile (`/artists/[slug]`): with more videos/news than preview, only configured **rows** show (default 2); **Show all** expands in place; **Show less** collapses. Personal/Fan page unchanged.
+- [ ] Admin → Settings: **Artist profile video rows** / **news rows** (1–12) save and affect the regular artist page after site-settings revalidation
 - [ ] Homepage hero: featured release with long `promoText` shows teaser + ellipsis (not site-wide hero description); full promo on release detail; empty promo uses site `heroDescription` only
 - [ ] Validate newsletter submission flow and confirmation message
 - [ ] Validate media and upload features from admin/portal areas

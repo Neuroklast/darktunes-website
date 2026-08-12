@@ -74,6 +74,17 @@ Public images via `getOptimizedImageUrl` / `getSquareThumbnail` (`imageUtils.ts`
 
 **Enterprise contract (mandatory):** `npm run check:i18n` — en/de parity, static key existence, zero hardcoded `toast.*`/`confirm` in portal/admin, admin/editor must load `portal` bundle, residual UI hardcodes only via shrinkable baseline (`scripts/i18n-hardcode-baseline.json`). See [i18n-audit-notes.md](./i18n-audit-notes.md).
 
+## Artist profile preview rows (`/artists/[slug]`)
+
+Videos and news on the **regular** artist page (not Personal/Fan page) show a CMS-configured number of **grid rows** before an in-place Show all control.
+
+| Setting keys | Defaults | Visible count |
+|--------------|----------|---------------|
+| `artist_profile_video_rows` / `artistProfileVideoRows` | 2 | rows × cols (1 / md 2 / xl 3) |
+| `artist_profile_news_rows` / `artistProfileNewsRows` | 2 | rows × cols (1 / md 2) |
+
+Helpers: `src/lib/artistProfilePreview.ts`. Admin fields: Site Settings next to homepage pagination. RSC passes clamped values from `getCachedSiteSettings()`.
+
 ## Responsive layout
 
 Mobile-first; fluid widths (`w-full`, `max-w-*`); no hardcoded structural pixels. Skeletons match loaded layout (zero CLS). `truncate` / `break-words` for overflow.

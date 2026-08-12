@@ -127,6 +127,25 @@ test.describe('Seeded detail pages', () => {
     await expect(page.getByText(SEED_IDS.artists.visible.name).first()).toBeVisible()
   })
 
+  test('artist profile video section collapses and expands with Show all', async ({ page, baseURL }) => {
+    // Force English so button copy matches en artistDetail strings.
+    const origin = baseURL ?? 'http://127.0.0.1:3000'
+    await page.context().addCookies([{ name: 'NEXT_LOCALE', value: 'en', url: origin }])
+    // xl viewport: default 2 rows × 3 cols = 6 preview tiles (seed has 7 videos).
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await page.goto(`/artists/${SEED_IDS.artists.visible.slug}`, { waitUntil: 'domcontentloaded' })
+
+    const showAll = page.getByRole('button', { name: /Show all \(7\)/i })
+    await expect(showAll).toBeVisible({ timeout: 15_000 })
+    // Newest-first: Video 7 is in the preview; Video 1 is the 7th tile (collapsed away).
+    await expect(page.getByText('E2E Video 7', { exact: true })).toBeVisible()
+    await expect(page.getByText('E2E Video 1', { exact: true })).toHaveCount(0)
+
+    await showAll.click()
+    await expect(page.getByRole('button', { name: /Show less/i }).first()).toBeVisible()
+    await expect(page.getByText('E2E Video 1', { exact: true })).toBeVisible()
+  })
+
   test('the hidden fixture artist is unlisted, not deleted', async ({ page }) => {
     // getArtistBySlug (src/lib/api/artists.ts) deliberately does NOT filter on
     // is_visible — hidden artists stay reachable by direct link, they are only
