@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { persistSosAnalyticsCore } from './persistSosAnalyticsCore'
+import {
+  goldStatementDivergenceWarning,
+  persistSosAnalyticsCore,
+} from './persistSosAnalyticsCore'
 import { computeEventImpactForArtist } from '@/lib/analytics/eventImpact'
+import { updateImportBatchStatus } from '@/lib/api/distributorImportBatches'
 
 vi.mock('@/lib/api/artistTerritoryMetrics', () => ({
   upsertTerritoryMetrics: vi.fn(async () => 2),
@@ -38,13 +42,31 @@ vi.mock('@/lib/appLog', () => ({
   writeAppLog: writeAppLogMock,
 }))
 
+function makeServiceDb(statements: unknown[] = []) {
+  return {
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockResolvedValue({ data: statements, error: null }),
+    })),
+  } as never
+}
+
+describe('goldStatementDivergenceWarning', () => {
+  it('is silent within 0.05 EUR and warns above', () => {
+    expect(goldStatementDivergenceWarning(10, 10)).toBeNull()
+    expect(goldStatementDivergenceWarning(10.04, 10)).toBeNull()
+    expect(goldStatementDivergenceWarning(10.2, 50)).toMatch(/differs from approved statements/)
+  })
+})
+
 describe('persistSosAnalyticsCore', () => {
   beforeEach(() => {
     writeAppLogMock.mockClear()
+    vi.mocked(updateImportBatchStatus).mockClear()
   })
 
   it('returns event impact row count on success', async () => {
-    const result = await persistSosAnalyticsCore({} as never, {
+    const result = await persistSosAnalyticsCore(makeServiceDb(), {
       periodStart: '2024-01',
       periodEnd: '2024-01',
       territoryMetrics: [{
@@ -66,7 +88,7 @@ describe('persistSosAnalyticsCore', () => {
   })
 
   it('upserts merch orders when provided', async () => {
-    const result = await persistSosAnalyticsCore({} as never, {
+    const result = await persistSosAnalyticsCore(makeServiceDb(), {
       periodStart: '2024-01',
       periodEnd: '2024-01',
       territoryMetrics: [{
@@ -96,7 +118,7 @@ describe('persistSosAnalyticsCore', () => {
   })
 
   it('fails when no metrics match linked artists', async () => {
-    const result = await persistSosAnalyticsCore({} as never, {
+    const result = await persistSosAnalyticsCore(makeServiceDb(), {
       periodStart: '2024-01',
       periodEnd: '2024-01',
       territoryMetrics: [{
@@ -124,7 +146,7 @@ describe('persistSosAnalyticsCore', () => {
   it('logs event impact failures and returns warnings', async () => {
     vi.mocked(computeEventImpactForArtist).mockRejectedValueOnce(new Error('event db error'))
 
-    const result = await persistSosAnalyticsCore({} as never, {
+    const result = await persistSosAnalyticsCore(makeServiceDb(), {
       periodStart: '2024-01',
       periodEnd: '2024-01',
       territoryMetrics: [{
@@ -148,5 +170,63 @@ describe('persistSosAnalyticsCore', () => {
         message: 'Event impact computation failed',
       }),
     )
+  })
+
+  it('does not overwrite bronze row_count with the upsert length', async () => {
+    await persistSosAnalyticsCore(makeServiceDb(), {
+      periodStart: '2024-01',
+      periodEnd: '2024-01',
+      batchId: 'batch-1',
+      territoryMetrics: [{
+        artistName: 'Band A',
+        period: '2024-01',
+        platform: 'Spotify',
+        country: 'DE',
+        streams: 100,
+        revenueEur: 10,
+        quantity: 0,
+      }],
+      labelArtists: [{ name: 'Band A', artistId: 'artist-1' }],
+    })
+
+    expect(updateImportBatchStatus).toHaveBeenCalledWith(expect.anything(), 'batch-1', 'completed')
+    expect(updateImportBatchStatus).not.toHaveBeenCalledWith(
+      expect.anything(),
+      'batch-1',
+      'completed',
+      expect.any(Number),
+    )
+  })
+
+  it('returns a warning when gold revenue diverges from approved statements', async () => {
+    const result = await persistSosAnalyticsCore(
+      makeServiceDb([
+        {
+          amount_eur: 50,
+          status: 'label_approved',
+          period_start: '2024-01-01',
+          period_end: '2024-01-31',
+          period: '2024-01',
+          document_type: 'original',
+        },
+      ]),
+      {
+        periodStart: '2024-01',
+        periodEnd: '2024-01',
+        territoryMetrics: [{
+          artistName: 'Band A',
+          period: '2024-01',
+          platform: 'Spotify',
+          country: 'DE',
+          streams: 100,
+          revenueEur: 10,
+          quantity: 0,
+        }],
+        labelArtists: [{ name: 'Band A', artistId: 'artist-1' }],
+      },
+    )
+
+    expect(result.success).toBe(true)
+    expect(result.warnings?.[0]).toMatch(/differs from approved statements/)
   })
 })

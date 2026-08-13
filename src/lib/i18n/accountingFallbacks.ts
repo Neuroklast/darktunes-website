@@ -142,6 +142,12 @@ export const ACCOUNTING_FALLBACK = {
   validationTrackSplitDesc:
     'Owner percentages for this assignment do not add up to 100%. Revenue is not split until this is fixed.',
   validationTrackSplitAction: 'Open track splits',
+  validationParseSkipsTitle: '{count} rows skipped during import',
+  validationParseSkipsDesc:
+    'Intentional filters (Bandcamp payout, empty lines, transfers without artist). Reasons: {reasons}.',
+  validationEmptyCurrencyTitle: '{count} rows had no currency and were treated as EUR',
+  validationEmptyCurrencyDesc:
+    'Believe sometimes leaves the currency cell empty. Those rows stay in EUR. Missing or zero FX rates still abort processing.',
   setupTitle: 'Set up accounting period',
   setupSubtitle:
     'Enter the settlement period and label defaults used on PDFs. Advanced rules stay available in Advanced mode.',

@@ -15,6 +15,9 @@ import { interpolate } from '@/lib/i18n/interpolate'
 interface ImportBatchesPanelProps {
   labelArtists: LabelArtist[]
   onLoadBatch?: (batch: DistributorImportBatch) => void
+  exchangeRates?: Record<string, number>
+  historicalRates?: Record<string, Record<string, number>>
+  carryForwardByArtist?: Record<string, number>
 }
 
 const BRONZE_FALLBACK = {
@@ -42,7 +45,13 @@ const BRONZE_FALLBACK = {
   bronzeReprocessValidated: 'Validated {rowCount} rows ({metricCount} metric groups)',
 } as const
 
-export function ImportBatchesPanel({ labelArtists, onLoadBatch }: ImportBatchesPanelProps) {
+export function ImportBatchesPanel({
+  labelArtists,
+  onLoadBatch,
+  exchangeRates,
+  historicalRates,
+  carryForwardByArtist,
+}: ImportBatchesPanelProps) {
   const t = useMergedAccountingLabels(BRONZE_FALLBACK)
   const [batches, setBatches] = useState<DistributorImportBatch[]>([])
   const [loading, setLoading] = useState(true)
@@ -116,6 +125,9 @@ export function ImportBatchesPanel({ labelArtists, onLoadBatch }: ImportBatchesP
               name: la.name,
               artistId: la.artistId,
             })),
+            exchange_rates: exchangeRates,
+            historical_rates: historicalRates,
+            carry_forward_by_artist: carryForwardByArtist,
           }),
         })
         const data = await res.json()

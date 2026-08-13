@@ -62,35 +62,6 @@ export const FALLBACK_EXCHANGE_RATES: ExchangeRates = {
   TRY: 35.0,
 }
 
-/**
- * Builds a `HistoricalRates` object filled with `FALLBACK_EXCHANGE_RATES` for every
- * month key between `periodStart` and `periodEnd` (inclusive, "YYYY-MM").
- * Used as a last-resort fallback when the Frankfurter time-series API fails.
- *
- * @param periodStart - First month in "YYYY-MM" format.
- * @param periodEnd   - Last month in "YYYY-MM" format.
- */
-function buildFallbackHistoricalRates(periodStart: string, periodEnd: string): HistoricalRates {
-  const result: HistoricalRates = {}
-  const [startYear, startMonth] = periodStart.split('-').map(Number)
-  const [endYear, endMonth] = periodEnd.split('-').map(Number)
-
-  let year = startYear
-  let month = startMonth
-
-  while (year < endYear || (year === endYear && month <= endMonth)) {
-    const key = `${year}-${String(month).padStart(2, '0')}`
-    result[key] = FALLBACK_EXCHANGE_RATES
-    month++
-    if (month > 12) {
-      month = 1
-      year++
-    }
-  }
-
-  return result
-}
-
 /** Detect worker/UI error messages for missing FX rates (English throw text). */
 export function parseMissingExchangeRateCurrency(message: string): string | null {
   const match = message.match(/Missing exchange rate for currency "([A-Z]{3})"/i)
@@ -139,8 +110,10 @@ export async function fetchExchangeRates(): Promise<ExchangeRateFetchResult> {
  * royalty statements: each transaction is converted at the ECB average rate
  * for the month in which the sale occurred.
  *
- * Falls back to static `FALLBACK_EXCHANGE_RATES` for every month in the period if the
- * upstream request fails, so processing always completes even offline.
+ * Does **not** pre-fill missing months with `FALLBACK_EXCHANGE_RATES`.
+ * `normalizeRevenueToEur` uses spot rates when a month is absent, then throws
+ * if that currency is still missing. A failed fetch returns `{}` + `fallback`
+ * so the caller can keep spot (and the existing fallback-rate banner).
  *
  * @param periodStart - First month of the billing period, format "YYYY-MM".
  * @param periodEnd   - Last month of the billing period, format "YYYY-MM".
@@ -157,30 +130,30 @@ export async function fetchHistoricalExchangeRates(
     )
     if (!response.ok) {
       console.warn(
-        `[currency] Historical exchange-rate API returned ${response.status} — using fallback rates`,
+        `[currency] Historical exchange-rate API returned ${response.status} — no historical seed`,
       )
-      return { rates: buildFallbackHistoricalRates(periodStart, periodEnd), source: 'fallback' }
+      return { rates: {}, source: 'fallback' }
     }
     const data = await response.json() as { base: string; rates: Record<string, Record<string, number>> }
     if (!data?.rates || typeof data.rates !== 'object') {
-      console.warn('[currency] Unexpected historical exchange-rate response shape — using fallback rates')
-      return { rates: buildFallbackHistoricalRates(periodStart, periodEnd), source: 'fallback' }
+      console.warn('[currency] Unexpected historical exchange-rate response shape — no historical seed')
+      return { rates: {}, source: 'fallback' }
     }
 
-    const complete = buildFallbackHistoricalRates(periodStart, periodEnd)
-    for (const [month, rates] of Object.entries(data.rates)) {
-      if (typeof rates === 'object' && rates !== null) {
-        complete[month] = rates as ExchangeRates
+    const rates: HistoricalRates = {}
+    for (const [month, monthRates] of Object.entries(data.rates)) {
+      if (typeof monthRates === 'object' && monthRates !== null) {
+        rates[month] = monthRates as ExchangeRates
       }
     }
-    return { rates: complete, source: 'ecb' }
+    return { rates, source: 'ecb' }
   } catch (err) {
     console.warn(
       '[currency] Failed to fetch historical exchange rates:',
       err instanceof Error ? err.message : err,
-      '— using fallback rates',
+      '— no historical seed; convert will use spot then throw',
     )
-    return { rates: buildFallbackHistoricalRates(periodStart, periodEnd), source: 'fallback' }
+    return { rates: {}, source: 'fallback' }
   }
 }
 

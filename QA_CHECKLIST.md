@@ -90,6 +90,9 @@
 - [ ] Track split 70/20 blocks Continue and does not leak 10% to the original artist
 - [ ] Pay a statement-linked invoice: no second `payment` ledger row after `invoice_liability`; `received_at` is set if it was empty
 - [ ] Illegal statement status jump (e.g. draft → paid) returns 422; second SOS invoice for the same statement returns 409
+- [ ] Bandcamp payout rows show as skipped (not revenue); empty currency rows warn “treated as EUR”
+- [ ] Believe `01/09/2024` lands in September; Bandcamp `01/09/2024` lands in January
+- [ ] Rebuild Gold does not change bronze row count; a persist warning appears if gold totals diverge from approved statements
 - [ ] Archive a settlement period without locking first — allowed; archive is final (no unlock / unpay in the UI)
 
 - [ ] Excel export dialog: uncheck a release column → downloaded workbook omits it; Artist/Period/Final Payout remain

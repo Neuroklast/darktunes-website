@@ -159,7 +159,13 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 
 **Excel export:** `ExcelExportDialog` picks sheets + columns (artist/period/period payout always stay; opening + amount due are optional summary columns). Named presets live in `SosAccountingSettings.excelExport` (workspace / `sos_rules_presets`). Generator: `src/lib/sos/export/excelStatement.ts` + `excelExportSettings.ts`. PDF section toggles stay PDF-only.
 
-**FX / ECB:** Spot + historical rates via `/api/exchange-rates` (Frankfurter). Processing is gated until rates are non-empty (`useSosCSVProcessor`). Sticky `CurrencyRatesBanner` for loading / live ECB / fallback + refresh. Missing currency throws (no silent €0).
+**FX / ECB:** Spot + historical rates via `/api/exchange-rates` (Frankfurter). Processing is gated until rates are non-empty (`useSosCSVProcessor`). Sticky `CurrencyRatesBanner` for loading / live ECB / fallback + refresh. Historical fetch does **not** pre-fill missing months with `FALLBACK_EXCHANGE_RATES` — convert uses spot, then throws if still missing. Empty currency cell → EUR + wizard warning. Missing or ≤0 rate still throws (no silent €0).
+
+**Parser skips:** Bandcamp `payout`, empty lines, and no-artist 0 € rows go to `skipped[]` (counted in `rowsSkipped`, listed as non-blocking wizard warnings). “Too many columns” stays a parse error.
+
+**Dates:** `normalizeDateToMonth(s, source)` — unambiguous day/month always wins; when both parts ≤ 12, Believe/Printful = DD/MM and Bandcamp/Shopify/Darkmerch = MM/DD. Two-digit years are American only for Bandcamp.
+
+**Gold persist:** `row_count` stays the bronze original (do not overwrite with upsert length). After persist, gold `revenueEur` vs approved `amount_eur` for the period: delta > €0.05 → `success` + `warnings[]`. Reprocess accepts session `exchangeRates` / `historicalRates` / `carryForwardByArtist`.
 
 | Module | Role |
 |--------|------|

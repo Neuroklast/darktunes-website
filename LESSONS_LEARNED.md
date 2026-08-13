@@ -227,6 +227,10 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-13 — Do not seed historical FX with static fallbacks
+
+**Pre-filling every month with `FALLBACK_EXCHANGE_RATES` makes later converts look like they have a real ECB month.** Missing month → use spot; missing/≤0 rate still throws. Empty currency is EUR + warning, not a throw. Intentional parser filters must land in `skipped[]` or `rowsSkipped` is only parse errors.
+
 ### 2026-08-13 — Statement status is a graph, not a free PATCH
 
 **`updateSalesStatementStatus` used to write any CHECK-valid status.** The 7-step workflow was only UI/KPI. Rule: `STATEMENT_TRANSITIONS` in the DAL; same-status is a no-op; illegal edge → `InvalidStatementTransitionError` / 422. Draft uniqueness and one invoice per statement need a **partial unique index**, not only an application lookup (races).

@@ -38,7 +38,42 @@ export interface PersistSosAnalyticsResult {
   promoImpactRows?: number
   promoImpactWarnings?: string[]
   merchOrdersUpserted?: number
+  warnings?: string[]
   error?: string
+}
+
+export const GOLD_STATEMENT_DELTA_EUR = 0.05
+
+const APPROVED_STATEMENT_STATUSES = new Set([
+  'label_approved',
+  'artist_notified',
+  'viewed',
+  'invoiced',
+  'paid',
+  'acknowledged',
+])
+
+export function goldStatementDivergenceWarning(
+  goldRevenueEur: number,
+  approvedStatementAmountEur: number,
+): string | null {
+  const delta = Math.abs(goldRevenueEur - approvedStatementAmountEur)
+  if (delta <= GOLD_STATEMENT_DELTA_EUR) return null
+  return `Gold revenue (${goldRevenueEur.toFixed(2)} EUR) differs from approved statements (${approvedStatementAmountEur.toFixed(2)} EUR) by more than ${GOLD_STATEMENT_DELTA_EUR} EUR`
+}
+
+export function statementMatchesPersistPeriod(
+  statement: { period_start?: string | null; period_end?: string | null; period?: string | null },
+  periodStart: string,
+  periodEnd: string,
+): boolean {
+  const startMonth = statement.period_start?.slice(0, 7)
+  const endMonth = statement.period_end?.slice(0, 7)
+  if (startMonth && endMonth) {
+    return startMonth >= periodStart && endMonth <= periodEnd
+  }
+  const period = statement.period ?? ''
+  return period === periodStart || period === periodEnd || period.includes(periodStart)
 }
 
 function buildArtistIdLookup(
@@ -162,7 +197,43 @@ export async function persistSosAnalyticsCore(
     }
 
     for (const batchId of resolvedBatchIds) {
-      await updateImportBatchStatus(serviceSupabase, batchId, 'completed', upsertRows.length)
+      await updateImportBatchStatus(serviceSupabase, batchId, 'completed')
+    }
+
+    const goldRevenueEur = upsertRows.reduce((sum, row) => sum + Number(row.revenueEur ?? 0), 0)
+    const warnings: string[] = []
+    const { data: statementRows, error: statementError } = await serviceSupabase
+      .from('sales_statements')
+      .select('amount_eur, status, period_start, period_end, period, document_type')
+      .neq('document_type', 'storno')
+
+    if (statementError) {
+      warnings.push(`Could not compare gold to statements: ${statementError.message}`)
+    } else {
+      const approvedAmountEur = (statementRows ?? [])
+        .filter((row) =>
+          APPROVED_STATEMENT_STATUSES.has(row.status) &&
+          statementMatchesPersistPeriod(row, input.periodStart, input.periodEnd),
+        )
+        .reduce((sum, row) => sum + Number(row.amount_eur ?? 0), 0)
+      if (approvedAmountEur > 0) {
+        const divergence = goldStatementDivergenceWarning(goldRevenueEur, approvedAmountEur)
+        if (divergence) warnings.push(divergence)
+      }
+    }
+
+    if (warnings.length > 0) {
+      await writeAppLog({
+        source: 'persistSosAnalyticsCore',
+        level: 'warn',
+        message: 'Gold persist completed with statement divergence warnings',
+        details: {
+          periodStart: input.periodStart,
+          periodEnd: input.periodEnd,
+          metricsUpserted,
+          warnings,
+        },
+      })
     }
 
     let merchOrdersUpserted = 0
@@ -203,6 +274,7 @@ export async function persistSosAnalyticsCore(
       promoImpactRows,
       promoImpactWarnings: promoImpactWarnings.length > 0 ? promoImpactWarnings : undefined,
       merchOrdersUpserted: merchOrdersUpserted > 0 ? merchOrdersUpserted : undefined,
+      warnings: warnings.length > 0 ? warnings : undefined,
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'

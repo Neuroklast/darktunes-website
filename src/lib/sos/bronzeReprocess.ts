@@ -15,6 +15,7 @@ import type { DataProcessorConfig } from './data-processor/types'
 import { normalizeAccountingConfig, type SosAccountingSettings } from './sosAccountingSettings'
 import type { BronzeDistributor } from './bronzeUpload'
 import type { LabelArtist } from './types'
+import type { ExchangeRates, HistoricalRates } from './currency'
 
 async function parseBronzeCsvContent(
   distributor: BronzeDistributor,
@@ -39,6 +40,9 @@ async function parseBronzeCsvContent(
 export interface BronzeReprocessOptions {
   workspaceConfig?: Partial<SosAccountingSettings>
   labelArtists?: LabelArtist[]
+  exchangeRates?: ExchangeRates
+  historicalExchangeRates?: HistoricalRates
+  carryForwardByArtist?: Record<string, number>
 }
 
 export interface BronzeReprocessResult {
@@ -47,7 +51,7 @@ export interface BronzeReprocessResult {
   uniqueArtists: string[]
 }
 
-function buildReprocessConfig(options: BronzeReprocessOptions): DataProcessorConfig {
+export function buildReprocessConfig(options: BronzeReprocessOptions): DataProcessorConfig {
   const normalized = normalizeAccountingConfig(options.workspaceConfig)
 
   return {
@@ -66,6 +70,9 @@ function buildReprocessConfig(options: BronzeReprocessOptions): DataProcessorCon
     defaultSplitPercentageDigital: normalized.appDefaults.defaultSplitPercentageDigital,
     defaultSplitPercentagePhysical: normalized.appDefaults.defaultSplitPercentagePhysical,
     sourceSplits: normalized.appDefaults.sourceSplits,
+    exchangeRates: options.exchangeRates,
+    historicalExchangeRates: options.historicalExchangeRates,
+    carryForwardByArtist: options.carryForwardByArtist,
   }
 }
 

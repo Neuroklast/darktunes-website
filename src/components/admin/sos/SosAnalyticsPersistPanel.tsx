@@ -37,6 +37,7 @@ const PERSIST_FALLBACK = {
   persistMerchNote: ' · {count} merch orders',
   persistEventImpactWarning: 'Event impact partially failed',
   persistPromoImpactWarning: 'Promo impact partially failed',
+  persistGoldWarning: 'Gold totals differ from approved statements',
 } as const
 
 export function SosAnalyticsPersistPanel({
@@ -93,6 +94,11 @@ export function SosAnalyticsPersistPanel({
         if (result.promoImpactWarnings?.length) {
           toast.warning(t.persistPromoImpactWarning, {
             description: result.promoImpactWarnings.join('; '),
+          })
+        }
+        if (result.warnings?.length) {
+          toast.warning(t.persistGoldWarning, {
+            description: result.warnings.join('; '),
           })
         }
       } else {

@@ -470,7 +470,7 @@ export function parseShopifyRaw(content: string): {
       if (!orderMap.has(orderId)) {
         // First row for this order — extract order-level fields
         const rawDate = row['Paid at']?.trim() || row['Created at']?.trim() || ''
-        const salesMonth = normalizeDateToMonth(rawDate) || ''
+        const salesMonth = normalizeDateToMonth(rawDate, 'shopify') || ''
         const subtotal = parseCurrencyAmount(row['Subtotal'] ?? '')
         const currency = (row['Currency']?.trim() || 'EUR').toUpperCase()
         const country = row['Billing Country']?.trim() || row['Shipping Country']?.trim() || 'Unknown'

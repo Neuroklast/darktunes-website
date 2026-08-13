@@ -97,8 +97,12 @@ export interface UploadedFile {
   uploadedAt: string
   /** Number of successfully parsed data rows. */
   rowsParsed?: number
-  /** Number of rows skipped due to parse errors. */
+  /** Number of rows skipped due to parse errors or intentional filters. */
   rowsSkipped?: number
+  /** Rows whose currency cell was empty and treated as EUR. */
+  emptyCurrencyRows?: number
+  /** Unique intentional skip reasons (bandcamp-payout, empty-line, …). */
+  skipReasons?: string[]
   /** Number of unique artists found. */
   uniqueArtistsCount?: number
   /** Bronze import batch ID when raw CSV was archived in R2. */
