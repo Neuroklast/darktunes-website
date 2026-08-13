@@ -20,7 +20,7 @@ Hooks in `src/hooks/` wrap DAL; short-circuit when `isSupabaseConfigured` is fal
 
 **Public vs admin:** `getPublicArtists` / `getPublicArtistBySlug` / `getPublicRelatedArtists` (`publicArtist.ts`) use **column whitelist only** — never secrets. Full `getArtists` / `getArtistById` merge `artist_private_data` for staff/portal. Releases/concerts still filter `is_visible`; releases also `is_promo = FALSE`. Admin hooks use unrestricted getters.
 
-**Private artist secrets:** Table `artist_private_data` (`email`, `vat_number`, `notes`, `bandsintown_api_key`, `storage_quota_bytes`, `is_eu_non_german`). DAL: `artistPrivateData.ts` + dual-write in `updateArtist`/`createArtist` and portal Bandsintown routes. Public EPK: `publicArtistEpk.ts` + service-role only (no anon RLS on `artist_epks`).
+**Private artist secrets:** Table `artist_private_data` (`email`, `vat_number`, `notes`, `bandsintown_api_key`, `storage_quota_bytes`, `is_eu_non_german`). DAL: `artistPrivateData.ts` + dual-write in `updateArtist`/`createArtist` and portal Bandsintown routes. Cron/`syncAll` and Health must read Bandsintown keys from this table (public `artists.bandsintown_api_key` is nulled). Public EPK: `publicArtistEpk.ts` + service-role only (no anon RLS on `artist_epks`).
 
 **Server clients:** `createServerSupabaseClient()` (RSC/handlers), `createBrowserSupabaseClient()` (client). **Deprecated:** `src/lib/supabase.ts`.
 

@@ -16,7 +16,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
-import { searchItunesArtist } from '@/lib/itunesApi'
+import { ITUNES_COLLECTION_HARD_CAP, searchItunesArtist } from '@/lib/itunesApi'
+import { cacheReleaseCoverArt } from '@/lib/sync/coverArtUpload'
 import { syncReleaseFromExternalSource } from '@/lib/api/releases'
 import { mapWithConcurrency } from '@/lib/mapWithConcurrency'
 import { withApiRetry } from '@/lib/sync/retryPolicy'
@@ -80,28 +81,6 @@ function extractItunesArtistId(appleMusicUrl: string | null | undefined): string
   return match?.[1] ?? null
 }
 
-async function cacheCoverArt(
-  db: SupabaseClient<Database>,
-  uploadToR2: SyncDeps['uploadToR2'],
-  releaseId: string,
-  releaseTitle: string,
-  artworkUrl: string | undefined,
-  releaseErrors: string[],
-): Promise<void> {
-  if (!artworkUrl) return
-
-  try {
-    const coverArt = await uploadToR2(artworkUrl, 'cover-art')
-    await db.from('releases').update({ cover_art: coverArt }).eq('id', releaseId)
-  } catch (uploadErr) {
-    releaseErrors.push(
-      `Cover art upload failed for "${releaseTitle}": ${
-        uploadErr instanceof Error ? uploadErr.message : String(uploadErr)
-      }`,
-    )
-  }
-}
-
 async function processItunesRelease(
   release: Awaited<ReturnType<typeof searchItunesArtist>>[number],
   artistId: string,
@@ -133,7 +112,14 @@ async function processItunesRelease(
       ),
     )
 
-    await cacheCoverArt(db, uploadToR2, upsertedRelease.id, release.collectionName, artworkUrl, releaseErrors)
+    await cacheReleaseCoverArt(
+      db,
+      uploadToR2,
+      upsertedRelease.id,
+      release.collectionName,
+      artworkUrl,
+      releaseErrors,
+    )
 
     return { upserted: true, merged, errors: releaseErrors }
   } catch (err) {
@@ -226,10 +212,10 @@ export async function syncArtist(artistId: string, deps: SyncDeps): Promise<Sync
     .update({ last_synced_at: new Date().toISOString() })
     .eq('id', artistId)
 
-  const itunesTruncated = itunesReleases.length >= 200
+  const itunesTruncated = itunesReleases.length >= ITUNES_COLLECTION_HARD_CAP
   if (itunesTruncated) {
     errors.push(
-      `iTunes returned ${itunesReleases.length} collections (API limit 200) — catalog may be incomplete`,
+      `iTunes catalog truncated at ${ITUNES_COLLECTION_HARD_CAP} collections — catalog may be incomplete`,
     )
   }
 

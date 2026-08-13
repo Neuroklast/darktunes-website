@@ -98,6 +98,29 @@ export async function selfChainSyncExecutor(options: {
   await res.text().catch(() => undefined)
 }
 
+/**
+ * After enqueue-only APIs (Spotify / Odesli) write jobs, kick `/api/sync`
+ * so cron does not wait up to 5 minutes for the next process-queue tick.
+ * No-ops when nothing was queued, origin cannot be resolved, or auth is missing.
+ */
+export async function kickSyncExecutorAfterEnqueue(options: {
+  queued: number
+  requestUrl?: string | null
+  authorizationHeader: string
+  fetchImpl?: typeof fetch
+}): Promise<boolean> {
+  if (options.queued <= 0) return false
+  if (!options.authorizationHeader.startsWith('Bearer ')) return false
+  const origin = resolveExecutorSiteOrigin(options.requestUrl)
+  if (!origin) return false
+  await selfChainSyncExecutor({
+    origin,
+    authorizationHeader: options.authorizationHeader,
+    fetchImpl: options.fetchImpl,
+  })
+  return true
+}
+
 export function sleepMs(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms)

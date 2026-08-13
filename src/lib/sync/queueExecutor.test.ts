@@ -3,6 +3,7 @@ import {
   EXECUTOR_MIN_JOB_HEADROOM_MS,
   EXECUTOR_TIME_BUDGET_MS,
   canClaimAnotherJob,
+  kickSyncExecutorAfterEnqueue,
   remainingExecutorBudgetMs,
   resolveExecutorSiteOrigin,
   selfChainSyncExecutor,
@@ -50,6 +51,58 @@ describe('resolveExecutorSiteOrigin', () => {
     expect(resolveExecutorSiteOrigin('https://app.example/api/sync')).toBe('https://app.example')
     process.env.NEXT_PUBLIC_SITE_URL = prev
     process.env.VERCEL_URL = prevVercel
+  })
+})
+
+describe('kickSyncExecutorAfterEnqueue', () => {
+  it('POSTs /api/sync when jobs were just enqueued', async () => {
+    const prev = process.env.NEXT_PUBLIC_SITE_URL
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://label.example'
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, text: async () => '{}' })
+    try {
+      const kicked = await kickSyncExecutorAfterEnqueue({
+        queued: 3,
+        requestUrl: 'https://label.example/api/sync-api',
+        authorizationHeader: 'Bearer cron-secret',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+      expect(kicked).toBe(true)
+      expect(fetchImpl).toHaveBeenCalledWith(
+        'https://label.example/api/sync',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer cron-secret',
+          }),
+        }),
+      )
+    } finally {
+      process.env.NEXT_PUBLIC_SITE_URL = prev
+    }
+  })
+
+  it('does not kick when nothing was enqueued', async () => {
+    const fetchImpl = vi.fn()
+    const kicked = await kickSyncExecutorAfterEnqueue({
+      queued: 0,
+      requestUrl: 'https://label.example/api/sync-api',
+      authorizationHeader: 'Bearer cron-secret',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+    expect(kicked).toBe(false)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('does not kick without a Bearer header', async () => {
+    const fetchImpl = vi.fn()
+    const kicked = await kickSyncExecutorAfterEnqueue({
+      queued: 2,
+      requestUrl: 'https://label.example/api/sync-api',
+      authorizationHeader: '',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+    expect(kicked).toBe(false)
+    expect(fetchImpl).not.toHaveBeenCalled()
   })
 })
 

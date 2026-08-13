@@ -128,12 +128,24 @@ describe('requeueFailedSyncJobs', () => {
 
 describe('conflictingArtistJobTypes', () => {
   it('treats full jobs as blocking any artist-scoped sync', () => {
-    expect(conflictingArtistJobTypes('full')).toEqual(['full', 'spotify', 'discogs', 'youtube'])
+    expect(conflictingArtistJobTypes('full')).toEqual([
+      'full',
+      'spotify',
+      'discogs',
+      'youtube',
+      'songkick',
+      'bandsintown',
+    ])
   })
 
   it('allows spotify enqueue when only discogs is pending', () => {
     expect(conflictingArtistJobTypes('spotify')).toEqual(['full', 'spotify'])
     expect(conflictingArtistJobTypes('spotify')).not.toContain('discogs')
+  })
+
+  it('treats songkick and bandsintown as artist-scoped concert jobs', () => {
+    expect(conflictingArtistJobTypes('songkick')).toEqual(['full', 'songkick'])
+    expect(conflictingArtistJobTypes('bandsintown')).toEqual(['full', 'bandsintown'])
   })
 })
 

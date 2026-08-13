@@ -43,6 +43,7 @@ function tagsForJobType(jobType: SyncJobType): PublicContentTag[] {
   // YouTube channel sync is a separate route; artist-scoped "youtube" jobs fall
   // through to full artist sync (releases/concerts) as a legacy fallback.
   if (jobType === 'odesli') return ['releases', 'artists']
+  if (jobType === 'songkick' || jobType === 'bandsintown') return ['concerts', 'artists']
   return [...RELEASE_SYNC_TAGS]
 }
 
@@ -65,18 +66,12 @@ async function processSyncJob(
   if (job.jobType === 'odesli') {
     const result = await syncOdesliBatch(deps)
     const odesliResult = result.results.find((r) => r.api === 'odesli')
-    const rateLimited = odesliResult?.rateLimited ?? false
     const hasMoreWork = odesliResult?.hasMoreWork ?? false
 
-    if (hasMoreWork || rateLimited) {
-      await rescheduleSyncJob(
-        db,
-        job.id,
-        rateLimited ? RATE_LIMIT_JOB_COOLDOWN_MS : 0,
-        rateLimited
-          ? { undoAttemptIncrement: true, currentAttemptCount: job.attemptCount }
-          : undefined,
-      )
+    // Odesli 429s skip the item and continue; leftover rows stay smart_url=null.
+    // Never park the job for 15 minutes or abort the rest of the drain.
+    if (hasMoreWork) {
+      await rescheduleSyncJob(db, job.id, 0)
     } else {
       await markSyncJobDone(db, job.id)
     }
@@ -90,7 +85,8 @@ async function processSyncJob(
   }
 
   const result = await syncSingleArtist(job.artistId, job.jobType, deps)
-  const rateLimited = result.results.some((r) => r.rateLimited)
+  // Odesli rate limits must not reschedule a full/spotify/… artist job.
+  const rateLimited = result.results.some((r) => r.api !== 'odesli' && r.rateLimited)
 
   if (rateLimited) {
     // Push this artist out of the due window; keep draining other artists.

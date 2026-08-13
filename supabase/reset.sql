@@ -3082,7 +3082,7 @@ DROP POLICY IF EXISTS "idempotency_keys: service_role only" ON public.idempotenc
 CREATE TABLE IF NOT EXISTS public.sync_queue (
   id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   artist_id     UUID        REFERENCES public.artists (id) ON DELETE CASCADE,
-  job_type      TEXT        NOT NULL DEFAULT 'full',  -- 'full' | 'spotify' | 'discogs' | 'youtube' | 'odesli'
+  job_type      TEXT        NOT NULL DEFAULT 'full',  -- 'full' | 'spotify' | 'discogs' | 'youtube' | 'odesli' | 'songkick' | 'bandsintown'
   status        TEXT        NOT NULL DEFAULT 'pending', -- 'pending' | 'running' | 'done' | 'failed' | 'cancelled'
   scheduled_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   started_at    TIMESTAMPTZ,

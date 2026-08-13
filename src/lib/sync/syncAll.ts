@@ -21,6 +21,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { getArtistPrivateByArtistIds } from '@/lib/api/artistPrivateData'
 import { syncReleaseFromExternalSource } from '@/lib/api/releases'
 import { fetchSpotifyArtistReleases } from './spotifyApi'
 import { fetchDiscogsArtistReleases } from './discogsApi'
@@ -30,6 +31,7 @@ import { isSkippableOdesliError, pickOdesliMusicUrl } from './odesliApi'
 import { resolveOdesliSmartLinkThrottled } from './odesliThrottle'
 import { deduplicateReleases, pruneOrphanedDuplicates, type CrossSourceReleaseRow } from './deduplication'
 import { isRateLimitedSyncError, withApiRetry } from './retryPolicy'
+import { cacheReleaseCoverArt } from './coverArtUpload'
 import { syncArtist } from './syncArtist'
 import type { SyncDeps } from './syncArtist'
 
@@ -203,6 +205,21 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
     }
   }
 
+  // Per-artist Bandsintown keys live in artist_private_data after the public
+  // column was nulled. Overlay them so eligibility + fetch use the real key.
+  try {
+    const privateByArtistId = await getArtistPrivateByArtistIds(
+      db,
+      artists.map((artist) => artist.id),
+    )
+    for (const artist of artists) {
+      const privateKey = privateByArtistId.get(artist.id)?.bandsintown_api_key
+      if (privateKey) artist.bandsintown_api_key = privateKey
+    }
+  } catch {
+    // Keep public-column fallback if the private table cannot be read.
+  }
+
   // 2. iTunes sync (existing pipeline) — parallelised per artist with
   // Promise.allSettled so one failed artist does not block the others.
   if (!onlyApi || onlyApi === 'itunes') {
@@ -305,17 +322,15 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
               existingReleases,
             )
 
-            if (
-              release.coverUrl &&
-              !release.coverUrl.startsWith('https://cdn.') &&
-              upsertedRelease.id
-            ) {
-              try {
-                const coverArt = await uploadToR2(release.coverUrl, 'cover-art')
-                await db.from('releases').update({ cover_art: coverArt }).eq('id', upsertedRelease.id)
-              } catch {
-                // Graceful fallback — external URL already stored from upsert
-              }
+            if (upsertedRelease.id) {
+              await cacheReleaseCoverArt(
+                db,
+                uploadToR2,
+                upsertedRelease.id,
+                release.title,
+                release.coverUrl ?? undefined,
+                spotifyResult.errors,
+              )
             }
 
             spotifyResult.releasesUpserted++
@@ -398,17 +413,15 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
               existingReleases,
             )
 
-            if (
-              release.coverUrl &&
-              !release.coverUrl.startsWith('https://cdn.') &&
-              upsertedRelease.id
-            ) {
-              try {
-                const coverArt = await uploadToR2(release.coverUrl, 'cover-art')
-                await db.from('releases').update({ cover_art: coverArt }).eq('id', upsertedRelease.id)
-              } catch {
-                // Graceful fallback — external URL already stored from upsert
-              }
+            if (upsertedRelease.id) {
+              await cacheReleaseCoverArt(
+                db,
+                uploadToR2,
+                upsertedRelease.id,
+                release.title,
+                release.coverUrl ?? undefined,
+                discogsResult.errors,
+              )
             }
 
             discogsResult.releasesUpserted++
@@ -634,9 +647,10 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
           }
         } catch (e) {
           if (isRateLimitedSyncError(e)) {
-            odesliResult.rateLimited = true
+            // Do not abort the rest of this batch or later APIs. Skip this
+            // item; leftover smart_url=null rows are picked up on the next pass.
             odesliResult.hasMoreWork = true
-            break
+            continue
           }
           const odesliErr = String(e)
           if (!isSkippableOdesliError(odesliErr)) {
@@ -645,7 +659,7 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
         }
       }
 
-      if (!odesliResult.rateLimited && batch.length >= odesliBatchLimit) {
+      if (batch.length >= odesliBatchLimit) {
         odesliResult.hasMoreWork = true
       }
     } catch (e) {
@@ -662,7 +676,7 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
   if (!onlyApi || onlyApi === 'odesli') {
     const existingOdesli = results.find((r) => r.api === 'odesli')
 
-    if (!existingOdesli?.rateLimited) {
+    if (existingOdesli) {
       try {
         // Odesli cannot resolve artist profile URLs — use each artist's latest release as proxy.
         let releaseProxyQuery = db
@@ -735,24 +749,17 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
               }
             } catch (e) {
               if (isRateLimitedSyncError(e)) {
-                if (existingOdesli) {
-                  existingOdesli.rateLimited = true
-                  existingOdesli.hasMoreWork = true
-                }
-                break
+                existingOdesli.hasMoreWork = true
+                continue
               }
               const odesliErr = String(e)
               if (!isSkippableOdesliError(odesliErr)) {
-                existingOdesli?.errors.push(`Odesli resolve for artist ${artist.id}: ${odesliErr}`)
+                existingOdesli.errors.push(`Odesli resolve for artist ${artist.id}: ${odesliErr}`)
               }
             }
           }
 
-          if (
-            existingOdesli &&
-            !existingOdesli.rateLimited &&
-            artistBatch.length >= odesliBatchLimit
-          ) {
+          if (artistBatch.length >= odesliBatchLimit) {
             existingOdesli.hasMoreWork = true
           }
         }
@@ -788,8 +795,7 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
  * one artist is processed per invocation.
  *
  * jobType → onlyApi mapping:
- *   'spotify'  → only the Spotify block runs
- *   'discogs'  → only the Discogs block runs
+ *   'spotify' / 'discogs' / 'odesli' / 'songkick' / 'bandsintown' → that API only
  *   'full' / anything else → all configured APIs run
  *   'youtube'  → NOT handled here (channel-level). Use POST /api/sync-youtube.
  *                Legacy queue rows with job_type=youtube fall through to full.
@@ -806,7 +812,11 @@ export async function syncSingleArtist(
         ? 'discogs'
         : jobType === 'odesli'
           ? 'odesli'
-          : undefined
+          : jobType === 'songkick'
+            ? 'songkick'
+            : jobType === 'bandsintown'
+              ? 'bandsintown'
+              : undefined
   return syncAll({ ...deps, onlyArtistId: artistId, onlyApi })
 }
 

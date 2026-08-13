@@ -162,6 +162,20 @@ export async function getApifyCredentials(db: DbClient): Promise<ApifyCredential
   return { apifyToken }
 }
 
+async function countNonNullBandsintownKeys(
+  db: DbClient,
+  table: 'artists' | 'artist_private_data',
+  idColumn: 'id' | 'artist_id',
+): Promise<number> {
+  const { count, error } = await db
+    .from(table)
+    .select(idColumn, { count: 'exact', head: true })
+    .not('bandsintown_api_key', 'is', null)
+
+  if (error) return 0
+  return count ?? 0
+}
+
 export async function getKnownApiConfiguration(
   db: DbClient,
 ): Promise<Record<string, boolean>> {
@@ -176,7 +190,8 @@ export async function getKnownApiConfiguration(
     apifyToken,
     youtubeApiKey,
     youtubeChannelId,
-    artistsWithBandsintownKey,
+    artistsWithPublicBandsintownKey,
+    artistsWithPrivateBandsintownKey,
   ] = await Promise.all([
     getApiCredential(db, 'spotify_client_id'),
     getApiCredential(db, 'spotify_client_secret'),
@@ -188,15 +203,14 @@ export async function getKnownApiConfiguration(
     getApiCredential(db, 'apify_token'),
     getApiCredential(db, 'youtube_api_key'),
     getApiCredential(db, 'youtube_channel_id'),
-    db
-      .from('artists')
-      .select('id', { count: 'exact', head: true })
-      .not('bandsintown_api_key', 'is', null)
-      .then(({ count }) => count ?? 0),
+    countNonNullBandsintownKeys(db, 'artists', 'id'),
+    countNonNullBandsintownKeys(db, 'artist_private_data', 'artist_id'),
   ])
 
   const hasBandsintown =
-    Boolean(bandsintownApiKey) || (typeof artistsWithBandsintownKey === 'number' && artistsWithBandsintownKey > 0)
+    Boolean(bandsintownApiKey) ||
+    artistsWithPublicBandsintownKey > 0 ||
+    artistsWithPrivateBandsintownKey > 0
 
   return {
     itunes: true,

@@ -365,7 +365,12 @@ export function SystemHealthWidget({ bearerToken }: SystemHealthWidgetProps) {
         toast.success(
           `${getApiMeta(api).label} sync completed (${rows ?? 0} metric row${rows === 1 ? '' : 's'}).`,
         )
-      } else if (api === 'spotify' || api === 'odesli') {
+      } else if (
+        api === 'spotify' ||
+        api === 'odesli' ||
+        api === 'songkick' ||
+        api === 'bandsintown'
+      ) {
         const queued = data.queued as number | undefined
         // Kick the queue executor immediately so jobs do not wait for the 5-minute cron.
         if (typeof queued === 'number' && queued > 0) {

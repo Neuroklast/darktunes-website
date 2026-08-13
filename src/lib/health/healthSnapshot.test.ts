@@ -126,7 +126,7 @@ function createMockDb(
           limit: vi.fn().mockReturnThis(),
         }
       }
-      if (table === 'artists') {
+      if (table === 'artists' || table === 'artist_private_data') {
         const countResult = { count: 0, error: null }
         const countPromise = Promise.resolve(countResult)
         return {

@@ -227,6 +227,22 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-13 — Odesli 429 must not abort the rest of the drain
+
+**`break` on the first 429 dropped the rest of the Odesli batch, skipped artist `platform_links`, and `results.some(rateLimited)` rescheduled the whole artist job for 15 minutes.** Skip the item, continue, set `hasMoreWork`, reschedule with 0 cooldown. Never let one API’s 429 mark a multi-API job rate-limited.
+
+### 2026-08-13 — iTunes lookup `limit=200` is a page, not the catalog
+
+**Treat a full 200-collection lookup as “page 1”.** Page Search with `offset` and dedupe by `collectionId`. Exact-name miss → first search hit, otherwise catalogs stay empty for “Artist Official” style names.
+
+### 2026-08-13 — Secrets that move tables must move every reader
+
+**Dual-write + nulling `artists.bandsintown_api_key` is not a complete migration.** Cron `syncAll` and Health still decided eligibility from the public column, so per-artist keys in `artist_private_data` made Bandsintown look unconfigured and silently skip. Rule: every secret move lists every reader (sync, health, portal, admin) in the same change.
+
+### 2026-08-13 — Enqueue is not execute
+
+**`POST /api/sync-api` for Spotify/Odesli only wrote `sync_queue` rows.** Admin UI kicked `/api/sync`; cron `trigger-sync` did not, so jobs sat until the 5-minute process-queue tick. Rule: the enqueue route kicks the executor (`kickSyncExecutorAfterEnqueue`). Client kicks stay a safety net.
+
 ### 2026-08-13 — Bronze file_hash needs a partial unique index
 
 **Application lookup is not enough under concurrent POST/confirm.** Unique on `file_hash` where status is not `failed` lets retries through and maps `23505` to `{ duplicate: true }`. Compilation summaries must convert to EUR the same way payouts do — raw `net_revenue` is pre-FX.

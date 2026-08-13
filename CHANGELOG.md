@@ -15,6 +15,12 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Artist profile preview rows:** Admin → Settings can set how many **grid rows** of videos and news show on `/artists/[slug]` before an in-place **Show all** control (defaults: 2 rows each). Responsive columns match the existing grids (videos 1/2/3, news 1/2). Personal/Fan page unchanged.
 
 ### Fixed
+- **Bandsintown cron/health after private-key move:** `syncAll` and Health read per-artist keys from `artist_private_data` (the public `artists.bandsintown_api_key` column is nulled). Concerts sync again without a global key; Health no longer shows Bandsintown as unconfigured when only private keys exist.
+- **Spotify/Odesli cron enqueue sat idle:** `POST /api/sync-api` now kicks `/api/sync` after enqueue so jobs start immediately instead of waiting up to 5 minutes for the next process-queue tick.
+- **Odesli no longer aborts a sync:** HTTP 429 skips that item and continues the batch (releases + artist platform links). Leftover work reschedules immediately; Odesli 429 does not park a full artist job for 15 minutes.
+- **iTunes catalogs past 200 collections:** Lookup pages via Search `offset` (cap 1000). Name search uses the first hit when no exact artist name matches.
+- **Cover uploads no longer fail silently:** Spotify/Discogs R2 failures are recorded like iTunes (`cacheReleaseCoverArt`).
+- **Songkick/Bandsintown on the artist queue:** Cron/Admin enqueue per-artist jobs and kick the executor (YouTube stays a separate channel sync).
 - **SOS bronze hash / compilation:** Active import batches have a unique `file_hash` (failed batches may retry the same file). Compilation summary revenue is converted to EUR. Quoted CSV newlines stay in one row.
 - **SOS ingest / FX / gold:** Parser records intentional skips (Bandcamp payout, empty lines, no-artist 0 €) instead of dropping them silently. Ambiguous slash dates follow the source calendar (Believe/Printful DD/MM, Bandcamp/Shopify/Darkmerch MM/DD). Historical FX no longer pre-seeds fallback rates for missing months. Empty currency is EUR with a wizard warning. Persist keeps bronze `row_count` and warns if gold revenue diverges from approved statements by more than €0.05. Reprocess uses the session FX and opening balances.
 - **SOS statement workflow:** Status updates must follow `STATEMENT_TRANSITIONS` (illegal PATCH → 422). One draft per artist+period and one invoice per statement are unique in the database (race-safe). Archive still does not require a prior lock; there is no unlock/unpay in the app.

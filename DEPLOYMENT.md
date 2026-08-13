@@ -297,9 +297,9 @@ Set these in **Supabase Dashboard → Project → Edge Functions → Secrets**:
 | `itunes`      | `POST /api/sync-api`   | Sync iTunes releases for all artists  |
 | `spotify`     | `POST /api/sync-api`   | Sync Spotify releases                 |
 | `discogs`     | `POST /api/sync-api`   | Sync Discogs releases                 |
-| `songkick`    | `POST /api/sync-api`   | Sync Songkick concert dates           |
-| `bandsintown` | `POST /api/sync-api`   | Sync Bandsintown concerts (per-artist key) |
-| `odesli`      | `POST /api/sync-api`   | Resolve Odesli smart links            |
+| `songkick`    | `POST /api/sync-api`   | Enqueue Songkick concert jobs + kick `/api/sync` |
+| `bandsintown` | `POST /api/sync-api`   | Enqueue Bandsintown concert jobs + kick `/api/sync` |
+| `odesli`      | `POST /api/sync-api`   | Enqueue Odesli smart-link job + kick `/api/sync` |
 
 #### Usage examples
 
@@ -325,10 +325,15 @@ Body:    { "type": "bandsintown" }
 ```
 
 > **Bandsintown sync note:** The `bandsintown` sync type iterates through every
-> artist in the database that has **both** `bandsintown_id` **and** `bandsintown_api_key`
-> (per-artist field) set. Artists missing either field are silently skipped.
-> A global `bandsintown_api_key` in Admin → API Keys is optional fallback when
-> per-artist `bandsintown_api_key` is unset. Artists without `bandsintown_id` are skipped.
+> artist that has `bandsintown_id` **and** a usable API key. Per-artist keys live
+> in `artist_private_data.bandsintown_api_key` (the public `artists` column is
+> nulled after dual-write). A global `bandsintown_api_key` in Admin → API Keys is
+> optional fallback. Artists without `bandsintown_id` or any key are skipped.
+>
+> **Queue kick:** `type=spotify`, `odesli`, `songkick`, and `bandsintown` enqueue
+> `sync_queue` jobs and `/api/sync-api` immediately kicks `/api/sync`. YouTube
+> stays a separate channel route (`/api/sync-youtube`). `process-queue` every
+> 5 minutes remains the safety net if a kick or self-chain is missed.
 
 ---
 

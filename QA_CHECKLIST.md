@@ -155,6 +155,8 @@
 - [ ] Role=`user` cannot list non-press assets; admin/editor file explorer still loads
 - [ ] Artist detail HTML/Flight payload has no `bandsintownApiKey`
 - [ ] Portal Bandsintown still shows `hasApiKey` and sync works after private-data migration
+- [ ] Admin/cron Bandsintown sync upserts concerts when the key lives only in `artist_private_data` (public column null; no global credential required)
+- [ ] Admin → System Health marks Bandsintown configured when any private per-artist key exists
 
 ## Responsive Design
 - [ ] Validate mobile navigation behavior and menu access
@@ -179,6 +181,11 @@
 - [ ] `GET /api/sync/queue` with admin Bearer returns `{ pending, running, done, failed }` and does **not** enqueue jobs
 - [ ] Admin → System → **Advanced**: job table lists pending/running; cancel pending removes work; cancel running sets cancel-requested then job ends cancelled; retry failed re-queues
 - [ ] Force Sync / Sync All: many artists drain continuously (executor self-chains); no manual re-kick every ~5 min while due jobs remain; rate-limited artists pause with cooldown while others proceed
+- [ ] Cron/Admin `apiSource: spotify`, `odesli`, `songkick`, or `bandsintown` via `/api/sync-api` starts the executor immediately (jobs do not wait for the next 5-minute process-queue tick)
+- [ ] Odesli 429 does not stop remaining smart-link resolves or skip artist `platform_links`; leftover rows continue on the next batch without a 15-minute park
+- [ ] Artists with >200 iTunes collections get further pages (not truncated at 200)
+- [ ] Failed Spotify/Discogs cover uploads appear in sync errors (remote URL may remain)
+- [ ] YouTube remains a separate channel action (Force Sync YouTube / cron `type=youtube`); artist queue jobs do not write videos
 - [ ] Stuck `running` jobs recover within ~6 minutes and stats GET unblocks re-kick
 - [ ] Admin → System → Health: **no** infra setup (no CRON_SECRET / Supabase Cron / Edge Function / Vercel / R2 operator docs); speaking issues stay product-facing (Force Sync / technical operator), never expose secrets or cron schedules
 - [ ] `vercel.json` has no `crons` key

@@ -20,7 +20,14 @@ import { RATE_LIMIT_JOB_COOLDOWN_MS } from '@/lib/sync/retryPolicy'
 type DbClient = SupabaseClient<Database>
 type SyncQueueRow = Database['public']['Tables']['sync_queue']['Row']
 
-export type SyncJobType = 'full' | 'spotify' | 'discogs' | 'youtube' | 'odesli'
+export type SyncJobType =
+  | 'full'
+  | 'spotify'
+  | 'discogs'
+  | 'youtube'
+  | 'odesli'
+  | 'songkick'
+  | 'bandsintown'
 export type SyncJobStatus = 'pending' | 'running' | 'done' | 'failed' | 'cancelled'
 
 export interface SyncJob {
@@ -78,7 +85,14 @@ function newExecutorLeaseToken(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
 }
 
-const ARTIST_SCOPED_JOB_TYPES: SyncJobType[] = ['full', 'spotify', 'discogs', 'youtube']
+const ARTIST_SCOPED_JOB_TYPES: SyncJobType[] = [
+  'full',
+  'spotify',
+  'discogs',
+  'youtube',
+  'songkick',
+  'bandsintown',
+]
 
 /** Job types that block enqueueing the same artist for `jobType`. */
 export function conflictingArtistJobTypes(jobType: SyncJobType): SyncJobType[] {
@@ -91,6 +105,10 @@ export function conflictingArtistJobTypes(jobType: SyncJobType): SyncJobType[] {
       return ['full', 'discogs']
     case 'youtube':
       return ['full', 'youtube']
+    case 'songkick':
+      return ['full', 'songkick']
+    case 'bandsintown':
+      return ['full', 'bandsintown']
     default:
       return [jobType]
   }
@@ -350,6 +368,28 @@ export async function enqueueSpotifySyncJobs(db: DbClient): Promise<number> {
   if (error) throw new Error(`Failed to load artists for Spotify queue: ${error.message}`)
   const artistIds = (artists ?? []).map((a) => a.id)
   return enqueueArtistSyncJobs(db, artistIds, 'spotify')
+}
+
+export async function enqueueSongkickSyncJobs(db: DbClient): Promise<number> {
+  const { data: artists, error } = await db
+    .from('artists')
+    .select('id')
+    .not('songkick_id', 'is', null)
+
+  if (error) throw new Error(`Failed to load artists for Songkick queue: ${error.message}`)
+  const artistIds = (artists ?? []).map((a) => a.id)
+  return enqueueArtistSyncJobs(db, artistIds, 'songkick')
+}
+
+export async function enqueueBandsintownSyncJobs(db: DbClient): Promise<number> {
+  const { data: artists, error } = await db
+    .from('artists')
+    .select('id')
+    .not('bandsintown_id', 'is', null)
+
+  if (error) throw new Error(`Failed to load artists for Bandsintown queue: ${error.message}`)
+  const artistIds = (artists ?? []).map((a) => a.id)
+  return enqueueArtistSyncJobs(db, artistIds, 'bandsintown')
 }
 
 /**
