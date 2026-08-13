@@ -34,6 +34,12 @@ import {
   DEFAULT_SOS_ACCOUNTING_SETTINGS,
   type SosAccountingSettings,
 } from '@/lib/sos/sosAccountingSettings'
+import {
+  DEFAULT_EXCEL_EXPORT_STATE,
+  type ExcelExportSettings,
+  type ExcelExportState,
+} from '@/lib/sos/excelExportSettings'
+import { ExcelExportDialog } from '@/components/admin/sos/ExcelExportDialog'
 import type { CsvImportProfile } from '@/lib/sos/ingest/types'
 import {
   ASSISTANT_WIZARD_STEP_IDS,
@@ -133,6 +139,11 @@ function SosGeneratorPanel() {
 
   const [labelBranding, setLabelBranding] = useState<Partial<LabelInfo>>(DEFAULT_LABEL_INFO)
   const [pdfSettings, setPdfSettings] = useState<PdfExportSettings>(DEFAULT_PDF_EXPORT_SETTINGS)
+  const [excelExport, setExcelExport] = useState<ExcelExportState>(DEFAULT_EXCEL_EXPORT_STATE)
+  const [excelDialogOpen, setExcelDialogOpen] = useState(false)
+  const [excelDialogTarget, setExcelDialogTarget] = useState<
+    { kind: 'one'; artist: string } | { kind: 'all' } | { kind: 'selected'; artists: string[] } | null
+  >(null)
   const [csvImportProfilesCustom, setCsvImportProfilesCustom] = useState<CsvImportProfile[]>([])
   const {
     profiles: csvImportProfiles,
@@ -237,6 +248,7 @@ function SosGeneratorPanel() {
       labelInfo: labelBranding,
       pdfSettings,
       csvImportProfiles: csvImportProfilesCustom,
+      excelExport,
     }),
     [
       artistMappings,
@@ -252,6 +264,7 @@ function SosGeneratorPanel() {
       labelBranding,
       pdfSettings,
       csvImportProfilesCustom,
+      excelExport,
     ],
   )
 
@@ -269,6 +282,7 @@ function SosGeneratorPanel() {
     setLabelBranding(bundle.labelInfo ?? DEFAULT_LABEL_INFO)
     setPdfSettings(bundle.pdfSettings ?? DEFAULT_PDF_EXPORT_SETTINGS)
     setCsvImportProfilesCustom(bundle.csvImportProfiles ?? [])
+    setExcelExport(bundle.excelExport ?? DEFAULT_EXCEL_EXPORT_STATE)
   }, [])
 
   const handleSubTabKeyDown = useCallback(
@@ -371,6 +385,7 @@ function SosGeneratorPanel() {
       ...bundle,
       labelInfo: { ...settingsBundle.labelInfo, ...bundle.labelInfo },
       pdfSettings: { ...settingsBundle.pdfSettings, ...bundle.pdfSettings },
+      excelExport: bundle.excelExport ?? settingsBundle.excelExport,
     })
   }, [applySettings, settingsBundle])
 
@@ -683,6 +698,43 @@ function SosGeneratorPanel() {
       exportPersistContext,
     )
 
+  const openExcelDialog = useCallback((
+    target: { kind: 'one'; artist: string } | { kind: 'all' } | { kind: 'selected'; artists: string[] },
+  ) => {
+    setExcelDialogTarget(target)
+    setExcelDialogOpen(true)
+  }, [])
+
+  const handleExcelDialogConfirm = useCallback((settings: ExcelExportSettings) => {
+    const next = { ...excelExport, settings }
+    setExcelExport(next)
+    setExcelDialogOpen(false)
+    const target = excelDialogTarget
+    setExcelDialogTarget(null)
+    if (!target) return
+    if (target.kind === 'one') {
+      void handleDownloadExcel(target.artist, settings)
+      return
+    }
+    if (target.kind === 'all') {
+      void handleDownloadAll(settings)
+      return
+    }
+    void handleDownloadSelected(target.artists, settings)
+  }, [excelExport, excelDialogTarget, handleDownloadAll, handleDownloadExcel, handleDownloadSelected])
+
+  const requestExcelForArtist = useCallback((artist: string) => {
+    openExcelDialog({ kind: 'one', artist })
+  }, [openExcelDialog])
+
+  const requestExcelAll = useCallback(() => {
+    openExcelDialog({ kind: 'all' })
+  }, [openExcelDialog])
+
+  const requestExcelSelected = useCallback((artists: string[]) => {
+    openExcelDialog({ kind: 'selected', artists })
+  }, [openExcelDialog])
+
   const currentPeriodKey = useMemo(
     () =>
       detectedPeriodStart
@@ -831,9 +883,9 @@ function SosGeneratorPanel() {
     <ReportingPanel
       revenues={revenues}
       onDownloadPDF={handleDownloadPDF}
-      onDownloadExcel={handleDownloadExcel}
-      onDownloadAll={handleDownloadAll}
-      onDownloadSelected={handleDownloadSelected}
+      onDownloadExcel={requestExcelForArtist}
+      onDownloadAll={requestExcelAll}
+      onDownloadSelected={requestExcelSelected}
       labelArtists={labelArtists}
       labelInfo={labelInfo}
       appDefaults={appDefaults}
@@ -921,6 +973,19 @@ function SosGeneratorPanel() {
     </Alert>
   ) : null
 
+  const excelExportDialog = (
+    <ExcelExportDialog
+      open={excelDialogOpen}
+      onOpenChange={(open) => {
+        setExcelDialogOpen(open)
+        if (!open) setExcelDialogTarget(null)
+      }}
+      state={excelExport}
+      onStateChange={setExcelExport}
+      onConfirm={handleExcelDialogConfirm}
+    />
+  )
+
   if (viewMode === 'guided') {
     if (wizardMode == null) {
       return (
@@ -999,6 +1064,7 @@ function SosGeneratorPanel() {
             blockedReviewNoData: t.blockedReviewNoData,
           }}
         />
+        {excelExportDialog}
       </div>
     )
   }
@@ -1071,6 +1137,7 @@ function SosGeneratorPanel() {
                 labelInfo={labelBranding}
                 pdfSettings={pdfSettings}
                 csvImportProfiles={csvImportProfilesCustom}
+                excelExport={excelExport}
                 onLoad={handlePresetLoad}
               />
             </div>
@@ -1125,6 +1192,7 @@ function SosGeneratorPanel() {
                 labelInfo={labelBranding}
                 pdfSettings={pdfSettings}
                 csvImportProfiles={csvImportProfilesCustom}
+                excelExport={excelExport}
                 onImport={handleWorkspaceImport}
               />
             </div>
@@ -1191,9 +1259,9 @@ function SosGeneratorPanel() {
             <ReportingPanel
               revenues={revenues}
               onDownloadPDF={handleDownloadPDF}
-              onDownloadExcel={handleDownloadExcel}
-              onDownloadAll={handleDownloadAll}
-              onDownloadSelected={handleDownloadSelected}
+              onDownloadExcel={requestExcelForArtist}
+              onDownloadAll={requestExcelAll}
+              onDownloadSelected={requestExcelSelected}
               labelArtists={labelArtists}
               labelInfo={labelInfo}
               appDefaults={appDefaults}
@@ -1468,6 +1536,7 @@ function SosGeneratorPanel() {
         loading={workspaceDeleting}
         onConfirm={confirmWorkspaceDelete}
       />
+      {excelExportDialog}
     </div>
   )
 }

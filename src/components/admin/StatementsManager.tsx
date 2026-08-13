@@ -31,6 +31,7 @@ import { deleteSalesStatement } from '@/lib/api/settlementCenterApi'
 import { useMergedAccountingLabels } from '@/lib/i18n/accountingFallbacks'
 import { interpolate } from '@/lib/i18n/interpolate'
 import { PUBLIC_QUERY_LIMITS } from '@/lib/api/queryLimits'
+import { artistNameFromEmbed } from '@/lib/sos/statementArtistName'
 
 type StatementRow = {
   id: string
@@ -102,13 +103,19 @@ function formatEur(amount: number | null): string {
 }
 
 function formatDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
   return new Intl.DateTimeFormat('de-DE', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date(value))
+  }).format(date)
+}
+
+function statementArtistName(statement: { artists?: unknown }): string {
+  return artistNameFromEmbed(statement.artists)
 }
 
 interface StatementsManagerProps {
@@ -182,7 +189,7 @@ export function StatementsManager({
     if (!query) return statements
     return statements.filter(
       (statement) =>
-        statement.artists.name.toLowerCase().includes(query) ||
+        statementArtistName(statement).toLowerCase().includes(query) ||
         statement.period.toLowerCase().includes(query) ||
         statement.filename.toLowerCase().includes(query),
     )
@@ -310,7 +317,7 @@ export function StatementsManager({
                 variant="outline"
                 className="gap-1 text-destructive border-destructive/40"
                 disabled={deletingId === statement.id}
-                onClick={() => setDeleteTarget({ id: statement.id, artistName: statement.artists.name })}
+                onClick={() => setDeleteTarget({ id: statement.id, artistName: statementArtistName(statement) })}
               >
                 {deletingId === statement.id ? (
                   <CircleNotch size={14} className="animate-spin" />
@@ -369,7 +376,7 @@ export function StatementsManager({
                     })
                   }}
                   aria-label={interpolate(t.historySelectArtist, {
-                    artist: row.original.artists.name,
+                    artist: statementArtistName(row.original),
                   })}
                   disabled={!isDraft}
                 />
@@ -382,7 +389,7 @@ export function StatementsManager({
       id: 'artist',
       header: t.historyColArtist,
       enableSorting: false,
-      cell: ({ row }) => row.original.artists.name,
+      cell: ({ row }) => statementArtistName(row.original),
     },
     {
       accessorKey: 'period',
@@ -581,7 +588,7 @@ export function StatementsManager({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-medium truncate">{statement.artists.name}</p>
+                  <p className="font-medium truncate">{statementArtistName(statement)}</p>
                   <p className="text-sm text-muted-foreground font-mono">{statement.period}</p>
                 </div>
               </div>

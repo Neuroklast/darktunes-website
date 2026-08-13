@@ -2,9 +2,39 @@ import type {
   CompilationFilter,
   LabelInfo,
   PdfExportSettings,
+  ReleaseRevenue,
   SafeProcessedArtistData,
 } from '../types'
+import {
+  enabledColumnsForSheet,
+  isExcelSheetEnabled,
+  normalizeExcelExportSettings,
+  type ExcelColumnId,
+  type ExcelExportSettings,
+  type ExcelExportSettingsPatch,
+} from '../excelExportSettings'
 import { DEFAULT_PDF_SETTINGS, isCompilationRelease } from './shared'
+
+type ExcelGenerateSettings = ExcelExportSettingsPatch | Partial<PdfExportSettings>
+
+function isExcelExportSettings(
+  settings: ExcelGenerateSettings | undefined,
+): settings is ExcelExportSettingsPatch {
+  return !!settings && ('sheets' in settings || 'columns' in settings)
+}
+
+export function resolveExcelGenerateSettings(
+  settings?: ExcelGenerateSettings,
+): ExcelExportSettings {
+  if (isExcelExportSettings(settings)) {
+    return normalizeExcelExportSettings(settings)
+  }
+  return normalizeExcelExportSettings({
+    hideCompilationsInStatement:
+      settings?.hideCompilationsInStatement ??
+      DEFAULT_PDF_SETTINGS.hideCompilationsInStatement,
+  })
+}
 
 /**
  * Generates an Excel statement workbook for one artist.
@@ -15,7 +45,7 @@ export async function generateExcel(
   periodStart?: string,
   periodEnd?: string,
   compilationFilters: CompilationFilter[] = [],
-  settings?: Partial<PdfExportSettings>,
+  settings?: ExcelGenerateSettings,
 ): Promise<Blob> {
   try {
     return await buildExcel(artistData, labelInfo, periodStart, periodEnd, compilationFilters, settings)
@@ -26,107 +56,196 @@ export async function generateExcel(
   }
 }
 
+type SummaryRow = [string, string | number]
+
+const SUMMARY_METRIC_ROWS: Array<{
+  id: ExcelColumnId
+  build: (artistData: SafeProcessedArtistData) => SummaryRow[]
+}> = [
+  { id: 'summary.believeRevenue', build: (data) => [['Believe Revenue', data.believeRevenue]] },
+  { id: 'summary.bandcampRevenue', build: (data) => [['Bandcamp Revenue', data.bandcampRevenue]] },
+  { id: 'summary.darkmerchRevenue', build: (data) => [['Darkmerch Revenue', data.darkmerchRevenue]] },
+  { id: 'summary.streamingRevenue', build: (data) => [['Streaming Revenue', data.totalStreamRevenue]] },
+  { id: 'summary.downloadRevenue', build: (data) => [['Download Revenue', data.totalDownloadRevenue]] },
+  { id: 'summary.digitalRevenue', build: (data) => [['Digital Revenue (Total)', data.totalDigitalRevenue]] },
+  { id: 'summary.physicalRevenue', build: (data) => [['Physical Revenue', data.totalPhysicalRevenue]] },
+  { id: 'summary.manualRevenue', build: (data) => [['Manual Revenue', data.manualRevenue]] },
+  { id: 'summary.grossRevenue', build: (data) => [['Gross Revenue', data.grossRevenue]] },
+  {
+    id: 'summary.digitalSplits',
+    build: (data) => {
+      const digitalFallbackSplit = data.digitalSplitPercentage
+      const includeBelieveDigitalSplit =
+        data.believeSplitPercentage !== digitalFallbackSplit || data.believeRevenue > 0
+      const includeBandcampDigitalSplit =
+        data.bandcampSplitPercentage !== digitalFallbackSplit || data.bandcampRevenue > 0
+      const rows: SummaryRow[] = []
+      if (includeBelieveDigitalSplit) {
+        rows.push(['Artist Split – Believe Digital (%)', data.believeSplitPercentage])
+      }
+      if (includeBandcampDigitalSplit) {
+        rows.push(['Artist Split – Bandcamp Digital (%)', data.bandcampSplitPercentage])
+      }
+      rows.push(['Artist Split – Other Digital (%)', digitalFallbackSplit])
+      return rows
+    },
+  },
+  {
+    id: 'summary.physicalSplit',
+    build: (data) => [['Artist Split – Physical Releases (%)', data.physicalSplitPercentage]],
+  },
+  {
+    id: 'summary.darkmerchSplit',
+    build: (data) => [['Artist Split – Merchandise/Darkmerch (%)', data.darkmerchSplitPercentage]],
+  },
+]
+
+const RELEASE_COLUMNS: Array<{
+  id: ExcelColumnId
+  header: string
+  width: number
+  value: (release: ReleaseRevenue) => string | number
+}> = [
+  { id: 'releases.title', header: 'Release Title', width: 35, value: (r) => r.releaseTitle || '' },
+  { id: 'releases.upcEan', header: 'UPC/EAN', width: 15, value: (r) => r.upcEan || '' },
+  { id: 'releases.catalogNumber', header: 'Catalog Number', width: 15, value: (r) => r.catalogNumber || '' },
+  { id: 'releases.revenue', header: 'Revenue', width: 15, value: (r) => r.revenue },
+  { id: 'releases.quantity', header: 'Quantity', width: 10, value: (r) => r.quantity },
+  { id: 'releases.type', header: 'Type', width: 10, value: (r) => (r.isPhysical ? 'Physical' : 'Digital') },
+]
+
+const PLATFORM_COLUMNS: Array<{
+  id: ExcelColumnId
+  header: string
+  width: number
+  value: (row: SafeProcessedArtistData['platformBreakdown'][number]) => string | number
+}> = [
+  { id: 'platforms.platform', header: 'Platform', width: 25, value: (row) => row.platform || 'Unknown' },
+  { id: 'platforms.revenue', header: 'Revenue', width: 15, value: (row) => row.revenue },
+  { id: 'platforms.quantity', header: 'Quantity', width: 10, value: (row) => row.quantity },
+]
+
+const COUNTRY_COLUMNS: Array<{
+  id: ExcelColumnId
+  header: string
+  width: number
+  value: (row: SafeProcessedArtistData['countryBreakdown'][number]) => string | number
+}> = [
+  { id: 'countries.country', header: 'Country', width: 20, value: (row) => row.country || 'Unknown' },
+  { id: 'countries.revenue', header: 'Revenue', width: 15, value: (row) => row.revenue },
+  { id: 'countries.quantity', header: 'Quantity', width: 10, value: (row) => row.quantity },
+]
+
+const MONTHLY_COLUMNS: Array<{
+  id: ExcelColumnId
+  header: string
+  width: number
+  value: (row: SafeProcessedArtistData['monthlyBreakdown'][number]) => string | number
+}> = [
+  { id: 'monthly.month', header: 'Month', width: 12, value: (row) => row.month },
+  { id: 'monthly.revenue', header: 'Revenue', width: 15, value: (row) => row.revenue },
+]
+
 async function buildExcel(
   artistData: SafeProcessedArtistData,
   labelInfo: LabelInfo,
   periodStart?: string,
   periodEnd?: string,
   compilationFilters: CompilationFilter[] = [],
-  settings?: Partial<PdfExportSettings>,
+  settings?: ExcelGenerateSettings,
 ): Promise<Blob> {
+  const excelSettings = resolveExcelGenerateSettings(settings)
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
-  const digitalFallbackSplit = artistData.digitalSplitPercentage
-  const includeBelieveDigitalSplit =
-    artistData.believeSplitPercentage !== digitalFallbackSplit || artistData.believeRevenue > 0
-  const includeBandcampDigitalSplit =
-    artistData.bandcampSplitPercentage !== digitalFallbackSplit || artistData.bandcampRevenue > 0
 
-  const digitalSplitRows: Array<[string, number]> = []
-  if (includeBelieveDigitalSplit) {
-    digitalSplitRows.push(['Artist Split – Believe Digital (%)', artistData.believeSplitPercentage])
-  }
-  if (includeBandcampDigitalSplit) {
-    digitalSplitRows.push(['Artist Split – Bandcamp Digital (%)', artistData.bandcampSplitPercentage])
-  }
-  digitalSplitRows.push(['Artist Split – Other Digital (%)', digitalFallbackSplit])
-
-  const summaryData: Array<Array<string | number>> = [
-    ['Statement of Sales'],
-    [],
-    ['Label', labelInfo.name || ''],
-    ['Address', labelInfo.address || ''],
-    [],
-    ['Artist', artistData.artist],
-    ['Period', periodStart && periodEnd ? `${periodStart} - ${periodEnd}` : ''],
-    [],
-    ['Revenue Summary'],
-    ['Believe Revenue', artistData.believeRevenue],
-    ['Bandcamp Revenue', artistData.bandcampRevenue],
-    ['Darkmerch Revenue', artistData.darkmerchRevenue],
-    ['Streaming Revenue', artistData.totalStreamRevenue],
-    ['Download Revenue', artistData.totalDownloadRevenue],
-    ['Digital Revenue (Total)', artistData.totalDigitalRevenue],
-    ['Physical Revenue', artistData.totalPhysicalRevenue],
-    ['Manual Revenue', artistData.manualRevenue],
-    ['Gross Revenue', artistData.grossRevenue],
-    ...digitalSplitRows,
-    ['Artist Split – Physical Releases (%)', artistData.physicalSplitPercentage],
-    ['Artist Split – Merchandise/Darkmerch (%)', artistData.darkmerchSplitPercentage],
-    ['Final Payout', artistData.finalPayout],
-  ]
-
-  const summarySheet = workbook.addWorksheet('Summary')
-  summarySheet.columns = [{ width: 38 }, { width: 25 }]
-  summarySheet.addRows(summaryData)
-  summarySheet.getCell('A1').font = { bold: true, size: 14 }
-
-  const shouldHideCompilations = settings?.hideCompilationsInStatement ?? DEFAULT_PDF_SETTINGS.hideCompilationsInStatement
-  const releaseBreakdown = shouldHideCompilations
-    ? artistData.releaseBreakdown.filter(rel => !isCompilationRelease(rel, compilationFilters))
-    : artistData.releaseBreakdown
-  if (releaseBreakdown.length > 0) {
-    const releaseSheet = workbook.addWorksheet('Releases')
-    releaseSheet.columns = [
-      { width: 35 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 10 }, { width: 10 },
+  if (isExcelSheetEnabled(excelSettings, 'summary')) {
+    const enabledMetrics = new Set(enabledColumnsForSheet(excelSettings, 'summary'))
+    const summaryData: Array<Array<string | number>> = [
+      ['Statement of Sales'],
+      [],
+      ['Label', labelInfo.name || ''],
+      ['Address', labelInfo.address || ''],
+      [],
+      ['Artist', artistData.artist],
+      ['Period', periodStart && periodEnd ? `${periodStart} - ${periodEnd}` : ''],
+      [],
+      ['Revenue Summary'],
     ]
-    releaseSheet.addRow(['Release Title', 'UPC/EAN', 'Catalog Number', 'Revenue', 'Quantity', 'Type'])
-    for (const r of releaseBreakdown) {
-      releaseSheet.addRow([
-        r.releaseTitle || '',
-        r.upcEan || '',
-        r.catalogNumber || '',
-        r.revenue,
-        r.quantity,
-        r.isPhysical ? 'Physical' : 'Digital',
-      ])
+
+    for (const metric of SUMMARY_METRIC_ROWS) {
+      if (enabledMetrics.has(metric.id)) {
+        summaryData.push(...metric.build(artistData))
+      }
+    }
+    summaryData.push(['Final Payout', artistData.finalPayout])
+
+    const summarySheet = workbook.addWorksheet('Summary')
+    summarySheet.columns = [{ width: 38 }, { width: 25 }]
+    summarySheet.addRows(summaryData)
+    summarySheet.getCell('A1').font = { bold: true, size: 14 }
+  }
+
+  const shouldHideCompilations = excelSettings.hideCompilationsInStatement
+  const releaseBreakdown = shouldHideCompilations
+    ? artistData.releaseBreakdown.filter((rel) => !isCompilationRelease(rel, compilationFilters))
+    : artistData.releaseBreakdown
+  const releaseCols = RELEASE_COLUMNS.filter((col) =>
+    enabledColumnsForSheet(excelSettings, 'releases').includes(col.id),
+  )
+  if (isExcelSheetEnabled(excelSettings, 'releases') && releaseBreakdown.length > 0 && releaseCols.length > 0) {
+    const releaseSheet = workbook.addWorksheet('Releases')
+    releaseSheet.columns = releaseCols.map((col) => ({ width: col.width }))
+    releaseSheet.addRow(releaseCols.map((col) => col.header))
+    for (const release of releaseBreakdown) {
+      releaseSheet.addRow(releaseCols.map((col) => col.value(release)))
     }
   }
 
-  if (artistData.platformBreakdown.length > 0) {
+  const platformCols = PLATFORM_COLUMNS.filter((col) =>
+    enabledColumnsForSheet(excelSettings, 'platforms').includes(col.id),
+  )
+  if (
+    isExcelSheetEnabled(excelSettings, 'platforms') &&
+    artistData.platformBreakdown.length > 0 &&
+    platformCols.length > 0
+  ) {
     const platformSheet = workbook.addWorksheet('Platforms')
-    platformSheet.columns = [{ width: 25 }, { width: 15 }, { width: 10 }]
-    platformSheet.addRow(['Platform', 'Revenue', 'Quantity'])
-    for (const p of artistData.platformBreakdown) {
-      platformSheet.addRow([p.platform || 'Unknown', p.revenue, p.quantity])
+    platformSheet.columns = platformCols.map((col) => ({ width: col.width }))
+    platformSheet.addRow(platformCols.map((col) => col.header))
+    for (const platform of artistData.platformBreakdown) {
+      platformSheet.addRow(platformCols.map((col) => col.value(platform)))
     }
   }
 
-  if (artistData.countryBreakdown.length > 0) {
+  const countryCols = COUNTRY_COLUMNS.filter((col) =>
+    enabledColumnsForSheet(excelSettings, 'countries').includes(col.id),
+  )
+  if (
+    isExcelSheetEnabled(excelSettings, 'countries') &&
+    artistData.countryBreakdown.length > 0 &&
+    countryCols.length > 0
+  ) {
     const countrySheet = workbook.addWorksheet('Countries')
-    countrySheet.columns = [{ width: 20 }, { width: 15 }, { width: 10 }]
-    countrySheet.addRow(['Country', 'Revenue', 'Quantity'])
-    for (const c of artistData.countryBreakdown) {
-      countrySheet.addRow([c.country || 'Unknown', c.revenue, c.quantity])
+    countrySheet.columns = countryCols.map((col) => ({ width: col.width }))
+    countrySheet.addRow(countryCols.map((col) => col.header))
+    for (const country of artistData.countryBreakdown) {
+      countrySheet.addRow(countryCols.map((col) => col.value(country)))
     }
   }
 
-  if (artistData.monthlyBreakdown.length > 0) {
+  const monthlyCols = MONTHLY_COLUMNS.filter((col) =>
+    enabledColumnsForSheet(excelSettings, 'monthly').includes(col.id),
+  )
+  if (
+    isExcelSheetEnabled(excelSettings, 'monthly') &&
+    artistData.monthlyBreakdown.length > 0 &&
+    monthlyCols.length > 0
+  ) {
     const monthSheet = workbook.addWorksheet('Monthly')
-    monthSheet.columns = [{ width: 12 }, { width: 15 }]
-    monthSheet.addRow(['Month', 'Revenue'])
-    for (const m of artistData.monthlyBreakdown) {
-      monthSheet.addRow([m.month, m.revenue])
+    monthSheet.columns = monthlyCols.map((col) => ({ width: col.width }))
+    monthSheet.addRow(monthlyCols.map((col) => col.header))
+    for (const month of artistData.monthlyBreakdown) {
+      monthSheet.addRow(monthlyCols.map((col) => col.value(month)))
     }
   }
 

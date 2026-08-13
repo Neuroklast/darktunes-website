@@ -171,6 +171,25 @@ export async function getArtistOutstandingBalance(
   return sumLedgerBalance(entries)
 }
 
+export async function getOutstandingBalancesForPeriod(
+  db: DbClient,
+  settlementPeriodId: string,
+): Promise<Map<string, number>> {
+  const { data, error } = await db
+    .from('artist_settlement_ledger')
+    .select('artist_id, amount_eur')
+    .eq('settlement_period_id', settlementPeriodId)
+
+  if (error) throw new Error(error.message)
+
+  const balances = new Map<string, number>()
+  for (const row of data ?? []) {
+    const artistId = row.artist_id
+    balances.set(artistId, (balances.get(artistId) ?? 0) + Number(row.amount_eur))
+  }
+  return balances
+}
+
 export interface CarryForwardBreakdown {
   statementBalanceEur: number
   unpaidInvoiceCents: number

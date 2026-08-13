@@ -86,7 +86,12 @@
 - [ ] Invoice with 19% USt: payment can record gross PDF total
 - [ ] Portal invoice against locked settlement period returns 422
 
+- [ ] Excel export dialog: uncheck a release column → downloaded workbook omits it; Artist/Period/Final Payout remain
+- [ ] Save Excel preset → reopen dialog → preset still selected and columns match (workspace / rules preset)
+
 ## Accounting wizard (DAU path)
+- [ ] `/admin/accounting` Statement History tab and `/admin/statements` render without `Something went wrong`
+- [ ] Guided Publish / Drafts step (`?guidedStep=settle`) does not crash; failed draft create shows a toast
 - [ ] `/admin/accounting` shows Assistant as recommended; 5-step “what happens next” list
 - [ ] Assistant: empty period → Continue disabled with plain reason; set months → Continue works
 - [ ] Upload one CSV → coach checklist updates; Continue enabled only after numbers appear

@@ -155,6 +155,8 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 
 **Admin accounting (`/admin/accounting`):** Default **Guided** mode with **Assistant-first** chooser (`SosWizardModeChooser`). Assistant: Setup → Upload → Checks → Payouts → Publish. Quick: Upload → Payouts → Publish (experts). Step coach (`SosWizardStepCoach`) + `guidedContinueBlockedReason` explain why Continue is disabled. **Advanced** mode: all sub-tabs.
 
+**Excel export:** `ExcelExportDialog` picks sheets + columns (artist/period/final payout always stay). Named presets live in `SosAccountingSettings.excelExport` (workspace / `sos_rules_presets`). Generator: `src/lib/sos/export/excelStatement.ts` + `excelExportSettings.ts`. PDF section toggles stay PDF-only.
+
 **FX / ECB:** Spot + historical rates via `/api/exchange-rates` (Frankfurter). Processing is gated until rates are non-empty (`useSosCSVProcessor`). Sticky `CurrencyRatesBanner` for loading / live ECB / fallback + refresh. Missing currency throws (no silent €0).
 
 | Module | Role |

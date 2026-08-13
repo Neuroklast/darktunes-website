@@ -5,6 +5,12 @@ import {
   DEFAULT_LABEL_INFO,
   DEFAULT_PDF_EXPORT_SETTINGS,
 } from '@/lib/sos/defaults'
+import {
+  DEFAULT_EXCEL_EXPORT_STATE,
+  normalizeExcelExportState,
+  type ExcelExportState,
+  type ExcelExportStatePatch,
+} from '@/lib/sos/excelExportSettings'
 import type {
   AppDefaults,
   ArtistMapping,
@@ -36,6 +42,7 @@ export interface SosAccountingSettings {
   labelInfo: Partial<LabelInfo>
   pdfSettings: PdfExportSettings
   csvImportProfiles: CsvImportProfile[]
+  excelExport: ExcelExportState
 }
 
 export const DEFAULT_SOS_ACCOUNTING_SETTINGS: SosAccountingSettings = {
@@ -52,10 +59,13 @@ export const DEFAULT_SOS_ACCOUNTING_SETTINGS: SosAccountingSettings = {
   labelInfo: DEFAULT_LABEL_INFO,
   pdfSettings: DEFAULT_PDF_EXPORT_SETTINGS,
   csvImportProfiles: [],
+  excelExport: DEFAULT_EXCEL_EXPORT_STATE,
 }
 
 export function normalizeAccountingConfig(
-  raw: Partial<SosAccountingSettings> | null | undefined,
+  raw: (Omit<Partial<SosAccountingSettings>, 'excelExport'> & {
+    excelExport?: ExcelExportStatePatch
+  }) | null | undefined,
 ): SosAccountingSettings {
   return {
     artistMappings: raw?.artistMappings ?? [],
@@ -71,6 +81,7 @@ export function normalizeAccountingConfig(
     labelInfo: { ...DEFAULT_LABEL_INFO, ...raw?.labelInfo },
     pdfSettings: { ...DEFAULT_PDF_EXPORT_SETTINGS, ...raw?.pdfSettings },
     csvImportProfiles: raw?.csvImportProfiles ?? [],
+    excelExport: normalizeExcelExportState(raw?.excelExport),
   }
 }
 

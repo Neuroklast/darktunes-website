@@ -470,10 +470,23 @@ export type AccountingLabelOverrides = Partial<AccountingLabels>
  * Merges locale dictionary overrides onto English fallbacks.
  * @param overrides - Partial labels from `admin.accounting` messages
  */
+function pickStringOverrides(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== 'object') return {}
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'string') out[key] = value
+  }
+  return out
+}
+
 export function mergeAccountingLabels(
-  overrides?: AccountingLabelOverrides,
+  overrides?: AccountingLabelOverrides | Record<string, unknown>,
 ): AccountingLabels {
-  return { ...ACCOUNTING_FALLBACK, ...SETTLEMENT_FALLBACK, ...overrides }
+  return {
+    ...ACCOUNTING_FALLBACK,
+    ...SETTLEMENT_FALLBACK,
+    ...pickStringOverrides(overrides),
+  }
 }
 
 export type AccountingMessages = Dictionary['admin']['accounting']
@@ -493,5 +506,8 @@ export function useMergedAccountingLabels<T extends Record<string, string>>(
   fallback: T,
 ): T & AccountingLabelOverrides {
   const overrides = useAccountingMessages()
-  return useMemo(() => ({ ...fallback, ...overrides }), [fallback, overrides]) as T & AccountingLabelOverrides
+  return useMemo(
+    () => ({ ...fallback, ...pickStringOverrides(overrides) }),
+    [fallback, overrides],
+  ) as T & AccountingLabelOverrides
 }

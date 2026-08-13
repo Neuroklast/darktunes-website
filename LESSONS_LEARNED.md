@@ -227,6 +227,10 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-13 — Next.js `error.tsx` is not the React ErrorFallback
+
+**Segment render crashes never hit `Providers`’ `ErrorFallback`:** `app/error.tsx` wraps the page first. If it does not call `reportClientError('ui', …)`, production has no `app_logs` row and testers report “the app crashed, no logs”. ChunkLoadError + unconditional `location.reload()` loops after a bad lazy import (e.g. Statement History). Rule: report from `error.tsx` / `global-error.tsx`; reload a chunk error **once** per fingerprint.
+
 ### 2026-08-11 — App version SSOT (no more 0.0.0 theater)
 
 **Continuous deploy without a product version creates fake SemVer:** Claiming Keep a Changelog + SemVer while leaving `package.json` at `0.0.0`, never tagging, and dumping everything under `[Unreleased]` is process theater. Rule: version lives in `package.json`; cut CHANGELOG sections on release; annotated tags `vX.Y.Z` for history; show version+commit in Admin System Health (`src/lib/appVersion.ts`). Ritual: `docs/RELEASING.md`. Do not treat Dependabot dependency bumps as app releases.

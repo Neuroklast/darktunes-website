@@ -177,7 +177,9 @@ export function useSettlementCenter({
   const rows = useMemo<MasterRow[]>(() => {
     const registerRows = register?.rows ?? []
     const registerByArtistId = new Map(registerRows.map((row) => [row.artistId, row]))
-    const registerByName = new Map(registerRows.map((row) => [row.artistName.toLowerCase(), row]))
+    const registerByName = new Map(
+      registerRows.map((row) => [(row.artistName ?? '').toLowerCase(), row]),
+    )
     const seenArtistIds = new Set<string>()
     const seenNames = new Set<string>()
     const masterRows: MasterRow[] = []
@@ -210,18 +212,20 @@ export function useSettlementCenter({
     }
 
     for (const reg of registerRows) {
-      if (!seenArtistIds.has(reg.artistId) && !seenNames.has(reg.artistName.toLowerCase())) {
+      if (!seenArtistIds.has(reg.artistId) && !seenNames.has((reg.artistName ?? '').toLowerCase())) {
         masterRows.push(registerToMasterRow(reg))
       }
     }
 
-    return masterRows.sort((a, b) => a.artistName.localeCompare(b.artistName, 'de'))
+    return masterRows.sort((a, b) =>
+      (a.artistName || '').localeCompare(b.artistName || '', 'de'),
+    )
   }, [register, revenues, artistMap])
 
   const filteredRows = useMemo(() => {
     const query = filter.trim().toLowerCase()
     if (!query) return rows
-    return rows.filter((row) => row.artistName.toLowerCase().includes(query))
+    return rows.filter((row) => (row.artistName || '').toLowerCase().includes(query))
   }, [rows, filter])
 
   const counts = useMemo(() => countByWorkflowStatus(rows), [rows])
@@ -343,6 +347,12 @@ export function useSettlementCenter({
       try {
         await onCreateDraft(target.artistName)
         created += 1
+      } catch (err) {
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : interpolate(t.settlementDeleteDraftFailed, { artist: target.artistName }),
+        )
       } finally {
         setBusyArtists((current) => {
           const next = new Set(current)

@@ -1,3 +1,4 @@
+import type { ExcelExportSettingsPatch } from '../excelExportSettings'
 import type {
   AppDefaults,
   CompilationFilter,
@@ -39,6 +40,7 @@ export async function generateZipOfAllStatements(
   appDefaults?: Partial<AppDefaults>,
   emailConfig?: Partial<EmailConfig>,
   compilationFilters: CompilationFilter[] = [],
+  excelSettings?: ExcelExportSettingsPatch,
 ): Promise<Blob> {
   const JSZip = (await import('jszip')).default
   const zip = new JSZip()
@@ -83,7 +85,7 @@ export async function generateZipOfAllStatements(
         periodStart,
         periodEnd,
         compilationFilters,
-        pdfSettings,
+        excelSettings ?? pdfSettings,
       )
       zip.file(`${safeArtistName}_statement.xlsx`, excelBlob)
     }

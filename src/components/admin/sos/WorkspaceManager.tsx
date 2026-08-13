@@ -37,6 +37,7 @@ export function WorkspaceManager({
   labelInfo,
   pdfSettings,
   csvImportProfiles,
+  excelExport,
   onImport,
 }: WorkspaceManagerProps) {
   const tToast = useTranslations('admin.toast')
@@ -61,6 +62,7 @@ export function WorkspaceManager({
       labelInfo,
       pdfSettings,
       csvImportProfiles,
+      excelExport,
     }
     const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -73,7 +75,7 @@ export function WorkspaceManager({
     toast.success(tToast('workspace_exported'))
   }, [appDefaults, emailConfig, artistMappings, compilationFilters, splitFees,
     manualRevenues, expenses, ignoredEntries, csvAliases, trackRevenueAssignments,
-    labelInfo, pdfSettings, csvImportProfiles, tToast])
+    labelInfo, pdfSettings, csvImportProfiles, excelExport, tToast])
 
   const handleImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -98,6 +100,7 @@ export function WorkspaceManager({
           labelInfo: bundle.labelInfo,
           pdfSettings: bundle.pdfSettings,
           csvImportProfiles: bundle.csvImportProfiles,
+          excelExport: bundle.excelExport,
         })
         toast.success(tToast('workspace_imported'))
       } catch {

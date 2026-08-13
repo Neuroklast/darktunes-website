@@ -14,6 +14,7 @@ const mockPeriod = {
 }
 
 vi.mock('@/lib/api/settlementPeriods', () => ({
+  getSettlementPeriodByDates: vi.fn(async () => mockPeriod),
   getOrCreateSettlementPeriod: vi.fn(async () => mockPeriod),
 }))
 
@@ -53,6 +54,7 @@ vi.mock('@/lib/api/artistInvoices', () => ({
 }))
 
 vi.mock('@/lib/api/settlementLedger', () => ({
+  getOutstandingBalancesForPeriod: vi.fn(async () => new Map([['artist-1', 120]])),
   getArtistOutstandingBalance: vi.fn(async (_db, artistId: string) => {
     if (artistId === 'artist-1') return 120
     if (artistId === 'artist-2') return 0
@@ -79,6 +81,7 @@ function makeBuilder(data: unknown = null, error: unknown = null) {
     select: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     neq: vi.fn().mockReturnThis(),
     then: p.then.bind(p),
     catch: p.catch.bind(p),
@@ -109,7 +112,7 @@ describe('buildSettlementRegister', () => {
 
     const register = await buildSettlementRegister(db, '2025-01-01', '2025-03-31')
 
-    expect(register.period.id).toBe('period-1')
+    expect(register.period?.id).toBe('period-1')
     expect(register.rows).toHaveLength(2)
     expect(register.rows.map(r => r.artistName).sort()).toEqual(['Guest Act', 'Neuroklast'])
 

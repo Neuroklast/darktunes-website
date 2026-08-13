@@ -86,22 +86,31 @@ export async function getSettlementPeriodById(
   return data ? rowToPeriod(data as SettlementPeriodRow) : null
 }
 
-export async function getOrCreateSettlementPeriod(
+export async function getSettlementPeriodByDates(
   db: DbClient,
   periodStart: string,
   periodEnd: string,
-): Promise<SettlementPeriod> {
+): Promise<SettlementPeriod | null> {
   const bounds = normalizeSettlementPeriodBounds(periodStart, periodEnd)
-
-  const { data: existing, error: findError } = await db
+  const { data, error } = await db
     .from('settlement_periods')
     .select('*')
     .eq('period_start', bounds.periodStart)
     .eq('period_end', bounds.periodEnd)
     .maybeSingle()
 
-  if (findError) throw new Error(findError.message)
-  if (existing) return rowToPeriod(existing as SettlementPeriodRow)
+  if (error) throw new Error(error.message)
+  return data ? rowToPeriod(data as SettlementPeriodRow) : null
+}
+
+export async function getOrCreateSettlementPeriod(
+  db: DbClient,
+  periodStart: string,
+  periodEnd: string,
+): Promise<SettlementPeriod> {
+  const bounds = normalizeSettlementPeriodBounds(periodStart, periodEnd)
+  const existing = await getSettlementPeriodByDates(db, bounds.periodStart, bounds.periodEnd)
+  if (existing) return existing
 
   const label = buildPeriodLabel(bounds.periodStart, bounds.periodEnd)
   const { data, error } = await db

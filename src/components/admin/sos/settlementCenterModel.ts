@@ -116,9 +116,15 @@ function toIsoDate(date: Date) {
 export function computeNextPeriod(periodStart: string, periodEnd: string) {
   const start = new Date(`${periodStart}T00:00:00`)
   const end = new Date(`${periodEnd}T00:00:00`)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return { start: '', end: '' }
+  }
   const durationMs = end.getTime() - start.getTime()
   const nextStart = new Date(end.getTime() + 24 * 60 * 60 * 1000)
   const nextEnd = new Date(nextStart.getTime() + durationMs)
+  if (Number.isNaN(nextStart.getTime()) || Number.isNaN(nextEnd.getTime())) {
+    return { start: '', end: '' }
+  }
   return { start: toIsoDate(nextStart), end: toIsoDate(nextEnd) }
 }
 
