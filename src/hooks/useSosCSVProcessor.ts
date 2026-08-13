@@ -518,6 +518,8 @@ export function useCSVProcessor(
     exchangeRatesLoading,
     exchangeRatesReady,
     exchangeRatesSource,
+    exchangeRates,
+    historicalRates,
     refreshExchangeRates,
     uniqueArtists: workerResult.uniqueArtists,
     processedData: workerResult.processedData as SafeProcessedArtistData[],

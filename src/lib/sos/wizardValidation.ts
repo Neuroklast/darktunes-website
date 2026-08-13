@@ -26,6 +26,9 @@ export interface WizardValidationInput {
   hasDarkmerchFile: boolean
   draftArtistNames?: string[]
   trackRevenueAssignments?: TrackRevenueAssignment[]
+  skippedRowCount?: number
+  skipReasons?: string[]
+  emptyCurrencyRowCount?: number
 }
 
 /** English defaults for wizard validation copy (also mirrored in accountingFallbacks). */
@@ -68,6 +71,12 @@ export const WIZARD_VALIDATION_FALLBACK = {
   validationTrackSplitDesc:
     'Owner percentages for this assignment do not add up to 100%. Revenue is not split until this is fixed.',
   validationTrackSplitAction: 'Open track splits',
+  validationParseSkipsTitle: '{count} rows skipped during import',
+  validationParseSkipsDesc:
+    'Intentional filters (Bandcamp payout, empty lines, transfers without artist). Reasons: {reasons}.',
+  validationEmptyCurrencyTitle: '{count} rows had no currency and were treated as EUR',
+  validationEmptyCurrencyDesc:
+    'Believe sometimes leaves the currency cell empty. Those rows stay in EUR. Missing or zero FX rates still abort processing.',
 } as const
 
 export type WizardValidationLabels = {
@@ -198,6 +207,32 @@ export function validateSosWizardState(
         actionTarget: 'settlements',
       })
     }
+  }
+
+  if ((input.skippedRowCount ?? 0) > 0) {
+    const reasons = (input.skipReasons ?? []).filter(Boolean)
+    issues.push({
+      id: 'parse-skips',
+      severity: 'warning',
+      title: interpolate(labels.validationParseSkipsTitle, { count: String(input.skippedRowCount) }),
+      description: interpolate(labels.validationParseSkipsDesc, {
+        reasons: reasons.length > 0 ? reasons.join(', ') : 'filtered rows',
+      }),
+      actionLabel: labels.validationNoFilesAction,
+      actionTarget: 'upload',
+    })
+  }
+
+  if ((input.emptyCurrencyRowCount ?? 0) > 0) {
+    issues.push({
+      id: 'empty-currency',
+      severity: 'warning',
+      title: interpolate(labels.validationEmptyCurrencyTitle, {
+        count: String(input.emptyCurrencyRowCount),
+      }),
+      description: labels.validationEmptyCurrencyDesc,
+      actionTarget: 'upload',
+    })
   }
 
   const hasAnyFile =

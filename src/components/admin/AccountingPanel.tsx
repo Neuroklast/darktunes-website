@@ -445,6 +445,8 @@ function SosGeneratorPanel() {
     exchangeRatesLoading,
     exchangeRatesReady,
     exchangeRatesSource,
+    exchangeRates,
+    historicalRates,
     refreshExchangeRates,
   } = useCSVProcessor(
     believeManager.files,
@@ -577,6 +579,26 @@ function SosGeneratorPanel() {
         hasPrintfulFile: printfulManager.files.length > 0,
         hasDarkmerchFile: darkmerchManager.files.length > 0,
         trackRevenueAssignments,
+        skippedRowCount: [
+          ...believeManager.files,
+          ...bandcampManager.files,
+          ...shopifyManager.files,
+          ...printfulManager.files,
+          ...darkmerchManager.files,
+        ].reduce((sum, file) => sum + (file.rowsSkipped ?? 0), 0),
+        skipReasons: [...new Set(
+          [
+            ...believeManager.files,
+            ...bandcampManager.files,
+            ...shopifyManager.files,
+            ...printfulManager.files,
+            ...darkmerchManager.files,
+          ].flatMap((file) => file.skipReasons ?? []),
+        )],
+        emptyCurrencyRowCount: [
+          ...believeManager.files,
+          ...bandcampManager.files,
+        ].reduce((sum, file) => sum + (file.emptyCurrencyRows ?? 0), 0),
       },
       {
         validationMissingPeriodTitle: t.validationMissingPeriodTitle,
@@ -609,6 +631,10 @@ function SosGeneratorPanel() {
         validationTrackSplitTitle: t.validationTrackSplitTitle,
         validationTrackSplitDesc: t.validationTrackSplitDesc,
         validationTrackSplitAction: t.validationTrackSplitAction,
+        validationParseSkipsTitle: t.validationParseSkipsTitle,
+        validationParseSkipsDesc: t.validationParseSkipsDesc,
+        validationEmptyCurrencyTitle: t.validationEmptyCurrencyTitle,
+        validationEmptyCurrencyDesc: t.validationEmptyCurrencyDesc,
       },
     )
   }, [
@@ -619,12 +645,12 @@ function SosGeneratorPanel() {
     manualPeriodEnd,
     detectedPeriodStart,
     detectedPeriodEnd,
-    believeManager.files.length,
-    bandcampManager.files.length,
-    shopifyManager.files.length,
-    printfulManager.files.length,
-    darkmerchManager.files.length,
     trackRevenueAssignments,
+    believeManager.files,
+    bandcampManager.files,
+    shopifyManager.files,
+    printfulManager.files,
+    darkmerchManager.files,
     t,
   ])
 
@@ -1384,7 +1410,13 @@ function SosGeneratorPanel() {
                 step2={t.playbookStep2}
                 step3={t.playbookStep3}
               />
-              <ImportBatchesPanel labelArtists={labelArtists} onLoadBatch={loadBronzeBatch} />
+              <ImportBatchesPanel
+                labelArtists={labelArtists}
+                onLoadBatch={loadBronzeBatch}
+                exchangeRates={exchangeRates}
+                historicalRates={historicalRates ?? undefined}
+                carryForwardByArtist={carryForwardByArtist}
+              />
               <ExternalMetricsSyncPanel />
               <ApifySpotifySyncPanel />
               {hasData ? (

@@ -415,7 +415,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
             type: 'parse-done',
             fileId,
             rowsParsed: result.transactions.length,
-            rowsSkipped: result.errors.length,
+            rowsSkipped: result.errors.length + result.skipped.length,
             uniqueArtistsCount: result.uniqueArtists.length,
           })
         }

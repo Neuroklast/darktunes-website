@@ -26,9 +26,12 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   const id = extractBatchIdFromPath(new URL(req.url).pathname)
   if (!id) throw new ApiError(400, 'Invalid import batch path')
   const body = await req.json().catch(() => ({}))
-  const { label_artists, persist } = body as {
+  const { label_artists, persist, exchange_rates, historical_rates, carry_forward_by_artist } = body as {
     label_artists?: Array<{ name: string; artistId?: string }>
     persist?: boolean
+    exchange_rates?: Record<string, number>
+    historical_rates?: Record<string, Record<string, number>>
+    carry_forward_by_artist?: Record<string, number>
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
@@ -64,6 +67,9 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
       {
         workspaceConfig: workspace?.config,
         labelArtists,
+        exchangeRates: exchange_rates,
+        historicalExchangeRates: historical_rates,
+        carryForwardByArtist: carry_forward_by_artist,
       },
     )
 
@@ -80,7 +86,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
         throw new ApiError(500, persistResult.error ?? 'Failed to persist analytics')
       }
     } else {
-      await updateImportBatchStatus(serviceSupabase, id, 'completed', result.rowCount)
+      await updateImportBatchStatus(serviceSupabase, id, 'completed')
     }
 
     return NextResponse.json({
