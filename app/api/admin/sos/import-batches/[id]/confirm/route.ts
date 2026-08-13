@@ -7,7 +7,7 @@ import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
-import { getImportBatchById } from '@/lib/api/distributorImportBatches'
+import { findImportBatchByFileHash, getImportBatchById } from '@/lib/api/distributorImportBatches'
 import { writeAppLog } from '@/lib/appLog'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { createR2Client, sha256HexFromR2Object } from '@/lib/r2Utils'
@@ -63,7 +63,15 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
     .update({ file_hash: normalizedHash, status: 'completed' })
     .eq('id', id)
 
-  if (error) throw new ApiError(500, error.message)
+  if (error) {
+    if (error.code === '23505') {
+      const existing = await findImportBatchByFileHash(serviceSupabase, normalizedHash)
+      if (existing) {
+        return NextResponse.json({ ok: true, duplicate: true, batch: existing })
+      }
+    }
+    throw new ApiError(500, error.message)
+  }
 
   return NextResponse.json({ ok: true })
 })

@@ -1,6 +1,6 @@
 import Papa from 'papaparse'
 import type { SalesTransaction } from './csv-parser'
-import { mapCSVHeadersToModel, parseCSVLine } from './csv-parser'
+import { mapCSVHeadersToModel } from './csv-parser'
 import { normalizeDateToMonth } from './normalizeDateToMonth'
 
 export { normalizeDateToMonth } from './normalizeDateToMonth'
@@ -29,14 +29,8 @@ export interface StreamingParseResult {
 /** Rows to process per scheduler tick to keep the UI responsive. */
 const CHUNK_SIZE = 5000
 
-function detectDelimiter(lines: string[]): string {
-  // Take the first 6 non-empty lines as the sample; parse up to 6 rows
-  // so PapaParse has enough context to auto-detect the delimiter reliably.
-  const sampleLines = lines.filter(l => l.trim()).slice(0, 6)
-  const sample = sampleLines.join('\n')
-  if (!sample) return ','
-  const result = Papa.parse(sample, { delimiter: '', preview: sampleLines.length })
-  return (result.meta as { delimiter?: string }).delimiter || ','
+function isEmptyCsvRow(values: string[]): boolean {
+  return values.every((cell) => !cell.trim())
 }
 
 /**
@@ -85,10 +79,9 @@ function parseQuantity(raw: string): number {
 }
 
 function processChunk(
-  lines: string[],
+  rows: string[][],
   headers: string[],
   mapping: Record<string, string>,
-  delimiter: string,
   source: 'believe' | 'bandcamp',
   startIndex: number,
   parseTag: string
@@ -106,24 +99,21 @@ function processChunk(
   let emptyCurrencyRows = 0
   const expectedCols = headers.length
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
+  for (let i = 0; i < rows.length; i++) {
+    const values = rows[i].map((cell) => cell ?? '')
     const rowNumber = startIndex + i + 2
-    if (!line.trim()) {
+    const rowPreview = values.join(',').substring(0, 120)
+    if (isEmptyCsvRow(values)) {
       skipped.push({ row: rowNumber, reason: 'empty-line' })
       continue
     }
 
     try {
-      const values = parseCSVLine(line, delimiter)
-
-      // Be lenient: if a row has fewer columns, fill with empty strings.
-      // If it has way more (>= 2× expected), it's likely a corrupted row.
       if (values.length >= expectedCols * 2 && values.length > expectedCols) {
         errors.push({
           row: rowNumber,
           reason: `Too many columns: expected ~${expectedCols}, got ${values.length}`,
-          data: line.substring(0, 120),
+          data: rowPreview,
         })
         continue
       }
@@ -237,7 +227,7 @@ function processChunk(
       errors.push({
         row: rowNumber,
         reason: err instanceof Error ? err.message : 'Unknown parsing error',
-        data: line.substring(0, 120),
+        data: rowPreview,
       })
     }
   }
@@ -266,23 +256,22 @@ export async function parseCSVContentStreaming(
   const allSkipped: ParseSkip[] = []
   let emptyCurrencyRows = 0
 
-  // Normalise line endings and remove BOM
-  const normalised = stripBOM(csvContent).replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  const lines = normalised.split('\n')
+  const parsed = Papa.parse<string[]>(stripBOM(csvContent), {
+    delimiter: '',
+    skipEmptyLines: false,
+  })
+  const records = (parsed.data ?? []).map((row) =>
+    Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : [String(row ?? '')],
+  )
 
-  // Find first non-empty line (header)
-  const firstNonEmpty = lines.findIndex(l => l.trim().length > 0)
+  const firstNonEmpty = records.findIndex((row) => !isEmptyCsvRow(row))
   if (firstNonEmpty === -1) {
     return { transactions: [], uniqueArtists: [], errors: [], skipped: [], emptyCurrencyRows: 0 }
   }
 
-  // Detect delimiter using the header + first few data lines for accuracy
-  const sampleLines = lines.slice(firstNonEmpty, firstNonEmpty + 6)
-  const delimiter = detectDelimiter(sampleLines)
-  const headerLine = lines[firstNonEmpty]
-  const headers = parseCSVLine(headerLine, delimiter).map(h => h.trim())
+  const headers = records[firstNonEmpty].map((header) => header.trim())
 
-  if (headers.length === 0) {
+  if (headers.length === 0 || headers.every((header) => !header)) {
     return {
       transactions: [],
       uniqueArtists: [],
@@ -293,20 +282,20 @@ export async function parseCSVContentStreaming(
   }
 
   const mapping = columnMapping ?? mapCSVHeadersToModel(headers, customAliases)
-  const dataLines = lines.slice(firstNonEmpty + 1)
-  const totalRows = dataLines.length
+  const dataRows = records.slice(firstNonEmpty + 1)
+  const totalRows = dataRows.length
   let processedRows = 0
 
   // Short random tag to make transaction IDs unique across multiple parse calls.
   const parseTag = `${source}-${Math.random().toString(36).slice(2, 8)}`
 
-  for (let i = 0; i < dataLines.length; i += CHUNK_SIZE) {
-    const chunk = dataLines.slice(i, i + CHUNK_SIZE)
+  for (let i = 0; i < dataRows.length; i += CHUNK_SIZE) {
+    const chunk = dataRows.slice(i, i + CHUNK_SIZE)
 
     // Yield to the event loop between chunks
     await new Promise<void>(resolve => setTimeout(resolve, 0))
 
-    const result = processChunk(chunk, headers, mapping, delimiter, source, processedRows, parseTag)
+    const result = processChunk(chunk, headers, mapping, source, processedRows, parseTag)
 
     for (const t of result.transactions) allTransactions.push(t)
     result.artists.forEach(a => uniqueArtistsSet.add(a))

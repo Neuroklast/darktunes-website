@@ -11,6 +11,7 @@ import type { NextRequest } from 'next/server'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import {
   createImportBatch,
+  DuplicateImportBatchError,
   findImportBatchByFileHash,
   listImportBatches,
 } from '@/lib/api/distributorImportBatches'
@@ -77,14 +78,28 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
 
   await assertSettlementPeriodWritable(serviceSupabase, period_start, period_end)
 
-  const batch = await createImportBatch(serviceSupabase, {
-    periodStart: period_start,
-    periodEnd: period_end,
-    distributor,
-    r2Key,
-    rowCount: row_count ?? 0,
-    uploadedBy: user.id,
-  })
+  const normalizedHash =
+    file_hash && /^[a-f0-9]{64}$/i.test(file_hash) ? file_hash.toLowerCase() : null
 
-  return NextResponse.json({ batch, r2Key }, { status: 201 })
+  try {
+    const batch = await createImportBatch(serviceSupabase, {
+      periodStart: period_start,
+      periodEnd: period_end,
+      distributor,
+      r2Key,
+      fileHash: normalizedHash,
+      rowCount: row_count ?? 0,
+      uploadedBy: user.id,
+    })
+
+    return NextResponse.json({ batch, r2Key }, { status: 201 })
+  } catch (err) {
+    if (err instanceof DuplicateImportBatchError && normalizedHash) {
+      const existing = await findImportBatchByFileHash(serviceSupabase, normalizedHash)
+      if (existing) {
+        return NextResponse.json({ batch: existing, duplicate: true }, { status: 200 })
+      }
+    }
+    throw err
+  }
 })

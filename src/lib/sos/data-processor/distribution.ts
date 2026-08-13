@@ -1,4 +1,5 @@
 import type { SalesTransaction } from '../ingest/csv-parser'
+import { normalizeRevenueToEur, type ExchangeRates, type HistoricalRates } from '../currency'
 import {
   ownerPercentagesSumTo100,
   resolveAssignmentOwners,
@@ -68,6 +69,8 @@ export function buildFilteredCompilations(
   transactions: SalesTransaction[],
   compilationTransactionIds: Set<string>,
   compilationFilters: CompilationFilter[],
+  exchangeRates: ExchangeRates = {},
+  historicalRates: HistoricalRates = {},
 ): FilteredCompilation[] {
   const compilationMap = new Map<string, FilteredCompilation>()
   for (const t of transactions) {
@@ -88,16 +91,23 @@ export function buildFilteredCompilations(
     if (!matchingFilter) continue
 
     const key = matchingFilter.id
+    const revenueEur = normalizeRevenueToEur(
+      t.net_revenue,
+      t.currency,
+      t.sales_month,
+      exchangeRates,
+      historicalRates,
+    )
     const existing = compilationMap.get(key)
     if (existing) {
-      existing.revenue += t.net_revenue
+      existing.revenue += revenueEur
       existing.transactionCount += 1
     } else {
       compilationMap.set(key, {
         releaseTitle: t.release_title || matchingFilter.identifier,
         identifier: matchingFilter.identifier,
         filterType: matchingFilter.type,
-        revenue: t.net_revenue,
+        revenue: revenueEur,
         transactionCount: 1,
       })
     }

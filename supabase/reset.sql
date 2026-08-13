@@ -6741,6 +6741,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS artist_invoices_one_per_statement
   ON public.artist_invoices (statement_id)
   WHERE statement_id IS NOT NULL;
 
+-- Same CSV hash may be retried after a failed batch; active hashes stay unique.
+CREATE UNIQUE INDEX IF NOT EXISTS distributor_import_batches_file_hash_active
+  ON public.distributor_import_batches (file_hash)
+  WHERE file_hash IS NOT NULL AND status IS DISTINCT FROM 'failed';
+
 ALTER TABLE public.sales_statement_line_items
   ADD COLUMN IF NOT EXISTS amount_original NUMERIC(14, 4);
 ALTER TABLE public.sales_statement_line_items

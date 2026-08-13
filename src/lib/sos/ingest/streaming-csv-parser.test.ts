@@ -52,4 +52,17 @@ describe('parseCSVContentStreaming skips', () => {
     expect(result.transactions[0]?.currency).toBe('EUR')
     expect(result.emptyCurrencyRows).toBe(1)
   })
+
+  it('keeps quoted embedded newlines inside one row', async () => {
+    const csv = [
+      BELIEVE_HEADER,
+      '"Neuroklast","Album\nDeluxe",12.5,EUR,2024-03',
+    ].join('\n')
+
+    const result = await parseCSVContentStreaming(csv, 'believe')
+    expect(result.transactions).toHaveLength(1)
+    expect(result.transactions[0]?.release_title).toContain('Album')
+    expect(result.transactions[0]?.release_title).toContain('Deluxe')
+    expect(result.transactions[0]?.net_revenue).toBe(12.5)
+  })
 })
