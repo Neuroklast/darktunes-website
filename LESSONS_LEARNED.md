@@ -227,6 +227,10 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-13 — Bronze file_hash needs a partial unique index
+
+**Application lookup is not enough under concurrent POST/confirm.** Unique on `file_hash` where status is not `failed` lets retries through and maps `23505` to `{ duplicate: true }`. Compilation summaries must convert to EUR the same way payouts do — raw `net_revenue` is pre-FX.
+
 ### 2026-08-13 — Do not seed historical FX with static fallbacks
 
 **Pre-filling every month with `FALLBACK_EXCHANGE_RATES` makes later converts look like they have a real ECB month.** Missing month → use spot; missing/≤0 rate still throws. Empty currency is EUR + warning, not a throw. Intentional parser filters must land in `skipped[]` or `rowsSkipped` is only parse errors.

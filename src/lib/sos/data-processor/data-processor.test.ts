@@ -140,6 +140,25 @@ describe('processTransactionsWithCompilations', () => {
     expect(artistData[0].grossRevenue).toBe(40)
   })
 
+  it('sums compilation summary after FX conversion', () => {
+    const { filteredCompilations } = processTransactionsWithCompilations(
+      [makeTx({
+        id: 'a',
+        upc_ean: 'COMP-001',
+        net_revenue: 108,
+        currency: 'USD',
+        sales_month: '2024-03',
+      })],
+      {
+        ...emptyConfig(),
+        compilationFilters: [{ id: 'comp', type: 'ean', identifier: 'COMP-001', label: 'Comp' }],
+        exchangeRates: { USD: 1.08 },
+      },
+    )
+
+    expect(filteredCompilations[0]?.revenue).toBeCloseTo(100, 5)
+  })
+
   it('honours per-source believe split bucket', () => {
     const { artistData } = processTransactionsWithCompilations(
       [makeTx({ id: 'a', source: 'believe', net_revenue: 100 })],

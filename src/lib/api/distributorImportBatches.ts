@@ -51,6 +51,13 @@ function rowToBatch(row: Row): DistributorImportBatch {
   }
 }
 
+export class DuplicateImportBatchError extends Error {
+  constructor() {
+    super('An active import batch with this file hash already exists')
+    this.name = 'DuplicateImportBatchError'
+  }
+}
+
 export async function createImportBatch(
   db: DbClient,
   data: CreateImportBatchData,
@@ -71,7 +78,10 @@ export async function createImportBatch(
     .select()
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (error.code === '23505') throw new DuplicateImportBatchError()
+    throw new Error(error.message)
+  }
   if (!row) throw new Error('No data returned from createImportBatch')
   return rowToBatch(row as Row)
 }

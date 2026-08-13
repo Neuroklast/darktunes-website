@@ -93,6 +93,8 @@
 - [ ] Bandcamp payout rows show as skipped (not revenue); empty currency rows warn “treated as EUR”
 - [ ] Believe `01/09/2024` lands in September; Bandcamp `01/09/2024` lands in January
 - [ ] Rebuild Gold does not change bronze row count; a persist warning appears if gold totals diverge from approved statements
+- [ ] Re-upload the same CSV after a failed bronze batch succeeds; a second upload of a completed hash is treated as duplicate (no second active batch)
+- [ ] Compilation filter panel amounts match EUR after FX (not raw USD/GBP cells)
 - [ ] Archive a settlement period without locking first — allowed; archive is final (no unlock / unpay in the UI)
 
 - [ ] Excel export dialog: uncheck a release column → downloaded workbook omits it; Artist/Period/Final Payout remain

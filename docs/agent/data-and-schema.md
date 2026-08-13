@@ -61,6 +61,7 @@ Bronze limits: SSOT `src/lib/sos/bronzeUploadLimits.ts` only.
 **SOS uniqueness (partial indexes, live-DB `IF NOT EXISTS`):**
 - `sales_statements_one_draft_per_period` — `(artist_id, period_start, period_end)` where `status = 'draft'` and `document_type IS DISTINCT FROM 'storno'`
 - `artist_invoices_one_per_statement` — `(statement_id)` where `statement_id IS NOT NULL`
+- `distributor_import_batches_file_hash_active` — `(file_hash)` where `file_hash IS NOT NULL` and `status IS DISTINCT FROM 'failed'`
 
 ## Schema management
 

@@ -161,7 +161,7 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 
 **FX / ECB:** Spot + historical rates via `/api/exchange-rates` (Frankfurter). Processing is gated until rates are non-empty (`useSosCSVProcessor`). Sticky `CurrencyRatesBanner` for loading / live ECB / fallback + refresh. Historical fetch does **not** pre-fill missing months with `FALLBACK_EXCHANGE_RATES` — convert uses spot, then throws if still missing. Empty currency cell → EUR + wizard warning. Missing or ≤0 rate still throws (no silent €0).
 
-**Parser skips:** Bandcamp `payout`, empty lines, and no-artist 0 € rows go to `skipped[]` (counted in `rowsSkipped`, listed as non-blocking wizard warnings). “Too many columns” stays a parse error.
+**Parser skips:** Bandcamp `payout`, empty lines, and no-artist 0 € rows go to `skipped[]` (counted in `rowsSkipped`, listed as non-blocking wizard warnings). “Too many columns” stays a parse error. Compilation summary revenue is EUR after FX (`buildFilteredCompilations` + `normalizeRevenueToEur`). Quoted embedded newlines are preserved via PapaParse records (not `split('\\n')`).
 
 **Dates:** `normalizeDateToMonth(s, source)` — unambiguous day/month always wins; when both parts ≤ 12, Believe/Printful = DD/MM and Bandcamp/Shopify/Darkmerch = MM/DD. Two-digit years are American only for Bandcamp.
 
@@ -193,7 +193,7 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 
 **Admin APIs:** `GET /api/admin/settlements/register`, periods lock/archive, bulk-approve, correction, invoice received/payment.
 
-**Bronze CSV:** Never browser `fetch()` to presigned R2. Upload ≤45 MB via `…/upload`; 45–200 MB via `…/multipart/*`; download via `…/download`. Limits: `bronzeUploadLimits.ts`. UI: `ImportBatchesPanel`.
+**Bronze CSV:** Never browser `fetch()` to presigned R2. Upload ≤45 MB via `…/upload`; 45–200 MB via `…/multipart/*`; download via `…/download`. Limits: `bronzeUploadLimits.ts`. UI: `ImportBatchesPanel`. Confirm still checks SHA-256 of the R2 object. Active `file_hash` is unique (`distributor_import_batches_file_hash_active`); failed batches may reuse the hash. POST lookup + `23505` both return `{ duplicate: true }`.
 
 **Portal statement provenance (chain of custody):** `/portal/statements` shows a trust banner + per-statement “source proof” (distributor, period, SHA-256, batch id, archive time). Download via `GET /api/portal/statements/[id]/source-csv?artistId=` (membership + stream from R2, never browser→presigned). DAL: `getStatementProvenanceByStatementIds` / `toStatementSourceProvenance`. Statements map `batch_id`; RLS `distributor_import_batches: artist read linked` in `reset.sql`. Manual PDF-only statements show “no batch linked”.
 
