@@ -60,15 +60,21 @@ export function SosAnalyticsPersistPanel({
   const handlePersist = () => {
     if (!canPersist) return
     startTransition(async () => {
-      const result = await runPersistSosAnalytics({
-        periodStart,
-        periodEnd,
-        territoryMetrics,
-        merchOrderRows,
-        labelArtists,
-        revenues,
-        bronzeBatchIds,
-      })
+      let result
+      try {
+        result = await runPersistSosAnalytics({
+          periodStart,
+          periodEnd,
+          territoryMetrics,
+          merchOrderRows,
+          labelArtists,
+          revenues,
+          bronzeBatchIds,
+        })
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t.persistFailed)
+        return
+      }
 
       if (result.success) {
         const impactNote =

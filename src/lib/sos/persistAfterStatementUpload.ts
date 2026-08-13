@@ -1,4 +1,5 @@
-import { persistSosAnalytics } from '@/lib/sos/persistSosAnalyticsAction'
+import { runPersistSosAnalytics } from '@/lib/sos/runPersistSosAnalytics'
+import { artistNamesMatch } from '@/lib/sos/artistNameKey'
 import type { TerritoryMetricRow } from '@/lib/sos/data-processor'
 import type { MerchOrderRow } from '@/lib/sos/merchOrderRows'
 import type { ArtistRevenue, LabelArtist } from '@/lib/sos/types'
@@ -22,12 +23,11 @@ export interface PersistAfterUploadContext {
 export async function persistAnalyticsAfterStatementUpload(
   ctx: PersistAfterUploadContext,
 ): Promise<void> {
-  const artistKey = ctx.artistName.trim().toLowerCase()
-  const artistMetrics = ctx.territoryMetrics.filter(
-    (m) => m.artistName.trim().toLowerCase() === artistKey,
+  const artistMetrics = ctx.territoryMetrics.filter((m) =>
+    artistNamesMatch(m.artistName, ctx.artistName),
   )
-  const artistMerch = (ctx.merchOrderRows ?? []).filter(
-    (m) => m.artistName.trim().toLowerCase() === artistKey,
+  const artistMerch = (ctx.merchOrderRows ?? []).filter((m) =>
+    artistNamesMatch(m.artistName, ctx.artistName),
   )
   if (artistMetrics.length === 0) return
 
@@ -40,16 +40,14 @@ export async function persistAnalyticsAfterStatementUpload(
 
   // Period summaries are label-wide snapshots — upsert only via Trends / Save to Portal
   // (full roster). Draft uploads must not overwrite sos_period_summaries per artist.
-  const result = await persistSosAnalytics({
+  const result = await runPersistSosAnalytics({
     periodStart: ctx.periodStart,
     periodEnd: ctx.periodEnd,
-    batchIds,
+    bronzeBatchIds: batchIds,
     territoryMetrics: artistMetrics,
     merchOrderRows: artistMerch.length > 0 ? artistMerch : undefined,
-    labelArtists: ctx.labelArtists.map((la) => ({
-      name: la.name,
-      artistId: la.artistId,
-    })),
+    labelArtists: ctx.labelArtists,
+    includePeriodSummary: false,
   })
 
   if (!result.success) {

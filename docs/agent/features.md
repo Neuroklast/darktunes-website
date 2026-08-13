@@ -179,7 +179,7 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 | `useSosWorkspaceSync` | Period-keyed rules workspace auto-save |
 | `settlementReconciliation.ts` | Pure ledger invariant checks |
 | `trackAssignmentSplits.ts` | Multi-owner revenue splits in `data-processor.ts` |
-| `runPersistSosAnalytics.ts` | Client wrapper for portal analytics persist |
+| `runPersistSosAnalytics.ts` | Client wrapper → `POST /api/admin/sos/persist-analytics` (not a Server Action) |
 
 **7-step workflow:** review → draft upload → label approve → artist viewed → invoice created → received → paid. The UI stepper is derived KPIs (`statementWorkflow.ts`). **DAL enforces FROM→TO** via `STATEMENT_TRANSITIONS` in `statementStatusTransitions.ts` (`updateSalesStatementStatus` throws `InvalidStatementTransitionError` → HTTP 422). Invoice from `label_approved` (skip notified/viewed) stays allowed. Payment from invoice `sent` stays allowed (sets `received_at` if empty). No unlock / unpay in the app — reverse status only via support SQL.
 
@@ -191,7 +191,7 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 
 **DAL:** `settlementPeriods.ts`, `settlementLedger.ts`, `settlementRegister.ts`, `financialAudit.ts`; extended `salesStatements.ts`, `artistInvoices.ts`.
 
-**Admin APIs:** `GET /api/admin/settlements/register`, periods lock/archive, bulk-approve, correction, invoice received/payment.
+**Admin APIs:** `GET /api/admin/settlements/register`, `POST /api/admin/sos/persist-analytics`, periods lock/archive, bulk-approve, correction, invoice received/payment. Artist names match after collapsing whitespace (`FrozenPlasma` = `Frozen Plasma`).
 
 **Bronze CSV:** Never browser `fetch()` to presigned R2. Upload ≤45 MB via `…/upload`; 45–200 MB via `…/multipart/*`; download via `…/download`. Limits: `bronzeUploadLimits.ts`. UI: `ImportBatchesPanel`. Confirm still checks SHA-256 of the R2 object. Active `file_hash` is unique (`distributor_import_batches_file_hash_active`); failed batches may reuse the hash. POST lookup + `23505` both return `{ duplicate: true }`.
 

@@ -1,5 +1,4 @@
-import { persistSosAnalytics } from '@/lib/sos/persistSosAnalyticsAction'
-import type { PersistSosAnalyticsResult } from '@/lib/sos/persistSosAnalyticsAction'
+import type { PersistSosAnalyticsResult } from '@/lib/sos/persistSosAnalyticsCore'
 import type { TerritoryMetricRow } from '@/lib/sos/data-processor'
 import type { MerchOrderRow } from '@/lib/sos/merchOrderRows'
 import type { ArtistRevenue, LabelArtist } from '@/lib/sos/types'
@@ -12,6 +11,17 @@ export interface RunPersistSosAnalyticsParams {
   labelArtists: LabelArtist[]
   revenues?: ArtistRevenue[]
   bronzeBatchIds?: string[]
+  /** Draft uploads must not overwrite the label-wide period snapshot. */
+  includePeriodSummary?: boolean
+}
+
+async function readBearerToken(): Promise<string> {
+  try {
+    const { getAdminAccessToken } = await import('@/lib/admin/getAccessToken')
+    return (await getAdminAccessToken()) || ''
+  } catch {
+    return ''
+  }
 }
 
 export async function runPersistSosAnalytics(
@@ -25,10 +35,11 @@ export async function runPersistSosAnalytics(
     labelArtists,
     revenues = [],
     bronzeBatchIds = [],
+    includePeriodSummary = true,
   } = params
 
   const periodSummary =
-    revenues.length > 0 && periodStart
+    includePeriodSummary && revenues.length > 0 && periodStart
       ? {
           periodStart,
           periodEnd: periodEnd || periodStart,
@@ -45,16 +56,45 @@ export async function runPersistSosAnalytics(
         }
       : undefined
 
-  return persistSosAnalytics({
-    periodStart,
-    periodEnd,
-    batchIds: bronzeBatchIds,
-    territoryMetrics,
-    merchOrderRows,
-    labelArtists: labelArtists.map((la) => ({
-      name: la.name,
-      artistId: la.artistId,
-    })),
-    periodSummary,
-  })
+  try {
+    const token = await readBearerToken()
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) headers.Authorization = `Bearer ${token}`
+
+    const res = await fetch('/api/admin/sos/persist-analytics', {
+      method: 'POST',
+      headers,
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        periodStart,
+        periodEnd,
+        batchIds: bronzeBatchIds,
+        territoryMetrics,
+        merchOrderRows,
+        labelArtists: labelArtists.map((la) => ({
+          name: la.name,
+          artistId: la.artistId,
+        })),
+        periodSummary,
+      }),
+    })
+
+    const json = (await res.json().catch(() => null)) as PersistSosAnalyticsResult | { error?: string } | null
+    if (!res.ok) {
+      const message =
+        json && typeof json === 'object' && 'error' in json && typeof json.error === 'string'
+          ? json.error
+          : `Persist failed (${res.status})`
+      return { success: false, error: message }
+    }
+    if (json && typeof json === 'object' && 'success' in json) {
+      return json as PersistSosAnalyticsResult
+    }
+    return { success: false, error: 'Persist failed' }
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Persist failed',
+    }
+  }
 }

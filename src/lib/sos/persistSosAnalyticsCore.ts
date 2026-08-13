@@ -15,6 +15,7 @@ import { upsertMerchOrders } from '@/lib/api/merchOrders'
 import type { TerritoryMetricRow } from '@/lib/sos/data-processor'
 import type { MerchOrderRow } from '@/lib/sos/merchOrderRows'
 import { writeAppLog } from '@/lib/appLog'
+import { normalizeArtistNameKey } from '@/lib/sos/artistNameKey'
 
 type ServiceClient = SupabaseClient<Database>
 
@@ -82,7 +83,7 @@ function buildArtistIdLookup(
   const map = new Map<string, string>()
   for (const la of labelArtists) {
     if (la.artistId) {
-      map.set(la.name.trim().toLowerCase(), la.artistId)
+      map.set(normalizeArtistNameKey(la.name), la.artistId)
     }
   }
   return map
@@ -115,7 +116,7 @@ export async function persistSosAnalyticsCore(
 
     const upsertRows = []
     for (const row of input.territoryMetrics) {
-      const artistId = artistLookup.get(row.artistName.trim().toLowerCase())
+      const artistId = artistLookup.get(normalizeArtistNameKey(row.artistName))
       if (!artistId) continue
       upsertRows.push({
         artistId,
@@ -240,7 +241,7 @@ export async function persistSosAnalyticsCore(
     if (input.merchOrderRows && input.merchOrderRows.length > 0) {
       const merchRows = []
       for (const row of input.merchOrderRows) {
-        const artistId = artistLookup.get(row.artistName.trim().toLowerCase())
+        const artistId = artistLookup.get(normalizeArtistNameKey(row.artistName))
         if (!artistId) continue
         merchRows.push({
           ...row,

@@ -227,6 +227,14 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-13 — Server Actions + startTransition crash Settlement Center
+
+**Save to Portal used `startTransition` around `persistSosAnalytics` (Server Action) with 1000+ metric rows.** Next.js flight/digest failures there are not a toast — they become the production Server Components overlay or `app/error.tsx`. Draft “Ready for draft” then called the same action after `uploadStatement`. Rule: large SOS persist goes over a regular admin POST; wrap persist in try/catch so the page stays up.
+
+### 2026-08-13 — Bandcamp “FrozenPlasma” is still Frozen Plasma
+
+**Grouping/roster match was `toLowerCase()` only.** Bandcamp omits the space; Believe does not. Collapse whitespace in the artist key or the same act becomes two settlement artists and persist skips unlinked names.
+
 ### 2026-08-13 — Odesli 429 must not abort the rest of the drain
 
 **`break` on the first 429 dropped the rest of the Odesli batch, skipped artist `platform_links`, and `results.some(rateLimited)` rescheduled the whole artist job for 15 minutes.** Skip the item, continue, set `hasMoreWork`, reschedule with 0 cooldown. Never let one API’s 429 mark a multi-API job rate-limited.

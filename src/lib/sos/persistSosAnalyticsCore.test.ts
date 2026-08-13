@@ -65,6 +65,26 @@ describe('persistSosAnalyticsCore', () => {
     vi.mocked(updateImportBatchStatus).mockClear()
   })
 
+  it('matches FrozenPlasma metrics to a Frozen Plasma roster artist', async () => {
+    const result = await persistSosAnalyticsCore(makeServiceDb(), {
+      periodStart: '2026-06',
+      periodEnd: '2026-06',
+      territoryMetrics: [{
+        artistName: 'FrozenPlasma',
+        period: '2026-06',
+        platform: 'Bandcamp',
+        country: 'DE',
+        streams: 0,
+        revenueEur: 12,
+        quantity: 1,
+      }],
+      labelArtists: [{ name: 'Frozen Plasma', artistId: 'artist-1' }],
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.metricsUpserted).toBeGreaterThan(0)
+  })
+
   it('returns event impact row count on success', async () => {
     const result = await persistSosAnalyticsCore(makeServiceDb(), {
       periodStart: '2024-01',

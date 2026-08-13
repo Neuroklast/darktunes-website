@@ -13,6 +13,10 @@ import type {
   LabelArtist,
   TrackRevenueAssignment,
 } from '../types'
+import {
+  normalizeArtistNameKey,
+  preferCanonicalArtistName,
+} from '@/lib/sos/artistNameKey'
 
 /**
  * Returns whether a transaction matches any compilation filter rule.
@@ -179,26 +183,29 @@ export function applyLabelRosterFilter(
 ): ResolvedTransaction[] {
   const rosterNames =
     labelArtists && labelArtists.length > 0
-      ? labelArtists.map(la => la.name.trim().toLowerCase())
+      ? labelArtists.map(la => normalizeArtistNameKey(la.name))
       : null
 
   if (!rosterNames) return assigned
 
   return assigned.flatMap(t => {
-    if (rosterNames.includes(t.main_artist.trim().toLowerCase())) {
-      return [t]
+    const mainKey = normalizeArtistNameKey(t.main_artist)
+    if (rosterNames.includes(mainKey)) {
+      const canonical =
+        labelArtists?.find(la => normalizeArtistNameKey(la.name) === mainKey)?.name ?? t.main_artist
+      return [{ ...t, main_artist: canonical }]
     }
 
     const found = rosterNames.find(rn =>
-      t.original_artist.trim().toLowerCase() === rn ||
+      normalizeArtistNameKey(t.original_artist) === rn ||
       t.original_artist.toLowerCase().split(/\s*[,&]\s*|\s+feat(?:uring)?\.?\s+|\s+ft\.?\s+/i).some(
-        part => part.trim().toLowerCase() === rn,
+        part => normalizeArtistNameKey(part) === rn,
       ),
     )
     if (!found) return []
 
     const canonical =
-      labelArtists?.find(la => la.name.trim().toLowerCase() === found)?.name ?? found
+      labelArtists?.find(la => normalizeArtistNameKey(la.name) === found)?.name ?? found
     return [{ ...t, main_artist: canonical }]
   })
 }
@@ -232,9 +239,14 @@ export function groupTransactionsByArtist(
   const canonicalArtistNames = new Map<string, string>()
 
   for (const t of transactions) {
-    const key = t.main_artist.toLowerCase()
+    const key = normalizeArtistNameKey(t.main_artist)
     if (!canonicalArtistNames.has(key)) {
       canonicalArtistNames.set(key, t.main_artist)
+    } else {
+      canonicalArtistNames.set(
+        key,
+        preferCanonicalArtistName(canonicalArtistNames.get(key) ?? t.main_artist, t.main_artist),
+      )
     }
     const group = artistGroups.get(key)
     if (group) {

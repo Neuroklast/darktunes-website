@@ -1,4 +1,5 @@
 import type { ArtistRevenue, LabelArtist, SplitFee, TrackRevenueAssignment } from '@/lib/sos/types'
+import { normalizeArtistNameKey } from '@/lib/sos/artistNameKey'
 import { ownerPercentagesSumTo100, resolveAssignmentOwners } from '@/lib/sos/trackAssignmentSplits'
 import { interpolate } from '@/lib/i18n/interpolate'
 
@@ -92,7 +93,7 @@ function rosterArtistIds(artists: LabelArtist[]): Set<string> {
 }
 
 function rosterNames(artists: LabelArtist[]): Set<string> {
-  return new Set(artists.map((a) => a.name.toLowerCase()))
+  return new Set(artists.map((a) => normalizeArtistNameKey(a.name)))
 }
 
 export function validateSosWizardState(
@@ -103,7 +104,7 @@ export function validateSosWizardState(
   const rosterIds = rosterArtistIds(input.labelArtists)
   const roster = rosterNames(input.labelArtists)
   const splitByArtist = new Map(
-    input.splitFees.map((s) => [s.artist.toLowerCase(), s]),
+    input.splitFees.map((s) => [normalizeArtistNameKey(s.artist), s]),
   )
 
   if (!input.periodStart || !input.periodEnd) {
@@ -129,10 +130,10 @@ export function validateSosWizardState(
   }
 
   for (const revenue of input.revenues) {
-    const key = revenue.artist.toLowerCase()
+    const key = normalizeArtistNameKey(revenue.artist)
     const rosterMatch = roster.has(key)
     const mappedArtist = input.labelArtists.find(
-      (a) => a.name.toLowerCase() === key,
+      (a) => normalizeArtistNameKey(a.name) === key,
     )
     const hasPortalId = mappedArtist?.artistId?.trim()
 

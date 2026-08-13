@@ -56,8 +56,49 @@ describe('wizardValidation', () => {
       hasPrintfulFile: false,
       hasDarkmerchFile: false,
     })
-    expect(issues.some((i) => i.id === 'unknown-artist-unknown act')).toBe(true)
+    expect(issues.some((i) => i.id === 'unknown-artist-unknownact')).toBe(true)
     expect(wizardHasBlockingIssues(issues)).toBe(false)
+  })
+
+  it('treats FrozenPlasma as the Frozen Plasma roster artist', () => {
+    const issues = validateSosWizardState({
+      revenues: [
+        {
+          artist: 'FrozenPlasma',
+          believeRevenue: 10,
+          bandcampRevenue: 0,
+          darkmerchRevenue: 0,
+          manualRevenue: 0,
+          totalRevenue: 10,
+          splitPercentage: 50,
+          finalAmount: 5,
+          totalQuantity: 0,
+          totalExpenses: 0,
+          distributionFeeDeducted: 0,
+          totalStreamRevenue: 10,
+          totalDownloadRevenue: 0,
+          platformBreakdown: [],
+          countryBreakdown: [],
+          monthlyBreakdown: [],
+          releaseBreakdown: [],
+          physicalReleasesRevenue: 0,
+          digitalSplitPercentage: 50,
+          physicalSplitPercentage: 50,
+          darkmerchSplitPercentage: 50,
+        },
+      ],
+      labelArtists: [{ id: '1', name: 'Frozen Plasma', artistId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' }],
+      splitFees: [{ artist: 'Frozen Plasma', percentage: 50 }],
+      periodStart: '2026-06',
+      periodEnd: '2026-06',
+      hasBelieveFile: false,
+      hasBandcampFile: true,
+      hasShopifyFile: false,
+      hasPrintfulFile: false,
+      hasDarkmerchFile: false,
+    })
+    expect(issues.some((i) => i.id.startsWith('unknown-artist-'))).toBe(false)
+    expect(issues.some((i) => i.id.startsWith('no-portal-id-'))).toBe(false)
   })
 
   it('blocks track assignments that do not sum to 100 percent', () => {

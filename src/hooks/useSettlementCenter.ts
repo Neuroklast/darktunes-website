@@ -39,6 +39,7 @@ import {
   type PaymentMethod,
   type SettlementCenterPanelProps,
 } from '@/components/admin/sos/settlementCenterModel'
+import { normalizeArtistNameKey } from '@/lib/sos/artistNameKey'
 
 export type SettlementCenterState = ReturnType<typeof useSettlementCenter>
 
@@ -140,7 +141,7 @@ export function useSettlementCenter({
   const artistMap = useMemo(() => {
     const map = new Map<string, LabelArtist>()
     for (const artist of labelArtists) {
-      map.set(artist.name.toLowerCase(), artist)
+      map.set(normalizeArtistNameKey(artist.name), artist)
     }
     return map
   }, [labelArtists])
@@ -178,18 +179,18 @@ export function useSettlementCenter({
     const registerRows = register?.rows ?? []
     const registerByArtistId = new Map(registerRows.map((row) => [row.artistId, row]))
     const registerByName = new Map(
-      registerRows.map((row) => [(row.artistName ?? '').toLowerCase(), row]),
+      registerRows.map((row) => [normalizeArtistNameKey(row.artistName ?? ''), row]),
     )
     const seenArtistIds = new Set<string>()
     const seenNames = new Set<string>()
     const masterRows: MasterRow[] = []
 
     for (const revenue of revenues) {
-      const roster = artistMap.get(revenue.artist.toLowerCase())
+      const roster = artistMap.get(normalizeArtistNameKey(revenue.artist))
       const artistId = roster?.artistId?.trim() || null
       const reg =
         (artistId ? registerByArtistId.get(artistId) : undefined) ??
-        registerByName.get(revenue.artist.toLowerCase())
+        registerByName.get(normalizeArtistNameKey(revenue.artist))
 
       if (reg) {
         masterRows.push({
@@ -197,22 +198,22 @@ export function useSettlementCenter({
           payout: revenue.finalAmount,
         })
         seenArtistIds.add(reg.artistId)
-        seenNames.add(revenue.artist.toLowerCase())
+        seenNames.add(normalizeArtistNameKey(revenue.artist))
       } else {
         masterRows.push({
-          artistName: revenue.artist,
+          artistName: roster?.name ?? revenue.artist,
           artistId,
           workflowStatus: workflowStatusFromStatement(undefined, !!artistId),
           paidAmountCents: 0,
           ledgerBalanceEur: 0,
           payout: revenue.finalAmount,
         })
-        seenNames.add(revenue.artist.toLowerCase())
+        seenNames.add(normalizeArtistNameKey(revenue.artist))
       }
     }
 
     for (const reg of registerRows) {
-      if (!seenArtistIds.has(reg.artistId) && !seenNames.has((reg.artistName ?? '').toLowerCase())) {
+      if (!seenArtistIds.has(reg.artistId) && !seenNames.has(normalizeArtistNameKey(reg.artistName ?? ''))) {
         masterRows.push(registerToMasterRow(reg))
       }
     }

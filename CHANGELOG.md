@@ -15,6 +15,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Artist profile preview rows:** Admin → Settings can set how many **grid rows** of videos and news show on `/artists/[slug]` before an in-place **Show all** control (defaults: 2 rows each). Responsive columns match the existing grids (videos 1/2/3, news 1/2). Personal/Fan page unchanged.
 
 ### Fixed
+- **Settlement Save / Ready-for-draft crash:** “Save to Portal” and post-draft gold persist go through `POST /api/admin/sos/persist-analytics` instead of a Server Action inside `startTransition`, so large June CSV payloads no longer trip the production digest toast or `app/error.tsx`. `FrozenPlasma` matches roster **Frozen Plasma**.
 - **Bandsintown cron/health after private-key move:** `syncAll` and Health read per-artist keys from `artist_private_data` (the public `artists.bandsintown_api_key` column is nulled). Concerts sync again without a global key; Health no longer shows Bandsintown as unconfigured when only private keys exist.
 - **Spotify/Odesli cron enqueue sat idle:** `POST /api/sync-api` now kicks `/api/sync` after enqueue so jobs start immediately instead of waiting up to 5 minutes for the next process-queue tick.
 - **Odesli no longer aborts a sync:** HTTP 429 skips that item and continues the batch (releases + artist platform links). Leftover work reschedules immediately; Odesli 429 does not park a full artist job for 15 minutes.
