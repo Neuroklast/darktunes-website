@@ -16,6 +16,7 @@ import {
   linkApprovedStatementToSettlement,
   type SalesStatement,
 } from './salesStatements'
+import { InvalidStatementTransitionError } from '@/lib/sos/statementStatusTransitions'
 
 vi.mock('@/lib/api/settlementLedger', () => ({
   appendLedgerEntry: vi.fn(async () => ({
@@ -208,7 +209,7 @@ describe('createSalesStatement', () => {
         periodStart: '2025-04-01',
         periodEnd: '2025-06-30',
       }),
-    ).rejects.toThrow('duplicate key value violates unique constraint')
+    ).rejects.toBeInstanceOf(DuplicateDraftStatementError)
   })
 
   it('throws when no row is returned', async () => {
@@ -325,7 +326,7 @@ describe('approveAndNotifySalesStatement', () => {
       status: 'artist_notified',
     }
 
-    // fetch status → update approve → update notify
+    // fetch status → update approve → fetch current → update notify
     const from = vi
       .fn()
       .mockReturnValueOnce({
@@ -337,6 +338,11 @@ describe('approveAndNotifySalesStatement', () => {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: approvedRow, error: null }),
+      })
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: approvedRow, error: null }),
       })
       .mockReturnValueOnce(makeBuilder(notifiedRow))
@@ -377,6 +383,22 @@ describe('updateSalesStatementStatus', () => {
     const db = makeMockDb(acknowledgedRow)
     const result = await updateSalesStatementStatus(db, 'stmt-uuid-1', 'acknowledged')
     expect(result.status).toBe('acknowledged')
+  })
+
+  it('allows invoiced after label_approved', async () => {
+    const current: SalesStatementRow = { ...mockStatementRow, status: 'label_approved' }
+    const updated: SalesStatementRow = { ...current, status: 'invoiced' }
+    const db = makeApproveDb(current, updated)
+    const result = await updateSalesStatementStatus(db, 'stmt-uuid-1', 'invoiced')
+    expect(result.status).toBe('invoiced')
+  })
+
+  it('rejects an illegal jump from draft to paid', async () => {
+    const current: SalesStatementRow = { ...mockStatementRow, status: 'draft' }
+    const db = makeApproveDb(current, current)
+    await expect(updateSalesStatementStatus(db, 'stmt-uuid-1', 'paid')).rejects.toBeInstanceOf(
+      InvalidStatementTransitionError,
+    )
   })
 
   it('throws on database error', async () => {

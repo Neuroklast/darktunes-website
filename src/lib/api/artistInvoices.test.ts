@@ -7,6 +7,7 @@ import {
   getArtistInvoiceByStatementId,
   createArtistInvoice,
   createSosLinkedInvoice,
+  DuplicateStatementInvoiceError,
   recordInvoicePayment,
 } from './artistInvoices'
 
@@ -239,6 +240,22 @@ describe('createSosLinkedInvoice', () => {
       issuedDate: '2024-04-01',
     })
     expect(result.artistInvoiceNumber).toBe('KS-2024-001')
+  })
+
+  it('maps unique-violation on statement_id to DuplicateStatementInvoiceError', async () => {
+    const db = makeMockDb(null, { message: 'duplicate key', code: '23505' })
+    await expect(
+      createSosLinkedInvoice(db, {
+        artistId: 'artist-uuid',
+        invoiceNumber: 'INV-DUP',
+        statementId: 'stmt-uuid-1',
+        clientName: 'Test',
+        clientEmail: 'test@example.com',
+        lineItems: [],
+        dueDate: '2024-05-01',
+        issuedDate: '2024-04-01',
+      }),
+    ).rejects.toBeInstanceOf(DuplicateStatementInvoiceError)
   })
 
   it('throws on database error', async () => {

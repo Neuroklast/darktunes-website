@@ -227,6 +227,10 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-13 — Statement status is a graph, not a free PATCH
+
+**`updateSalesStatementStatus` used to write any CHECK-valid status.** The 7-step workflow was only UI/KPI. Rule: `STATEMENT_TRANSITIONS` in the DAL; same-status is a no-op; illegal edge → `InvalidStatementTransitionError` / 422. Draft uniqueness and one invoice per statement need a **partial unique index**, not only an application lookup (races).
+
 ### 2026-08-13 — Opening balance must not live inside period payout
 
 **`finalPayout` / `amount_eur` is period activity only.** Folding last period’s leftover into the same number double-counts it when archive posts `carry_in` for the next period. Show opening as its own line; persist period payout; carry-forward from ledger outstanding cents (`ledger rows exist` — not `ledger || statement`, because 0 is a valid NET). Track owner % that do not sum to 100% must not leak the residual onto the original artist. After `invoice_liability`, do not also post `payment` on the same invoice.

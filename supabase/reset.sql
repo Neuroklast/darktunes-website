@@ -6731,6 +6731,16 @@ ALTER TABLE public.artist_invoices
 ALTER TABLE public.artist_invoices
   ADD COLUMN IF NOT EXISTS settlement_period_id UUID REFERENCES public.settlement_periods (id) ON DELETE SET NULL;
 
+-- One active draft per artist+period (storno excluded). Race-safe complement to
+-- assertNoDuplicateDraft. One SOS-linked invoice per statement.
+CREATE UNIQUE INDEX IF NOT EXISTS sales_statements_one_draft_per_period
+  ON public.sales_statements (artist_id, period_start, period_end)
+  WHERE status = 'draft' AND document_type IS DISTINCT FROM 'storno';
+
+CREATE UNIQUE INDEX IF NOT EXISTS artist_invoices_one_per_statement
+  ON public.artist_invoices (statement_id)
+  WHERE statement_id IS NOT NULL;
+
 ALTER TABLE public.sales_statement_line_items
   ADD COLUMN IF NOT EXISTS amount_original NUMERIC(14, 4);
 ALTER TABLE public.sales_statement_line_items

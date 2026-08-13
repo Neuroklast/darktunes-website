@@ -230,6 +230,8 @@ Configure `mailerlite_api_key` and `mailerlite_group_id` in Admin → API Keys. 
 - [ ] Test artist portal login at `/portal`
 - [ ] Test portal billing profile save at `/portal/billing`
 - [ ] Test SOS statement approval in `/admin` and invoice creation from `/portal/statements`
+
+**SOS support (no product reverse):** There is no Unlock / Unarchive / Unpay in the admin UI. Period archive does not require a prior lock and is final. Illegal statement status jumps are rejected by the DAL. Reverse a status only with reviewed support SQL on the live DB after applying `supabase/reset.sql` (includes draft + invoice unique indexes).
 - [ ] Test file upload
 - [ ] Test artist "Sync Now" button (iTunes releases import)
 - [ ] Check sync_logs table for any errors

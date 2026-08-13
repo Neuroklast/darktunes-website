@@ -150,7 +150,7 @@ export async function uploadStatement(
 
     if (input.notifyArtist && statementId) {
       try {
-        const { getSalesStatementById, updateSalesStatementStatus } = await import(
+        const { approveSalesStatement, getSalesStatementById, updateSalesStatementStatus } = await import(
           '@/lib/api/salesStatements'
         )
         const { notifyStatementArtist } = await import('@/lib/sos/notifyStatementArtist')
@@ -158,6 +158,9 @@ export async function uploadStatement(
         if (statement) {
           const emailResult = await notifyStatementArtist(serviceSupabase, statement, fetch)
           if (emailResult.success) {
+            if (statement.status === 'draft') {
+              await approveSalesStatement(serviceSupabase, statement.id)
+            }
             await updateSalesStatementStatus(serviceSupabase, statement.id, 'artist_notified')
           } else {
             console.warn('[uploadStatement] Email notification skipped:', emailResult.error)
