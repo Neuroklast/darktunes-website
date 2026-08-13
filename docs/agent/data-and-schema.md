@@ -58,6 +58,10 @@ Bronze limits: SSOT `src/lib/sos/bronzeUploadLimits.ts` only.
 
 **Statement provenance:** `sales_statements.batch_id` → `distributor_import_batches` (`file_hash`, `distributor`, period, `r2_key`). Portal artists may SELECT linked batches (policy `distributor_import_batches: artist read linked`). Source CSV download is server-streamed only.
 
+**SOS uniqueness (partial indexes, live-DB `IF NOT EXISTS`):**
+- `sales_statements_one_draft_per_period` — `(artist_id, period_start, period_end)` where `status = 'draft'` and `document_type IS DISTINCT FROM 'storno'`
+- `artist_invoices_one_per_statement` — `(statement_id)` where `statement_id IS NOT NULL`
+
 ## Schema management
 
 ⛔ **No** `supabase/migrations/`. Only `supabase/reset.sql` + `src/types/database.ts`.

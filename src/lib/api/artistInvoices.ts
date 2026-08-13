@@ -202,6 +202,13 @@ export async function createArtistInvoice(
   return rowToArtistInvoice(row)
 }
 
+export class DuplicateStatementInvoiceError extends Error {
+  constructor() {
+    super('An invoice for this statement already exists')
+    this.name = 'DuplicateStatementInvoiceError'
+  }
+}
+
 export async function createSosLinkedInvoice(
   supabase: DbClient,
   data: CreateSosLinkedInvoiceData,
@@ -228,7 +235,10 @@ export async function createSosLinkedInvoice(
     .select()
     .single()
 
-  if (error) throw new Error(`Failed to create linked invoice: ${error.message}`)
+  if (error) {
+    if (error.code === '23505') throw new DuplicateStatementInvoiceError()
+    throw new Error(`Failed to create linked invoice: ${error.message}`)
+  }
   return rowToArtistInvoice(row)
 }
 

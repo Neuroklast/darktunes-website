@@ -175,7 +175,11 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 | `trackAssignmentSplits.ts` | Multi-owner revenue splits in `data-processor.ts` |
 | `runPersistSosAnalytics.ts` | Client wrapper for portal analytics persist |
 
-**7-step workflow:** review → draft upload → label approve → artist viewed → invoice created → received → paid.
+**7-step workflow:** review → draft upload → label approve → artist viewed → invoice created → received → paid. The UI stepper is derived KPIs (`statementWorkflow.ts`). **DAL enforces FROM→TO** via `STATEMENT_TRANSITIONS` in `statementStatusTransitions.ts` (`updateSalesStatementStatus` throws `InvalidStatementTransitionError` → HTTP 422). Invoice from `label_approved` (skip notified/viewed) stays allowed. Payment from invoice `sent` stays allowed (sets `received_at` if empty). No unlock / unpay in the app — reverse status only via support SQL.
+
+**Uniqueness:** one non-storno draft per artist+period (`sales_statements_one_draft_per_period`); one SOS invoice per statement (`artist_invoices_one_per_statement`). App lookup still 409s first; unique index catches races (`23505`).
+
+**Periods:** Archive does **not** require a prior lock (operators archive open periods on purpose). Archive is final.
 
 **Tables:** `settlement_periods`, `artist_settlement_ledger`, `period_carry_forwards`, `financial_audit_events`; extended `sales_statements`, `artist_invoices`.
 

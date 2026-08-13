@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { appendLedgerEntry, hasLedgerEntry } from '@/lib/api/settlementLedger'
 import { getOrCreateSettlementPeriod } from '@/lib/api/settlementPeriods'
+import { assertStatementTransition } from '@/lib/sos/statementStatusTransitions'
 import { PUBLIC_QUERY_LIMITS } from './queryLimits'
 
 type DbClient = SupabaseClient<Database>
@@ -139,7 +140,10 @@ export async function createSalesStatement(
     .select()
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (error.code === '23505') throw new DuplicateDraftStatementError()
+    throw new Error(error.message)
+  }
   if (!row) throw new Error('No data returned from createSalesStatement')
   return rowToSalesStatement(row as SalesStatementRow)
 }
@@ -247,14 +251,21 @@ export async function updateSalesStatementStatus(
   id: string,
   status: SalesStatementStatus,
 ): Promise<SalesStatement> {
+  const existing = await getSalesStatementById(db, id)
+  if (!existing) throw new Error('Statement not found')
+  if (existing.status === status) return existing
+  assertStatementTransition(existing.status, status)
+
   const { data: row, error } = await db
     .from('sales_statements')
     .update({ status })
     .eq('id', id)
+    .eq('status', existing.status)
     .select('*')
     .single()
 
   if (error) throw new Error(error.message)
+  if (!row) throw new Error(`Cannot change statement status from "${existing.status}" (concurrent update)`)
   return rowToSalesStatement(row as SalesStatementRow)
 }
 
@@ -373,6 +384,7 @@ export async function linkApprovedStatementToSettlement(
     if (error) throw new Error(error.message)
 
     if (original && original.status !== 'superseded') {
+      assertStatementTransition(original.status, 'superseded')
       const { error: supersedeError } = await db
         .from('sales_statements')
         .update({

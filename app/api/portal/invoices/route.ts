@@ -6,6 +6,7 @@ import { getBillingProfile, isBillingProfileComplete } from '@/lib/api/artistBil
 import {
   createArtistInvoice,
   createSosLinkedInvoice,
+  DuplicateStatementInvoiceError,
   getArtistInvoiceByStatementId,
   listArtistInvoices,
   updateInvoice,
@@ -16,6 +17,9 @@ import {
   getOrCreateSettlementPeriod,
   SettlementPeriodNotWritableError,
 } from '@/lib/api/settlementPeriods'
+import {
+  InvalidStatementTransitionError,
+} from '@/lib/sos/statementStatusTransitions'
 import { getSalesStatementById, updateSalesStatementStatus } from '@/lib/api/salesStatements'
 import { getSiteSettings } from '@/lib/api/siteSettings'
 import { sendInvoiceEmail } from '@/lib/email/sendInvoiceEmail'
@@ -227,15 +231,23 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     }
   }
 
-  const invoice = statement
-    ? await write('artist_invoices', 'insert', (db) =>
-        createSosLinkedInvoice(db, {
-          ...invoicePayload,
-          statementId: statement.id,
-          settlementPeriodId,
-        }),
-      )
-    : await write('artist_invoices', 'insert', (db) => createArtistInvoice(db, invoicePayload))
+  let invoice
+  try {
+    invoice = statement
+      ? await write('artist_invoices', 'insert', (db) =>
+          createSosLinkedInvoice(db, {
+            ...invoicePayload,
+            statementId: statement.id,
+            settlementPeriodId,
+          }),
+        )
+      : await write('artist_invoices', 'insert', (db) => createArtistInvoice(db, invoicePayload))
+  } catch (err) {
+    if (err instanceof DuplicateStatementInvoiceError) {
+      throw new ApiError(409, err.message)
+    }
+    throw err
+  }
 
   const pdfBytes = await generateInvoicePdf({
     invoiceNumber: input.artist_invoice_number,
@@ -305,9 +317,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     statement &&
     ['label_approved', 'artist_notified', 'viewed'].includes(statement.status)
   ) {
-    await write('sales_statements', 'update', (db) =>
-      updateSalesStatementStatus(db, statement.id, 'invoiced'),
-    )
+    try {
+      await write('sales_statements', 'update', (db) =>
+        updateSalesStatementStatus(db, statement.id, 'invoiced'),
+      )
+    } catch (err) {
+      if (err instanceof InvalidStatementTransitionError) {
+        throw new ApiError(422, err.message)
+      }
+      throw err
+    }
   }
 
   if (statement && settlementPeriodId) {

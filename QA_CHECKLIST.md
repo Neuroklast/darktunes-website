@@ -89,6 +89,8 @@
 - [ ] Archive a period with leftover → next period opening line + `carry_in`; new `amount_eur` does not include that leftover
 - [ ] Track split 70/20 blocks Continue and does not leak 10% to the original artist
 - [ ] Pay a statement-linked invoice: no second `payment` ledger row after `invoice_liability`; `received_at` is set if it was empty
+- [ ] Illegal statement status jump (e.g. draft → paid) returns 422; second SOS invoice for the same statement returns 409
+- [ ] Archive a settlement period without locking first — allowed; archive is final (no unlock / unpay in the UI)
 
 - [ ] Excel export dialog: uncheck a release column → downloaded workbook omits it; Artist/Period/Final Payout remain
 - [ ] Save Excel preset → reopen dialog → preset still selected and columns match (workspace / rules preset)
