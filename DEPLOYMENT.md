@@ -325,10 +325,12 @@ Body:    { "type": "bandsintown" }
 ```
 
 > **Bandsintown sync note:** The `bandsintown` sync type iterates through every
-> artist that has `bandsintown_id` **and** a usable API key. Per-artist keys live
-> in `artist_private_data.bandsintown_api_key` (the public `artists` column is
+> artist that has `bandsintown_id` **and** a usable API key. That column holds the
+> **artist name as registered on Bandsintown** (UI label: Bandsintown Artist Name),
+> not a numeric artist id. Per-artist keys live in
+> `artist_private_data.bandsintown_api_key` (the public `artists` column is
 > nulled after dual-write). A global `bandsintown_api_key` in Admin → API Keys is
-> optional fallback. Artists without `bandsintown_id` or any key are skipped.
+> optional fallback. Artists without a name or any key are skipped.
 >
 > **Queue kick:** `type=spotify`, `odesli`, `songkick`, and `bandsintown` enqueue
 > `sync_queue` jobs and `/api/sync-api` immediately kicks `/api/sync`. YouTube

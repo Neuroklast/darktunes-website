@@ -53,7 +53,7 @@
 | Topic | Rule |
 |-------|------|
 | UI | Profile → **Integrations** tab — per active artist (multi-project switcher) |
-| Fields | `bandsintown_id` on `artists`; `bandsintown_api_key` in `artist_private_data` (admin ArtistForm dual-writes the same) |
+| Fields | UI: **Bandsintown Artist Name** (the name on Bandsintown). Stored in `artists.bandsintown_id`. Key in `artist_private_data` (admin ArtistForm dual-writes the same). |
 | API | `GET/PUT /api/portal/integrations/bandsintown?artistId=`; `POST …/sync` — membership write; key never returned in full (`hasApiKey` only) |
 | Sync | One-off concert upsert via `fetchBandsintownArtistEvents` (same as admin sync) |
 

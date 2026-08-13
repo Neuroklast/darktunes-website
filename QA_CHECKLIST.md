@@ -66,7 +66,8 @@
 - [ ] `/portal/spotify-trends` shows empty state when no presence data (not a wall of zeros)
 - [ ] `/portal/sos-analytics` shows empty state when no SOS statements; tabs exclude Spotify presence
 - [ ] `/portal/analytics` redirects to Sales Analytics (`/portal/sos-analytics`); `?tab=listeners` → Spotify Trends
-- [ ] Profile → Integrations: save Bandsintown ID + API key; key masked after save (`hasApiKey`)
+- [ ] Profile → Integrations: save Bandsintown artist name + API key; key masked after save (`hasApiKey`)
+- [ ] Admin artist form and portal Integrations show **Bandsintown Artist Name** (not Artist ID)
 - [ ] Sync concerts from Integrations updates tour list when credentials valid
 
 ## Portal release submission
