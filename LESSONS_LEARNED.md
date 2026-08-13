@@ -227,6 +227,10 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-13 — Bandsintown lookup is the artist name
+
+**The public events API path is `/artists/{artistname}/events`.** A raw numeric id in the field 404s/returns empty. Label the field **Bandsintown Artist Name**. `id:12345` is a separate optional syntax, not the default.
+
 ### 2026-08-13 — Odesli 429 must not abort the rest of the drain
 
 **`break` on the first 429 dropped the rest of the Odesli batch, skipped artist `platform_links`, and `results.some(rateLimited)` rescheduled the whole artist job for 15 minutes.** Skip the item, continue, set `hasMoreWork`, reschedule with 0 cooldown. Never let one API’s 429 mark a multi-API job rate-limited.

@@ -28,6 +28,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Accounting drafts crash / silent errors:** `app/error.tsx` now reports render crashes to `/api/log-error`; chunk-load reload happens at most once per error. Statement history join, invalid period dates, and draft-create failures no longer take down the admin app. Settlement register reads an existing period (no write-on-GET) and loads ledger balances in one query.
 
 ### Changed
+- **Bandsintown artist field:** Admin Artist form and portal Integrations label the lookup as **Bandsintown Artist Name** (the name on Bandsintown), not Artist ID. The API still stores it in `artists.bandsintown_id`.
 - **Public Lenis feel:** Wheel uses lerp-only smoothing (`0.08`) so mouse notches interpolate instead of restarting a 1.1s ease. Anchor jumps keep a timed scroll. Official `lenis.css` imported.
 - **Dependencies (Dependabot #554–#558):** `marked` 15→18, `@radix-ui/react-label` 2.1.15, `@radix-ui/react-menubar` 1.1.24, `@radix-ui/react-slider` 1.4.7, `@vitejs/plugin-react` 6.0.5.
 - **Dependencies (Dependabot groups #562–#564):** `@radix-ui/*` patch/minor batch, `@aws-sdk/*` 3.1106.0, `eslint` 9.39.5, `eslint-config-next` 16.3.0, `typescript-eslint` 8.66.0.

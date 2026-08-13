@@ -4,8 +4,9 @@
  * Bandsintown API v3 integration.
  *
  * Fetches upcoming events for a given artist identifier.
- * The identifier is the artist name as registered on Bandsintown,
- * or "id:{bandsintown_numeric_id}".
+ * The identifier is the **artist name as registered on Bandsintown**
+ * (UI: Bandsintown Artist Name). `id:{numeric_id}` also works but is
+ * not what the admin/portal fields ask for.
  *
  * Docs: https://app.swaggerhub.com/apis/Bandsintown/PublicAPI/3.0.0
  * Endpoint: GET https://rest.bandsintown.com/artists/{artistname}/events?app_id={app_id}
