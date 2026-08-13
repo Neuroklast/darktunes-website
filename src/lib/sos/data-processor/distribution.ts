@@ -1,5 +1,9 @@
 import type { SalesTransaction } from '../ingest/csv-parser'
-import { resolveAssignmentOwners } from '@/lib/sos/trackAssignmentSplits'
+import {
+  ownerPercentagesSumTo100,
+  resolveAssignmentOwners,
+  splitRevenueAmongOwners,
+} from '@/lib/sos/trackAssignmentSplits'
 import type {
   ArtistMapping,
   CompilationFilter,
@@ -126,18 +130,33 @@ export function applyTrackRevenueAssignments(
     if (!match) return [t]
 
     const owners = resolveAssignmentOwners(match)
+    if (owners.length === 0) return [t]
+
+    const ownersForSum = owners.map((owner) => ({ percentage: owner.fraction * 100 }))
+    if (!ownerPercentagesSumTo100(ownersForSum)) {
+      return [t]
+    }
 
     if (owners.length === 1 && owners[0].fraction === 1) {
       return [{ ...t, main_artist: owners[0].artist }]
     }
 
-    return owners.map(owner => ({
-      ...t,
-      id: `${t.id}__split__${owner.artist}`,
-      main_artist: owner.artist,
-      net_revenue: t.net_revenue * owner.fraction,
-      quantity: Math.round(t.quantity * owner.fraction),
-    }))
+    const revenueByOwner = splitRevenueAmongOwners(t.net_revenue, owners)
+    let allocatedQty = 0
+    return owners.map((owner, index) => {
+      const isLast = index === owners.length - 1
+      const quantity = isLast
+        ? t.quantity - allocatedQty
+        : Math.round(t.quantity * owner.fraction)
+      if (!isLast) allocatedQty += quantity
+      return {
+        ...t,
+        id: `${t.id}__split__${owner.artist}`,
+        main_artist: owner.artist,
+        net_revenue: revenueByOwner.get(owner.artist.trim()) ?? 0,
+        quantity,
+      }
+    })
   })
 }
 

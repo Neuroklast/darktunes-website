@@ -59,4 +59,29 @@ describe('wizardValidation', () => {
     expect(issues.some((i) => i.id === 'unknown-artist-unknown act')).toBe(true)
     expect(wizardHasBlockingIssues(issues)).toBe(false)
   })
+
+  it('blocks track assignments that do not sum to 100 percent', () => {
+    const issues = validateSosWizardState({
+      revenues: [],
+      labelArtists: [{ id: '1', name: 'Roster Artist', artistId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' }],
+      splitFees: [],
+      periodStart: '2025-01',
+      periodEnd: '2025-03',
+      hasBelieveFile: true,
+      hasBandcampFile: false,
+      hasShopifyFile: false,
+      hasPrintfulFile: false,
+      hasDarkmerchFile: false,
+      trackRevenueAssignments: [{
+        id: 'a1',
+        trackTitle: 'Nightfall',
+        owners: [
+          { artist: 'Alpha', percentage: 70 },
+          { artist: 'Beta', percentage: 20 },
+        ],
+      }],
+    })
+    expect(issues.some((i) => i.id === 'track-split-nightfall')).toBe(true)
+    expect(wizardHasBlockingIssues(issues)).toBe(true)
+  })
 })

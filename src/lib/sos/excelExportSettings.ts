@@ -21,6 +21,8 @@ export const EXCEL_COLUMN_IDS = [
   'summary.digitalSplits',
   'summary.physicalSplit',
   'summary.darkmerchSplit',
+  'summary.openingBalance',
+  'summary.amountDue',
   'releases.title',
   'releases.upcEan',
   'releases.catalogNumber',
@@ -99,6 +101,8 @@ export const EXCEL_COLUMN_GROUPS: Array<{
       'summary.digitalSplits',
       'summary.physicalSplit',
       'summary.darkmerchSplit',
+      'summary.openingBalance',
+      'summary.amountDue',
     ],
   },
   {

@@ -7,6 +7,7 @@ import {
   processTransactionsWithCompilations,
   aggregateTerritoryMetrics,
 } from './index'
+import { applyTrackRevenueAssignments } from './distribution'
 
 function makeTx(overrides: Partial<SalesTransaction>): SalesTransaction {
   return {
@@ -93,7 +94,7 @@ describe('processTransactionsWithCompilations', () => {
     expect(row.finalPayout).toBeCloseTo(115, 4)
   })
 
-  it('applies carry-forward balance to final payout', () => {
+  it('keeps opening off final payout and reports it separately', () => {
     const { artistData } = processTransactionsWithCompilations(
       [makeTx({ id: 'a', net_revenue: 50 })],
       {
@@ -103,7 +104,9 @@ describe('processTransactionsWithCompilations', () => {
       },
     )
 
-    expect(artistData[0].finalPayout).toBeCloseTo(37.5, 4)
+    expect(artistData[0].finalPayout).toBeCloseTo(50, 4)
+    expect(artistData[0].openingBalanceEur).toBeCloseTo(-12.5, 4)
+    expect(artistData[0].amountDueEur).toBeCloseTo(37.5, 4)
   })
 
   it('filters transactions to label roster artists', () => {
@@ -148,6 +151,43 @@ describe('processTransactionsWithCompilations', () => {
 
     expect(artistData[0].believeSplitPercentage).toBe(70)
     expect(artistData[0].finalPayout).toBeCloseTo(70, 4)
+  })
+})
+
+describe('applyTrackRevenueAssignments', () => {
+  it('splits 60/40 with last-owner residual', () => {
+    const rows = applyTrackRevenueAssignments(
+      [{ ...makeTx({ id: 't1', net_revenue: 100, quantity: 10 }), main_artist: 'Neuroklast' }],
+      [{
+        id: 'a1',
+        trackTitle: 'Track',
+        owners: [
+          { artist: 'Alpha', percentage: 60 },
+          { artist: 'Beta', percentage: 40 },
+        ],
+      }],
+    )
+    expect(rows).toHaveLength(2)
+    expect(rows[0].net_revenue + rows[1].net_revenue).toBeCloseTo(100, 8)
+    expect(rows.map((r) => r.main_artist).sort()).toEqual(['Alpha', 'Beta'])
+  })
+
+  it('does not leak revenue when owner percentages do not sum to 100', () => {
+    const original = { ...makeTx({ id: 't1', net_revenue: 100 }), main_artist: 'Neuroklast' }
+    const rows = applyTrackRevenueAssignments(
+      [original],
+      [{
+        id: 'a1',
+        trackTitle: 'Track',
+        owners: [
+          { artist: 'Alpha', percentage: 70 },
+          { artist: 'Beta', percentage: 20 },
+        ],
+      }],
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0].net_revenue).toBe(100)
+    expect(rows[0].main_artist).toBe('Neuroklast')
   })
 })
 

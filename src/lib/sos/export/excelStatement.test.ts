@@ -21,6 +21,8 @@ function makeArtist(overrides: Partial<SafeProcessedArtistData> = {}): SafeProce
     grossRevenue: 43,
     splitPercentage: 50,
     finalPayout: 21.5,
+    openingBalanceEur: 0,
+    amountDueEur: 21.5,
     totalQuantity: 3,
     totalExpenses: 0,
     expenseEntries: [],
@@ -97,7 +99,9 @@ describe('generateExcel column filters', () => {
     const labels = summary.map((row) => String(row[0]))
     expect(labels).toContain('Artist')
     expect(labels).toContain('Period')
-    expect(labels).toContain('Final Payout')
+    expect(labels).toContain('Period Payout')
+    expect(labels).toContain('Opening Balance')
+    expect(labels).toContain('Amount Due')
     expect(labels).not.toContain('Believe Revenue')
     expect(labels).not.toContain('Bandcamp Revenue')
   })

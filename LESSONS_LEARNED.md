@@ -227,6 +227,10 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-13 — Opening balance must not live inside period payout
+
+**`finalPayout` / `amount_eur` is period activity only.** Folding last period’s leftover into the same number double-counts it when archive posts `carry_in` for the next period. Show opening as its own line; persist period payout; carry-forward from ledger outstanding cents (`ledger rows exist` — not `ledger || statement`, because 0 is a valid NET). Track owner % that do not sum to 100% must not leak the residual onto the original artist. After `invoice_liability`, do not also post `payment` on the same invoice.
+
 ### 2026-08-13 — Lenis duration on the instance makes wheel scroll stepped
 
 **Do not set both `lerp` and `duration`/`easing` on `LENIS_OPTIONS`:** Lenis’ animator prefers duration when both exist, so each Windows mouse-wheel notch restarts a ~1s ease instead of damping toward the target. Wheel = lerp only; pass duration only on programmatic `scrollTo` (anchors).

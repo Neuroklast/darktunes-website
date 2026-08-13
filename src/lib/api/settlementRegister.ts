@@ -2,9 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import {
   computeCarryForwardOpeningBalance,
-  getArtistOutstandingBalance,
+  getLedgerEntriesForArtist,
   getOutstandingBalancesForPeriod,
-  invoiceGrossCents,
+  resolveCarryStatementBalance,
+  sumLedgerBalance,
+  unpaidInvoiceContributionCents,
   type CarryForwardBreakdown,
 } from '@/lib/api/settlementLedger'
 import { reconcileRegisterOpenBalance } from '@/lib/api/settlementReconciliation'
@@ -186,7 +188,8 @@ export async function computeCarryForwardBalances(
       return sum + Number(s.amount_eur ?? 0)
     }, 0)
 
-    const ledgerBalance = await getArtistOutstandingBalance(db, artistId, periodId)
+    const ledgerEntries = await getLedgerEntriesForArtist(db, artistId, periodId)
+    const ledgerBalance = sumLedgerBalance(ledgerEntries)
 
     const { data: invoices } = await db
       .from('artist_invoices')
@@ -197,18 +200,18 @@ export async function computeCarryForwardBalances(
     let unpaidInvoiceCents = 0
     let partialRemainder = 0
     for (const inv of invoices ?? []) {
-      const total = invoiceGrossCents(
-        Array.isArray(inv.line_items) ? inv.line_items : [],
-        Number(inv.tax_rate_pct ?? 0),
-      )
-      const paid = Number(inv.paid_amount_cents ?? 0)
-      if (inv.status === 'paid') continue
-      if (paid > 0) partialRemainder += total - paid
-      else unpaidInvoiceCents += total
+      const contribution = unpaidInvoiceContributionCents(inv)
+      if (contribution <= 0) continue
+      if (Number(inv.paid_amount_cents ?? 0) > 0) partialRemainder += contribution
+      else unpaidInvoiceCents += contribution
     }
 
     const breakdown: CarryForwardBreakdown = {
-      statementBalanceEur: ledgerBalance || statementBalance,
+      statementBalanceEur: resolveCarryStatementBalance(
+        ledgerEntries.length > 0,
+        ledgerBalance,
+        statementBalance,
+      ),
       unpaidInvoiceCents,
       partialPaymentRemainderCents: partialRemainder,
     }

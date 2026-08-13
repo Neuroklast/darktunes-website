@@ -138,6 +138,10 @@ export const ACCOUNTING_FALLBACK = {
   validationRosterNoPortalDesc:
     'No roster artist has a portal link. Statement uploads are not possible.',
   validationRosterNoPortalAction: 'Review roster',
+  validationTrackSplitTitle: 'Track split must total 100%: {track}',
+  validationTrackSplitDesc:
+    'Owner percentages for this assignment do not add up to 100%. Revenue is not split until this is fixed.',
+  validationTrackSplitAction: 'Open track splits',
   setupTitle: 'Set up accounting period',
   setupSubtitle:
     'Enter the settlement period and label defaults used on PDFs. Advanced rules stay available in Advanced mode.',

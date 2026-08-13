@@ -306,8 +306,8 @@ export function buildProcessedArtistData({
         manualRevenue
   }
 
-  const carryForwardEur = config.carryForwardByArtist?.[lowerKey] ?? 0
-  finalPayout += carryForwardEur
+  const openingBalanceEur = config.carryForwardByArtist?.[lowerKey] ?? 0
+  const amountDueEur = finalPayout + openingBalanceEur
 
   return {
     artist,
@@ -324,6 +324,8 @@ export function buildProcessedArtistData({
     grossRevenue,
     splitPercentage,
     finalPayout,
+    openingBalanceEur,
+    amountDueEur,
     totalQuantity,
     totalExpenses,
     expenseEntries,

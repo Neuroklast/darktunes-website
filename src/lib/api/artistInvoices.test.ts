@@ -7,6 +7,7 @@ import {
   getArtistInvoiceByStatementId,
   createArtistInvoice,
   createSosLinkedInvoice,
+  recordInvoicePayment,
 } from './artistInvoices'
 
 type DbClient = SupabaseClient<Database>
@@ -254,5 +255,86 @@ describe('createSosLinkedInvoice', () => {
         issuedDate: '2024-04-01',
       }),
     ).rejects.toThrow('SOS insert failed')
+  })
+})
+
+function makePaymentDb(existing: InvoiceRow, updated: InvoiceRow) {
+  let singleCalls = 0
+  const update = vi.fn().mockReturnThis()
+  const builder = {
+    select: vi.fn().mockReturnThis(),
+    update,
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockImplementation(async () => {
+      singleCalls += 1
+      return singleCalls === 1
+        ? { data: existing, error: null }
+        : { data: updated, error: null }
+    }),
+  }
+  return {
+    db: { from: vi.fn().mockReturnValue(builder) } as unknown as DbClient,
+    update,
+  }
+}
+
+describe('recordInvoicePayment', () => {
+  it('sets received_at when paying a sent invoice that was never marked received', async () => {
+    const existing: InvoiceRow = {
+      ...mockInvoiceRow,
+      status: 'sent',
+      received_at: null,
+      received_by: null,
+      outstanding_amount_cents: 146913,
+    }
+    const updated: InvoiceRow = {
+      ...existing,
+      status: 'paid',
+      paid_amount_cents: 146913,
+      outstanding_amount_cents: 0,
+      received_at: '2024-04-02T00:00:00Z',
+      received_by: 'actor-1',
+      paid_at: '2024-04-02T00:00:00Z',
+      paid_by: 'actor-1',
+    }
+    const { db, update } = makePaymentDb(existing, updated)
+
+    const result = await recordInvoicePayment(db, 'inv-uuid-1', {
+      amountCents: 146913,
+      paymentMethod: 'sepa',
+      actorId: 'actor-1',
+    })
+
+    expect(result.status).toBe('paid')
+    const patch = update.mock.calls[0]?.[0] as { received_at?: string; received_by?: string }
+    expect(patch.received_at).toEqual(expect.any(String))
+    expect(patch.received_by).toBe('actor-1')
+  })
+
+  it('keeps an existing received_at when recording payment', async () => {
+    const existing: InvoiceRow = {
+      ...mockInvoiceRow,
+      status: 'received',
+      received_at: '2024-04-01T12:00:00Z',
+      received_by: 'receiver-1',
+      outstanding_amount_cents: 146913,
+    }
+    const updated: InvoiceRow = {
+      ...existing,
+      status: 'paid',
+      paid_amount_cents: 146913,
+      outstanding_amount_cents: 0,
+    }
+    const { db, update } = makePaymentDb(existing, updated)
+
+    await recordInvoicePayment(db, 'inv-uuid-1', {
+      amountCents: 146913,
+      paymentMethod: 'sepa',
+      actorId: 'payer-1',
+    })
+
+    const patch = update.mock.calls[0]?.[0] as { received_at?: string; received_by?: string }
+    expect(patch.received_at).toBe('2024-04-01T12:00:00Z')
+    expect(patch.received_by).toBe('receiver-1')
   })
 })

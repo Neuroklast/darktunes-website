@@ -98,6 +98,8 @@ const SUMMARY_METRIC_ROWS: Array<{
     id: 'summary.darkmerchSplit',
     build: (data) => [['Artist Split – Merchandise/Darkmerch (%)', data.darkmerchSplitPercentage]],
   },
+  { id: 'summary.openingBalance', build: (data) => [['Opening Balance', data.openingBalanceEur ?? 0]] },
+  { id: 'summary.amountDue', build: (data) => [['Amount Due', data.amountDueEur ?? data.finalPayout]] },
 ]
 
 const RELEASE_COLUMNS: Array<{
@@ -177,7 +179,9 @@ async function buildExcel(
         summaryData.push(...metric.build(artistData))
       }
     }
-    summaryData.push(['Final Payout', artistData.finalPayout])
+    summaryData.push(['Period Payout', artistData.finalPayout])
+    summaryData.push(['Opening Balance', artistData.openingBalanceEur ?? 0])
+    summaryData.push(['Amount Due', artistData.amountDueEur ?? artistData.finalPayout])
 
     const summarySheet = workbook.addWorksheet('Summary')
     summarySheet.columns = [{ width: 38 }, { width: 25 }]

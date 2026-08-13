@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { getLedgerEntriesForArtist } from './settlementLedger'
 import { buildSettlementRegister, computeCarryForwardBalances } from './settlementRegister'
 
 type DbClient = SupabaseClient<Database>
@@ -53,26 +54,20 @@ vi.mock('@/lib/api/artistInvoices', () => ({
   ]),
 }))
 
-vi.mock('@/lib/api/settlementLedger', () => ({
-  getOutstandingBalancesForPeriod: vi.fn(async () => new Map([['artist-1', 120]])),
-  getArtistOutstandingBalance: vi.fn(async (_db, artistId: string) => {
-    if (artistId === 'artist-1') return 120
-    if (artistId === 'artist-2') return 0
-    return 0
-  }),
-  computeCarryForwardOpeningBalance: vi.fn((breakdown: { statementBalanceEur: number; unpaidInvoiceCents: number; partialPaymentRemainderCents: number }) =>
-    breakdown.statementBalanceEur + breakdown.unpaidInvoiceCents / 100 + breakdown.partialPaymentRemainderCents / 100,
-  ),
-  invoiceTotalCents: vi.fn((items: Array<{ qty: number; unit_price_cents: number }>) =>
-    items.reduce((sum, item) => sum + item.qty * item.unit_price_cents, 0),
-  ),
-  invoiceGrossCents: vi.fn(
-    (items: Array<{ qty: number; unit_price_cents: number }>, taxRatePct: number) => {
-      const net = items.reduce((sum, item) => sum + item.qty * item.unit_price_cents, 0)
-      return net + Math.round(net * (taxRatePct / 100))
-    },
-  ),
-}))
+vi.mock('@/lib/api/settlementLedger', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/settlementLedger')>()
+  return {
+    ...actual,
+    getOutstandingBalancesForPeriod: vi.fn(async () => new Map([['artist-1', 120]])),
+    getLedgerEntriesForArtist: vi.fn(async (_db: unknown, artistId: string) => {
+      if (artistId === 'artist-1') return [{ amountEur: 120 }]
+      return []
+    }),
+    sumLedgerBalance: vi.fn((entries: Array<{ amountEur: number }>) =>
+      entries.reduce((sum, entry) => sum + entry.amountEur, 0),
+    ),
+  }
+})
 
 function makeBuilder(data: unknown = null, error: unknown = null) {
   const result = { data, error }
@@ -180,5 +175,47 @@ describe('computeCarryForwardBalances', () => {
 
     const balances = await computeCarryForwardBalances(db, 'period-1')
     expect(balances).toHaveLength(0)
+  })
+
+  it('does not fall back to statement activity when ledger rows exist and sum to 0', async () => {
+    vi.mocked(getLedgerEntriesForArtist).mockResolvedValueOnce([
+      { amountEur: 80 },
+      { amountEur: -80 },
+    ] as never)
+
+    const db = makeDb({
+      sales_statements: [
+        { id: 'stmt-1', artist_id: 'artist-1', amount_eur: 80, status: 'label_approved' },
+      ],
+      artist_invoices: [],
+    })
+
+    const balances = await computeCarryForwardBalances(db, 'period-1')
+    expect(balances).toHaveLength(0)
+  })
+
+  it('uses outstanding_amount_cents instead of recomputed VAT gross', async () => {
+    vi.mocked(getLedgerEntriesForArtist).mockResolvedValueOnce([])
+
+    const db = makeDb({
+      sales_statements: [
+        { id: 'stmt-1', artist_id: 'artist-1', amount_eur: 0, status: 'invoiced' },
+      ],
+      artist_invoices: [
+        {
+          artist_id: 'artist-1',
+          settlement_period_id: 'period-1',
+          line_items: [{ qty: 1, unit_price_cents: 10000 }],
+          paid_amount_cents: 0,
+          outstanding_amount_cents: 5000,
+          tax_rate_pct: 19,
+          status: 'sent',
+        },
+      ],
+    })
+
+    const balances = await computeCarryForwardBalances(db, 'period-1')
+    expect(balances[0]?.breakdown.unpaidInvoiceCents).toBe(5000)
+    expect(balances[0]?.openingBalanceEur).toBe(50)
   })
 })

@@ -85,6 +85,10 @@
 - [ ] Statement-linked invoice + full payment → open balance / carry-forward ~ 0 (no double negative)
 - [ ] Invoice with 19% USt: payment can record gross PDF total
 - [ ] Portal invoice against locked settlement period returns 422
+- [ ] Reporting / PDF / Excel: **Period payout** is this period only; **Opening** is last period’s leftover; **Amount due** = payout + opening (opening is not inside payout)
+- [ ] Archive a period with leftover → next period opening line + `carry_in`; new `amount_eur` does not include that leftover
+- [ ] Track split 70/20 blocks Continue and does not leak 10% to the original artist
+- [ ] Pay a statement-linked invoice: no second `payment` ledger row after `invoice_liability`; `received_at` is set if it was empty
 
 - [ ] Excel export dialog: uncheck a release column → downloaded workbook omits it; Artist/Period/Final Payout remain
 - [ ] Save Excel preset → reopen dialog → preset still selected and columns match (workspace / rules preset)

@@ -1,4 +1,5 @@
-import type { ArtistRevenue, LabelArtist, SplitFee } from '@/lib/sos/types'
+import type { ArtistRevenue, LabelArtist, SplitFee, TrackRevenueAssignment } from '@/lib/sos/types'
+import { ownerPercentagesSumTo100, resolveAssignmentOwners } from '@/lib/sos/trackAssignmentSplits'
 import { interpolate } from '@/lib/i18n/interpolate'
 
 export type WizardIssueSeverity = 'error' | 'warning'
@@ -24,6 +25,7 @@ export interface WizardValidationInput {
   hasPrintfulFile: boolean
   hasDarkmerchFile: boolean
   draftArtistNames?: string[]
+  trackRevenueAssignments?: TrackRevenueAssignment[]
 }
 
 /** English defaults for wizard validation copy (also mirrored in accountingFallbacks). */
@@ -62,6 +64,10 @@ export const WIZARD_VALIDATION_FALLBACK = {
   validationRosterNoPortalDesc:
     'No roster artist has a portal link. Statement uploads are not possible.',
   validationRosterNoPortalAction: 'Review roster',
+  validationTrackSplitTitle: 'Track split must total 100%: {track}',
+  validationTrackSplitDesc:
+    'Owner percentages for this assignment do not add up to 100%. Revenue is not split until this is fixed.',
+  validationTrackSplitAction: 'Open track splits',
 } as const
 
 export type WizardValidationLabels = {
@@ -162,6 +168,21 @@ export function validateSosWizardState(
         description: labels.validationZeroPayoutDesc,
         actionLabel: labels.validationZeroPayoutAction,
         actionTarget: 'rules-defaults',
+      })
+    }
+  }
+
+  for (const assignment of input.trackRevenueAssignments ?? []) {
+    const owners = resolveAssignmentOwners(assignment)
+    const forSum = owners.map((owner) => ({ percentage: owner.fraction * 100 }))
+    if (owners.length > 0 && !ownerPercentagesSumTo100(forSum)) {
+      issues.push({
+        id: `track-split-${assignment.trackTitle.trim().toLowerCase()}`,
+        severity: 'error',
+        title: interpolate(labels.validationTrackSplitTitle, { track: assignment.trackTitle }),
+        description: labels.validationTrackSplitDesc,
+        actionLabel: labels.validationTrackSplitAction,
+        actionTarget: 'rules-splits',
       })
     }
   }

@@ -487,6 +487,8 @@ export function useCSVProcessor(
         totalRevenue: data.grossRevenue,
         splitPercentage: data.splitPercentage,
         finalAmount: data.finalPayout,
+        openingBalanceEur: data.openingBalanceEur,
+        amountDueEur: data.amountDueEur,
         totalQuantity: data.totalQuantity,
         totalExpenses: data.totalExpenses,
         distributionFeeDeducted: data.distributionFeeDeducted,

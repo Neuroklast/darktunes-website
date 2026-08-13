@@ -376,4 +376,24 @@ describe('buildProcessedArtistData', () => {
     expect(result.believeRevenue).toBeCloseTo(100, 2)
     expect(result.finalPayout).toBeCloseTo(100, 2)
   })
+
+  it('does not fold opening into finalPayout', () => {
+    const result = buildProcessedArtistData({
+      lowerKey: 'neuroklast',
+      artist: 'Neuroklast',
+      artistTransactions: [makeTx({ net_revenue: 100, source: 'believe' })],
+      config: {
+        ...baseConfig(),
+        distributionFeePercentage: 10,
+        distributionFeeDigital: 10,
+        distributionFeePhysical: 10,
+        splitFees: [{ artist: 'Neuroklast', percentage: 50 }],
+        carryForwardByArtist: { neuroklast: 20 },
+      },
+    })
+
+    expect(result.finalPayout).toBeCloseTo(45, 2)
+    expect(result.openingBalanceEur).toBeCloseTo(20, 2)
+    expect(result.amountDueEur).toBeCloseTo(65, 2)
+  })
 })

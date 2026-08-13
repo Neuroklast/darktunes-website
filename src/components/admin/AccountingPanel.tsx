@@ -576,6 +576,7 @@ function SosGeneratorPanel() {
         hasShopifyFile: shopifyManager.files.length > 0,
         hasPrintfulFile: printfulManager.files.length > 0,
         hasDarkmerchFile: darkmerchManager.files.length > 0,
+        trackRevenueAssignments,
       },
       {
         validationMissingPeriodTitle: t.validationMissingPeriodTitle,
@@ -605,6 +606,9 @@ function SosGeneratorPanel() {
         validationRosterNoPortalTitle: t.validationRosterNoPortalTitle,
         validationRosterNoPortalDesc: t.validationRosterNoPortalDesc,
         validationRosterNoPortalAction: t.validationRosterNoPortalAction,
+        validationTrackSplitTitle: t.validationTrackSplitTitle,
+        validationTrackSplitDesc: t.validationTrackSplitDesc,
+        validationTrackSplitAction: t.validationTrackSplitAction,
       },
     )
   }, [
@@ -620,6 +624,7 @@ function SosGeneratorPanel() {
     shopifyManager.files.length,
     printfulManager.files.length,
     darkmerchManager.files.length,
+    trackRevenueAssignments,
     t,
   ])
 

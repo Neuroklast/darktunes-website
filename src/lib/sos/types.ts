@@ -499,6 +499,8 @@ export interface ArtistRevenue {
   totalRevenue: number
   splitPercentage: number
   finalAmount: number
+  openingBalanceEur?: number
+  amountDueEur?: number
   totalQuantity: number
   /** Total recoupable expenses deducted from gross revenue before split. */
   totalExpenses: number
@@ -667,6 +669,10 @@ export interface SafeProcessedArtistData {
   grossRevenue: number
   splitPercentage: number
   finalPayout: number
+  /** Opening brought into this period (not included in finalPayout). */
+  openingBalanceEur: number
+  /** finalPayout + openingBalanceEur. */
+  amountDueEur: number
   totalQuantity: number
   /** Total recoupable expenses deducted from gross revenue before split. */
   totalExpenses: number

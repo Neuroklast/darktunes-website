@@ -15,6 +15,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Artist profile preview rows:** Admin → Settings can set how many **grid rows** of videos and news show on `/artists/[slug]` before an in-place **Show all** control (defaults: 2 rows each). Responsive columns match the existing grids (videos 1/2/3, news 1/2). Personal/Fan page unchanged.
 
 ### Fixed
+- **SOS money / ledger:** Period payout (`amount_eur` / `finalPayout`) is period activity only — opening balance is a separate line and next-period `carry_in`. Carry-forward uses ledger outstanding cents (not recomputed invoice GROSS). Track splits must total 100% or they block the wizard and do not leak residual revenue. Invoice payment does not post a second ledger row after `invoice_liability`, and sets `received_at` if it was still empty.
 - **Accounting drafts crash / silent errors:** `app/error.tsx` now reports render crashes to `/api/log-error`; chunk-load reload happens at most once per error. Statement history join, invalid period dates, and draft-create failures no longer take down the admin app. Settlement register reads an existing period (no write-on-GET) and loads ledger balances in one query.
 
 ### Changed
