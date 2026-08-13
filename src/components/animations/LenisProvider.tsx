@@ -79,24 +79,35 @@ function ScrollFxController() {
 }
 
 /**
- * Public routes only. Tuned for buttery document scroll (lerp + duration + full
- * wheel multiplier). `syncTouch: false` so phones keep native touch scroll
- * (syncTouch caused rubber-band ghosting with VFX layers).
+ * Public routes only. Wheel must use **lerp only** — if `duration` + `easing`
+ * are set, Lenis' animator prefers the timed ease and each mouse-wheel notch
+ * restarts a 1s tween (feels stepped on Windows). Anchor clicks pass duration
+ * separately via `LENIS_ANCHOR_SCROLL`.
+ *
+ * `syncTouch: false` so phones keep native touch scroll (syncTouch caused
+ * rubber-band ghosting with VFX layers).
  *
  * `prevent` yields only to real nested scrollports — not carousels/grids.
  * Do not conditionally mount Lenis after media queries — remounting the tree
  * detaches focused elements and flakes e2e.
  */
-export const LENIS_OPTIONS = {
-  lerp: 0.075,
-  duration: 1.1,
+export const LENIS_WHEEL_LERP = 0.08
+
+export const LENIS_ANCHOR_SCROLL = {
+  duration: 1.15,
   easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+}
+
+export const LENIS_OPTIONS = {
+  lerp: LENIS_WHEEL_LERP,
+  smoothWheel: true,
+  autoRaf: true,
   syncTouch: false,
-  wheelMultiplier: 1,
+  wheelMultiplier: 0.9,
   touchMultiplier: 1,
   infinite: false,
   prevent: shouldPreventLenis,
-} as const
+}
 
 export function LenisProvider({ children }: LenisProviderProps) {
   const pathname = usePathname()

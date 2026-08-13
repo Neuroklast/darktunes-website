@@ -19,7 +19,7 @@ Defined in `app/globals.css` `@theme {}`. `tailwind.config.js` is IDE-only — r
 
 Single `LenisProvider` in `Providers.tsx`. No second instance; no CSS `scroll-behavior: smooth`. Import `useLenis` from `LenisProvider.tsx`.
 
-**Public feel (desktop):** `LENIS_OPTIONS` — `lerp: 0.075`, `duration: 1.1`, `wheelMultiplier: 1`, `syncTouch: false`. Tuned for buttery document scroll; anchor `scrollTo` uses the longer duration.
+**Public feel (desktop):** `LENIS_OPTIONS` — **lerp only** (`0.08`), `smoothWheel: true`, `autoRaf: true`, `wheelMultiplier: 0.9`, `syncTouch: false`. Do **not** set `duration`/`easing` on the instance: Lenis then eases each wheel notch as a timed tween (steppy on Windows). Anchor `scrollTo` passes `LENIS_ANCHOR_SCROLL` (duration 1.15). Import `lenis/dist/lenis.css` in `globals.css`.
 
 **Dashboard routes:** `LenisProvider` does **not mount** Lenis on `/admin/*`, `/portal/*`, or `/editor` (`src/lib/scroll/dashboardRoutes.ts`) so wheel events reach native scroll inside dashboard shells.
 

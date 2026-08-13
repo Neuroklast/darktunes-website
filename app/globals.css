@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import "tw-animate-css";
+@import 'lenis/dist/lenis.css';
 
 /* Tailwind v4: content scanning via @source (content[] in JS config is ignored in v4) */
 @source "../app/**/*.{js,ts,jsx,tsx,mdx}";

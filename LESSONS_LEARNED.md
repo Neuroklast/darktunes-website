@@ -227,6 +227,10 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-13 — Lenis duration on the instance makes wheel scroll stepped
+
+**Do not set both `lerp` and `duration`/`easing` on `LENIS_OPTIONS`:** Lenis’ animator prefers duration when both exist, so each Windows mouse-wheel notch restarts a ~1s ease instead of damping toward the target. Wheel = lerp only; pass duration only on programmatic `scrollTo` (anchors).
+
 ### 2026-08-13 — Next.js `error.tsx` is not the React ErrorFallback
 
 **Segment render crashes never hit `Providers`’ `ErrorFallback`:** `app/error.tsx` wraps the page first. If it does not call `reportClientError('ui', …)`, production has no `app_logs` row and testers report “the app crashed, no logs”. ChunkLoadError + unconditional `location.reload()` loops after a bad lazy import (e.g. Statement History). Rule: report from `error.tsx` / `global-error.tsx`; reload a chunk error **once** per fingerprint.

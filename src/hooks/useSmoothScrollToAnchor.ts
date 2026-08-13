@@ -15,7 +15,7 @@
  */
 
 import { useCallback } from 'react'
-import { useLenis } from '@/components/animations/LenisProvider'
+import { LENIS_ANCHOR_SCROLL, useLenis } from '@/components/animations/LenisProvider'
 
 const HEADER_OFFSET = 140
 
@@ -26,7 +26,7 @@ export function useSmoothScrollToAnchor() {
     (e: React.MouseEvent<HTMLElement>, href: string) => {
       e.preventDefault()
       if (lenis) {
-        lenis.scrollTo(href, { offset: -HEADER_OFFSET })
+        lenis.scrollTo(href, { offset: -HEADER_OFFSET, ...LENIS_ANCHOR_SCROLL })
       } else {
         const target = document.querySelector(href)
         if (target) {
