@@ -63,8 +63,9 @@ export const DEFAULT_SOS_ACCOUNTING_SETTINGS: SosAccountingSettings = {
 }
 
 export function normalizeAccountingConfig(
-  raw: (Omit<Partial<SosAccountingSettings>, 'excelExport'> & {
+  raw: (Omit<Partial<SosAccountingSettings>, 'excelExport' | 'appDefaults'> & {
     excelExport?: ExcelExportStatePatch
+    appDefaults?: Partial<AppDefaults>
     /** Standalone SOS generator export used this name. */
     pdfExportSettings?: PdfExportSettings
   }) | null | undefined,
