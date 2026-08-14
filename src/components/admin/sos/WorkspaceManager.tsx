@@ -84,7 +84,9 @@ export function WorkspaceManager({
     reader.onload = ev => {
       try {
         const raw = ev.target?.result as string
-        const bundle = JSON.parse(raw) as Partial<WorkspaceBundle>
+        const bundle = JSON.parse(raw) as Partial<WorkspaceBundle> & {
+          pdfExportSettings?: WorkspaceBundle['pdfSettings']
+        }
         if (!bundle || typeof bundle !== 'object') throw new Error('Invalid workspace file')
         onImport({
           appDefaults: bundle.appDefaults,
@@ -98,7 +100,7 @@ export function WorkspaceManager({
           csvAliases: bundle.csvAliases ?? [],
           trackRevenueAssignments: bundle.trackRevenueAssignments ?? [],
           labelInfo: bundle.labelInfo,
-          pdfSettings: bundle.pdfSettings,
+          pdfSettings: bundle.pdfSettings ?? bundle.pdfExportSettings,
           csvImportProfiles: bundle.csvImportProfiles,
           excelExport: bundle.excelExport,
         })

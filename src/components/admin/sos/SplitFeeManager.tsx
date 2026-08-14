@@ -39,6 +39,8 @@ interface FeeFormProps {
   initialPercentage?: number
   initialDigital?: string
   initialPhysical?: string
+  initialSourceOverrides?: SplitFee['sourceOverrides']
+  initialReleaseOverrides?: SplitFee['releaseOverrides']
   artists: string[]
   existingArtists: string[]
   isEdit?: boolean
@@ -51,6 +53,8 @@ function FeeForm({
   initialPercentage = 50,
   initialDigital = '',
   initialPhysical = '',
+  initialSourceOverrides,
+  initialReleaseOverrides,
   artists,
   existingArtists,
   isEdit,
@@ -85,6 +89,8 @@ function FeeForm({
       percentage: pct,
       digitalPercentage: digital,
       physicalPercentage: physical,
+      sourceOverrides: initialSourceOverrides,
+      releaseOverrides: initialReleaseOverrides,
     })
   }
 
@@ -240,6 +246,11 @@ export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, on
                       {fee.physicalPercentage !== undefined && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">{fee.physicalPercentage}% physical</Badge>
                       )}
+                      {fee.sourceOverrides?.map((override) => (
+                        <Badge key={override.source} variant="outline" className="text-[10px] px-1.5 py-0">
+                          {override.percentage}% {override.source}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -277,10 +288,21 @@ export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, on
               initialPercentage={editTarget.percentage}
               initialDigital={editTarget.digitalPercentage !== undefined ? String(editTarget.digitalPercentage) : ''}
               initialPhysical={editTarget.physicalPercentage !== undefined ? String(editTarget.physicalPercentage) : ''}
+              initialSourceOverrides={editTarget.sourceOverrides}
+              initialReleaseOverrides={editTarget.releaseOverrides}
               artists={artists}
               existingArtists={existingArtists}
               isEdit
-              onSave={(fee) => { onUpdateSplitFee?.(editTarget.artist, { percentage: fee.percentage, digitalPercentage: fee.digitalPercentage, physicalPercentage: fee.physicalPercentage }); setEditTarget(null) }}
+              onSave={(fee) => {
+                onUpdateSplitFee?.(editTarget.artist, {
+                  percentage: fee.percentage,
+                  digitalPercentage: fee.digitalPercentage,
+                  physicalPercentage: fee.physicalPercentage,
+                  sourceOverrides: fee.sourceOverrides,
+                  releaseOverrides: fee.releaseOverrides,
+                })
+                setEditTarget(null)
+              }}
               onCancel={() => setEditTarget(null)}
             />
           )}

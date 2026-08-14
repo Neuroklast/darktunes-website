@@ -14,6 +14,7 @@ import type {
   TrackRevenueAssignment,
 } from '../types'
 import {
+  artistNamesMatch,
   normalizeArtistNameKey,
   preferCanonicalArtistName,
 } from '@/lib/sos/artistNameKey'
@@ -61,8 +62,7 @@ export function resolveMainArtist(
   mappings: ArtistMapping[],
 ): string {
   if (!originalArtist) return ''
-  const lower = originalArtist.toLowerCase()
-  const mapping = mappings.find(m => m.featuringName.toLowerCase() === lower)
+  const mapping = mappings.find(m => artistNamesMatch(m.featuringName, originalArtist))
   return mapping ? mapping.primaryArtist : originalArtist
 }
 
@@ -220,9 +220,9 @@ export function applyIgnoredEntriesFilter(
   if (ignoredEntries.length === 0) return rosterFiltered
 
   return rosterFiltered.filter(t => {
-    const artistLower = t.main_artist.trim().toLowerCase()
+    const artistKey = normalizeArtistNameKey(t.main_artist)
     return !ignoredEntries.some(ie => {
-      if (ie.artist.trim().toLowerCase() !== artistLower) return false
+      if (normalizeArtistNameKey(ie.artist) !== artistKey) return false
       if (!ie.releaseTitle) return true
       return t.release_title?.trim().toLowerCase() === ie.releaseTitle.trim().toLowerCase()
     })

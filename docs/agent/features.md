@@ -191,7 +191,7 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 
 **DAL:** `settlementPeriods.ts`, `settlementLedger.ts`, `settlementRegister.ts`, `financialAudit.ts`; extended `salesStatements.ts`, `artistInvoices.ts`.
 
-**Admin APIs:** `GET /api/admin/settlements/register`, `POST /api/admin/sos/persist-analytics`, periods lock/archive, bulk-approve, correction, invoice received/payment. Artist names match after collapsing whitespace (`FrozenPlasma` = `Frozen Plasma`).
+**Admin APIs:** `GET /api/admin/settlements/register`, `POST /api/admin/sos/persist-analytics`, periods lock/archive, bulk-approve, correction, invoice received/payment. Artist names match after collapsing whitespace (`FrozenPlasma` = `Frozen Plasma`). Split fees, expenses, manuals, and opening balances use the same collapsed key (`findByArtistName` / `lookupByArtistName`) so a workspace named **Frozen Plasma** still applies to Bandcamp `FrozenPlasma`. Code defaults (`DEFAULT_APP_DEFAULTS`) hold only label-wide rates (not compilation filters or per-artist splits). Workspace JSON import persists to the Default preset immediately, plus the current period workspace when a period is selected. Standalone SOS exports use `pdfExportSettings`; import maps that to `pdfSettings`.
 
 **Bronze CSV:** Never browser `fetch()` to presigned R2. Upload ≤45 MB via `…/upload`; 45–200 MB via `…/multipart/*`; download via `…/download`. Limits: `bronzeUploadLimits.ts`. UI: `ImportBatchesPanel`. Confirm still checks SHA-256 of the R2 object. Active `file_hash` is unique (`distributor_import_batches_file_hash_active`); failed batches may reuse the hash. POST lookup + `23505` both return `{ duplicate: true }`.
 

@@ -22,6 +22,8 @@ function makeArtistRevenue(overrides: Partial<ArtistRevenue> & Pick<ArtistRevenu
     releaseBreakdown: [],
     physicalReleasesRevenue: 0,
     digitalSplitPercentage: 100,
+    believeSplitPercentage: 100,
+    bandcampSplitPercentage: 100,
     physicalSplitPercentage: 100,
     darkmerchSplitPercentage: 100,
     ...overrides,

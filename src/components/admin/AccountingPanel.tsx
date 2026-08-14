@@ -9,7 +9,7 @@
  *  Tab B — "Statement History": read-only view of uploaded PDFs (StatementsManager).
  */
 
-import { lazy, Suspense, useState, useMemo, useCallback, useEffect } from 'react'
+import { lazy, Suspense, useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { monthToPeriodDate } from '@/lib/sos/lineItemsFromArtistData'
@@ -22,6 +22,7 @@ import { useCSVProcessor } from '@/hooks/useSosCSVProcessor'
 import { useExports } from '@/hooks/useSosExports'
 import { useFileManager } from '@/hooks/useSosFileManager'
 import { mapArtistsToLabelArtists } from '@/lib/sos/artistBridge'
+import { normalizeArtistNameKey } from '@/lib/sos/artistNameKey'
 import { listBillingProfiles, type ArtistBillingProfile } from '@/lib/api/artistBillingProfiles'
 import type {
   LabelInfo, PdfExportSettings, AppDefaults,
@@ -31,7 +32,7 @@ import type {
 } from '@/lib/sos/types'
 import { DEFAULT_PDF_EXPORT_SETTINGS, DEFAULT_APP_DEFAULTS, DEFAULT_EMAIL_CONFIG, DEFAULT_LABEL_INFO } from '@/lib/sos/defaults'
 import {
-  DEFAULT_SOS_ACCOUNTING_SETTINGS,
+  normalizeAccountingConfig,
   type SosAccountingSettings,
 } from '@/lib/sos/sosAccountingSettings'
 import {
@@ -378,15 +379,20 @@ function SosGeneratorPanel() {
     setTrackRevenueAssignments(prev => prev.filter(a => a.id !== id))
   }, [])
 
+  const persistImportedSettingsRef = useRef<
+    ((next: SosAccountingSettings) => Promise<boolean>) | null
+  >(null)
+
   const handleWorkspaceImport = useCallback((bundle: Partial<SosAccountingSettings>) => {
-    applySettings({
-      ...DEFAULT_SOS_ACCOUNTING_SETTINGS,
+    const next = normalizeAccountingConfig({
       ...settingsBundle,
       ...bundle,
       labelInfo: { ...settingsBundle.labelInfo, ...bundle.labelInfo },
       pdfSettings: { ...settingsBundle.pdfSettings, ...bundle.pdfSettings },
       excelExport: bundle.excelExport ?? settingsBundle.excelExport,
     })
+    applySettings(next)
+    void persistImportedSettingsRef.current?.(next)
   }, [applySettings, settingsBundle])
 
   const handlePresetLoad = useCallback((preset: SosAccountingSettings) => {
@@ -507,7 +513,7 @@ function SosGeneratorPanel() {
         const map: Record<string, number> = {}
         for (const row of json.rows ?? []) {
           if (row.openingBalanceEur != null && row.openingBalanceEur !== 0) {
-            map[row.artistName.toLowerCase()] = row.openingBalanceEur
+            map[normalizeArtistNameKey(row.artistName)] = row.openingBalanceEur
           }
         }
         if (!cancelled) setCarryForwardByArtist(map)
@@ -788,6 +794,7 @@ function SosGeneratorPanel() {
     setReloadConfirmOpen,
     loadDefaultPreset,
     saveCurrentWorkspace,
+    persistImportedSettings,
   } = useSosWorkspaceSync({
     currentPeriodKey,
     settings: settingsBundle,
@@ -795,6 +802,7 @@ function SosGeneratorPanel() {
     bronzeBatchIds,
     disabled: isProcessing,
   })
+  persistImportedSettingsRef.current = persistImportedSettings
 
   const confirmWorkspaceDelete = useCallback(async () => {
     if (!currentPeriodKey) return

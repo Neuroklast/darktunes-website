@@ -269,7 +269,7 @@ export function useCSVProcessor(
   const configKey = [
     config.compilationFilters.map(f => f.id).join(','),
     config.artistMappings.map(m => m.id).join(','),
-    config.splitFees.map(s => `${s.artist}:${s.percentage}:${s.digitalPercentage ?? ''}:${s.physicalPercentage ?? ''}`).join(','),
+    config.splitFees.map(s => `${s.artist}:${s.percentage}:${s.digitalPercentage ?? ''}:${s.physicalPercentage ?? ''}:${JSON.stringify(s.sourceOverrides ?? [])}:${JSON.stringify(s.releaseOverrides ?? [])}`).join(','),
     config.manualRevenues.map(r => r.id).join(','),
     config.expenses.map(e => `${e.id}:${e.amount}`).join(','),
     String(config.excludePhysical),
@@ -500,6 +500,8 @@ export function useCSVProcessor(
         releaseBreakdown: data.releaseBreakdown,
         physicalReleasesRevenue: data.physicalReleasesRevenue ?? (data.totalPhysicalRevenue - data.darkmerchRevenue),
         digitalSplitPercentage: data.digitalSplitPercentage ?? data.splitPercentage,
+        believeSplitPercentage: data.believeSplitPercentage ?? data.digitalSplitPercentage ?? data.splitPercentage,
+        bandcampSplitPercentage: data.bandcampSplitPercentage ?? data.digitalSplitPercentage ?? data.splitPercentage,
         physicalSplitPercentage: data.physicalSplitPercentage ?? data.splitPercentage,
         darkmerchSplitPercentage: data.darkmerchSplitPercentage ?? data.splitPercentage,
       })),

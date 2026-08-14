@@ -46,6 +46,16 @@ describe('distribution helpers', () => {
     ).toBe('Neuroklast')
   })
 
+  it('resolveMainArtist matches FrozenPlasma to a Frozen Plasma mapping', () => {
+    expect(
+      resolveMainArtist('FrozenPlasma', [{
+        id: 'm-fp',
+        featuringName: 'Frozen Plasma',
+        primaryArtist: 'Frozen Plasma',
+      }]),
+    ).toBe('Frozen Plasma')
+  })
+
   it('isCompilation matches EAN filter exactly', () => {
     const tx = makeTx({ upc_ean: '1234567890123' })
     expect(
@@ -157,6 +167,47 @@ describe('processTransactionsWithCompilations', () => {
     )
 
     expect(filteredCompilations[0]?.revenue).toBeCloseTo(100, 5)
+  })
+
+  it('applies Frozen Plasma workspace splits when Bandcamp CSV artist is FrozenPlasma', () => {
+    const { artistData } = processTransactionsWithCompilations(
+      [
+        makeTx({
+          id: 'believe',
+          source: 'believe',
+          original_artist: 'FrozenPlasma',
+          main_artist: 'FrozenPlasma',
+          net_revenue: 100,
+        }),
+        makeTx({
+          id: 'bandcamp',
+          source: 'bandcamp',
+          original_artist: 'FrozenPlasma',
+          main_artist: 'FrozenPlasma',
+          net_revenue: 100,
+        }),
+      ],
+      {
+        ...emptyConfig(),
+        labelArtists: [{ id: 'fp', name: 'Frozen Plasma' }],
+        defaultSplitPercentage: 50,
+        distributionFeePercentage: 0,
+        splitFees: [{
+          artist: 'Frozen Plasma',
+          percentage: 50,
+          sourceOverrides: [
+            { source: 'believe', percentage: 80 },
+            { source: 'bandcamp', percentage: 50 },
+          ],
+        }],
+      },
+    )
+
+    expect(artistData).toHaveLength(1)
+    expect(artistData[0].artist).toBe('Frozen Plasma')
+    expect(artistData[0].believeSplitPercentage).toBe(80)
+    expect(artistData[0].bandcampSplitPercentage).toBe(50)
+    expect(artistData[0].finalPayout).toBeCloseTo(130, 4)
   })
 
   it('honours per-source believe split bucket', () => {

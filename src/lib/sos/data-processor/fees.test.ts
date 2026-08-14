@@ -377,6 +377,70 @@ describe('buildProcessedArtistData', () => {
     expect(result.finalPayout).toBeCloseTo(100, 2)
   })
 
+  it('matches Frozen Plasma workspace splits when grouping key strips spaces', () => {
+    const result = buildProcessedArtistData({
+      lowerKey: 'frozenplasma',
+      artist: 'Frozen Plasma',
+      artistTransactions: [
+        makeTx({
+          id: 'believe',
+          original_artist: 'FrozenPlasma',
+          main_artist: 'Frozen Plasma',
+          net_revenue: 100,
+          source: 'believe',
+        }),
+        makeTx({
+          id: 'bandcamp',
+          original_artist: 'FrozenPlasma',
+          main_artist: 'Frozen Plasma',
+          net_revenue: 100,
+          source: 'bandcamp',
+        }),
+      ],
+      config: {
+        ...baseConfig(),
+        defaultSplitPercentage: 50,
+        distributionFeePercentage: 0,
+        distributionFeeDigital: 0,
+        distributionFeePhysical: 0,
+        splitFees: [
+          { artist: 'FrozenPlasma', percentage: 50 },
+          {
+            artist: 'Frozen Plasma',
+            percentage: 80,
+            sourceOverrides: [
+              { source: 'believe', percentage: 80 },
+              { source: 'bandcamp', percentage: 50 },
+            ],
+          },
+        ],
+        manualRevenues: [{
+          id: 'mr-fp',
+          artist: 'Frozen Plasma',
+          description: 'Sync',
+          amount: 10,
+        }],
+        expenses: [{
+          id: 'ex-fp',
+          artist: 'Frozen Plasma',
+          description: 'Recoup',
+          amount: 5,
+          date: '2024-03-01',
+        }],
+        carryForwardByArtist: { 'frozen plasma': 20 },
+      },
+    })
+
+    expect(result.believeSplitPercentage).toBe(80)
+    expect(result.bandcampSplitPercentage).toBe(50)
+    expect(result.manualRevenue).toBe(10)
+    expect(result.totalExpenses).toBe(5)
+    expect(result.openingBalanceEur).toBe(20)
+    // 80 + 50 + 10 - 5
+    expect(result.finalPayout).toBeCloseTo(135, 2)
+    expect(result.amountDueEur).toBeCloseTo(155, 2)
+  })
+
   it('does not fold opening into finalPayout', () => {
     const result = buildProcessedArtistData({
       lowerKey: 'neuroklast',

@@ -65,6 +65,8 @@ export const DEFAULT_SOS_ACCOUNTING_SETTINGS: SosAccountingSettings = {
 export function normalizeAccountingConfig(
   raw: (Omit<Partial<SosAccountingSettings>, 'excelExport'> & {
     excelExport?: ExcelExportStatePatch
+    /** Standalone SOS generator export used this name. */
+    pdfExportSettings?: PdfExportSettings
   }) | null | undefined,
 ): SosAccountingSettings {
   return {
@@ -76,10 +78,21 @@ export function normalizeAccountingConfig(
     ignoredEntries: raw?.ignoredEntries ?? [],
     csvAliases: raw?.csvAliases ?? [],
     trackRevenueAssignments: raw?.trackRevenueAssignments ?? [],
-    appDefaults: { ...DEFAULT_APP_DEFAULTS, ...raw?.appDefaults },
+    appDefaults: {
+      ...DEFAULT_APP_DEFAULTS,
+      ...raw?.appDefaults,
+      sourceSplits: {
+        ...DEFAULT_APP_DEFAULTS.sourceSplits,
+        ...raw?.appDefaults?.sourceSplits,
+      },
+    },
     emailConfig: { ...DEFAULT_EMAIL_CONFIG, ...raw?.emailConfig },
     labelInfo: { ...DEFAULT_LABEL_INFO, ...raw?.labelInfo },
-    pdfSettings: { ...DEFAULT_PDF_EXPORT_SETTINGS, ...raw?.pdfSettings },
+    pdfSettings: {
+      ...DEFAULT_PDF_EXPORT_SETTINGS,
+      ...raw?.pdfSettings,
+      ...raw?.pdfExportSettings,
+    },
     csvImportProfiles: raw?.csvImportProfiles ?? [],
     excelExport: normalizeExcelExportState(raw?.excelExport),
   }

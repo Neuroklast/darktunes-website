@@ -285,6 +285,7 @@
 - [ ] Accounting → Save to Portal persists territory metrics after CSV processing without crashing the page (no Server Components digest toast, no full `error.tsx`)
 - [ ] Settlement Center: **Ready for draft** / Create drafts uploads the PDF and does not take down the page; **Save to Portal** above the register stays mounted
 - [ ] Bandcamp `FrozenPlasma` and roster `Frozen Plasma` settle as one artist after import
+- [ ] Frozen Plasma workspace Believe 80% / Bandcamp 50% survives JSON re-import and is used on the next visit without uploading the file again (Default preset in DB)
 - [ ] Merch tab shows data after Shopify/Darkmerch CSV + Save to Portal
 - [ ] `/admin/analytics` Label Intelligence Hub loads (admin role only)
 - [ ] Website engagement appears after accepting cookies on public artist pages

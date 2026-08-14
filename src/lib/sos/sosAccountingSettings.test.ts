@@ -23,6 +23,27 @@ describe('normalizeAccountingConfig', () => {
     expect(config.excelExport.presets).toEqual([])
   })
 
+  it('maps standalone SOS generator pdfExportSettings and keeps label split defaults', () => {
+    const config = normalizeAccountingConfig({
+      pdfExportSettings: {
+        ...DEFAULT_PDF_EXPORT_SETTINGS,
+        includeMonthlyBreakdown: true,
+      },
+      appDefaults: { defaultSplitPercentage: 50 },
+    })
+
+    expect(config.pdfSettings.includeMonthlyBreakdown).toBe(true)
+    expect(config.appDefaults.defaultSplitPercentagePhysical).toBe(15)
+    expect(config.appDefaults.sourceSplits).toEqual({
+      believe: 50,
+      bandcamp: 50,
+      physical: 65,
+      darkmerch: 100,
+    })
+    expect(config.compilationFilters).toEqual([])
+    expect(config.splitFees).toEqual([])
+  })
+
   it('normalizes a stored excel export preset from a workspace payload', () => {
     const config = normalizeAccountingConfig({
       excelExport: {

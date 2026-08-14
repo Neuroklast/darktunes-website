@@ -9,17 +9,25 @@ import type { AppDefaults, PdfExportSettings, EmailConfig, LabelInfo } from './t
 
 export const DEFAULT_APP_DEFAULTS: AppDefaults = {
   defaultSplitPercentage: 50,
+  defaultSplitPercentageDigital: 50,
+  defaultSplitPercentagePhysical: 15,
   invoiceDeadlineDays: 25,
   financeEmail: '',
   invoiceDeadlineDate: '',
   royaltyDonationOrg: 'animal shelter',
   distributionFeePercentage: 0,
+  sourceSplits: {
+    believe: 50,
+    bandcamp: 50,
+    physical: 65,
+    darkmerch: 100,
+  },
 }
 
 export const DEFAULT_PDF_EXPORT_SETTINGS: PdfExportSettings = {
   includeReleaseBreakdown: true,
   includePlatformBreakdown: true,
-  includeCountryBreakdown: false,
+  includeCountryBreakdown: true,
   includeMonthlyBreakdown: false,
   includeEmailCoverLetter: false,
   hideCompilationsInStatement: true,

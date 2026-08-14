@@ -522,6 +522,10 @@ export interface ArtistRevenue {
   physicalReleasesRevenue: number
   /** Split percentage (0–100) actually applied to digital (streaming/download) revenue. */
   digitalSplitPercentage: number
+  /** Split percentage (0–100) actually applied to Believe digital revenue. */
+  believeSplitPercentage: number
+  /** Split percentage (0–100) actually applied to Bandcamp revenue. */
+  bandcampSplitPercentage: number
   /** Split percentage (0–100) actually applied to physical releases revenue. */
   physicalSplitPercentage: number
   /** Split percentage (0–100) actually applied to Darkmerch/merchandise revenue. */

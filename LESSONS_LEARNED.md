@@ -231,6 +231,12 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 **Save to Portal used `startTransition` around `persistSosAnalytics` (Server Action) with 1000+ metric rows.** Next.js flight/digest failures there are not a toast — they become the production Server Components overlay or `app/error.tsx`. Draft “Ready for draft” then called the same action after `uploadStatement`. Rule: large SOS persist goes over a regular admin POST; wrap persist in try/catch so the page stays up.
 
+### 2026-08-14 — Name-key change must update every artist lookup
+
+**Grouping `FrozenPlasma` → `frozenplasma` while split/expense/manual/carry-forward still used `toLowerCase()` (`frozen plasma`) silently dropped workspace rules to the 50% default.** The standalone SOS generator stayed consistent (`toLowerCase()` on both sides). Same key helper everywhere, including opening-balance maps. Do not port the standalone Blackbook UI into this site — keep the website cards/dialogs and only share the payout math.
+
+**Raphael’s workspace has both `FrozenPlasma` @ 50% and `Frozen Plasma` @ 80% + sourceOverrides.** After collapsing the name key, `.find()` hits the 50% row first and Believe stays 50%. Prefer the richer / spaced rule when several rows share a key.
+
 ### 2026-08-13 — Bandcamp “FrozenPlasma” is still Frozen Plasma
 
 **Grouping/roster match was `toLowerCase()` only.** Bandcamp omits the space; Believe does not. Collapse whitespace in the artist key or the same act becomes two settlement artists and persist skips unlinked names.

@@ -71,6 +71,8 @@ export function useSosWorkspaceSync({
   const suppressAutoSaveRef = useRef(false)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bootstrapStartedRef = useRef(false)
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
 
   const clearSavedFingerprint = useCallback(() => {
     lastSavedFingerprintRef.current = null
@@ -224,6 +226,21 @@ export function useSosWorkspaceSync({
         const json = (await res.json()) as WorkspaceApiResponse
         const ws = json.workspace
         if (ws?.config) {
+          const incomingHasRules =
+            (ws.config.splitFees?.length ?? 0) > 0 ||
+            (ws.config.compilationFilters?.length ?? 0) > 0 ||
+            (ws.config.artistMappings?.length ?? 0) > 0
+          const current = settingsRef.current
+          const currentHasRules =
+            current.splitFees.length > 0 ||
+            current.compilationFilters.length > 0 ||
+            current.artistMappings.length > 0
+          if (!incomingHasRules && currentHasRules) {
+            setWorkspaceLoadedAt(null)
+            setWorkspaceUpdatedBy(null)
+            clearSavedFingerprint()
+            return
+          }
           suppressAutoSaveRef.current = true
           applySettings(ws.config)
           markSynced(
@@ -280,6 +297,21 @@ export function useSosWorkspaceSync({
   const confirmReloadFromServer = useCallback(async (): Promise<void> => {
     await loadFromServer({ force: true })
   }, [loadFromServer])
+
+  const persistImportedSettings = useCallback(
+    async (nextSettings: SosAccountingSettings): Promise<boolean> => {
+      const defaultOk = await saveDefaultPreset(nextSettings)
+      if (!currentPeriodKey) {
+        if (defaultOk) toast.success(t.workspaceDefaultSaveSuccess)
+        return defaultOk
+      }
+      const periodOk = await saveWorkspace(nextSettings, currentPeriodKey)
+      const ok = defaultOk && periodOk
+      if (ok) toast.success(t.workspaceSaveSuccess)
+      return ok
+    },
+    [currentPeriodKey, saveDefaultPreset, saveWorkspace, t.workspaceDefaultSaveSuccess, t.workspaceSaveSuccess],
+  )
 
   const saveCurrentWorkspace = useCallback(async (): Promise<boolean> => {
     if (!currentPeriodKey) {
@@ -412,5 +444,6 @@ export function useSosWorkspaceSync({
     setReloadConfirmOpen,
     loadDefaultPreset,
     saveCurrentWorkspace,
+    persistImportedSettings,
   }
 }

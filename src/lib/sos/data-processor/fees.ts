@@ -1,4 +1,9 @@
 import type { SalesTransaction } from '../ingest/csv-parser'
+import {
+  filterByArtistName,
+  findByArtistName,
+  lookupByArtistName,
+} from '@/lib/sos/artistNameKey'
 import { normalizeRevenueToEur } from '../currency'
 import type { ReleaseSplitOverride, SplitFee, TransactionSource } from '../types'
 import {
@@ -137,11 +142,11 @@ export function buildProcessedArtistData({
     .filter(t => t.source === 'darkmerch')
     .reduce((s, t) => s + t.net_revenue, 0)
 
-  const artistManualRevenues = config.manualRevenues.filter(mr => mr.artist.toLowerCase() === lowerKey)
+  const artistManualRevenues = filterByArtistName(config.manualRevenues, lowerKey)
   const manualRevenue = artistManualRevenues.reduce((sum, mr) => sum + mr.amount, 0)
   const manualRevenueEntries = artistManualRevenues.map(mr => ({ description: mr.description, amount: mr.amount }))
 
-  const artistExpenses = (config.expenses ?? []).filter(e => e.artist.toLowerCase() === lowerKey)
+  const artistExpenses = filterByArtistName(config.expenses ?? [], lowerKey)
   const totalExpenses = artistExpenses.reduce((sum, e) => sum + e.amount, 0)
   const expenseEntries = artistExpenses.map(e => ({ description: e.description, amount: e.amount, date: e.date }))
 
@@ -169,7 +174,7 @@ export function buildProcessedArtistData({
   const grossRevenue = digitalRevenue + physicalRevenue + manualRevenue
 
   const defaultBase = config.defaultSplitPercentage ?? 100
-  const splitFee = config.splitFees.find(sf => sf.artist.toLowerCase() === lowerKey)
+  const splitFee = findByArtistName(config.splitFees, lowerKey)
 
   const mainChainDigitalSplitPct = resolveSplitPercentageWithSourceOverride(
     splitFee, null, false, defaultBase, config.defaultSplitPercentageDigital,
@@ -306,7 +311,7 @@ export function buildProcessedArtistData({
         manualRevenue
   }
 
-  const openingBalanceEur = config.carryForwardByArtist?.[lowerKey] ?? 0
+  const openingBalanceEur = lookupByArtistName(config.carryForwardByArtist, lowerKey) ?? 0
   const amountDueEur = finalPayout + openingBalanceEur
 
   return {
