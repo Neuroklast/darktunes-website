@@ -534,7 +534,6 @@
     "persistEventImpactNote": " · {count} Event-Impact-Zeilen",
     "persistMerchNote": " · {count} Merch-Bestellungen",
     "persistEventImpactWarning": "Event-Impact teilweise fehlgeschlagen",
-    "persistGoldWarning": "Gold-Summen weichen von genehmigten Statements ab",
     "persistPromoImpactWarning": "Promo-Impact teilweise fehlgeschlagen",
     "syncTitle": "Externe Listener-Daten",
     "syncDescription": "Monatliche Listener-Trends von Last.fm (kostenlos) und Soundcharts (optionaler API-Key) abrufen.",

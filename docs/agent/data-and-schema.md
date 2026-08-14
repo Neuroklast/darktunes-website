@@ -90,7 +90,7 @@ Apply: paste `reset.sql` into Supabase SQL Editor (idempotent on live DB).
 
 | Table | Persist path |
 |-------|--------------|
-| `artist_territory_metrics`, `streaming_stats` | Accounting → Save to Portal |
+| `artist_territory_metrics`, `streaming_stats` | Accounting → Save to Portal. Territory `revenue_eur` is the artist share (not processor gross). |
 | `sos_period_summaries` | Same (optional) |
 | `event_impact`, `promo_impact` | Recomputed on persist |
 | `merch_orders` | Worker → persist |

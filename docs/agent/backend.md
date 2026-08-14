@@ -89,7 +89,7 @@ Admin/editor only. **Guided** default: `AccountingGuidedWizard` (Upload → Revi
 
 - SOS PDF upload: `uploadStatement` Server Action (same as portal flow)
 - Bronze CSV: server-proxy upload/download — see `features.md`
-- Save to Portal: `POST /api/admin/sos/persist-analytics` → `persistSosAnalyticsCore` (gold tables). Do **not** send 1000+ metric rows through a Server Action / `startTransition` — that surfaces as a Server Components digest toast or `app/error.tsx`.
+- Save to Portal: `POST /api/admin/sos/persist-analytics` → `persistSosAnalyticsCore` (gold tables). Territory/merch `revenueEur` is scaled by the artist share before upsert; Excel stays unscaled. Do **not** send 1000+ metric rows through a Server Action / `startTransition` — that surfaces as a Server Components digest toast or `app/error.tsx`.
 - Settlement register, corrections, period lock/archive — see `features.md`
 
 ## Bronze CSV import

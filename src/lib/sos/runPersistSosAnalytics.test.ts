@@ -50,9 +50,11 @@ describe('runPersistSosAnalytics', () => {
     )
     const body = JSON.parse((fetchImpl.mock.calls[0]?.[1] as { body: string }).body) as {
       periodSummary: { totalRevenue: number; sourceBatchIds: string[] }
+      revenues: Array<{ artist: string; believeSplitPercentage: number }>
     }
     expect(body.periodSummary.totalRevenue).toBe(100)
     expect(body.periodSummary.sourceBatchIds).toEqual(['batch-1'])
+    expect(body.revenues[0]).toEqual(expect.objectContaining({ artist: 'Artist A' }))
   })
 
   it('returns a failure result when the persist request throws', async () => {

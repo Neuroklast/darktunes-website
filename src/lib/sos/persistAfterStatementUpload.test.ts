@@ -139,7 +139,10 @@ describe('persistAnalyticsAfterStatementUpload', () => {
     })
 
     expect(runPersistSosAnalytics).toHaveBeenCalledWith(
-      expect.objectContaining({ includePeriodSummary: false }),
+      expect.objectContaining({
+        includePeriodSummary: false,
+        revenues: [expect.objectContaining({ artist: 'Band A', finalAmount: 400 })],
+      }),
     )
   })
 })

@@ -42,7 +42,7 @@
 | Nav | Two dashboard items under `artist.analytics`: **Spotify Trends** (`/portal/spotify-trends`) and **Sales Analytics** (UI label; route `/portal/sos-analytics`). Legacy `/portal/analytics` redirects (listeners tab → Spotify Trends). |
 | Sources | Statement **sales streams** (SOS backend) vs public **Spotify presence** never mixed into one total or one menu |
 | Spotify Trends | Presence only (listeners, followers, track plays, dual-axis trends, disclaimer). Empty state when no presence data — avoid zero KPI grids. **Current UTC month** only appears after public scrape rows exist for that period (otherwise secondary sources / chart joins would show Spotify as 0). |
-| Sales Analytics | User-facing name for statement streams, territories, earnings, releases, revenue-mix, settlement, events, press, engagement, merch. Empty state when no statement data. Internal keys/routes may still say `sos_*`. |
+| Sales Analytics | User-facing name for statement streams, territories, earnings, releases, revenue-mix, settlement, events, press, engagement, merch. Empty state when no statement data. Internal keys/routes may still say `sos_*`. Territory/merch euro amounts are the artist share after the label cut — never show the split rate or the pre-split total. |
 | Disclaimer | Spotify page: high-visibility non-binding / liability notice (`PublicMetricsDisclaimer`) — public/third-party figures approximate & unreconciled; statements + settlement only for payouts. PDF includes same disclaimer. Never name scrape vendors in UI. |
 | Waterfall | Top tracks / album play totals dedupe by normalized track name (`publicSpotifyPresence.ts`) — max plays, no double-count |
 | Prefs | Separate localStorage keys: `portal-spotify-trends-view-v1`, `portal-sos-analytics-view-v1` |
@@ -165,7 +165,7 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 
 **Dates:** `normalizeDateToMonth(s, source)` — unambiguous day/month always wins; when both parts ≤ 12, Believe/Printful = DD/MM and Bandcamp/Shopify/Darkmerch = MM/DD. Two-digit years are American only for Bandcamp.
 
-**Gold persist:** `row_count` stays the bronze original (do not overwrite with upsert length). After persist, gold `revenueEur` vs approved `amount_eur` for the period: delta > €0.05 → `success` + `warnings[]`. Reprocess accepts session `exchangeRates` / `historicalRates` / `carryForwardByArtist`.
+**Gold persist:** `row_count` stays the bronze original (do not overwrite with upsert length). Portal gold `revenueEur` is the artist share after the label split (channel-aware via `applyArtistShareToPortalMetrics`); Excel / SOS reporting stay on processor gross. Do not persist or display the split rate in the portal. No gold-vs-statement toast (those amounts are different layers). Reprocess accepts session `exchangeRates` / `historicalRates` / `carryForwardByArtist`.
 
 | Module | Role |
 |--------|------|

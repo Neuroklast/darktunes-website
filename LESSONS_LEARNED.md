@@ -227,6 +227,12 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-14 — Don’t toast warehouse layer names
+
+**“Gold revenue differs from approved statements” compared CSV `net_revenue` (before label share) to `amount_eur` (after share).** It fired on every normal persist and the tester could not tell what to do. Operator toasts must use the product words (portal revenue, approved payout). Gold vs statement is not an integrity check unless both sides use the same money definition.
+
+**Portal analytics is not the statement workbook.** Artists must only see the euro amount after the label share — never the split % or a “before/after” pair they can reverse-engineer. Excel keeps the waterfall.
+
 ### 2026-08-13 — Server Actions + startTransition crash Settlement Center
 
 **Save to Portal used `startTransition` around `persistSosAnalytics` (Server Action) with 1000+ metric rows.** Next.js flight/digest failures there are not a toast — they become the production Server Components overlay or `app/error.tsx`. Draft “Ready for draft” then called the same action after `uploadStatement`. Rule: large SOS persist goes over a regular admin POST; wrap persist in try/catch so the page stays up.

@@ -534,7 +534,6 @@
     "persistEventImpactNote": " · {count} lignes d’impact événement",
     "persistMerchNote": " · {count} commandes merch",
     "persistEventImpactWarning": "Impact événement partiellement en échec",
-    "persistGoldWarning": "Les totaux gold divergent des statements approuvés",
     "persistPromoImpactWarning": "Impact promo partiellement en échec",
     "syncTitle": "Données d’auditeurs externes",
     "syncDescription": "Récupérer les tendances d’auditeurs mensuels depuis Last.fm (gratuit) et Soundcharts (clé API optionnelle).",

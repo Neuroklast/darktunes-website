@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  goldStatementDivergenceWarning,
-  persistSosAnalyticsCore,
-} from './persistSosAnalyticsCore'
+import { persistSosAnalyticsCore } from './persistSosAnalyticsCore'
 import { computeEventImpactForArtist } from '@/lib/analytics/eventImpact'
 import { updateImportBatchStatus } from '@/lib/api/distributorImportBatches'
+import { upsertTerritoryMetrics } from '@/lib/api/artistTerritoryMetrics'
+import { upsertMerchOrders } from '@/lib/api/merchOrders'
 
 vi.mock('@/lib/api/artistTerritoryMetrics', () => ({
   upsertTerritoryMetrics: vi.fn(async () => 2),
@@ -51,18 +50,12 @@ function makeServiceDb(statements: unknown[] = []) {
   } as never
 }
 
-describe('goldStatementDivergenceWarning', () => {
-  it('is silent within 0.05 EUR and warns above', () => {
-    expect(goldStatementDivergenceWarning(10, 10)).toBeNull()
-    expect(goldStatementDivergenceWarning(10.04, 10)).toBeNull()
-    expect(goldStatementDivergenceWarning(10.2, 50)).toMatch(/differs from approved statements/)
-  })
-})
-
 describe('persistSosAnalyticsCore', () => {
   beforeEach(() => {
     writeAppLogMock.mockClear()
     vi.mocked(updateImportBatchStatus).mockClear()
+    vi.mocked(upsertTerritoryMetrics).mockClear()
+    vi.mocked(upsertMerchOrders).mockClear()
   })
 
   it('matches FrozenPlasma metrics to a Frozen Plasma roster artist', async () => {
@@ -218,35 +211,50 @@ describe('persistSosAnalyticsCore', () => {
     )
   })
 
-  it('returns a warning when gold revenue diverges from approved statements', async () => {
-    const result = await persistSosAnalyticsCore(
-      makeServiceDb([
-        {
-          amount_eur: 50,
-          status: 'label_approved',
-          period_start: '2024-01-01',
-          period_end: '2024-01-31',
-          period: '2024-01',
-          document_type: 'original',
-        },
-      ]),
-      {
-        periodStart: '2024-01',
-        periodEnd: '2024-01',
-        territoryMetrics: [{
-          artistName: 'Band A',
-          period: '2024-01',
-          platform: 'Spotify',
-          country: 'DE',
-          streams: 100,
-          revenueEur: 10,
-          quantity: 0,
-        }],
-        labelArtists: [{ name: 'Band A', artistId: 'artist-1' }],
-      },
-    )
+  it('writes artist-share revenue to portal metrics and does not emit a gold warning', async () => {
+    const result = await persistSosAnalyticsCore(makeServiceDb(), {
+      periodStart: '2024-01',
+      periodEnd: '2024-01',
+      territoryMetrics: [{
+        artistName: 'Band A',
+        period: '2024-01',
+        platform: 'Spotify',
+        country: 'DE',
+        streams: 100,
+        revenueEur: 10,
+        quantity: 0,
+      }],
+      merchOrderRows: [{
+        externalId: 'm1',
+        artistName: 'Band A',
+        source: 'shopify',
+        period: '2024-01',
+        productTitle: 'Shirt',
+        country: 'DE',
+        quantity: 1,
+        revenueEur: 40,
+      }],
+      labelArtists: [{ name: 'Band A', artistId: 'artist-1' }],
+      revenues: [{
+        artist: 'Band A',
+        splitPercentage: 50,
+        digitalSplitPercentage: 50,
+        believeSplitPercentage: 50,
+        bandcampSplitPercentage: 50,
+        physicalSplitPercentage: 65,
+        darkmerchSplitPercentage: 100,
+      }],
+    })
 
     expect(result.success).toBe(true)
-    expect(result.warnings?.[0]).toMatch(/differs from approved statements/)
+    expect(result.warnings).toBeUndefined()
+    expect(upsertTerritoryMetrics).toHaveBeenCalledWith(
+      expect.anything(),
+      [expect.objectContaining({ artistId: 'artist-1', revenueEur: 5 })],
+    )
+    expect(upsertMerchOrders).toHaveBeenCalledWith(
+      expect.anything(),
+      [expect.objectContaining({ revenueEur: 26 })],
+    )
   })
 })

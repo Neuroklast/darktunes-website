@@ -2,6 +2,7 @@ import type { PersistSosAnalyticsResult } from '@/lib/sos/persistSosAnalyticsCor
 import type { TerritoryMetricRow } from '@/lib/sos/data-processor'
 import type { MerchOrderRow } from '@/lib/sos/merchOrderRows'
 import type { ArtistRevenue, LabelArtist } from '@/lib/sos/types'
+import { toArtistShareRates } from '@/lib/sos/applyArtistShareToPortalMetrics'
 
 export interface RunPersistSosAnalyticsParams {
   periodStart: string
@@ -75,6 +76,7 @@ export async function runPersistSosAnalytics(
           name: la.name,
           artistId: la.artistId,
         })),
+        revenues: revenues.map(toArtistShareRates),
         periodSummary,
       }),
     })

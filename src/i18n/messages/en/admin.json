@@ -534,7 +534,6 @@
     "persistEventImpactNote": " · {count} event-impact rows",
     "persistMerchNote": " · {count} merch orders",
     "persistEventImpactWarning": "Event impact partially failed",
-    "persistGoldWarning": "Gold totals differ from approved statements",
     "persistPromoImpactWarning": "Promo impact partially failed",
     "syncTitle": "External Listener Data",
     "syncDescription": "Pull monthly listener trends from Last.fm (free) and Soundcharts (optional API key).",

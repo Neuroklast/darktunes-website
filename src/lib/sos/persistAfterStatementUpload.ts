@@ -47,6 +47,7 @@ export async function persistAnalyticsAfterStatementUpload(
     territoryMetrics: artistMetrics,
     merchOrderRows: artistMerch.length > 0 ? artistMerch : undefined,
     labelArtists: ctx.labelArtists,
+    revenues: ctx.revenues,
     includePeriodSummary: false,
   })
 

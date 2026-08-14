@@ -93,7 +93,8 @@
 - [ ] Illegal statement status jump (e.g. draft → paid) returns 422; second SOS invoice for the same statement returns 409
 - [ ] Bandcamp payout rows show as skipped (not revenue); empty currency rows warn “treated as EUR”
 - [ ] Believe `01/09/2024` lands in September; Bandcamp `01/09/2024` lands in January
-- [ ] Rebuild Gold does not change bronze row count; a persist warning appears if gold totals diverge from approved statements
+- [ ] Rebuild Gold does not change bronze row count; Save to Portal does not toast a gold-vs-statement warning
+- [ ] After Save to Portal, artist Sales Analytics territory revenue is the amount after the label share (no split % or label-share line in the portal). Excel still shows gross + split.
 - [ ] Re-upload the same CSV after a failed bronze batch succeeds; a second upload of a completed hash is treated as duplicate (no second active batch)
 - [ ] Compilation filter panel amounts match EUR after FX (not raw USD/GBP cells)
 - [ ] Archive a settlement period without locking first — allowed; archive is final (no unlock / unpay in the UI)
