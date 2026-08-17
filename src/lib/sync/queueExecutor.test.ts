@@ -107,6 +107,26 @@ describe('kickSyncExecutorAfterEnqueue', () => {
 })
 
 describe('selfChainSyncExecutor', () => {
+  it('does not hang when the child executor never responds', async () => {
+    const fetchImpl = vi.fn().mockImplementation(
+      (_url: string, init?: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'))
+          })
+        }),
+    )
+
+    await expect(
+      selfChainSyncExecutor({
+        origin: 'https://label.example',
+        authorizationHeader: 'Bearer secret',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        timeoutMs: 20,
+      }),
+    ).resolves.toBeUndefined()
+  })
+
   it('POSTs /api/sync with auth and self-chain header', async () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, text: async () => '{}' })
     await selfChainSyncExecutor({

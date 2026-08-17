@@ -3,6 +3,21 @@ import type { Database } from '@/types/database'
 
 type DbClient = SupabaseClient<Database>
 
+/** True when the URL already points at our object storage (no re-download). */
+export function isAlreadyCachedCoverUrl(url: string | null | undefined): boolean {
+  if (!url) return false
+  try {
+    const host = new URL(url).hostname.toLowerCase()
+    return (
+      host.startsWith('cdn.') ||
+      host.endsWith('.r2.dev') ||
+      host.endsWith('.r2.cloudflarestorage.com')
+    )
+  } catch {
+    return false
+  }
+}
+
 /**
  * Uploads remote cover art to R2 and persists the CDN URL.
  * Failures are appended to `errors` — callers must not swallow them.
@@ -14,9 +29,10 @@ export async function cacheReleaseCoverArt(
   releaseTitle: string,
   artworkUrl: string | undefined,
   errors: string[],
+  existingCoverArt?: string | null,
 ): Promise<void> {
   if (!artworkUrl) return
-  if (artworkUrl.startsWith('https://cdn.')) return
+  if (isAlreadyCachedCoverUrl(artworkUrl) || isAlreadyCachedCoverUrl(existingCoverArt)) return
 
   try {
     const coverArt = await uploadToR2(artworkUrl, 'cover-art')

@@ -119,6 +119,7 @@ async function processItunesRelease(
       release.collectionName,
       artworkUrl,
       releaseErrors,
+      upsertedRelease.coverArt,
     )
 
     return { upserted: true, merged, errors: releaseErrors }

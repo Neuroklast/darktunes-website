@@ -227,6 +227,11 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-08-17 — Odesli `hasMoreWork` can park one job forever
+
+- **Finding:** Global Odesli jobs query `smart_url IS NULL`. Artist-profile URLs and skippable 404/405/422 left that column null, so the same first 40 rows were reclaimed every run. `batch.length >= limit` set `hasMoreWork` even with zero progress → Sync Queue stayed at **1 running** after releases/videos had already succeeded.
+- **Rule:** Permanent Odesli failures must leave the `IS NULL` queue (fallback `smart_url` or empty `platform_links`). Set `hasMoreWork` only when the batch advanced or hit 429. Skip cover re-download when `cover_art` is already on the label CDN.
+
 ### 2026-08-14 — Don’t toast warehouse layer names
 
 **“Gold revenue differs from approved statements” compared CSV `net_revenue` (before label share) to `amount_eur` (after share).** It fired on every normal persist and the tester could not tell what to do. Operator toasts must use the product words (portal revenue, approved payout). Gold vs statement is not an integrity check unless both sides use the same money definition.

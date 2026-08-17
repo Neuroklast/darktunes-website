@@ -177,6 +177,7 @@
 - [ ] Validate artist/release/news sync jobs and cron triggers
 - [ ] Validate RLS and role permissions for new tables/features
 - [ ] Admin → Releases → "Sync All APIs": progress climbs with backlog (not stuck at 100% mid-run); spinner stays until drain or ~5 min timeout; toast reflects drained vs still-running; cover art lands on CDN without `getaddrinfo EBUSY` spam in sync logs; Odesli job reschedules cleanly under rate limit
+- [ ] After a full/Odesli sync, System Health **Sync Queue** does not stay at `1 running, 0 pending` once APIs show Success. Releases with only an artist-profile Spotify URL (or Odesli 404/405/422) get a fallback smart link and do not recycle the same Odesli job. Already-CDN covers are not re-fetched. If a leftover `running` row remains from before this fix, cancel it in System → Advanced.
 - [ ] After release sync, public `/releases` and home release section show new visible non-promo releases (hard refresh OK; no need to wait full 1h TTL)
 - [ ] Admin → Videos → "Sync YouTube Channel": admin list updates; public `/videos` updates after revalidation
 - [ ] Full artist sync does **not** claim to update videos (YouTube is a separate action)

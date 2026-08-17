@@ -330,6 +330,7 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
                 release.title,
                 release.coverUrl ?? undefined,
                 spotifyResult.errors,
+                upsertedRelease.coverArt,
               )
             }
 
@@ -421,6 +422,7 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
                 release.title,
                 release.coverUrl ?? undefined,
                 discogsResult.errors,
+                upsertedRelease.coverArt,
               )
             }
 
@@ -615,10 +617,19 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
       }
 
       const batch = releasesWithoutSmartUrl ?? []
+      let odesliRowsAdvanced = 0
 
       for (const release of batch) {
         const musicUrl = pickOdesliMusicUrl(release.spotify_url, release.apple_music_url)
-        if (!musicUrl) continue
+        const fallbackUrl = release.spotify_url || release.apple_music_url
+        if (!musicUrl) {
+          // Artist/profile (or otherwise unresolvable) URLs stay smart_url=null
+          // forever and the same first N rows are reclaimed every run.
+          if (fallbackUrl && (await persistOdesliFallbackSmartUrl(db, release.id, fallbackUrl, odesliResult.errors))) {
+            odesliRowsAdvanced++
+          }
+          continue
+        }
 
         odesliResult.artistsProcessed++
 
@@ -644,6 +655,7 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
             )
           } else {
             odesliResult.releasesUpserted++
+            odesliRowsAdvanced++
           }
         } catch (e) {
           if (isRateLimitedSyncError(e)) {
@@ -653,13 +665,20 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
             continue
           }
           const odesliErr = String(e)
-          if (!isSkippableOdesliError(odesliErr)) {
-            odesliResult.errors.push(`Odesli resolve for release ${release.id}: ${odesliErr}`)
+          if (isSkippableOdesliError(odesliErr)) {
+            if (await persistOdesliFallbackSmartUrl(db, release.id, musicUrl, odesliResult.errors)) {
+              odesliRowsAdvanced++
+            }
+            continue
           }
+          odesliResult.errors.push(`Odesli resolve for release ${release.id}: ${odesliErr}`)
         }
       }
 
-      if (batch.length >= odesliBatchLimit) {
+      // Only continue the global Odesli job when this batch advanced the queue
+      // (or hit 429). A full page of permanent failures must not reschedule
+      // the same rows forever — that leaves Sync Queue at 1 running.
+      if (batch.length >= odesliBatchLimit && odesliRowsAdvanced > 0) {
         odesliResult.hasMoreWork = true
       }
     } catch (e) {
@@ -723,29 +742,34 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
           }
 
           const artistBatch = artistsWithoutPlatformLinks ?? []
+          let artistRowsAdvanced = 0
 
           for (const artist of artistBatch) {
             const musicUrl = releaseProxyByArtist.get(artist.id)
-            if (!musicUrl) continue
+            if (!musicUrl) {
+              if (await persistOdesliArtistPlatformLinks(db, artist.id, {}, existingOdesli.errors)) {
+                artistRowsAdvanced++
+              }
+              continue
+            }
 
             if (existingOdesli) existingOdesli.artistsProcessed++
 
             try {
               const odesli = await resolveOdesliSmartLinkThrottled(musicUrl, fetchFn)
+              const platforms = odesli.platforms
+              const { error: updateErr } = await db
+                .from('artists')
+                .update({ platform_links: Object.keys(platforms).length > 0 ? platforms : {} })
+                .eq('id', artist.id)
 
-              if (Object.keys(odesli.platforms).length > 0) {
-                const { error: updateErr } = await db
-                  .from('artists')
-                  .update({ platform_links: odesli.platforms })
-                  .eq('id', artist.id)
-
-                if (updateErr) {
-                  existingOdesli?.errors.push(
-                    `Odesli DB update for artist ${artist.id}: ${updateErr.message}`,
-                  )
-                } else if (existingOdesli) {
-                  existingOdesli.releasesUpserted++
-                }
+              if (updateErr) {
+                existingOdesli?.errors.push(
+                  `Odesli DB update for artist ${artist.id}: ${updateErr.message}`,
+                )
+              } else if (existingOdesli) {
+                if (Object.keys(platforms).length > 0) existingOdesli.releasesUpserted++
+                artistRowsAdvanced++
               }
             } catch (e) {
               if (isRateLimitedSyncError(e)) {
@@ -753,13 +777,17 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
                 continue
               }
               const odesliErr = String(e)
-              if (!isSkippableOdesliError(odesliErr)) {
-                existingOdesli.errors.push(`Odesli resolve for artist ${artist.id}: ${odesliErr}`)
+              if (isSkippableOdesliError(odesliErr)) {
+                if (await persistOdesliArtistPlatformLinks(db, artist.id, {}, existingOdesli.errors)) {
+                  artistRowsAdvanced++
+                }
+                continue
               }
+              existingOdesli.errors.push(`Odesli resolve for artist ${artist.id}: ${odesliErr}`)
             }
           }
 
-          if (artistBatch.length >= odesliBatchLimit) {
+          if (artistBatch.length >= odesliBatchLimit && artistRowsAdvanced > 0) {
             existingOdesli.hasMoreWork = true
           }
         }
@@ -828,6 +856,40 @@ export async function syncOdesliBatch(deps: SyncAllDeps): Promise<SyncAllResult>
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+async function persistOdesliFallbackSmartUrl(
+  db: SupabaseClient<Database>,
+  releaseId: string,
+  fallbackUrl: string,
+  errors: string[],
+): Promise<boolean> {
+  const { error } = await db
+    .from('releases')
+    .update({ smart_url: fallbackUrl })
+    .eq('id', releaseId)
+  if (error) {
+    errors.push(`Odesli fallback update for release ${releaseId}: ${error.message}`)
+    return false
+  }
+  return true
+}
+
+async function persistOdesliArtistPlatformLinks(
+  db: SupabaseClient<Database>,
+  artistId: string,
+  platforms: Record<string, string>,
+  errors: string[],
+): Promise<boolean> {
+  const { error } = await db
+    .from('artists')
+    .update({ platform_links: platforms })
+    .eq('id', artistId)
+  if (error) {
+    errors.push(`Odesli fallback update for artist ${artistId}: ${error.message}`)
+    return false
+  }
+  return true
+}
 
 interface WriteSyncLogOptions {
   durationMs?: number
