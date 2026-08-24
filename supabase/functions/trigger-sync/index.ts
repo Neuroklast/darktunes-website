@@ -35,7 +35,10 @@
  * 3. Scheduled for queue processing (every 5 minutes):
  *      Path:    /trigger-sync?type=process-queue
  *      Method:  POST
- *      Note: Each invocation processes jobs within a 50s budget. Schedule every 5 min.
+ *      Note: Each invocation drains jobs for ~280s (Vercel maxDuration 300s)
+ *      and self-chains while due work remains. Spotify/Odesli/Songkick/
+ *      Bandsintown enqueue via /api/sync-api also kicks /api/sync so those
+ *      jobs do not wait for this tick. YouTube stays on /api/sync-youtube.
  *
  * 4. Manual HTTP call:
  *      curl -X POST \

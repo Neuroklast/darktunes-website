@@ -3087,7 +3087,7 @@ DROP POLICY IF EXISTS "idempotency_keys: service_role only" ON public.idempotenc
 CREATE TABLE IF NOT EXISTS public.sync_queue (
   id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   artist_id     UUID        REFERENCES public.artists (id) ON DELETE CASCADE,
-  job_type      TEXT        NOT NULL DEFAULT 'full',  -- 'full' | 'spotify' | 'discogs' | 'youtube' | 'odesli'
+  job_type      TEXT        NOT NULL DEFAULT 'full',  -- 'full' | 'spotify' | 'discogs' | 'youtube' | 'odesli' | 'songkick' | 'bandsintown'
   status        TEXT        NOT NULL DEFAULT 'pending', -- 'pending' | 'running' | 'done' | 'failed' | 'cancelled'
   scheduled_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   started_at    TIMESTAMPTZ,
@@ -3602,6 +3602,8 @@ CREATE POLICY "site_settings_public_read" ON public.site_settings
       'videos_per_page',
       'videos_link_to_page',
       'exclude_shorts_from_public',
+      'artist_profile_video_rows',
+      'artist_profile_news_rows',
       'concerts_per_page',
       'concerts_link_to_page',
       'feature_toggles',
@@ -6734,6 +6736,21 @@ ALTER TABLE public.artist_invoices
   ADD COLUMN IF NOT EXISTS payment_reference TEXT;
 ALTER TABLE public.artist_invoices
   ADD COLUMN IF NOT EXISTS settlement_period_id UUID REFERENCES public.settlement_periods (id) ON DELETE SET NULL;
+
+-- One active draft per artist+period (storno excluded). Race-safe complement to
+-- assertNoDuplicateDraft. One SOS-linked invoice per statement.
+CREATE UNIQUE INDEX IF NOT EXISTS sales_statements_one_draft_per_period
+  ON public.sales_statements (artist_id, period_start, period_end)
+  WHERE status = 'draft' AND document_type IS DISTINCT FROM 'storno';
+
+CREATE UNIQUE INDEX IF NOT EXISTS artist_invoices_one_per_statement
+  ON public.artist_invoices (statement_id)
+  WHERE statement_id IS NOT NULL;
+
+-- Same CSV hash may be retried after a failed batch; active hashes stay unique.
+CREATE UNIQUE INDEX IF NOT EXISTS distributor_import_batches_file_hash_active
+  ON public.distributor_import_batches (file_hash)
+  WHERE file_hash IS NOT NULL AND status IS DISTINCT FROM 'failed';
 
 ALTER TABLE public.sales_statement_line_items
   ADD COLUMN IF NOT EXISTS amount_original NUMERIC(14, 4);

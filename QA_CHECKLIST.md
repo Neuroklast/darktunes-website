@@ -4,17 +4,23 @@
 - [ ] Validate all public routes load successfully (`/`, `/about`, `/artists`, `/releases`, `/news`, `/contact`, `/press`, `/offline`)
 - [ ] Crawl internal links and confirm no broken links / 404 pages
 - [ ] Validate dynamic routes for artist and release detail pages
+- [ ] Artist profile (`/artists/[slug]`): with more videos/news than preview, only configured **rows** show (default 2); **Show all** expands in place; **Show less** collapses. Personal/Fan page unchanged.
+- [ ] Admin → Settings: **Artist profile video rows** / **news rows** (1–12) save and affect the regular artist page after site-settings revalidation
 - [ ] Homepage hero: featured release with long `promoText` shows teaser + ellipsis (not site-wide hero description); full promo on release detail; empty promo uses site `heroDescription` only
 - [ ] Validate newsletter submission flow and confirmation message
 - [ ] Validate media and upload features from admin/portal areas
 - [ ] Admin → Releases → New Release: **Release Date** calendar opens above the modal, day selectable, form can save with today’s date
 - [ ] Spot-check other modal date/month fields: Videos publish date, Expense date, Settlement period MonthField
 - [ ] Homepage: wheel/trackpad scroll over **Videos** section continues page scroll (no dead zone on desktop)
+- [ ] Homepage: wheel over **Releases coverflow** keeps buttery Lenis (vertical); horizontal drag/trackpad still changes slides
+- [ ] Homepage: wheel over **Spotify** embed (before click) scrolls the page smoothly; click enables player for ~5s
+- [ ] Homepage desktop scroll feels continuous (lerp damping, not one ease per mouse-wheel notch); VFX may dim slightly while scrolling
 - [ ] **Mobile homepage:** Footer Impressum / Datenschutz / AGB / Kontakt are tappable after dismissing consent/PWA banners; links wrap, not clipped
 - [ ] **Mobile homepage scroll:** No vertical double-image / heavy stutter over Releases/Videos (native scroll on phone)
 - [ ] **Portal EPK builder mobile:** Only one of Canvas / Layers / Properties; no side-by-side columns; compact toolbar + Save; canvas usable
 - [ ] **Portal Personal Artist Page builder mobile:** Only one of Sections / Preview / Properties; Publish reachable; no double preview columns
 - [ ] **Desktop builders ≥1024px:** Resizable three-column layout still works for EPK + Personal Artist Page
+- [ ] **Admin shell:** open any `/admin/*` page signed in → DevTools console has **no** `cannot add postgres_changes callbacks … after subscribe()`; sidebar badge counts still update live when a portal message / submission arrives
 - [ ] Admin/Portal messages: open a label thread → original + replies show as chat bubbles (own on the right)
 - [ ] New message while mailbox open → toast + optional chime; toggle Sound off/on persists after reload
 - [ ] Inbox: multiple Re:/Aw: messages on same subject appear as **one** conversation (count badge); opening shows full chat
@@ -83,6 +89,7 @@ Full staging sequence: [docs/agent/multi-tenant.md](docs/agent/multi-tenant.md) 
 - [ ] Validate protected API endpoints reject missing/invalid authentication
 - [ ] Confirm editor JWT cannot call finance APIs (`/api/admin/sales-statements/*`, `/api/admin/settlements/*`, `/api/admin/invoices/*`, `/api/admin/sos/*`) — expect 403
 - [ ] Confirm `GET /api/health?mode=full` without auth returns 401; admin System Health widget still loads with Bearer token
+- [ ] Admin System Health shows app version `vX.Y.Z` (matches `package.json`); on Vercel also shows short commit SHA next to status
 - [ ] Admin System Health: a chatty API (many recent logs) does not force quieter configured APIs to “Awaiting first sync” / Never when they have older successful `sync_logs`
 - [ ] After YouTube cron (or manual `/api/sync-youtube`), Health shows a youtube last-run + `sync_youtube` heartbeat; large channels do not OOM (cap 500)
 - [ ] Confirm press-only news is absent from public `/news` and `/news/[slug]` but visible in press dashboard when published
@@ -112,7 +119,8 @@ Full staging sequence: [docs/agent/multi-tenant.md](docs/agent/multi-tenant.md) 
 - [ ] `/portal/spotify-trends` shows empty state when no presence data (not a wall of zeros)
 - [ ] `/portal/sos-analytics` shows empty state when no SOS statements; tabs exclude Spotify presence
 - [ ] `/portal/analytics` redirects to Sales Analytics (`/portal/sos-analytics`); `?tab=listeners` → Spotify Trends
-- [ ] Profile → Integrations: save Bandsintown ID + API key; key masked after save (`hasApiKey`)
+- [ ] Profile → Integrations: save Bandsintown artist name + API key; key masked after save (`hasApiKey`)
+- [ ] Admin artist form and portal Integrations show **Bandsintown Artist Name** (not Artist ID)
 - [ ] Sync concerts from Integrations updates tour list when credentials valid
 
 ## Portal release submission
@@ -131,8 +139,25 @@ Full staging sequence: [docs/agent/multi-tenant.md](docs/agent/multi-tenant.md) 
 - [ ] Statement-linked invoice + full payment → open balance / carry-forward ~ 0 (no double negative)
 - [ ] Invoice with 19% USt: payment can record gross PDF total
 - [ ] Portal invoice against locked settlement period returns 422
+- [ ] Reporting / PDF / Excel: **Period payout** is this period only; **Opening** is last period’s leftover; **Amount due** = payout + opening (opening is not inside payout)
+- [ ] Archive a period with leftover → next period opening line + `carry_in`; new `amount_eur` does not include that leftover
+- [ ] Track split 70/20 blocks Continue and does not leak 10% to the original artist
+- [ ] Pay a statement-linked invoice: no second `payment` ledger row after `invoice_liability`; `received_at` is set if it was empty
+- [ ] Illegal statement status jump (e.g. draft → paid) returns 422; second SOS invoice for the same statement returns 409
+- [ ] Bandcamp payout rows show as skipped (not revenue); empty currency rows warn “treated as EUR”
+- [ ] Believe `01/09/2024` lands in September; Bandcamp `01/09/2024` lands in January
+- [ ] Rebuild Gold does not change bronze row count; Save to Portal does not toast a gold-vs-statement warning
+- [ ] After Save to Portal, artist Sales Analytics territory revenue is the amount after the label share (no split % or label-share line in the portal). Excel still shows gross + split.
+- [ ] Re-upload the same CSV after a failed bronze batch succeeds; a second upload of a completed hash is treated as duplicate (no second active batch)
+- [ ] Compilation filter panel amounts match EUR after FX (not raw USD/GBP cells)
+- [ ] Archive a settlement period without locking first — allowed; archive is final (no unlock / unpay in the UI)
+
+- [ ] Excel export dialog: uncheck a release column → downloaded workbook omits it; Artist/Period/Final Payout remain
+- [ ] Save Excel preset → reopen dialog → preset still selected and columns match (workspace / rules preset)
 
 ## Accounting wizard (DAU path)
+- [ ] `/admin/accounting` Statement History tab and `/admin/statements` render without `Something went wrong`
+- [ ] Guided Publish / Drafts step (`?guidedStep=settle`) does not crash; failed draft create shows a toast
 - [ ] `/admin/accounting` shows Assistant as recommended; 5-step “what happens next” list
 - [ ] Assistant: empty period → Continue disabled with plain reason; set months → Continue works
 - [ ] Upload one CSV → coach checklist updates; Continue enabled only after numbers appear
@@ -185,6 +210,8 @@ Full staging sequence: [docs/agent/multi-tenant.md](docs/agent/multi-tenant.md) 
 - [ ] Role=`user` cannot list non-press assets; admin/editor file explorer still loads
 - [ ] Artist detail HTML/Flight payload has no `bandsintownApiKey`
 - [ ] Portal Bandsintown still shows `hasApiKey` and sync works after private-data migration
+- [ ] Admin/cron Bandsintown sync upserts concerts when the key lives only in `artist_private_data` (public column null; no global credential required)
+- [ ] Admin → System Health marks Bandsintown configured when any private per-artist key exists
 
 ## Responsive Design
 - [ ] Validate mobile navigation behavior and menu access
@@ -203,12 +230,18 @@ Full staging sequence: [docs/agent/multi-tenant.md](docs/agent/multi-tenant.md) 
 - [ ] Validate artist/release/news sync jobs and cron triggers
 - [ ] Validate RLS and role permissions for new tables/features
 - [ ] Admin → Releases → "Sync All APIs": progress climbs with backlog (not stuck at 100% mid-run); spinner stays until drain or ~5 min timeout; toast reflects drained vs still-running; cover art lands on CDN without `getaddrinfo EBUSY` spam in sync logs; Odesli job reschedules cleanly under rate limit
+- [ ] After a full/Odesli sync, System Health **Sync Queue** does not stay at `1 running, 0 pending` once APIs show Success. Releases with only an artist-profile Spotify URL (or Odesli 404/405/422) get a fallback smart link and do not recycle the same Odesli job. Already-CDN covers are not re-fetched. If a leftover `running` row remains from before this fix, cancel it in System → Advanced.
 - [ ] After release sync, public `/releases` and home release section show new visible non-promo releases (hard refresh OK; no need to wait full 1h TTL)
 - [ ] Admin → Videos → "Sync YouTube Channel": admin list updates; public `/videos` updates after revalidation
 - [ ] Full artist sync does **not** claim to update videos (YouTube is a separate action)
 - [ ] `GET /api/sync/queue` with admin Bearer returns `{ pending, running, done, failed }` and does **not** enqueue jobs
 - [ ] Admin → System → **Advanced**: job table lists pending/running; cancel pending removes work; cancel running sets cancel-requested then job ends cancelled; retry failed re-queues
 - [ ] Force Sync / Sync All: many artists drain continuously (executor self-chains); no manual re-kick every ~5 min while due jobs remain; rate-limited artists pause with cooldown while others proceed
+- [ ] Cron/Admin `apiSource: spotify`, `odesli`, `songkick`, or `bandsintown` via `/api/sync-api` starts the executor immediately (jobs do not wait for the next 5-minute process-queue tick)
+- [ ] Odesli 429 does not stop remaining smart-link resolves or skip artist `platform_links`; leftover rows continue on the next batch without a 15-minute park
+- [ ] Artists with >200 iTunes collections get further pages (not truncated at 200)
+- [ ] Failed Spotify/Discogs cover uploads appear in sync errors (remote URL may remain)
+- [ ] YouTube remains a separate channel action (Force Sync YouTube / cron `type=youtube`); artist queue jobs do not write videos
 - [ ] Stuck `running` jobs recover within ~6 minutes and stats GET unblocks re-kick
 - [ ] Admin → System → Health: **no** infra setup (no CRON_SECRET / Supabase Cron / Edge Function / Vercel / R2 operator docs); speaking issues stay product-facing (Force Sync / technical operator), never expose secrets or cron schedules
 - [ ] `vercel.json` has no `crons` key
@@ -304,7 +337,10 @@ Full staging sequence: [docs/agent/multi-tenant.md](docs/agent/multi-tenant.md) 
 - [ ] Admin read-only view at `/admin/tour-planner` loads for admin role
 
 ## Analytics & SOS Persist
-- [ ] Accounting → Save to Portal persists territory metrics after CSV processing
+- [ ] Accounting → Save to Portal persists territory metrics after CSV processing without crashing the page (no Server Components digest toast, no full `error.tsx`)
+- [ ] Settlement Center: **Ready for draft** / Create drafts uploads the PDF and does not take down the page; **Save to Portal** above the register stays mounted
+- [ ] Bandcamp `FrozenPlasma` and roster `Frozen Plasma` settle as one artist after import
+- [ ] Frozen Plasma workspace Believe 80% / Bandcamp 50% survives JSON re-import and is used on the next visit without uploading the file again (Default preset in DB)
 - [ ] Merch tab shows data after Shopify/Darkmerch CSV + Save to Portal
 - [ ] `/admin/analytics` Label Intelligence Hub loads (admin role only)
 - [ ] Website engagement appears after accepting cookies on public artist pages

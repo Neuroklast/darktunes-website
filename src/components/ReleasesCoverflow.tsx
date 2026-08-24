@@ -215,7 +215,23 @@ export function ReleasesCoverflow({ releases, autoplayMs = 0 }: ReleasesCoverflo
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="relative overflow-clip" data-lenis-prevent style={{ touchAction: 'pan-y pinch-zoom' }}>
+      {/*
+        No data-lenis-prevent: vertical wheel must stay on Lenis for buttery page scroll.
+        touch-action pan-y keeps vertical gestures on the document; Swiper owns horizontal drag.
+        Strong horizontal wheel/trackpad deltas advance slides without stopping Lenis on Y.
+      */}
+      <div
+        className="relative overflow-clip"
+        style={{ touchAction: 'pan-y pinch-zoom' }}
+        onWheel={(e) => {
+          if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || Math.abs(e.deltaX) < 4) return
+          const swiper = swiperRef.current
+          if (!swiper || swiper.destroyed) return
+          e.preventDefault()
+          if (e.deltaX > 0) swiper.slideNext()
+          else swiper.slidePrev()
+        }}
+      >
         <Swiper
           key={isDesktop ? 'desktop' : 'mobile'} // Force re-init bei Wechsel
           modules={[EffectCoverflow, Keyboard, Autoplay, Virtual]}

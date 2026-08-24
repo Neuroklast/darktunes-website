@@ -59,6 +59,7 @@ export function PdfExportSettingsPanel({ settings, onUpdate }: PdfExportSettings
           <p className="text-xs text-muted-foreground">
             Choose which sections to include in exported PDFs.
             Required fields (summary, artist info) are always included.
+            Excel columns are chosen in the Excel export dialog and can be saved as a team preset.
           </p>
 
           <div className="space-y-2">

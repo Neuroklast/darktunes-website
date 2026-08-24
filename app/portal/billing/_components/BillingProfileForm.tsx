@@ -188,6 +188,9 @@ export function BillingProfileForm({ artistId, billingProfile, isComplete }: Bil
                 <option value="reverse_charge">{t('billing_tax_reverse_charge')}</option>
               </select>
               <p className="text-xs text-muted-foreground">{t('billing_tax_status_hint')}</p>
+              {form.taxStatus === 'reverse_charge' && (
+                <p className="text-xs text-muted-foreground">{t('billing_reverse_charge_hint')}</p>
+              )}
             </div>
 
             <div className="flex justify-end">

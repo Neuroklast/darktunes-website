@@ -3,7 +3,11 @@ import { z } from 'zod'
 import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { getAdminInvoiceById, recordInvoicePayment } from '@/lib/api/artistInvoices'
 import { assertSettlementPeriodWritableById } from '@/lib/api/settlementPeriods'
-import { appendLedgerEntry, hasLedgerEntry } from '@/lib/api/settlementLedger'
+import {
+  appendLedgerEntry,
+  hasLedgerEntry,
+  resolvePaymentLedgerEntryType,
+} from '@/lib/api/settlementLedger'
 import { logFinancialEvent } from '@/lib/api/financialAudit'
 import {
   checkAndClaimIdempotencyKey,
@@ -76,12 +80,12 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
       invoice.id,
       'invoice_liability',
     )
-    if (!alreadyHasLiability) {
-      const entryType = invoice.status === 'paid' ? 'payment' : 'partial_payment'
+    const paymentEntryType = resolvePaymentLedgerEntryType(alreadyHasLiability, invoice.status)
+    if (paymentEntryType) {
       await appendLedgerEntry(supabase, {
         artistId: invoice.artistId,
         settlementPeriodId: invoice.settlementPeriodId ?? null,
-        entryType,
+        entryType: paymentEntryType,
         amountEur: -parsed.data.amountCents / 100,
         currency: invoice.currency,
         referenceType: 'artist_invoice',

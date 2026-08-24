@@ -10,6 +10,10 @@ const { mockLenis, mockScrollTo, lenisState } = vi.hoisted(() => ({
 
 vi.mock('@/components/animations/LenisProvider', () => ({
   useLenis: () => lenisState.current,
+  LENIS_ANCHOR_SCROLL: {
+    duration: 1.15,
+    easing: (t: number) => t,
+  },
 }))
 
 describe('useSmoothScrollToAnchor', () => {
@@ -21,7 +25,11 @@ describe('useSmoothScrollToAnchor', () => {
     result.current({ preventDefault } as unknown as React.MouseEvent<HTMLElement>, '#target')
 
     expect(preventDefault).toHaveBeenCalled()
-    expect(mockLenis.scrollTo).toHaveBeenCalledWith('#target', { offset: -140 })
+    expect(mockLenis.scrollTo).toHaveBeenCalledWith('#target', {
+      offset: -140,
+      duration: 1.15,
+      easing: expect.any(Function),
+    })
   })
 
   it('falls back to native scroll when Lenis is unavailable', async () => {

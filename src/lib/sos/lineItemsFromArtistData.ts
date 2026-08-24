@@ -38,8 +38,9 @@ export function computeTotalStreamsFromArtistData(artistData: SafeProcessedArtis
 
 export function monthToPeriodDate(month: string, endOfMonth = false): string | undefined {
   if (!/^\d{4}-\d{2}$/.test(month)) return undefined
-  if (!endOfMonth) return `${month}-01`
   const [year, mon] = month.split('-').map(Number)
+  if (!year || !mon || mon < 1 || mon > 12) return undefined
+  if (!endOfMonth) return `${month}-01`
   const lastDay = new Date(year, mon, 0).getDate()
   return `${month}-${String(lastDay).padStart(2, '0')}`
 }

@@ -89,11 +89,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
 
   const vatRaw = parsed.data.vat_id?.trim() ?? ''
-  if (taxStatus === 'reverse_charge' && !vatRaw) {
-    throw new ApiError(422, 'Reverse charge requires an EU VAT ID (USt-IdNr.)')
-  }
 
-  // EU VIES validation when a VAT ID is present (required for reverse charge).
+  // EU VIES validation when a VAT ID is present — best-effort, informational only.
   let viesResult: ViesCheckResult | null = null
   let viesPersist: UpsertVies | undefined
   let normalisedVatId: string | undefined
@@ -105,30 +102,10 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     }
     normalisedVatId = parsedVat.compact
 
-    if (isEuVatCountry(parsedVat.countryCode) || taxStatus === 'reverse_charge') {
+    if (isEuVatCountry(parsedVat.countryCode)) {
+      // Best-effort VIES check when an EU VAT ID is supplied — informational only,
+      // never blocks reverse charge (issuer VAT-ID is optional there).
       viesResult = await checkVatWithVies(normalisedVatId)
-
-      if (taxStatus === 'reverse_charge') {
-        if (viesResult.status === 'invalid' || viesResult.status === 'malformed') {
-          throw new ApiError(
-            422,
-            viesResult.message ??
-              'VAT ID is not valid in EU VIES — reverse charge cannot be applied',
-          )
-        }
-        if (viesResult.status === 'not_eu') {
-          throw new ApiError(
-            422,
-            'Reverse charge requires an EU VAT ID registered in VIES',
-          )
-        }
-        if (viesResult.status === 'service_unavailable') {
-          throw new ApiError(
-            503,
-            'EU VIES service is temporarily unavailable — try again later before saving reverse-charge status',
-          )
-        }
-      }
 
       // Persist only definitive VIES outcomes (never mark invalid when service is down).
       if (viesResult.status === 'valid' || viesResult.status === 'invalid') {
@@ -139,7 +116,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
           requestIdentifier: viesResult.requestIdentifier,
         }
       }
-      // service_unavailable / not_eu for non-RC: leave previous VIES snapshot unchanged
     } else {
       // Non-EU VAT ID stored as text only — clear VIES snapshot.
       viesPersist = null

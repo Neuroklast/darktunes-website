@@ -15,6 +15,14 @@ import { upsertMerchOrders } from '@/lib/api/merchOrders'
 import type { TerritoryMetricRow } from '@/lib/sos/data-processor'
 import type { MerchOrderRow } from '@/lib/sos/merchOrderRows'
 import { writeAppLog } from '@/lib/appLog'
+import { normalizeArtistNameKey } from '@/lib/sos/artistNameKey'
+import {
+  applyArtistShareToMerchOrders,
+  applyArtistShareToTerritoryMetrics,
+  toArtistShareRates,
+  type ArtistShareRates,
+} from '@/lib/sos/applyArtistShareToPortalMetrics'
+import type { ArtistRevenue } from '@/lib/sos/types'
 
 type ServiceClient = SupabaseClient<Database>
 
@@ -26,6 +34,8 @@ export interface PersistSosAnalyticsInput {
   territoryMetrics: TerritoryMetricRow[]
   merchOrderRows?: MerchOrderRow[]
   labelArtists: Array<{ name: string; artistId?: string }>
+  /** Used only to scale portal gold revenue by the artist share. */
+  revenues?: Array<ArtistShareRates | ArtistRevenue>
   periodSummary?: UpsertSosPeriodSummaryInput
 }
 
@@ -38,7 +48,17 @@ export interface PersistSosAnalyticsResult {
   promoImpactRows?: number
   promoImpactWarnings?: string[]
   merchOrdersUpserted?: number
+  warnings?: string[]
   error?: string
+}
+
+function toShareRates(
+  revenues: PersistSosAnalyticsInput['revenues'],
+): ArtistShareRates[] {
+  if (!revenues || revenues.length === 0) return []
+  return revenues.map((row) =>
+    'believeRevenue' in row ? toArtistShareRates(row) : row,
+  )
 }
 
 function buildArtistIdLookup(
@@ -47,7 +67,7 @@ function buildArtistIdLookup(
   const map = new Map<string, string>()
   for (const la of labelArtists) {
     if (la.artistId) {
-      map.set(la.name.trim().toLowerCase(), la.artistId)
+      map.set(normalizeArtistNameKey(la.name), la.artistId)
     }
   }
   return map
@@ -69,6 +89,11 @@ export async function persistSosAnalyticsCore(
     }
 
     const artistLookup = buildArtistIdLookup(input.labelArtists)
+    const shareRates = toShareRates(input.revenues)
+    const portalTerritoryMetrics = applyArtistShareToTerritoryMetrics(
+      input.territoryMetrics,
+      shareRates,
+    )
 
     const resolvedBatchIds = [
       ...new Set([
@@ -79,8 +104,8 @@ export async function persistSosAnalyticsCore(
     const primaryBatchId = resolvedBatchIds[0] ?? null
 
     const upsertRows = []
-    for (const row of input.territoryMetrics) {
-      const artistId = artistLookup.get(row.artistName.trim().toLowerCase())
+    for (const row of portalTerritoryMetrics) {
+      const artistId = artistLookup.get(normalizeArtistNameKey(row.artistName))
       if (!artistId) continue
       upsertRows.push({
         artistId,
@@ -162,14 +187,14 @@ export async function persistSosAnalyticsCore(
     }
 
     for (const batchId of resolvedBatchIds) {
-      await updateImportBatchStatus(serviceSupabase, batchId, 'completed', upsertRows.length)
+      await updateImportBatchStatus(serviceSupabase, batchId, 'completed')
     }
 
     let merchOrdersUpserted = 0
     if (input.merchOrderRows && input.merchOrderRows.length > 0) {
       const merchRows = []
-      for (const row of input.merchOrderRows) {
-        const artistId = artistLookup.get(row.artistName.trim().toLowerCase())
+      for (const row of applyArtistShareToMerchOrders(input.merchOrderRows, shareRates)) {
+        const artistId = artistLookup.get(normalizeArtistNameKey(row.artistName))
         if (!artistId) continue
         merchRows.push({
           ...row,

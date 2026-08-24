@@ -11,6 +11,7 @@ import type { NextRequest } from 'next/server'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import {
   createImportBatch,
+  DuplicateImportBatchError,
   findImportBatchByFileHash,
   listImportBatches,
 } from '@/lib/api/distributorImportBatches'
@@ -63,8 +64,11 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
 
-  if (file_hash && /^[a-f0-9]{64}$/i.test(file_hash)) {
-    const existing = await findImportBatchByFileHash(serviceSupabase, file_hash, organizationId)
+  const normalizedHash =
+    file_hash && /^[a-f0-9]{64}$/i.test(file_hash) ? file_hash.toLowerCase() : null
+
+  if (normalizedHash) {
+    const existing = await findImportBatchByFileHash(serviceSupabase, normalizedHash, organizationId)
     if (existing) {
       return NextResponse.json({ batch: existing, duplicate: true }, { status: 200 })
     }
@@ -87,16 +91,26 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
     organizationId,
   )
 
-  const batch = await createImportBatch(serviceSupabase, {
-    periodStart: period_start,
-    periodEnd: period_end,
-    distributor,
-    r2Key,
-    fileHash: file_hash ?? null,
-    rowCount: row_count ?? 0,
-    uploadedBy: user.id,
-    organizationId,
-  })
+  try {
+    const batch = await createImportBatch(serviceSupabase, {
+      periodStart: period_start,
+      periodEnd: period_end,
+      distributor,
+      r2Key,
+      fileHash: normalizedHash,
+      rowCount: row_count ?? 0,
+      uploadedBy: user.id,
+      organizationId,
+    })
 
-  return NextResponse.json({ batch, r2Key }, { status: 201 })
+    return NextResponse.json({ batch, r2Key }, { status: 201 })
+  } catch (err) {
+    if (err instanceof DuplicateImportBatchError && normalizedHash) {
+      const existing = await findImportBatchByFileHash(serviceSupabase, normalizedHash, organizationId)
+      if (existing) {
+        return NextResponse.json({ batch: existing, duplicate: true }, { status: 200 })
+      }
+    }
+    throw err
+  }
 })

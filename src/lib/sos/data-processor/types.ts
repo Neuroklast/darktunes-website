@@ -30,7 +30,12 @@ export interface ProcessedArtistData {
   manualRevenueEntries: Array<{ description: string; amount: number }>
   grossRevenue: number
   splitPercentage: number
+  /** Period activity only — does not include opening / carry-forward. */
   finalPayout: number
+  /** Opening brought into this period (display / amount due only). */
+  openingBalanceEur: number
+  /** finalPayout + openingBalanceEur. */
+  amountDueEur: number
   totalQuantity: number
   totalExpenses: number
   expenseEntries: Array<{ description: string; amount: number; date: string }>

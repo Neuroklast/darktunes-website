@@ -23,6 +23,7 @@ import { writeAppLog } from '@/lib/appLog'
 import { extractRouteUserContext } from '@/lib/routeUserContext'
 import { type ErrorCode, ERROR_MESSAGES } from './errorCodes'
 import { SettlementPeriodNotWritableError } from '@/lib/api/settlementPeriods'
+import { InvalidStatementTransitionError } from '@/lib/sos/statementStatusTransitions'
 
 // ---------------------------------------------------------------------------
 // ApiError — structured error thrown inside route handlers
@@ -160,6 +161,10 @@ export function withErrorHandler(handler: RouteHandler): RouteHandler {
 
       if (err instanceof SettlementPeriodNotWritableError) {
         return buildErrorResponse(err.message, 409)
+      }
+
+      if (err instanceof InvalidStatementTransitionError) {
+        return buildErrorResponse(err.message, 422, 'VALIDATION_ERROR')
       }
 
       if (err instanceof ApiError) {

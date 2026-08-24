@@ -49,9 +49,21 @@ Update when applicable — pure typo/doc-only sessions with no product change ma
 
 | File | When to update |
 |------|----------------|
-| `CHANGELOG.md` | User-facing features, API/route changes, security fixes, or breaking changes → add bullets under `[Unreleased]`. Skip internal refactors with no observable change. |
+| `CHANGELOG.md` | User-facing features, API/route changes, security fixes, or breaking changes → add bullets under `[Unreleased]`. Skip internal refactors with no observable change. **Do not leave product waves forever under Unreleased** — cut a SemVer section when releasing (see [RELEASING.md](../RELEASING.md)). |
 | `LESSONS_LEARNED.md` | Session uncovered a recurring anti-pattern, non-obvious failure mode, or process gap → append a dated entry under `## Session additions`. Promote to rule tables only after the pattern recurs. Skip one-off typos. |
 | `QA_CHECKLIST.md` | New/changed user flows, auth guards, consent/i18n/PWA behavior, or E2E-covered features → add or adjust checklist items. Skip internal refactors that don't change testable behavior. |
+
+## App versioning & releases
+
+Product version is SemVer in `package.json` (not `0.0.0`). Annotated tags `vX.Y.Z` + CHANGELOG sections label releases; Vercel still deploys every `main` merge.
+
+| Command | Purpose |
+|---------|---------|
+| `npm run release:check` | package version has `## [X.Y.Z]` in CHANGELOG; no local tag yet |
+| `npm run release -- bump patch\|minor\|major` | bump package + lockfile |
+| `npm run release:tag` | create annotated `vX.Y.Z` |
+
+Full ritual, historical tags, and SemVer rules: **[docs/RELEASING.md](../RELEASING.md)**. Runtime identity: `src/lib/appVersion.ts` → full health snapshot `app.version` / `app.commit` (Admin → System).
 
 **Minimal changes:** smallest diff that fully solves the requirement; no unrelated refactors; no new dependencies unless necessary.
 

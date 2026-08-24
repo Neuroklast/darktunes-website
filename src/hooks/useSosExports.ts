@@ -12,6 +12,7 @@ import {
 } from '@/lib/sos/export-utils'
 import { createSafeFilename } from '@/lib/sos/utils'
 import { isValidArtistId, isValidPeriod } from '@/lib/sos/validation'
+import type { ExcelExportSettingsPatch } from '@/lib/sos/excelExportSettings'
 import { uploadStatement } from '../../app/portal/statements/_actions/uploadStatement'
 import {
   buildLineItemsFromArtistData,
@@ -229,7 +230,7 @@ export function useExports(
   )
 
   const handleDownloadExcel = useCallback(
-    async (artist: string) => {
+    async (artist: string, excelSettings?: ExcelExportSettingsPatch) => {
       const artistData = processedData.find(d => d.artist === artist)
       if (!artistData) {
         toast.error(interpolate(t.exportNoArtistData, { artist }))
@@ -243,7 +244,7 @@ export function useExports(
           periodStart || undefined,
           periodEnd || undefined,
           compilationFilters,
-          pdfSettings
+          excelSettings ?? pdfSettings
         )
         downloadBlob(blob, `${createSafeFilename(artist)}_statement.xlsx`)
         toast.success(interpolate(t.exportExcelDownloaded, { artist }))
@@ -262,7 +263,7 @@ export function useExports(
    * via an updating sonner toast so the user sees exactly how far along the
    * export is without the tab freezing.
    */
-  const handleDownloadAll = useCallback(async () => {
+  const handleDownloadAll = useCallback(async (excelSettings?: ExcelExportSettingsPatch) => {
     if (processedData.length === 0) {
       toast.info('No revenue data to export')
       return
@@ -287,7 +288,8 @@ export function useExports(
         labelArtists,
         appDefaults,
         emailConfig,
-        compilationFilters
+        compilationFilters,
+        excelSettings,
       )
       downloadBlob(blob, 'artist_statements.zip')
       toast.success(`All ${total} statements downloaded`, { id: toastId })
@@ -302,7 +304,10 @@ export function useExports(
    * Queued batch export for a specific subset of artists — same async queue
    * as handleDownloadAll but filters processedData to only the provided names.
    */
-  const handleDownloadSelected = useCallback(async (selectedArtistNames: string[]) => {
+  const handleDownloadSelected = useCallback(async (
+    selectedArtistNames: string[],
+    excelSettings?: ExcelExportSettingsPatch,
+  ) => {
     if (selectedArtistNames.length === 0) {
       toast.info('No artists selected for export')
       return
@@ -333,7 +338,8 @@ export function useExports(
         labelArtists,
         appDefaults,
         emailConfig,
-        compilationFilters
+        compilationFilters,
+        excelSettings,
       )
       downloadBlob(blob, 'selected_artist_statements.zip')
       toast.success(`${total} selected statement${total !== 1 ? 's' : ''} downloaded`, { id: toastId })

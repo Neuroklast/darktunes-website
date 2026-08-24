@@ -64,6 +64,8 @@ function makeRevenue(artist: string): ArtistRevenue {
     releaseBreakdown: [],
     physicalReleasesRevenue: 0,
     digitalSplitPercentage: 50,
+    believeSplitPercentage: 50,
+    bandcampSplitPercentage: 50,
     physicalSplitPercentage: 50,
     darkmerchSplitPercentage: 50,
   }
@@ -105,5 +107,25 @@ describe('ReportingPanel settlement center CTA', () => {
 
     expect(screen.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Publish Selected/i })).not.toBeInTheDocument()
+  })
+
+  it('shows period payout separately from opening and amount due', () => {
+    render(
+      <ReportingPanel
+        revenues={[{
+          ...makeRevenue('Artist A'),
+          openingBalanceEur: 10,
+          amountDueEur: 60,
+        }]}
+        onDownloadPDF={vi.fn()}
+        onDownloadExcel={vi.fn()}
+        onDownloadAll={vi.fn()}
+        onDownloadSelected={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Period payout')).toBeInTheDocument()
+    expect(screen.getByText('Opening')).toBeInTheDocument()
+    expect(screen.getByText('Amount due')).toBeInTheDocument()
   })
 })

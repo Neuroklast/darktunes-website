@@ -3,6 +3,8 @@
 Official website for **darkTunes Music Group**, an alternative music label.  
 Built with **Next.js 15 (App Router)**, React, Supabase, Cloudflare R2, and Tailwind CSS v4.
 
+**Product version:** SemVer in `package.json` (see Admin → System Health for `vX.Y.Z · commit`). Release ritual: [docs/RELEASING.md](docs/RELEASING.md). Changelog: [CHANGELOG.md](CHANGELOG.md).
+
 ---
 
 ## 🎵 Features

@@ -19,8 +19,11 @@ vi.mock('framer-motion', () => ({
   useReducedMotion: () => true,
 }))
 
+const mockScrollTo = vi.fn()
+const mockLenis = { scroll: 100, scrollTo: mockScrollTo }
+
 vi.mock('@/components/animations/LenisProvider', () => ({
-  useLenis: () => undefined,
+  useLenis: () => mockLenis,
 }))
 
 vi.mock('@/components/ui/card', () => ({
@@ -69,5 +72,20 @@ describe('SpotifyMultiPlayer', () => {
       'src',
       expect.stringContaining(getSpotifyEmbedPath('spotify:playlist:37i9dQZF1DX4WYpdgoIcn6')),
     )
+  })
+
+  it('routes wheel over the overlay through Lenis virtual scroll', () => {
+    mockScrollTo.mockClear()
+    render(
+      <SpotifyMultiPlayer
+        playlists={[{ uri: 'spotify:playlist:37i9dQZF1DWWqNV5cS50j6', label: 'Label Playlist' }]}
+      />,
+    )
+
+    const overlay = document.querySelector('.absolute.inset-0.z-10')
+    expect(overlay).toBeTruthy()
+    fireEvent.wheel(overlay!, { deltaY: 80 })
+
+    expect(mockScrollTo).toHaveBeenCalledWith(180, { immediate: false, force: true })
   })
 })

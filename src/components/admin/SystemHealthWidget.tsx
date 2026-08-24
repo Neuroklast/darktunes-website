@@ -365,7 +365,12 @@ export function SystemHealthWidget({ bearerToken }: SystemHealthWidgetProps) {
         toast.success(
           `${getApiMeta(api).label} sync completed (${rows ?? 0} metric row${rows === 1 ? '' : 's'}).`,
         )
-      } else if (api === 'spotify' || api === 'odesli') {
+      } else if (
+        api === 'spotify' ||
+        api === 'odesli' ||
+        api === 'songkick' ||
+        api === 'bandsintown'
+      ) {
         const queued = data.queued as number | undefined
         // Kick the queue executor immediately so jobs do not wait for the 5-minute cron.
         if (typeof queued === 'number' && queued > 0) {
@@ -451,6 +456,22 @@ export function SystemHealthWidget({ bearerToken }: SystemHealthWidgetProps) {
               {health.status === 'degraded' && <Warning size={12} className="mr-1" aria-hidden="true" />}
               {health.statusLabel}
             </Badge>
+            <span
+              className="text-xs font-mono text-muted-foreground tabular-nums"
+              title={
+                health.app.commit
+                  ? `App ${health.app.version} · commit ${health.app.commit}`
+                  : `App ${health.app.version}`
+              }
+              aria-label={
+                health.app.commit
+                  ? `Application version ${health.app.version}, commit ${health.app.commit}`
+                  : `Application version ${health.app.version}`
+              }
+            >
+              v{health.app.version}
+              {health.app.commit ? ` · ${health.app.commit}` : ''}
+            </span>
             <span
               className={cn('text-sm font-semibold tabular-nums', healthScoreClass(health.healthScore))}
               aria-label={`Health score ${health.healthScore} out of 100`}

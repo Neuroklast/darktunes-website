@@ -195,12 +195,16 @@ describe('ReleasesCoverflow', () => {
     expect(tapClick.defaultPrevented).toBe(false)
   })
 
-  it('uses overflow-clip on the Swiper wrapper', () => {
+  it('uses overflow-clip on the Swiper wrapper without blanket Lenis prevent', () => {
     const { container } = render(
       <ReleasesCoverflow releases={releases} />,
     )
 
-    expect(container.querySelector('[data-lenis-prevent]')).toHaveClass('overflow-clip')
+    const wrapper = container.querySelector('.overflow-clip')
+    expect(wrapper).toBeTruthy()
+    expect(wrapper).toHaveClass('overflow-clip')
+    // Vertical wheel stays on Lenis; only real nested scrollports use data-lenis-prevent
+    expect(wrapper).not.toHaveAttribute('data-lenis-prevent')
   })
 
   it('sets Swiper speed to 0 when reduced motion is enabled', () => {

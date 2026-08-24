@@ -67,7 +67,7 @@ import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { DashboardNotificationBell } from '@/components/admin/DashboardNotificationBell'
 import { NavCountBadge } from '@/components/nav/NavCountBadge'
-import { useAdminNavBadges } from '@/hooks/useAdminNavBadges'
+import { useAdminNavBadgesContext } from '@/contexts/AdminNavBadgesContext'
 
 import { getCmsPromoLogPath, getCmsTabPath, getCmsHomePath } from '@/lib/editor/cmsPaths'
 
@@ -211,7 +211,8 @@ export function AdminSidebarNav() {
         : profile.role
   const notificationUserId = user?.id
   const showNotificationBell = Boolean(notificationUserId)
-  const badges = useAdminNavBadges(notificationUserId ?? null, isAdmin)
+  // Shared realtime subscription via AdminNavBadgesProvider (see AdminClientLayout)
+  const badges = useAdminNavBadgesContext()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [pwaInstalled, setPwaInstalled] = useState(false)
 

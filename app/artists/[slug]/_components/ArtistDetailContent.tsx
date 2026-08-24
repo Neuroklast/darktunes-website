@@ -7,6 +7,16 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
+import {
+  ARTIST_PROFILE_MD_MEDIA,
+  ARTIST_PROFILE_PREVIEW_ROWS_DEFAULT,
+  ARTIST_PROFILE_XL_MEDIA,
+  artistProfileNewsColumns,
+  artistProfileVideoColumns,
+  artistProfileVisibleCount,
+  clampArtistProfilePreviewRows,
+} from '@/lib/artistProfilePreview'
 import {
   ArrowLeft,
   SpotifyLogo,
@@ -53,6 +63,10 @@ interface ArtistDetailContentProps {
   news: NewsPost[]
   galleryPhotos: string[]
   relatedArtists?: PublicArtist[]
+  /** Grid rows of videos before "Show all". Default 2. */
+  videoPreviewRows?: number
+  /** Grid rows of news before "Show all". Default 2. */
+  newsPreviewRows?: number
 }
 
 function extractYouTubeId(url: string): string | null {
@@ -102,6 +116,8 @@ export function ArtistDetailContent({
   news,
   galleryPhotos,
   relatedArtists = [],
+  videoPreviewRows = ARTIST_PROFILE_PREVIEW_ROWS_DEFAULT,
+  newsPreviewRows = ARTIST_PROFILE_PREVIEW_ROWS_DEFAULT,
 }: ArtistDetailContentProps) {
   const t = useTranslations('artistDetail')
   const tConsent = useTranslations('consent')
@@ -113,6 +129,25 @@ export function ArtistDetailContent({
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
   const [galleryLightboxOpen, setGalleryLightboxOpen] = useState(false)
   const [galleryLightboxIndex, setGalleryLightboxIndex] = useState(0)
+  const [videosExpanded, setVideosExpanded] = useState(false)
+  const [newsExpanded, setNewsExpanded] = useState(false)
+
+  const isMd = useMediaQuery(ARTIST_PROFILE_MD_MEDIA)
+  const isXl = useMediaQuery(ARTIST_PROFILE_XL_MEDIA)
+  const videoRows = clampArtistProfilePreviewRows(videoPreviewRows)
+  const newsRows = clampArtistProfilePreviewRows(newsPreviewRows)
+  const videoVisibleLimit = artistProfileVisibleCount(
+    videoRows,
+    artistProfileVideoColumns(isMd, isXl),
+  )
+  const newsVisibleLimit = artistProfileVisibleCount(
+    newsRows,
+    artistProfileNewsColumns(isMd),
+  )
+  const visibleVideos = videosExpanded ? videos : videos.slice(0, videoVisibleLimit)
+  const visibleNews = newsExpanded ? news : news.slice(0, newsVisibleLimit)
+  const showVideosToggle = videos.length > videoVisibleLimit
+  const showNewsToggle = news.length > newsVisibleLimit
 
   const galleryPressPhotos = useMemo(
     () => galleryPhotos.map((url, index) => galleryUrlToPressAsset(url, artist.id, index)),
@@ -552,57 +587,73 @@ export function ArtistDetailContent({
                   style={{ overflow: 'hidden' }}
                 >
                   {videos.length > 0 ? (
-                    <ul className="grid md:grid-cols-2 xl:grid-cols-3 gap-6 list-none">
-                      {videos.map((video, index) => (
-                        <motion.li
-                          key={video.id}
-                          initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 30 }}
-                          whileInView={{ opacity: 1, y: 0 }}
-                          viewport={{ once: true }}
-                          transition={{
-                            duration: prefersReducedMotion ? 0 : 0.5,
-                            delay: prefersReducedMotion ? 0 : index * 0.05,
-                          }}
-                        >
-                          <Card className="group overflow-hidden bg-card border-border hover:border-accent/50 transition-all duration-300">
-                            <button
-                              type="button"
-                              className="relative aspect-video w-full overflow-hidden cursor-pointer"
-                              onClick={() => openVideoModal(video)}
-                              aria-label={`Play ${video.title}`}
-                            >
-                              <Image
-                                src={getOptimizedImageUrl(video.thumbnailUrl, 600)}
-                                alt={`${video.title} – video thumbnail`}
-                                fill
-                                unoptimized
-                                className="object-cover group-hover:scale-105 transition-transform duration-500"
-                              />
-                              <div className="absolute inset-0 bg-black/40 group-hover:bg-black/55 transition-colors flex items-center justify-center">
-                                <div
-                                  aria-hidden="true"
-                                  className="bg-accent text-accent-foreground rounded-full w-16 h-16 p-0 flex items-center justify-center"
-                                >
-                                  <Play size={26} weight="fill" aria-hidden="true" />
+                    <>
+                      <ul className="grid md:grid-cols-2 xl:grid-cols-3 gap-6 list-none">
+                        {visibleVideos.map((video, index) => (
+                          <motion.li
+                            key={video.id}
+                            initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 30 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{
+                              duration: prefersReducedMotion ? 0 : 0.5,
+                              delay: prefersReducedMotion ? 0 : index * 0.05,
+                            }}
+                          >
+                            <Card className="group overflow-hidden bg-card border-border hover:border-accent/50 transition-all duration-300">
+                              <button
+                                type="button"
+                                className="relative aspect-video w-full overflow-hidden cursor-pointer"
+                                onClick={() => openVideoModal(video)}
+                                aria-label={`Play ${video.title}`}
+                              >
+                                <Image
+                                  src={getOptimizedImageUrl(video.thumbnailUrl, 600)}
+                                  alt={`${video.title} – video thumbnail`}
+                                  fill
+                                  unoptimized
+                                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                                />
+                                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/55 transition-colors flex items-center justify-center">
+                                  <div
+                                    aria-hidden="true"
+                                    className="bg-accent text-accent-foreground rounded-full w-16 h-16 p-0 flex items-center justify-center"
+                                  >
+                                    <Play size={26} weight="fill" aria-hidden="true" />
+                                  </div>
                                 </div>
+                              </button>
+                              <div className="p-4">
+                                <h3 className="font-bold line-clamp-2 group-hover:text-accent transition-colors">
+                                  {video.title}
+                                </h3>
+                                <p className="text-xs text-muted-foreground font-mono mt-2">
+                                  {new Date(video.publishedAt).toLocaleDateString(dateLocale, {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })}
+                                </p>
                               </div>
-                            </button>
-                            <div className="p-4">
-                              <h3 className="font-bold line-clamp-2 group-hover:text-accent transition-colors">
-                                {video.title}
-                              </h3>
-                              <p className="text-xs text-muted-foreground font-mono mt-2">
-                                {new Date(video.publishedAt).toLocaleDateString(dateLocale, {
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric',
-                                })}
-                              </p>
-                            </div>
-                          </Card>
-                        </motion.li>
-                      ))}
-                    </ul>
+                            </Card>
+                          </motion.li>
+                        ))}
+                      </ul>
+                      {showVideosToggle && (
+                        <div className="mt-6 flex justify-center">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setVideosExpanded((v) => !v)}
+                            aria-expanded={videosExpanded}
+                          >
+                            {videosExpanded
+                              ? t('showLess')
+                              : t('showAll', { total: videos.length })}
+                          </Button>
+                        </div>
+                      )}
+                    </>
                   ) : youtubeId ? (
                     <div className="max-w-3xl">
                       <ConsentGate label={tConsent('loadYouTube')} gateText={tConsent('gateText')}>
@@ -725,7 +776,7 @@ export function ArtistDetailContent({
                   style={{ overflow: 'hidden' }}
                 >
                   <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 list-none">
-                    {news.map((post) => (
+                    {visibleNews.map((post) => (
                       <li key={post.id}>
                         <Link
                           href={`/news/${post.slug}`}
@@ -754,6 +805,20 @@ export function ArtistDetailContent({
                       </li>
                     ))}
                   </ul>
+                  {showNewsToggle && (
+                    <div className="mt-6 flex justify-center">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setNewsExpanded((v) => !v)}
+                        aria-expanded={newsExpanded}
+                      >
+                        {newsExpanded
+                          ? t('showLess')
+                          : t('showAll', { total: news.length })}
+                      </Button>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

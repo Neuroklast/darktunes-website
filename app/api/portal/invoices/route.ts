@@ -6,6 +6,7 @@ import { getBillingProfile, isBillingProfileComplete } from '@/lib/api/artistBil
 import {
   createArtistInvoice,
   createSosLinkedInvoice,
+  DuplicateStatementInvoiceError,
   getArtistInvoiceByStatementId,
   listArtistInvoices,
   updateInvoice,
@@ -16,16 +17,15 @@ import {
   getOrCreateSettlementPeriod,
   SettlementPeriodNotWritableError,
 } from '@/lib/api/settlementPeriods'
+import {
+  InvalidStatementTransitionError,
+} from '@/lib/sos/statementStatusTransitions'
 import { getSalesStatementById, updateSalesStatementStatus } from '@/lib/api/salesStatements'
 import { getSiteSettings } from '@/lib/api/siteSettings'
 import { sendInvoiceEmail } from '@/lib/email/sendInvoiceEmail'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { taxRateForStatus } from '@/lib/legal/taxStatus'
 import { formatEcbRateNote, getEcbRateForCurrency } from '@/lib/legal/serverFx'
-import {
-  checkVatWithVies,
-  isViesValidForReverseCharge,
-} from '@/lib/legal/viesVat'
 import { generateInvoiceNumber } from '@/lib/portal/invoiceNumber'
 import { generateInvoicePdf } from '@/lib/portal/invoicePdf'
 import { resolveLabelClientInfo } from '@/lib/portal/labelBilling'
@@ -96,21 +96,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   )
   if (!billingProfile || !isBillingProfileComplete(billingProfile)) {
     throw new ApiError(422, 'Billing profile is incomplete')
-  }
-
-  // Reverse charge: re-check VAT ID against EU VIES at invoice time.
-  if (billingProfile.taxStatus === 'reverse_charge') {
-    if (!billingProfile.vatId?.trim()) {
-      throw new ApiError(422, 'Reverse charge requires a valid EU VAT ID')
-    }
-    const vies = await checkVatWithVies(billingProfile.vatId)
-    if (!isViesValidForReverseCharge(vies)) {
-      throw new ApiError(
-        vies.status === 'service_unavailable' ? 503 : 422,
-        vies.message ??
-          'VAT ID failed EU VIES validation — reverse-charge invoice blocked',
-      )
-    }
   }
 
   const siteSettings = await write('site_settings', 'select', (db) => getSiteSettings(db))
@@ -227,15 +212,23 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     }
   }
 
-  const invoice = statement
-    ? await write('artist_invoices', 'insert', (db) =>
-        createSosLinkedInvoice(db, {
-          ...invoicePayload,
-          statementId: statement.id,
-          settlementPeriodId,
-        }),
-      )
-    : await write('artist_invoices', 'insert', (db) => createArtistInvoice(db, invoicePayload))
+  let invoice
+  try {
+    invoice = statement
+      ? await write('artist_invoices', 'insert', (db) =>
+          createSosLinkedInvoice(db, {
+            ...invoicePayload,
+            statementId: statement.id,
+            settlementPeriodId,
+          }),
+        )
+      : await write('artist_invoices', 'insert', (db) => createArtistInvoice(db, invoicePayload))
+  } catch (err) {
+    if (err instanceof DuplicateStatementInvoiceError) {
+      throw new ApiError(409, err.message)
+    }
+    throw err
+  }
 
   const pdfBytes = await generateInvoicePdf({
     invoiceNumber: input.artist_invoice_number,
@@ -305,9 +298,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     statement &&
     ['label_approved', 'artist_notified', 'viewed'].includes(statement.status)
   ) {
-    await write('sales_statements', 'update', (db) =>
-      updateSalesStatementStatus(db, statement.id, 'invoiced'),
-    )
+    try {
+      await write('sales_statements', 'update', (db) =>
+        updateSalesStatementStatus(db, statement.id, 'invoiced'),
+      )
+    } catch (err) {
+      if (err instanceof InvalidStatementTransitionError) {
+        throw new ApiError(422, err.message)
+      }
+      throw err
+    }
   }
 
   if (statement && settlementPeriodId) {

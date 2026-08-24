@@ -35,6 +35,8 @@ function makeRevenue(artist: string): ArtistRevenue {
     releaseBreakdown: [],
     physicalReleasesRevenue: 0,
     digitalSplitPercentage: 50,
+    believeSplitPercentage: 50,
+    bandcampSplitPercentage: 50,
     physicalSplitPercentage: 50,
     darkmerchSplitPercentage: 50,
   }

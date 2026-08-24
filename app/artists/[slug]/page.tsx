@@ -13,7 +13,7 @@
  *    `getReleasesByArtistId`    → SELECT * FROM releases WHERE artist_id = ?
  *    `getConcertsByArtistId`    → SELECT * FROM concerts WHERE artist_id = ?
  *    `getVideosByArtistId`      → SELECT * FROM videos WHERE artist_id = ?
- *    `getPublicNewsPosts`       → latest 3 news posts
+ *    `getPublicNewsPostsByArtistId` → artist news (preview rows from site_settings)
  * 4. Dictionary                 → resolved from NEXT_LOCALE cookie / Accept-Language
  * ──────────────────────────────────────────────────────────────────────────
  */
@@ -34,6 +34,11 @@ import { getConcertsByArtistId } from '@/lib/api/concerts'
 import { getPublicVideosByArtistId } from '@/lib/api/videos'
 import { getPublicNewsPostsByArtistId } from '@/lib/api/news'
 import { getPublicArtistEpkByArtistId } from '@/lib/api/publicArtistEpk'
+import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
+import {
+  ARTIST_PROFILE_PREVIEW_ROWS_DEFAULT,
+  clampArtistProfilePreviewRows,
+} from '@/lib/artistProfilePreview'
 
 import { ArtistDetailContent } from './_components/ArtistDetailContent'
 import { buildMusicGroupSchema, serializeJsonLd } from '@/lib/seo/jsonld'
@@ -71,7 +76,7 @@ function makeGetArtistData(slug: string, organizationId: string) {
         getReleasesByArtistId(client, artist.id),
         getConcertsByArtistId(client, artist.id),
         getPublicVideosByArtistId(client, artist.id),
-        getPublicNewsPostsByArtistId(client, artist.id).then((posts) => posts.slice(0, 3)),
+        getPublicNewsPostsByArtistId(client, artist.id),
         getPublicArtistEpkByArtistId(serviceDb, artist.id).catch(() => null),
         getPublicRelatedArtists(client, artist.id, artist.genres, 6, organizationId).catch(
           () => [],
@@ -125,9 +130,19 @@ export default async function ArtistDetailPage({ params }: Props) {
   const { slug } = await params
   // Do NOT swallow errors here — a Supabase failure must propagate so that
   // Next.js returns a 500 (uncached) rather than caching a false 404 for 60s.
-  const data = await makeGetArtistData(slug, orgId)()
+  // Site settings use a separate cache tag so artist-slug revalidation stays independent.
+  const [data, settings] = await Promise.all([
+    makeGetArtistData(slug, orgId)(),
+    getCachedSiteSettings(orgId).catch(() => null),
+  ])
   if (!data) notFound()
   const { artist, releases, concerts, videos, news, galleryPhotos, relatedArtists } = data
+  const videoPreviewRows = clampArtistProfilePreviewRows(
+    settings?.artistProfileVideoRows ?? ARTIST_PROFILE_PREVIEW_ROWS_DEFAULT,
+  )
+  const newsPreviewRows = clampArtistProfilePreviewRows(
+    settings?.artistProfileNewsRows ?? ARTIST_PROFILE_PREVIEW_ROWS_DEFAULT,
+  )
   return (
     <>
       <script
@@ -144,6 +159,8 @@ export default async function ArtistDetailPage({ params }: Props) {
         news={news}
         galleryPhotos={galleryPhotos}
         relatedArtists={relatedArtists}
+        videoPreviewRows={videoPreviewRows}
+        newsPreviewRows={newsPreviewRows}
       />
     </>
   )

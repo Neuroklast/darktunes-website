@@ -56,5 +56,45 @@ VALUES
   ('e2e00000-0000-0000-0000-000000000202', 'E2E Press-Only News Post', 'e2e-press-only-news',
    'Fixture press-only news post used by Playwright E2E tests.',
    'Full body content for the E2E fixture press-only news post.', 'published', TRUE,
+   'e2e00000-0000-0000-0000-000000000001'),
+  -- Extra public posts so /artists/[slug] can exercise the news preview "Show all" control
+  -- (default 2 rows × 1–2 cols → toggle appears when more posts exist than the preview).
+  ('e2e00000-0000-0000-0000-000000000203', 'E2E Artist News 2', 'e2e-artist-news-2',
+   'Second fixture news for artist profile preview.',
+   'Body for E2E artist news 2.', 'published', FALSE,
+   'e2e00000-0000-0000-0000-000000000001'),
+  ('e2e00000-0000-0000-0000-000000000204', 'E2E Artist News 3', 'e2e-artist-news-3',
+   'Third fixture news for artist profile preview.',
+   'Body for E2E artist news 3.', 'published', FALSE,
+   'e2e00000-0000-0000-0000-000000000001'),
+  ('e2e00000-0000-0000-0000-000000000205', 'E2E Artist News 4', 'e2e-artist-news-4',
+   'Fourth fixture news for artist profile preview.',
+   'Body for E2E artist news 4.', 'published', FALSE,
+   'e2e00000-0000-0000-0000-000000000001'),
+  ('e2e00000-0000-0000-0000-000000000206', 'E2E Artist News 5', 'e2e-artist-news-5',
+   'Fifth fixture news for artist profile preview.',
+   'Body for E2E artist news 5.', 'published', FALSE,
    'e2e00000-0000-0000-0000-000000000001')
+ON CONFLICT (id) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- Videos (enough tiles for artist-profile preview rows + "Show all")
+-- Default preview = 2 rows; xl grid is 3 cols → 6 visible before expand.
+-- ---------------------------------------------------------------------------
+INSERT INTO public.videos (id, title, artist_id, youtube_id, thumbnail_url, is_visible, published_at)
+VALUES
+  ('e2e00000-0000-0000-0000-000000000301', 'E2E Video 1', 'e2e00000-0000-0000-0000-000000000001',
+   'e2eVideo0001', 'https://placehold.co/640x360.png', TRUE, '2026-01-01T00:00:00Z'),
+  ('e2e00000-0000-0000-0000-000000000302', 'E2E Video 2', 'e2e00000-0000-0000-0000-000000000001',
+   'e2eVideo0002', 'https://placehold.co/640x360.png', TRUE, '2026-01-02T00:00:00Z'),
+  ('e2e00000-0000-0000-0000-000000000303', 'E2E Video 3', 'e2e00000-0000-0000-0000-000000000001',
+   'e2eVideo0003', 'https://placehold.co/640x360.png', TRUE, '2026-01-03T00:00:00Z'),
+  ('e2e00000-0000-0000-0000-000000000304', 'E2E Video 4', 'e2e00000-0000-0000-0000-000000000001',
+   'e2eVideo0004', 'https://placehold.co/640x360.png', TRUE, '2026-01-04T00:00:00Z'),
+  ('e2e00000-0000-0000-0000-000000000305', 'E2E Video 5', 'e2e00000-0000-0000-0000-000000000001',
+   'e2eVideo0005', 'https://placehold.co/640x360.png', TRUE, '2026-01-05T00:00:00Z'),
+  ('e2e00000-0000-0000-0000-000000000306', 'E2E Video 6', 'e2e00000-0000-0000-0000-000000000001',
+   'e2eVideo0006', 'https://placehold.co/640x360.png', TRUE, '2026-01-06T00:00:00Z'),
+  ('e2e00000-0000-0000-0000-000000000307', 'E2E Video 7', 'e2e00000-0000-0000-0000-000000000001',
+   'e2eVideo0007', 'https://placehold.co/640x360.png', TRUE, '2026-01-07T00:00:00Z')
 ON CONFLICT (id) DO NOTHING;

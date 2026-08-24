@@ -368,7 +368,15 @@ function buildPDF(
   const payoutDisplay = isNegativePayout
     ? `- ${formatCurrency(Math.abs(artistData.finalPayout))}`
     : formatCurrency(artistData.finalPayout)
-  waterfallRows.push(['= Net Payout (Artist Share)', payoutDisplay])
+  waterfallRows.push(['= Period Payout (Artist Share)', payoutDisplay])
+  const opening = artistData.openingBalanceEur ?? 0
+  if (Math.abs(opening) >= 0.005) {
+    waterfallRows.push([
+      opening < 0 ? '– Opening balance' : '+ Opening balance',
+      formatCurrency(opening),
+    ])
+    waterfallRows.push(['= Amount due', formatCurrency(artistData.amountDueEur ?? (artistData.finalPayout + opening))])
+  }
 
   autoTable(doc, {
     startY: yPos,

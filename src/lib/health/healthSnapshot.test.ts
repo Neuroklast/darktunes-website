@@ -126,7 +126,7 @@ function createMockDb(
           limit: vi.fn().mockReturnThis(),
         }
       }
-      if (table === 'artists') {
+      if (table === 'artists' || table === 'artist_private_data') {
         const countResult = { count: 0, error: null }
         const countPromise = Promise.resolve(countResult)
         return {
@@ -154,6 +154,8 @@ describe('buildHealthSnapshot', () => {
     expect(snapshot.apis.itunes.operationalState).toBe('unavailable')
     expect(snapshot.healthScore).toBe(0)
     expect(snapshot.alerts.length).toBeGreaterThan(0)
+    expect(snapshot.app.version).toMatch(/^\d+\.\d+\.\d+/)
+    expect(snapshot.app).toHaveProperty('commit')
   })
 
   it('builds full snapshot when db is online', async () => {
@@ -172,6 +174,7 @@ describe('buildHealthSnapshot', () => {
     expect(snapshot.syncQueue).not.toBeNull()
     expect(snapshot.cronHealth).not.toBeNull()
     expect(snapshot.checkedAt).toBeTruthy()
+    expect(snapshot.app.version).toMatch(/^\d+\.\d+\.\d+/)
   })
 
   it('queries sync_logs for liveness, per-api latest, and 24h stats', async () => {

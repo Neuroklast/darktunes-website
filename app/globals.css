@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import "tw-animate-css";
+@import 'lenis/dist/lenis.css';
 
 /* Tailwind v4: content scanning via @source (content[] in JS config is ignored in v4) */
 @source "../app/**/*.{js,ts,jsx,tsx,mdx}";
@@ -126,10 +127,16 @@
 .glow-card {
   position: relative;
   overflow: hidden;
-  /* Pre-promote to a compositor layer so hover transforms and the
-     ::before gradient transition are handled entirely by the GPU,
-     preventing main-thread repaints during scroll. */
+  /* Promote only when idle — permanent will-change during Lenis scroll
+     costs compositor memory and contributes to scroll ghosting. */
+  will-change: auto;
+}
+.glow-card:hover {
   will-change: transform;
+}
+/* While Lenis is active (see ScrollFxController), drop promotion entirely. */
+html[data-scrolling="1"] .glow-card {
+  will-change: auto;
 }
 
 .glow-card::before {
@@ -207,6 +214,27 @@
   }
 }
 
+/*
+ * Scroll-time VFX budget (html[data-scrolling] from Lenis ScrollFxController):
+ * pause CRT pulse, hide grain, drop chromatic filters so Lenis stays buttery
+ * without blanket data-lenis-prevent on heavy homepage widgets.
+ */
+html[data-scrolling="1"] .vfx-overlay {
+  will-change: auto;
+}
+html[data-scrolling="1"] .vfx-overlay.vfx-scanlines::before {
+  animation-play-state: paused;
+  will-change: auto;
+}
+html[data-scrolling="1"] .vfx-overlay::after {
+  opacity: 0;
+  will-change: auto;
+  transform: none;
+}
+html[data-scrolling="1"] .vfx-overlay.vfx-chromatic::before {
+  filter: none;
+}
+
 /* Noise/grain via ::after — at noiseOpacity < 0.05 the visual difference     */
 /* between soft-light blend and normal opacity is imperceptible, and removing  */
 /* mix-blend-mode allows the browser to cache this fixed layer independently.  */
@@ -221,6 +249,7 @@
   pointer-events: none;
   will-change: transform;
   transform: translateZ(0);
+  transition: opacity 120ms ease-out;
 }
 
 /* Legacy overlay classes — kept for backwards-compatibility if referenced     */
@@ -291,6 +320,10 @@
   z-index: var(--z-global-fx);
   background: var(--fx-wash-color, transparent);
   opacity: var(--fx-wash-opacity, 0);
+  transition: opacity 120ms ease-out;
+}
+html[data-scrolling="1"] .vfx-color-wash {
+  opacity: 0 !important;
 }
 
 /* ── Image hover zoom ────────────────────────────────────────────────────── */

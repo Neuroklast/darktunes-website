@@ -21,9 +21,13 @@ export function RelatedArtists({ artists, heading }: RelatedArtistsProps) {
   return (
     <section aria-label={heading}>
       <h2 className="text-2xl font-bold tracking-tight mb-6 text-foreground">{heading}</h2>
+      {/*
+        Horizontal strip only — no data-lenis-prevent so vertical wheel keeps Lenis.
+        Native overflow-x + snap still work for touch / trackpad pan-x.
+      */}
       <div
         className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent snap-x snap-mandatory"
-        data-lenis-prevent
+        style={{ touchAction: 'pan-x pan-y' }}
       >
         {artists.map((artist) => (
           <Link

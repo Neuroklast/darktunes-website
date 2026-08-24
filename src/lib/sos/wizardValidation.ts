@@ -1,4 +1,6 @@
-import type { ArtistRevenue, LabelArtist, SplitFee } from '@/lib/sos/types'
+import type { ArtistRevenue, LabelArtist, SplitFee, TrackRevenueAssignment } from '@/lib/sos/types'
+import { normalizeArtistNameKey } from '@/lib/sos/artistNameKey'
+import { ownerPercentagesSumTo100, resolveAssignmentOwners } from '@/lib/sos/trackAssignmentSplits'
 import { interpolate } from '@/lib/i18n/interpolate'
 
 export type WizardIssueSeverity = 'error' | 'warning'
@@ -24,6 +26,10 @@ export interface WizardValidationInput {
   hasPrintfulFile: boolean
   hasDarkmerchFile: boolean
   draftArtistNames?: string[]
+  trackRevenueAssignments?: TrackRevenueAssignment[]
+  skippedRowCount?: number
+  skipReasons?: string[]
+  emptyCurrencyRowCount?: number
 }
 
 /** English defaults for wizard validation copy (also mirrored in accountingFallbacks). */
@@ -62,6 +68,16 @@ export const WIZARD_VALIDATION_FALLBACK = {
   validationRosterNoPortalDesc:
     'No roster artist has a portal link. Statement uploads are not possible.',
   validationRosterNoPortalAction: 'Review roster',
+  validationTrackSplitTitle: 'Track split must total 100%: {track}',
+  validationTrackSplitDesc:
+    'Owner percentages for this assignment do not add up to 100%. Revenue is not split until this is fixed.',
+  validationTrackSplitAction: 'Open track splits',
+  validationParseSkipsTitle: '{count} rows skipped during import',
+  validationParseSkipsDesc:
+    'Intentional filters (Bandcamp payout, empty lines, transfers without artist). Reasons: {reasons}.',
+  validationEmptyCurrencyTitle: '{count} rows had no currency and were treated as EUR',
+  validationEmptyCurrencyDesc:
+    'Believe sometimes leaves the currency cell empty. Those rows stay in EUR. Missing or zero FX rates still abort processing.',
 } as const
 
 export type WizardValidationLabels = {
@@ -77,7 +93,7 @@ function rosterArtistIds(artists: LabelArtist[]): Set<string> {
 }
 
 function rosterNames(artists: LabelArtist[]): Set<string> {
-  return new Set(artists.map((a) => a.name.toLowerCase()))
+  return new Set(artists.map((a) => normalizeArtistNameKey(a.name)))
 }
 
 export function validateSosWizardState(
@@ -88,7 +104,7 @@ export function validateSosWizardState(
   const rosterIds = rosterArtistIds(input.labelArtists)
   const roster = rosterNames(input.labelArtists)
   const splitByArtist = new Map(
-    input.splitFees.map((s) => [s.artist.toLowerCase(), s]),
+    input.splitFees.map((s) => [normalizeArtistNameKey(s.artist), s]),
   )
 
   if (!input.periodStart || !input.periodEnd) {
@@ -114,10 +130,10 @@ export function validateSosWizardState(
   }
 
   for (const revenue of input.revenues) {
-    const key = revenue.artist.toLowerCase()
+    const key = normalizeArtistNameKey(revenue.artist)
     const rosterMatch = roster.has(key)
     const mappedArtist = input.labelArtists.find(
-      (a) => a.name.toLowerCase() === key,
+      (a) => normalizeArtistNameKey(a.name) === key,
     )
     const hasPortalId = mappedArtist?.artistId?.trim()
 
@@ -166,6 +182,21 @@ export function validateSosWizardState(
     }
   }
 
+  for (const assignment of input.trackRevenueAssignments ?? []) {
+    const owners = resolveAssignmentOwners(assignment)
+    const forSum = owners.map((owner) => ({ percentage: owner.fraction * 100 }))
+    if (owners.length > 0 && !ownerPercentagesSumTo100(forSum)) {
+      issues.push({
+        id: `track-split-${assignment.trackTitle.trim().toLowerCase()}`,
+        severity: 'error',
+        title: interpolate(labels.validationTrackSplitTitle, { track: assignment.trackTitle }),
+        description: labels.validationTrackSplitDesc,
+        actionLabel: labels.validationTrackSplitAction,
+        actionTarget: 'rules-splits',
+      })
+    }
+  }
+
   if (input.draftArtistNames && input.draftArtistNames.length > 0) {
     for (const name of input.draftArtistNames) {
       issues.push({
@@ -177,6 +208,32 @@ export function validateSosWizardState(
         actionTarget: 'settlements',
       })
     }
+  }
+
+  if ((input.skippedRowCount ?? 0) > 0) {
+    const reasons = (input.skipReasons ?? []).filter(Boolean)
+    issues.push({
+      id: 'parse-skips',
+      severity: 'warning',
+      title: interpolate(labels.validationParseSkipsTitle, { count: String(input.skippedRowCount) }),
+      description: interpolate(labels.validationParseSkipsDesc, {
+        reasons: reasons.length > 0 ? reasons.join(', ') : 'filtered rows',
+      }),
+      actionLabel: labels.validationNoFilesAction,
+      actionTarget: 'upload',
+    })
+  }
+
+  if ((input.emptyCurrencyRowCount ?? 0) > 0) {
+    issues.push({
+      id: 'empty-currency',
+      severity: 'warning',
+      title: interpolate(labels.validationEmptyCurrencyTitle, {
+        count: String(input.emptyCurrencyRowCount),
+      }),
+      description: labels.validationEmptyCurrencyDesc,
+      actionTarget: 'upload',
+    })
   }
 
   const hasAnyFile =

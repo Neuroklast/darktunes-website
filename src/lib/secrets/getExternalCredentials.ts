@@ -192,6 +192,31 @@ export async function getApifyCredentials(
   return { apifyToken }
 }
 
+async function countNonNullBandsintownKeys(
+  db: DbClient,
+  table: 'artists' | 'artist_private_data',
+  idColumn: 'id' | 'artist_id',
+  organizationId: string,
+): Promise<number> {
+  const query =
+    table === 'artists'
+      ? db
+          .from('artists')
+          .select(idColumn, { count: 'exact', head: true })
+          .eq('organization_id', organizationId)
+          .not('bandsintown_api_key', 'is', null)
+      : db
+          .from('artist_private_data')
+          .select(`${idColumn}, artists!inner(organization_id)`, { count: 'exact', head: true })
+          .eq('artists.organization_id', organizationId)
+          .not('bandsintown_api_key', 'is', null)
+
+  const { count, error } = await query
+  // Column/relationship may be missing before schema apply
+  if (error) return 0
+  return count ?? 0
+}
+
 export async function getKnownApiConfiguration(
   db: DbClient,
   organizationId: string = DEFAULT_LABEL_ID,
@@ -207,7 +232,8 @@ export async function getKnownApiConfiguration(
     apifyToken,
     youtubeApiKey,
     youtubeChannelId,
-    artistsWithBandsintownKey,
+    artistsWithPublicBandsintownKey,
+    artistsWithPrivateBandsintownKey,
   ] = await Promise.all([
     getApiCredential(db, 'spotify_client_id', organizationId),
     getApiCredential(db, 'spotify_client_secret', organizationId),
@@ -219,21 +245,14 @@ export async function getKnownApiConfiguration(
     getApiCredential(db, 'apify_token', organizationId),
     getApiCredential(db, 'youtube_api_key', organizationId),
     getApiCredential(db, 'youtube_channel_id', organizationId),
-    db
-      .from('artists')
-      .select('id', { count: 'exact', head: true })
-      .eq('organization_id', organizationId)
-      .not('bandsintown_api_key', 'is', null)
-      .then(({ count, error }) => {
-        // Column organization_id may be missing before schema apply
-        if (error) return 0
-        return count ?? 0
-      }),
+    countNonNullBandsintownKeys(db, 'artists', 'id', organizationId),
+    countNonNullBandsintownKeys(db, 'artist_private_data', 'artist_id', organizationId),
   ])
 
   const hasBandsintown =
     Boolean(bandsintownApiKey) ||
-    (typeof artistsWithBandsintownKey === 'number' && artistsWithBandsintownKey > 0)
+    artistsWithPublicBandsintownKey > 0 ||
+    artistsWithPrivateBandsintownKey > 0
 
   return {
     itunes: true,

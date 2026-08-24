@@ -9,6 +9,8 @@ vi.mock('@/lib/i18n/accountingFallbacks', () => ({ useAccountingLabels: () => ({
   workspaceDefaultSaveError: 'default save error',
   workspaceLoadFailed: 'load failed',
   workspaceLoadError: 'load error',
+  workspaceSaveSuccess: 'saved',
+  workspaceDefaultSaveSuccess: 'default saved',
 }) }))
 vi.mock('@/lib/sos/clientAppLog', () => ({ logClientAppEvent: vi.fn() }))
 vi.mock('@/lib/sos/migrateKvToDb', () => ({
@@ -42,5 +44,31 @@ describe('useSosWorkspaceSync', () => {
     })
 
     expect(result.current.reloadConfirmOpen).toBe(true)
+  })
+
+  it('persistImportedSettings writes the Default preset', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ preset: { updated_at: '2026-08-14T00:00:00.000Z' } }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useSosWorkspaceSync({
+      currentPeriodKey: null,
+      settings: { version: 1 } as never,
+      applySettings: vi.fn(),
+      bronzeBatchIds: [],
+      disabled: true,
+    }))
+
+    await act(async () => {
+      const ok = await result.current.persistImportedSettings({ version: 1 } as never)
+      expect(ok).toBe(true)
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/admin/sos/presets/default',
+      expect.objectContaining({ method: 'PUT' }),
+    )
   })
 })

@@ -188,8 +188,9 @@ export function isBillingProfileComplete(profile: ArtistBillingProfile | null): 
   if (!hasRequiredAddress) return false
 
   if (profile.taxStatus === 'reverse_charge') {
-    // Reverse charge needs a VAT ID that passed VIES (re-checked live at invoice time).
-    return Boolean(profile.vatId?.trim()) && profile.vatViesValid === true
+    // Issuer's own tax/VAT number is optional under reverse charge (§13b UStG):
+    // a third-country issuer (e.g. CH) has none; the recipient's (label) VAT-ID applies.
+    return true
   }
 
   return Boolean(profile.taxNumber?.trim() || profile.vatId?.trim())

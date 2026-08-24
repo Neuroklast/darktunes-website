@@ -54,7 +54,9 @@ const reportingFallback = {
   reportingSettlementCta: 'Open Settlement Center',
   reportingColArtist: 'Artist',
   reportingColRevenue: 'Total Revenue',
-  reportingColPayout: 'Payout',
+  reportingColPayout: 'Period payout',
+  reportingColOpening: 'Opening',
+  reportingColDue: 'Amount due',
   reportingNoEmailTemplate:
     'No email template configured. Add one under Branding → Email template.',
 } as const
@@ -213,12 +215,28 @@ export function ReportingPanel({
     {
       accessorKey: 'finalAmount',
       header: t.reportingColPayout,
-      size: 150,
+      size: 130,
       minSize: 90,
       meta: { align: 'right' as const },
       cell: ({ row }) => (
         <span className="text-emerald-400 font-medium">{fmtEur(row.original.finalAmount)}</span>
       ),
+    },
+    {
+      accessorKey: 'openingBalanceEur',
+      header: t.reportingColOpening,
+      size: 120,
+      minSize: 80,
+      meta: { align: 'right' as const },
+      cell: ({ row }) => fmtEur(row.original.openingBalanceEur ?? 0),
+    },
+    {
+      accessorKey: 'amountDueEur',
+      header: t.reportingColDue,
+      size: 130,
+      minSize: 90,
+      meta: { align: 'right' as const },
+      cell: ({ row }) => fmtEur(row.original.amountDueEur ?? row.original.finalAmount),
     },
     {
       id: 'actions',
@@ -275,12 +293,14 @@ export function ReportingPanel({
     data: filtered,
     columns,
     getRowId: (row) => row.artist,
-    initialColumnOrder: ['select', 'artist', 'totalRevenue', 'finalAmount', 'actions'],
+    initialColumnOrder: ['select', 'artist', 'totalRevenue', 'finalAmount', 'openingBalanceEur', 'amountDueEur', 'actions'],
     initialColumnSizing: {
       select: 56,
       artist: 220,
       totalRevenue: 150,
-      finalAmount: 150,
+      finalAmount: 130,
+      openingBalanceEur: 120,
+      amountDueEur: 130,
       actions: 200,
     },
     sorting,

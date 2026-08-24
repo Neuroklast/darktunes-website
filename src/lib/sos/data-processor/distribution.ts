@@ -1,5 +1,10 @@
 import type { SalesTransaction } from '../ingest/csv-parser'
-import { resolveAssignmentOwners } from '@/lib/sos/trackAssignmentSplits'
+import { normalizeRevenueToEur, type ExchangeRates, type HistoricalRates } from '../currency'
+import {
+  ownerPercentagesSumTo100,
+  resolveAssignmentOwners,
+  splitRevenueAmongOwners,
+} from '@/lib/sos/trackAssignmentSplits'
 import type {
   ArtistMapping,
   CompilationFilter,
@@ -8,6 +13,11 @@ import type {
   LabelArtist,
   TrackRevenueAssignment,
 } from '../types'
+import {
+  artistNamesMatch,
+  normalizeArtistNameKey,
+  preferCanonicalArtistName,
+} from '@/lib/sos/artistNameKey'
 
 /**
  * Returns whether a transaction matches any compilation filter rule.
@@ -52,8 +62,7 @@ export function resolveMainArtist(
   mappings: ArtistMapping[],
 ): string {
   if (!originalArtist) return ''
-  const lower = originalArtist.toLowerCase()
-  const mapping = mappings.find(m => m.featuringName.toLowerCase() === lower)
+  const mapping = mappings.find(m => artistNamesMatch(m.featuringName, originalArtist))
   return mapping ? mapping.primaryArtist : originalArtist
 }
 
@@ -64,6 +73,8 @@ export function buildFilteredCompilations(
   transactions: SalesTransaction[],
   compilationTransactionIds: Set<string>,
   compilationFilters: CompilationFilter[],
+  exchangeRates: ExchangeRates = {},
+  historicalRates: HistoricalRates = {},
 ): FilteredCompilation[] {
   const compilationMap = new Map<string, FilteredCompilation>()
   for (const t of transactions) {
@@ -84,16 +95,23 @@ export function buildFilteredCompilations(
     if (!matchingFilter) continue
 
     const key = matchingFilter.id
+    const revenueEur = normalizeRevenueToEur(
+      t.net_revenue,
+      t.currency,
+      t.sales_month,
+      exchangeRates,
+      historicalRates,
+    )
     const existing = compilationMap.get(key)
     if (existing) {
-      existing.revenue += t.net_revenue
+      existing.revenue += revenueEur
       existing.transactionCount += 1
     } else {
       compilationMap.set(key, {
         releaseTitle: t.release_title || matchingFilter.identifier,
         identifier: matchingFilter.identifier,
         filterType: matchingFilter.type,
-        revenue: t.net_revenue,
+        revenue: revenueEur,
         transactionCount: 1,
       })
     }
@@ -126,18 +144,33 @@ export function applyTrackRevenueAssignments(
     if (!match) return [t]
 
     const owners = resolveAssignmentOwners(match)
+    if (owners.length === 0) return [t]
+
+    const ownersForSum = owners.map((owner) => ({ percentage: owner.fraction * 100 }))
+    if (!ownerPercentagesSumTo100(ownersForSum)) {
+      return [t]
+    }
 
     if (owners.length === 1 && owners[0].fraction === 1) {
       return [{ ...t, main_artist: owners[0].artist }]
     }
 
-    return owners.map(owner => ({
-      ...t,
-      id: `${t.id}__split__${owner.artist}`,
-      main_artist: owner.artist,
-      net_revenue: t.net_revenue * owner.fraction,
-      quantity: Math.round(t.quantity * owner.fraction),
-    }))
+    const revenueByOwner = splitRevenueAmongOwners(t.net_revenue, owners)
+    let allocatedQty = 0
+    return owners.map((owner, index) => {
+      const isLast = index === owners.length - 1
+      const quantity = isLast
+        ? t.quantity - allocatedQty
+        : Math.round(t.quantity * owner.fraction)
+      if (!isLast) allocatedQty += quantity
+      return {
+        ...t,
+        id: `${t.id}__split__${owner.artist}`,
+        main_artist: owner.artist,
+        net_revenue: revenueByOwner.get(owner.artist.trim()) ?? 0,
+        quantity,
+      }
+    })
   })
 }
 
@@ -150,26 +183,29 @@ export function applyLabelRosterFilter(
 ): ResolvedTransaction[] {
   const rosterNames =
     labelArtists && labelArtists.length > 0
-      ? labelArtists.map(la => la.name.trim().toLowerCase())
+      ? labelArtists.map(la => normalizeArtistNameKey(la.name))
       : null
 
   if (!rosterNames) return assigned
 
   return assigned.flatMap(t => {
-    if (rosterNames.includes(t.main_artist.trim().toLowerCase())) {
-      return [t]
+    const mainKey = normalizeArtistNameKey(t.main_artist)
+    if (rosterNames.includes(mainKey)) {
+      const canonical =
+        labelArtists?.find(la => normalizeArtistNameKey(la.name) === mainKey)?.name ?? t.main_artist
+      return [{ ...t, main_artist: canonical }]
     }
 
     const found = rosterNames.find(rn =>
-      t.original_artist.trim().toLowerCase() === rn ||
+      normalizeArtistNameKey(t.original_artist) === rn ||
       t.original_artist.toLowerCase().split(/\s*[,&]\s*|\s+feat(?:uring)?\.?\s+|\s+ft\.?\s+/i).some(
-        part => part.trim().toLowerCase() === rn,
+        part => normalizeArtistNameKey(part) === rn,
       ),
     )
     if (!found) return []
 
     const canonical =
-      labelArtists?.find(la => la.name.trim().toLowerCase() === found)?.name ?? found
+      labelArtists?.find(la => normalizeArtistNameKey(la.name) === found)?.name ?? found
     return [{ ...t, main_artist: canonical }]
   })
 }
@@ -184,9 +220,9 @@ export function applyIgnoredEntriesFilter(
   if (ignoredEntries.length === 0) return rosterFiltered
 
   return rosterFiltered.filter(t => {
-    const artistLower = t.main_artist.trim().toLowerCase()
+    const artistKey = normalizeArtistNameKey(t.main_artist)
     return !ignoredEntries.some(ie => {
-      if (ie.artist.trim().toLowerCase() !== artistLower) return false
+      if (normalizeArtistNameKey(ie.artist) !== artistKey) return false
       if (!ie.releaseTitle) return true
       return t.release_title?.trim().toLowerCase() === ie.releaseTitle.trim().toLowerCase()
     })
@@ -203,9 +239,14 @@ export function groupTransactionsByArtist(
   const canonicalArtistNames = new Map<string, string>()
 
   for (const t of transactions) {
-    const key = t.main_artist.toLowerCase()
+    const key = normalizeArtistNameKey(t.main_artist)
     if (!canonicalArtistNames.has(key)) {
       canonicalArtistNames.set(key, t.main_artist)
+    } else {
+      canonicalArtistNames.set(
+        key,
+        preferCanonicalArtistName(canonicalArtistNames.get(key) ?? t.main_artist, t.main_artist),
+      )
     }
     const group = artistGroups.get(key)
     if (group) {

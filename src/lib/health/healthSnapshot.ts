@@ -33,6 +33,7 @@ import type {
   HealthResponse,
   SyncQueueHealth,
 } from './types'
+import { getAppVersionInfo } from '@/lib/appVersion'
 import { getKnownApiConfiguration } from '@/lib/secrets/getExternalCredentials'
 
 const SYNC_LOG_HEALTH_SELECT =
@@ -328,12 +329,17 @@ export async function buildHealthSnapshot(
   const kpis = computeKpiSummary(apis)
   const alerts = buildHealthAlerts(database, apis, syncQueueHealth, kpis, cronHealth)
   const healthScore = computeHealthScore(database, apis, syncQueueHealth, cronHealth)
+  const appInfo = getAppVersionInfo()
 
   return {
     status: overall.status,
     statusLabel: overall.statusLabel,
     statusDetail: overall.statusDetail,
     healthScore,
+    app: {
+      version: appInfo.version,
+      commit: appInfo.commit,
+    },
     database,
     apis,
     syncQueue: syncQueueHealth,

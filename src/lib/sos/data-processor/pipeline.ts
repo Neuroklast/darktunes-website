@@ -39,6 +39,8 @@ export function processTransactionsWithCompilations(
     transactions,
     compilationTransactionIds,
     config.compilationFilters,
+    config.exchangeRates ?? {},
+    config.historicalExchangeRates ?? {},
   )
 
   const workingTransactions = config.excludePhysical

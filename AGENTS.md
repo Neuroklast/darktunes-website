@@ -57,6 +57,8 @@ E2E tests (`tests/e2e/*.spec.ts`, Playwright) are part of the deliverable, not a
 - **`unstable_cache`:** Cookie-free Supabase anon client inside callbacks (never `cookies()`)
 - **DAL:** Queries in `src/lib/api/`; pass `SupabaseClient` as first argument
 - **Route handlers:** `withErrorHandler`; admin routes use `src/lib/adminAuth.ts`
+- **OpenAPI:** Every API endpoint you create or change MUST ship an accompanying OpenAPI `.yaml` spec — an endpoint is not done until its paths, request/response schemas, and status codes are reflected in the spec
+- **REST guidelines (MANDATORY, NO EXCEPTIONS):** Every API endpoint and its OpenAPI spec MUST comply with the REST guidelines in [`skills/rest-guidelines/SKILL.md`](skills/rest-guidelines/SKILL.md) — a self-contained, offline, LLM/tool-agnostic subset of the Zalando RESTful API Guidelines. This is non-negotiable — resource naming (kebab-case paths, plural nouns), HTTP methods/status codes, `problem+json` error bodies, pagination, snake_case JSON properties, versioning, and required headers all follow that standard. Reconcile any existing endpoint that violates it when you touch it
 - **WCAG 2.1 AA** on all public UI
 - **Minimal changes:** Smallest diff that fully solves the task
 - **Docs:** Always update documentation/markdown at session end (see above)
@@ -71,8 +73,8 @@ E2E tests (`tests/e2e/*.spec.ts`, Playwright) are part of the deliverable, not a
 3. **New admin CRUD list** → `AdminPageShell layout="list"` + `AdminListShell`. Register route in `src/lib/scroll/dashboardRoutes.ts` (`isAdminListRoute`).
 4. **Full-bleed tool page** (e.g. file explorer) → `AdminPageShell fill`.
 5. **Wide table** → `horizontalScrollClass` from `scroll-panel.tsx`. Never `overflow-x-auto overscroll-contain` without `overflow-y-clip`.
-6. **Swiper / carousel / any 3rd-party scroll widget** → wrap with `data-lenis-prevent`.
-7. **Modal body** → `overflow-y-auto max-h-[70vh]` + `data-lenis-prevent`.
+6. **Swiper / carousel:** Do **not** blanket `data-lenis-prevent` on the whole widget (kills buttery Lenis). Keep vertical wheel on Lenis; horizontal drag / axis-aware wheel for slides (`touch-action: pan-y`, optional horizontal `onWheel`).
+7. **Modal body / real nested vertical scrollports** → `overflow-y-auto max-h-[70vh]` + `data-lenis-prevent`. Never use prevent for “this component is heavy” — use scroll VFX budget (`html[data-scrolling]`) instead.
 8. **After any scroll change** → run `npm run check:scroll` locally before pushing.
 9. **Multi-column builders (EPK / fan-page):** Never hide `ResizablePanelGroup` with CSS alone — mount only when `useIsLg()`. After changes run `npm run check:mobile-layout`.
 
@@ -99,4 +101,4 @@ After introducing new patterns, update the relevant `docs/agent/*.md` file.
 
 ## External docs
 
-[PRD.md](PRD.md) · [README.md](README.md) · [DEPLOYMENT.md](DEPLOYMENT.md) · [ADMIN.md](ADMIN.md) · [SECURITY.md](SECURITY.md) · [INTEGRATION-SUMMARY.md](INTEGRATION-SUMMARY.md) · [CHANGELOG.md](CHANGELOG.md) · [LESSONS_LEARNED.md](LESSONS_LEARNED.md) · [QA_CHECKLIST.md](QA_CHECKLIST.md) · [supabase/DB_REQUIREMENTS.md](supabase/DB_REQUIREMENTS.md)
+[PRD.md](PRD.md) · [README.md](README.md) · [DEPLOYMENT.md](DEPLOYMENT.md) · [docs/RELEASING.md](docs/RELEASING.md) · [ADMIN.md](ADMIN.md) · [SECURITY.md](SECURITY.md) · [INTEGRATION-SUMMARY.md](INTEGRATION-SUMMARY.md) · [CHANGELOG.md](CHANGELOG.md) · [LESSONS_LEARNED.md](LESSONS_LEARNED.md) · [QA_CHECKLIST.md](QA_CHECKLIST.md) · [supabase/DB_REQUIREMENTS.md](supabase/DB_REQUIREMENTS.md)

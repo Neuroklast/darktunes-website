@@ -43,7 +43,7 @@ Design changed from the original plan during implementation, for two reasons dis
 
 Additionally: `reset.sql` has a few early statements (the deprecated `press` → `journalist` role migration) that reference tables created later in the same file — harmless when pasted into the Supabase Dashboard SQL editor (which runs statement-by-statement, continuing past individual errors) but fatal if run as one atomic transaction on a truly empty database. `scripts/e2e-db-setup.mjs` applies `reset.sql` via `psql` (not `ON_ERROR_STOP`) **twice** — pass 1 tolerates the early errors, pass 2 converges to a fully-applied, error-free schema. Verified: 0 real errors on pass 2, 107 tables, 261 RLS policies, `get_my_role()` present, `site_settings` seeded.
 
-- [x] `supabase/e2e-fixtures.sql` — content fixtures: 2 artists (1 visible, 1 hidden), 2 releases, 2 news posts (1 public, 1 press-only), fixed `e2e...` UUIDs
+- [x] `supabase/e2e-fixtures.sql` — content fixtures: 2 artists (1 visible, 1 hidden), 2 releases, 6 public news posts (+ 1 press-only), 7 videos on the visible artist (for artist-profile preview “Show all”), fixed `e2e...` UUIDs
 - [x] `tests/e2e/fixtures/seed-ids.ts` — same fixed IDs/slugs, importable from Playwright specs
 - [x] `scripts/e2e-db-setup.mjs` — orchestrates `supabase start` → apply `reset.sql` ×2 via psql → apply `e2e-fixtures.sql` → bootstrap 3 fixture auth users (admin/artist/journalist) via GoTrue admin API + promote `public.users.role` + link artist to `artist_members` → write `.env.e2e.local`
 - [x] npm scripts: `db:e2e:start`, `db:e2e:stop`, `db:e2e:reset`

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-09T19:02:01.004Z",
+  "generatedAt": "2026-08-24T11:57:40.356Z",
   "items": [
     "app/admin/_components/AdminDashboardWrapper.tsx::Loading editor dashboard",
     "app/admin/accreditations/page.tsx::Press Accreditations",
@@ -270,7 +270,7 @@
     "src/components/admin/forms/ArtistForm.tsx::e.g. 1Cs0zKBU1kc0i8ypK3B9ai",
     "src/components/admin/forms/ArtistForm.tsx::e.g. 2012",
     "src/components/admin/forms/ArtistForm.tsx::e.g. 789012",
-    "src/components/admin/forms/ArtistForm.tsx::e.g. Artist Name or id:12345",
+    "src/components/admin/forms/ArtistForm.tsx::e.g. Artist Name",
     "src/components/admin/forms/ImageUploadButton.tsx::Upload progress",
     "src/components/admin/forms/NewsForm.tsx::Default (go to news article)",
     "src/components/admin/forms/NewsForm.tsx::Default (scroll to news)",

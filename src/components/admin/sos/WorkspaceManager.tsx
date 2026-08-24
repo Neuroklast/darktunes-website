@@ -37,6 +37,7 @@ export function WorkspaceManager({
   labelInfo,
   pdfSettings,
   csvImportProfiles,
+  excelExport,
   onImport,
 }: WorkspaceManagerProps) {
   const tToast = useTranslations('admin.toast')
@@ -61,6 +62,7 @@ export function WorkspaceManager({
       labelInfo,
       pdfSettings,
       csvImportProfiles,
+      excelExport,
     }
     const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -73,7 +75,7 @@ export function WorkspaceManager({
     toast.success(tToast('workspace_exported'))
   }, [appDefaults, emailConfig, artistMappings, compilationFilters, splitFees,
     manualRevenues, expenses, ignoredEntries, csvAliases, trackRevenueAssignments,
-    labelInfo, pdfSettings, csvImportProfiles, tToast])
+    labelInfo, pdfSettings, csvImportProfiles, excelExport, tToast])
 
   const handleImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -82,7 +84,9 @@ export function WorkspaceManager({
     reader.onload = ev => {
       try {
         const raw = ev.target?.result as string
-        const bundle = JSON.parse(raw) as Partial<WorkspaceBundle>
+        const bundle = JSON.parse(raw) as Partial<WorkspaceBundle> & {
+          pdfExportSettings?: WorkspaceBundle['pdfSettings']
+        }
         if (!bundle || typeof bundle !== 'object') throw new Error('Invalid workspace file')
         onImport({
           appDefaults: bundle.appDefaults,
@@ -96,8 +100,9 @@ export function WorkspaceManager({
           csvAliases: bundle.csvAliases ?? [],
           trackRevenueAssignments: bundle.trackRevenueAssignments ?? [],
           labelInfo: bundle.labelInfo,
-          pdfSettings: bundle.pdfSettings,
+          pdfSettings: bundle.pdfSettings ?? bundle.pdfExportSettings,
           csvImportProfiles: bundle.csvImportProfiles,
+          excelExport: bundle.excelExport,
         })
         toast.success(tToast('workspace_imported'))
       } catch {

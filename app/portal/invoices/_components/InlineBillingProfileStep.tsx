@@ -184,6 +184,9 @@ export function InlineBillingProfileStep({
               <option value="small_business">{t('billing_tax_small_business')}</option>
               <option value="reverse_charge">{t('billing_tax_reverse_charge')}</option>
             </select>
+            {form.taxStatus === 'reverse_charge' && (
+              <p className="text-xs text-muted-foreground">{t('billing_reverse_charge_hint')}</p>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">

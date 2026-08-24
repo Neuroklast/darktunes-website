@@ -83,6 +83,14 @@ export async function appendLedgerEntry(
  * True when a ledger row already exists for the given reference.
  * Used for approve/payment idempotency and to skip payment posts after invoice_liability.
  */
+export function resolvePaymentLedgerEntryType(
+  hasInvoiceLiability: boolean,
+  invoiceStatus: string,
+): 'payment' | 'partial_payment' | null {
+  if (hasInvoiceLiability) return null
+  return invoiceStatus === 'paid' ? 'payment' : 'partial_payment'
+}
+
 export async function hasLedgerEntry(
   db: DbClient,
   referenceType: string,
@@ -171,6 +179,25 @@ export async function getArtistOutstandingBalance(
   return sumLedgerBalance(entries)
 }
 
+export async function getOutstandingBalancesForPeriod(
+  db: DbClient,
+  settlementPeriodId: string,
+): Promise<Map<string, number>> {
+  const { data, error } = await db
+    .from('artist_settlement_ledger')
+    .select('artist_id, amount_eur')
+    .eq('settlement_period_id', settlementPeriodId)
+
+  if (error) throw new Error(error.message)
+
+  const balances = new Map<string, number>()
+  for (const row of data ?? []) {
+    const artistId = row.artist_id
+    balances.set(artistId, (balances.get(artistId) ?? 0) + Number(row.amount_eur))
+  }
+  return balances
+}
+
 export interface CarryForwardBreakdown {
   statementBalanceEur: number
   unpaidInvoiceCents: number
@@ -180,6 +207,31 @@ export interface CarryForwardBreakdown {
 export function computeCarryForwardOpeningBalance(breakdown: CarryForwardBreakdown): number {
   const invoiceEur = (breakdown.unpaidInvoiceCents + breakdown.partialPaymentRemainderCents) / 100
   return breakdown.statementBalanceEur + invoiceEur
+}
+
+export function resolveCarryStatementBalance(
+  hasLedgerEntries: boolean,
+  ledgerBalanceEur: number,
+  periodStatementActivityEur: number,
+): number {
+  return hasLedgerEntries ? ledgerBalanceEur : periodStatementActivityEur
+}
+
+export function unpaidInvoiceContributionCents(invoice: {
+  status: string
+  outstanding_amount_cents?: number | null
+  paid_amount_cents?: number | null
+  line_items?: unknown
+}): number {
+  if (invoice.status === 'paid') return 0
+  if (invoice.outstanding_amount_cents != null) {
+    return Number(invoice.outstanding_amount_cents)
+  }
+  const items = Array.isArray(invoice.line_items)
+    ? invoice.line_items as Array<{ qty: number; unit_price_cents: number }>
+    : []
+  const net = invoiceTotalCents(items)
+  return Math.max(0, net - Number(invoice.paid_amount_cents ?? 0))
 }
 
 export async function createPeriodCarryForwards(

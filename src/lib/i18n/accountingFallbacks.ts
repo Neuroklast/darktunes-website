@@ -138,6 +138,16 @@ export const ACCOUNTING_FALLBACK = {
   validationRosterNoPortalDesc:
     'No roster artist has a portal link. Statement uploads are not possible.',
   validationRosterNoPortalAction: 'Review roster',
+  validationTrackSplitTitle: 'Track split must total 100%: {track}',
+  validationTrackSplitDesc:
+    'Owner percentages for this assignment do not add up to 100%. Revenue is not split until this is fixed.',
+  validationTrackSplitAction: 'Open track splits',
+  validationParseSkipsTitle: '{count} rows skipped during import',
+  validationParseSkipsDesc:
+    'Intentional filters (Bandcamp payout, empty lines, transfers without artist). Reasons: {reasons}.',
+  validationEmptyCurrencyTitle: '{count} rows had no currency and were treated as EUR',
+  validationEmptyCurrencyDesc:
+    'Believe sometimes leaves the currency cell empty. Those rows stay in EUR. Missing or zero FX rates still abort processing.',
   setupTitle: 'Set up accounting period',
   setupSubtitle:
     'Enter the settlement period and label defaults used on PDFs. Advanced rules stay available in Advanced mode.',
@@ -470,10 +480,23 @@ export type AccountingLabelOverrides = Partial<AccountingLabels>
  * Merges locale dictionary overrides onto English fallbacks.
  * @param overrides - Partial labels from `admin.accounting` messages
  */
+function pickStringOverrides(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== 'object') return {}
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'string') out[key] = value
+  }
+  return out
+}
+
 export function mergeAccountingLabels(
-  overrides?: AccountingLabelOverrides,
+  overrides?: AccountingLabelOverrides | Record<string, unknown>,
 ): AccountingLabels {
-  return { ...ACCOUNTING_FALLBACK, ...SETTLEMENT_FALLBACK, ...overrides }
+  return {
+    ...ACCOUNTING_FALLBACK,
+    ...SETTLEMENT_FALLBACK,
+    ...pickStringOverrides(overrides),
+  }
 }
 
 export type AccountingMessages = Dictionary['admin']['accounting']
@@ -493,5 +516,8 @@ export function useMergedAccountingLabels<T extends Record<string, string>>(
   fallback: T,
 ): T & AccountingLabelOverrides {
   const overrides = useAccountingMessages()
-  return useMemo(() => ({ ...fallback, ...overrides }), [fallback, overrides]) as T & AccountingLabelOverrides
+  return useMemo(
+    () => ({ ...fallback, ...pickStringOverrides(overrides) }),
+    [fallback, overrides],
+  ) as T & AccountingLabelOverrides
 }
