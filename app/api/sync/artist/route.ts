@@ -16,16 +16,14 @@ import type { Database } from '@/types/database'
 import { syncSingleArtist } from '@/lib/sync/syncAll'
 import { createSyncUploadFn } from '@/lib/r2Utils'
 import { ApiError, withErrorHandler } from '@/lib/errors'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { getSyncCredentials } from '@/lib/secrets/getExternalCredentials'
 import { revalidatePublicContent, RELEASE_SYNC_TAGS } from '@/lib/sync/revalidatePublicContent'
 
 export const POST = withErrorHandler(async (request: NextRequest): Promise<NextResponse> => {
   const { serverEnv } = await import('@/lib/env.server')
 
-  const authHeader = request.headers.get('authorization') ?? ''
-  const token = extractBearerToken(authHeader)
-  await verifyAdmin(token)
+  const { organizationId } = await requireAdminFromRequest(request)
 
   let artistId: string | undefined
   try {
@@ -47,7 +45,27 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     { auth: { persistSession: false } },
   )
 
-  const syncCredentials = await getSyncCredentials(db)
+  const { data: artistRow, error: artistError } = await db
+    .from('artists')
+    .select('id, organization_id')
+    .eq('id', artistId)
+    .maybeSingle()
+
+  if (artistError) {
+    throw new ApiError(500, artistError.message)
+  }
+  if (!artistRow) {
+    throw new ApiError(404, 'Artist not found')
+  }
+  // When organization_id is present, enforce host org isolation
+  if (
+    artistRow.organization_id &&
+    artistRow.organization_id !== organizationId
+  ) {
+    throw new ApiError(403, 'Artist not in this organization')
+  }
+
+  const syncCredentials = await getSyncCredentials(db, organizationId)
 
   const uploadFn = createSyncUploadFn(
     serverEnv.CLOUDFLARE_R2_ACCOUNT_ID,
@@ -55,6 +73,7 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     serverEnv.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
     serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
     serverEnv.CLOUDFLARE_R2_PUBLIC_URL,
+    organizationId,
   )
 
   const result = await syncSingleArtist(artistId, 'full', {

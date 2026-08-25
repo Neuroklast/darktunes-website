@@ -2,26 +2,16 @@
  * src/lib/api/journalistApplications.ts
  *
  * Data Access Layer for the `journalist_applications` table.
- *
- * Journalists apply for promo-pool access by submitting an application.
- * The label admin reviews the application and approves/rejects it.
- * On approval the caller upgrades the user's `profiles.role` to 'journalist'.
- *
- * RLS:
- *   - Users can INSERT their own application and SELECT it back.
- *   - Admins can SELECT/UPDATE all applications (via service-role client).
+ * Applications are scoped per organization (host label).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type ApplicationRow = Database['public']['Tables']['journalist_applications']['Row']
 type ApplicationInsert = Database['public']['Tables']['journalist_applications']['Insert']
-
-// ---------------------------------------------------------------------------
-// Domain type
-// ---------------------------------------------------------------------------
 
 export interface JournalistApplication {
   id: string
@@ -36,11 +26,8 @@ export interface JournalistApplication {
   reviewedBy: string | undefined
   reviewedAt: string | undefined
   createdAt: string
+  organizationId: string
 }
-
-// ---------------------------------------------------------------------------
-// Row mapper
-// ---------------------------------------------------------------------------
 
 function rowToApplication(row: ApplicationRow): JournalistApplication {
   return {
@@ -56,20 +43,19 @@ function rowToApplication(row: ApplicationRow): JournalistApplication {
     reviewedBy: row.reviewed_by ?? undefined,
     reviewedAt: row.reviewed_at ?? undefined,
     createdAt: row.created_at,
+    organizationId: row.organization_id,
   }
 }
 
-// ---------------------------------------------------------------------------
-// Queries
-// ---------------------------------------------------------------------------
-
-/** Fetches all applications, newest first. Admin/service-role client required. */
+/** Fetches applications for one organization, newest first. */
 export async function getJournalistApplications(
   db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<JournalistApplication[]> {
   const { data, error } = await db
     .from('journalist_applications')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -77,17 +63,19 @@ export async function getJournalistApplications(
 }
 
 /**
- * Fetches the most recent application for a given user.
+ * Fetches the most recent application for a user on one organization.
  * Returns null if no application exists (PGRST116).
  */
 export async function getJournalistApplicationByUserId(
   db: DbClient,
   userId: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<JournalistApplication | null> {
   const { data, error } = await db
     .from('journalist_applications')
     .select('*')
     .eq('user_id', userId)
+    .eq('organization_id', organizationId)
     .order('created_at', { ascending: false })
     .limit(1)
     .single()
@@ -100,21 +88,19 @@ export async function getJournalistApplicationByUserId(
   return data ? rowToApplication(data as ApplicationRow) : null
 }
 
-// ---------------------------------------------------------------------------
-// Mutations
-// ---------------------------------------------------------------------------
-
-/**
- * Inserts a new journalist application.
- * The user_id must match the authenticated caller (enforced by RLS).
- */
+/** Inserts a new journalist application for the host organization. */
 export async function createJournalistApplication(
   db: DbClient,
   application: ApplicationInsert,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<JournalistApplication> {
+  const payload: ApplicationInsert = {
+    ...application,
+    organization_id: application.organization_id ?? organizationId,
+  }
   const { data, error } = await db
     .from('journalist_applications')
-    .insert(application)
+    .insert(payload)
     .select()
     .single()
 
@@ -124,15 +110,14 @@ export async function createJournalistApplication(
 }
 
 /**
- * Updates an application's status to 'approved' or 'rejected'.
- * Must be called with an admin/service-role client.
- * The reviewed_by and reviewed_at fields are set automatically.
+ * Updates an application's status to 'approved' or 'rejected' within an organization.
  */
 export async function updateApplicationStatus(
   db: DbClient,
   id: string,
   status: 'approved' | 'rejected',
   reviewedBy: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<JournalistApplication> {
   const { data, error } = await db
     .from('journalist_applications')
@@ -142,6 +127,7 @@ export async function updateApplicationStatus(
       reviewed_at: new Date().toISOString(),
     })
     .eq('id', id)
+    .eq('organization_id', organizationId)
     .select()
     .single()
 

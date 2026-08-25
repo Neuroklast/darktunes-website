@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { createCorrectionStatement } from '@/lib/api/salesStatements'
 import { assertStatementPeriodWritable } from '@/lib/api/settlementPeriods'
 import { logFinancialEvent } from '@/lib/api/financialAudit'
@@ -17,8 +17,7 @@ const correctionSchema = z.object({
 })
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const userId = await verifyAdmin(token)
+  const { userId, organizationId } = await requireAdminFromRequest(req)
 
   const id = req.nextUrl.pathname.split('/').at(-2)
   if (!id) throw new ApiError(400, 'Missing statement id')
@@ -64,6 +63,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
     entityId: statement.id,
     action: 'create_correction',
     actorId: userId,
+    organizationId,
     afterData: {
       correction_of_id: id,
       amount_eur: parsed.data.amount_eur,

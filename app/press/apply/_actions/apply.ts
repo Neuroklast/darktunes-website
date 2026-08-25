@@ -1,6 +1,7 @@
 'use server'
 
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { isPressApplicationsEnabled } from '@/lib/pressAccess'
 import { getEmailCredentials } from '@/lib/secrets/getExternalCredentials'
 import { validatePassword } from '@/lib/auth/passwordPolicy'
@@ -55,7 +56,8 @@ export async function submitPressApplication(data: {
     }
 
     const supabase = await createServerSupabaseClient()
-    const applicationsEnabled = await isPressApplicationsEnabled(supabase)
+    const organizationId = await getRequestOrganizationId().catch(() => undefined)
+    const applicationsEnabled = await isPressApplicationsEnabled(supabase, organizationId)
     if (!applicationsEnabled) return { status: 'error', message: 'disabled' }
 
     const { data: authData, error: signUpError } = await supabase.auth.signUp({

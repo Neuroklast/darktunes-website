@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest'
-import { convertToEur, normalizeRevenueToEur, parseMissingExchangeRateCurrency } from './currency'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  convertToEur,
+  fetchHistoricalExchangeRates,
+  normalizeRevenueToEur,
+  parseMissingExchangeRateCurrency,
+} from './currency'
 import type { ExchangeRates, HistoricalRates } from './currency'
 
 const RATES: ExchangeRates = {
@@ -93,5 +98,34 @@ describe('normalizeRevenueToEur', () => {
     expect(() =>
       normalizeRevenueToEur(100, 'JPY', '2024-03', spotRates, historicalRates),
     ).toThrowError(/JPY/)
+  })
+})
+
+describe('fetchHistoricalExchangeRates', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('returns only months from the API and does not seed fallbacks', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ base: 'EUR', rates: { '2024-03': { USD: 1.1 } } }),
+      })),
+    )
+
+    const result = await fetchHistoricalExchangeRates('2024-01', '2024-03')
+    expect(result.source).toBe('ecb')
+    expect(result.rates).toEqual({ '2024-03': { USD: 1.1 } })
+    expect(result.rates['2024-01']).toBeUndefined()
+  })
+
+  it('returns empty historical rates when the fetch fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network') }))
+
+    const result = await fetchHistoricalExchangeRates('2024-01', '2024-03')
+    expect(result.source).toBe('fallback')
+    expect(result.rates).toEqual({})
   })
 })

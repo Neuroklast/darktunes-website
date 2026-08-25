@@ -1,20 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import {
-  ACCOUNTING_FALLBACK,
-  SETTLEMENT_FALLBACK,
-  mergeAccountingLabels,
-} from './accountingFallbacks'
+import { mergeAccountingLabels } from './accountingFallbacks'
+import { interpolate } from './interpolate'
 
-describe('accountingFallbacks', () => {
-  it('exposes non-empty accounting and settlement fallbacks', () => {
-    expect(ACCOUNTING_FALLBACK.pageTitle).toBe('Accounting')
-    expect(SETTLEMENT_FALLBACK.settlementHeading).toBe('Settlement Center')
-  })
+describe('mergeAccountingLabels', () => {
+  it('keeps only string overrides so nested i18n maps cannot crash interpolate', () => {
+    const labels = mergeAccountingLabels({
+      tabHistory: 'Historie',
+      workflowSteps: { draft: { label: 'Entwürfe' } },
+    } as never)
 
-  it('mergeAccountingLabels applies overrides without dropping fallbacks', () => {
-    const merged = mergeAccountingLabels({ pageTitle: 'Buchhaltung' })
-    expect(merged.pageTitle).toBe('Buchhaltung')
-    expect(merged.settlementHeading).toBe('Settlement Center')
-    expect(merged.tabGenerate).toBe(ACCOUNTING_FALLBACK.tabGenerate)
+    expect(labels.tabHistory).toBe('Historie')
+    expect(typeof labels.tabGenerate).toBe('string')
+    expect(interpolate(labels.settlementDraftsCreated, { count: 2 })).toContain('2')
   })
 })

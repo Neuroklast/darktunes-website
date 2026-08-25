@@ -22,7 +22,7 @@
 | Workflow | PR | main / other | Notes |
 |----------|----|--------------|--------|
 | `ci.yml` | always | always | Parallel jobs: lint+contracts+tsc · unit · build. Concurrency cancel-in-progress. Next + ESLint caches. |
-| `qa.yml` | E2E **Desktop Chrome only** (docs paths ignored) | Full E2E matrix (Chrome + Mobile Safari + Mobile Chrome) | No duplicate lint/unit/security. |
+| `qa.yml` | Full E2E matrix (Chrome + Mobile Safari + Mobile Chrome), docs paths ignored | Full E2E matrix (same) | No duplicate lint/unit/security. `/e2e` PR comment (`e2e-comment.yml`) runs the same matrix on demand. |
 | `security.yml` | only lockfile/package changes | same + weekly schedule | Sole npm audit owner |
 | `lighthouse-ci.yml` | path-filtered (`app`/`src`/…) | same | Next cache |
 | `performance-budget.yml` | path-filtered | same | Next cache |

@@ -10,7 +10,6 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { isSupabaseE2EConfigured } from '../helpers/supabase'
 
 // ---------------------------------------------------------------------------
 // Helper: collect all focusable / clickable elements and check touch targets
@@ -79,11 +78,6 @@ test.describe('Touch Target Sizes (mobile only)', () => {
 
 test.describe('Video Modal', () => {
   test('opens when a video thumbnail is clicked', async ({ page }) => {
-    if (!isSupabaseE2EConfigured()) {
-      test.skip(true, 'Supabase env missing — homepage videos not available')
-      return
-    }
-
     await page.goto('/')
     await page.waitForLoadState('domcontentloaded')
 
@@ -107,16 +101,15 @@ test.describe('Video Modal', () => {
     await firstVideoCard.click()
 
     // The modal dialog should now be visible.
-    const modal = page.locator('[role="dialog"]')
+    // Scope to the video modal specifically (aria-labelledby is a stable,
+    // locale-independent hook from VideoModal.tsx) — the cookie-consent banner
+    // also has role="dialog" and remains in the DOM (aria-hidden, not removed),
+    // so an unscoped locator hits a Playwright strict-mode violation.
+    const modal = page.locator('[role="dialog"][aria-labelledby="video-modal-title"]')
     await expect(modal).toBeVisible({ timeout: 5_000 })
   })
 
   test('closes when the close button is clicked', async ({ page }) => {
-    if (!isSupabaseE2EConfigured()) {
-      test.skip(true, 'Supabase env missing — homepage videos not available')
-      return
-    }
-
     await page.goto('/')
     await page.waitForLoadState('domcontentloaded')
 
@@ -136,11 +129,19 @@ test.describe('Video Modal', () => {
 
     await firstVideoCard.click()
 
-    const modal = page.locator('[role="dialog"]')
+    // Scope to the video modal specifically (aria-labelledby is a stable,
+    // locale-independent hook from VideoModal.tsx) — the cookie-consent banner
+    // also has role="dialog" and remains in the DOM (aria-hidden, not removed),
+    // so an unscoped locator hits a Playwright strict-mode violation.
+    const modal = page.locator('[role="dialog"][aria-labelledby="video-modal-title"]')
     await expect(modal).toBeVisible({ timeout: 5_000 })
 
     // Click the close button (X icon button above the modal).
-    const closeButton = page.locator('[role="dialog"] button, button[aria-label*="close" i], button[aria-label*="schließ" i]').first()
+    // VideoModal's close control has a hardcoded, untranslated aria-label="Close
+    // video". The old unscoped union locator's .first() could resolve to some
+    // other button in DOM order (e.g. a play/mute control) instead, which the
+    // dialog overlay then intercepted pointer events for.
+    const closeButton = modal.getByRole('button', { name: 'Close video' })
     const closeCount = await closeButton.count()
     if (closeCount > 0) {
       await closeButton.click()
@@ -173,7 +174,11 @@ test.describe('Video Modal', () => {
 
     await firstVideoCard.click()
 
-    const modal = page.locator('[role="dialog"]')
+    // Scope to the video modal specifically (aria-labelledby is a stable,
+    // locale-independent hook from VideoModal.tsx) — the cookie-consent banner
+    // also has role="dialog" and remains in the DOM (aria-hidden, not removed),
+    // so an unscoped locator hits a Playwright strict-mode violation.
+    const modal = page.locator('[role="dialog"][aria-labelledby="video-modal-title"]')
     await expect(modal).toBeVisible({ timeout: 5_000 })
 
     // Simulate a downward swipe on the modal to dismiss it.

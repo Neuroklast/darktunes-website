@@ -3,6 +3,7 @@ import { DEFAULT_SECTION_ORDER } from '@/config/sections'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/env'
 import { getSiteSettings, SITE_SETTINGS_DEFAULTS, upsertSiteSettings } from '@/lib/api/siteSettings'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import type { SiteSettings, ContactTopicConfig } from '@/types'
 
 /** Maps a SiteSettings domain object back to DB key-value pairs. */
@@ -65,6 +66,8 @@ function settingsToRecord(s: SiteSettings): Record<string, string> {
     videos_per_page: String(s.videosPerPage ?? 9),
     videos_link_to_page: String(s.videosLinkToPage ?? false),
     exclude_shorts_from_public: String(s.excludeShortsFromPublic ?? false),
+    artist_profile_video_rows: String(s.artistProfileVideoRows ?? 2),
+    artist_profile_news_rows: String(s.artistProfileNewsRows ?? 2),
     feature_toggles: JSON.stringify(s.featureToggles ?? { promoPool: true, editorTools: true }),
     logo_url: s.logoUrl ?? '',
     favicon_url: s.faviconUrl ?? '',
@@ -108,7 +111,7 @@ export function useSiteSettings() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await getSiteSettings(supabase)
+      const data = await getSiteSettings(supabase, getClientOrganizationId())
       setSettings(data)
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
@@ -123,7 +126,7 @@ export function useSiteSettings() {
    */
   const saveSettings = useCallback(
     async (updated: SiteSettings): Promise<void> => {
-      await upsertSiteSettings(supabase, settingsToRecord(updated))
+      await upsertSiteSettings(supabase, settingsToRecord(updated), getClientOrganizationId())
       setSettings(updated)
       // Revalidate the Next.js server cache so the public site picks up changes.
       // Throw if the API returns an error so the caller (e.g. ColorThemeManager)

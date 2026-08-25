@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next'
 import { getMetadataBrand } from '@/lib/seo/metadata'
 import { buildDefaultSeoDescription } from '@/lib/brand/tenantDefaults'
 import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 
 /**
  * Dynamic PWA Web App Manifest
@@ -16,8 +17,9 @@ import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
  * the installed PWA always shows the same logo as the browser tab.
  */
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const organizationId = await getRequestOrganizationId().catch(() => undefined)
   const [settings, brand] = await Promise.all([
-    getCachedSiteSettings().catch(() => null),
+    getCachedSiteSettings(organizationId).catch(() => null),
     getMetadataBrand(),
   ])
   const customFaviconUrl = settings?.faviconUrl || ''

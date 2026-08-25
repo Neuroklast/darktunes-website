@@ -47,6 +47,7 @@ function makeMockDb(factory: (table: string) => QueryResult): DbClient {
 
 const mockArtist: ArtistRow = {
   id: 'artist-1',
+  organization_id: '00000000-0000-0000-0000-000000000000',
   name: 'Test Artist',
   slug: 'test-artist',
   bio: null,
@@ -208,6 +209,95 @@ describe('syncAll', () => {
     expect(itunesResult).toBeDefined()
     expect(itunesResult?.artistsProcessed).toBe(1)
   })
+
+  it('uses artist_private_data Bandsintown key when the public column is null', async () => {
+    const artist = {
+      ...mockArtist,
+      bandsintown_id: 'bit-1',
+      bandsintown_api_key: null,
+    }
+    const db = makeMockDb((table) => {
+      if (table === 'artists') return { data: [artist], error: null }
+      if (table === 'artist_private_data') {
+        return {
+          data: [
+            {
+              artist_id: artist.id,
+              email: null,
+              vat_number: null,
+              notes: null,
+              bandsintown_api_key: 'private-bit-key',
+              storage_quota_bytes: null,
+              is_eu_non_german: false,
+            },
+          ],
+          error: null,
+        }
+      }
+      return { data: [], error: null }
+    })
+
+    const fetchFn = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('rest.bandsintown.com')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve([
+              {
+                id: 'evt-1',
+                title: 'Berlin Show',
+                datetime: '2026-09-01T20:00:00',
+                url: 'https://bandsintown.com/e/1',
+                venue: { name: 'SO36', city: 'Berlin', country: 'Germany' },
+                offers: [],
+              },
+            ]),
+        })
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ results: [] }),
+      })
+    })
+
+    const result = await syncAll({
+      db,
+      fetch: fetchFn as typeof fetch,
+      uploadToR2: vi.fn(),
+      onlyApi: 'bandsintown',
+    })
+
+    const bit = result.results.find((r) => r.api === 'bandsintown')
+    expect(bit).toBeDefined()
+    expect(bit?.artistsProcessed).toBe(1)
+    expect(bit?.errors).toEqual([])
+    const bandsintownUrls = fetchFn.mock.calls.map((call) => String(call[0]))
+    expect(bandsintownUrls.some((url) => url.includes('app_id=private-bit-key'))).toBe(true)
+  })
+
+  it('skips Bandsintown when no global key and no public or private per-artist key', async () => {
+    const artist = {
+      ...mockArtist,
+      bandsintown_id: 'bit-1',
+      bandsintown_api_key: null,
+    }
+    const db = makeMockDb((table) => {
+      if (table === 'artists') return { data: [artist], error: null }
+      return { data: [], error: null }
+    })
+
+    const result = await syncAll({
+      db,
+      fetch: vi.fn() as typeof fetch,
+      uploadToR2: vi.fn(),
+      onlyApi: 'bandsintown',
+    })
+
+    expect(result.results.find((r) => r.api === 'bandsintown')).toBeUndefined()
+  })
 })
 
 describe('syncSingleArtist', () => {
@@ -316,6 +406,112 @@ describe('syncSingleArtist', () => {
     expect(odesliResult?.errors.filter((e) => e.includes('UNSUPPORTED_URL'))).toHaveLength(0)
   })
 
+  it('maps songkick jobType to onlyApi=songkick, skipping iTunes', async () => {
+    const db = makeMockDb((table) => {
+      if (table === 'artists') return { data: [{ ...mockArtist, songkick_id: 'sk-1' }], error: null }
+      return { data: [], error: null }
+    })
+    const result = await syncSingleArtist(mockArtist.id, 'songkick', {
+      db,
+      fetch: vi.fn() as typeof fetch,
+      uploadToR2: vi.fn(),
+    })
+    expect(result.results.find((r) => r.api === 'itunes')).toBeUndefined()
+  })
+
+  it('maps bandsintown jobType to onlyApi=bandsintown, skipping iTunes', async () => {
+    const db = makeMockDb((table) => {
+      if (table === 'artists') {
+        return { data: [{ ...mockArtist, bandsintown_id: 'bit-1' }], error: null }
+      }
+      return { data: [], error: null }
+    })
+    const result = await syncSingleArtist(mockArtist.id, 'bandsintown', {
+      db,
+      fetch: vi.fn() as typeof fetch,
+      uploadToR2: vi.fn(),
+    })
+    expect(result.results.find((r) => r.api === 'itunes')).toBeUndefined()
+  })
+
+  it('does not abort remaining Odesli releases after a 429', async () => {
+    const releaseRows = [
+      {
+        id: 'rel-1',
+        artist_id: mockArtist.id,
+        spotify_url: 'https://open.spotify.com/album/first',
+        apple_music_url: null,
+      },
+      {
+        id: 'rel-2',
+        artist_id: mockArtist.id,
+        spotify_url: 'https://open.spotify.com/album/second',
+        apple_music_url: null,
+      },
+    ]
+    const updatedIds: string[] = []
+    const db = {
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === 'releases') {
+          const builder = makeBuilder({ data: releaseRows, error: null })
+          builder.update = vi.fn().mockImplementation(() => {
+            const chain = makeBuilder({ data: null, error: null })
+            chain.eq = vi.fn().mockImplementation((_col: string, id: string) => {
+              updatedIds.push(id)
+              return createThenable({ data: null, error: null })
+            })
+            return chain
+          })
+          return builder
+        }
+        if (table === 'artists') return makeBuilder({ data: [mockArtist], error: null })
+        return makeBuilder({ data: [], error: null })
+      }),
+    } as unknown as DbClient
+
+    const fetchFn = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = decodeURIComponent(String(input))
+      if (url.includes('album/first')) {
+        return Promise.resolve({
+          ok: false,
+          status: 429,
+          text: () => Promise.resolve('TOO_MANY_REQUESTS'),
+        })
+      }
+      if (url.includes('album/second') || url.includes('song.link')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                pageUrl: 'https://song.link/s/second',
+                linksByPlatform: { spotify: { url: 'https://open.spotify.com/album/second' } },
+              }),
+            ),
+        })
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ results: [] }),
+        text: () => Promise.resolve('{}'),
+      })
+    })
+
+    const result = await syncAll({
+      db,
+      fetch: fetchFn as typeof fetch,
+      uploadToR2: vi.fn(),
+      onlyApi: 'odesli',
+    })
+
+    const odesli = result.results.find((r) => r.api === 'odesli')
+    expect(odesli).toBeDefined()
+    expect(updatedIds).toContain('rel-2')
+    expect(odesli?.hasMoreWork).toBe(true)
+  })
+
   it('maps discogs jobType to onlyApi=discogs, skipping iTunes', async () => {
     const db = makeMockDb((table) => {
       if (table === 'artists') return { data: [{ ...mockArtist, discogs_id: 'disc-1' }], error: null }
@@ -335,5 +531,79 @@ describe('syncSingleArtist', () => {
 
     const result = await syncSingleArtist(mockArtist.id, 'discogs', deps)
     expect(result.results.find((r) => r.api === 'itunes')).toBeUndefined()
+  })
+
+  it('does not keep hasMoreWork when a full Odesli batch makes no progress', async () => {
+    const releaseRows = Array.from({ length: 2 }, (_, i) => ({
+      id: `rel-stuck-${i}`,
+      artist_id: mockArtist.id,
+      spotify_url: `https://open.spotify.com/album/transient-${i}`,
+      apple_music_url: null,
+    }))
+    const db = makeMockDb((table) => {
+      if (table === 'artists') return { data: [mockArtist], error: null }
+      if (table === 'releases') return { data: releaseRows, error: null }
+      return { data: [], error: null }
+    })
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: () => Promise.resolve('bad request'),
+    })
+
+    const result = await syncAll({
+      db,
+      fetch: fetchFn as typeof fetch,
+      uploadToR2: vi.fn(),
+      onlyApi: 'odesli',
+      odesliBatchLimit: 2,
+    })
+
+    const odesli = result.results.find((r) => r.api === 'odesli')
+    expect(odesli?.hasMoreWork).toBeFalsy()
+    expect(odesli?.errors.length).toBeGreaterThan(0)
+  })
+
+  it('writes a fallback smart_url for releases Odesli can never resolve', async () => {
+    const updated: Array<{ id: string; payload: Record<string, unknown> }> = []
+    const db = {
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === 'releases') {
+          const builder = makeBuilder({
+            data: [
+              {
+                id: 'rel-artist-url',
+                artist_id: mockArtist.id,
+                spotify_url: 'https://open.spotify.com/artist/abc',
+                apple_music_url: null,
+              },
+            ],
+            error: null,
+          })
+          builder.update = vi.fn().mockImplementation((payload: Record<string, unknown>) => {
+            const chain = makeBuilder({ data: null, error: null })
+            chain.eq = vi.fn().mockImplementation((_col: string, id: string) => {
+              updated.push({ id, payload })
+              return createThenable({ data: null, error: null })
+            })
+            return chain
+          })
+          return builder
+        }
+        if (table === 'artists') return makeBuilder({ data: [mockArtist], error: null })
+        return makeBuilder({ data: [], error: null })
+      }),
+    } as unknown as DbClient
+
+    const result = await syncAll({
+      db,
+      fetch: vi.fn() as typeof fetch,
+      uploadToR2: vi.fn(),
+      onlyApi: 'odesli',
+    })
+
+    const fallback = updated.find((row) => row.id === 'rel-artist-url')
+    expect(fallback?.payload.smart_url).toBe('https://open.spotify.com/artist/abc')
+    expect(result.results.find((r) => r.api === 'odesli')?.hasMoreWork).toBeFalsy()
   })
 })

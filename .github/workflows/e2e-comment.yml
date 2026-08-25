@@ -15,7 +15,8 @@ name: E2E on PR comment
 #   secrets), which limits the blast radius of running PR-HEAD code.
 # - issue_comment events check out the base repo/default branch by default, so
 #   we explicitly `gh pr checkout` to test the PR's actual code.
-# - Scope matches PR convention in qa.yml: Desktop Chrome only.
+# - Scope matches qa.yml: full browser matrix (Desktop Chrome + Mobile Safari
+#   + Mobile Chrome).
 
 on:
   issue_comment:
@@ -37,6 +38,9 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  # Lets the job write a commit status onto the PR HEAD so the run shows up in
+  # the PR's checks/merge box (issue_comment runs aren't linked to a SHA on their own).
+  statuses: write
 
 env:
   NODE_VERSION: '20'
@@ -86,6 +90,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh pr checkout ${{ env.PR_NUMBER }}
 
+      # Record the PR HEAD SHA — the commit statuses below attach to it so the
+      # E2E result renders inside the PR (checks/merge box), not just Actions.
+      - name: Capture PR HEAD SHA
+        id: sha
+        run: echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Mark PR check pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X POST "repos/${{ github.repository }}/statuses/${{ steps.sha.outputs.head }}" \
+            -f state=pending \
+            -f context="E2E (full browser matrix)" \
+            -f description="Running Playwright suite…" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -122,7 +142,8 @@ jobs:
             playwright-${{ runner.os }}-
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        # Full matrix (incl. WebKit for Mobile Safari) to match qa.yml.
+        run: npx playwright install --with-deps
 
       - name: Start local Supabase stack + seed fixtures
         run: npm run db:e2e:start
@@ -135,12 +156,15 @@ jobs:
           set +a
           npm run build
 
-      - name: Run E2E (Desktop Chrome)
+      - name: Run E2E (full browser matrix)
         run: |
           set -a
           . ./.env.e2e.local
           set +a
-          SKIP_BUILD=1 npx playwright test --project="Desktop Chrome"
+          SKIP_BUILD=1 npx playwright test \
+            --project="Desktop Chrome" \
+            --project="Mobile Safari" \
+            --project="Mobile Chrome"
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
@@ -149,6 +173,25 @@ jobs:
           name: playwright-report-pr-${{ env.PR_NUMBER }}
           path: playwright-report/
           retention-days: 14
+
+      # Final PR check state (shows in the PR checks/merge box). Guarded on a
+      # captured SHA so a run cancelled before checkout doesn't error here.
+      - name: Report final PR check status
+        if: always() && steps.sha.outputs.head != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          case "$JOB_STATUS" in
+            success)   state=success; desc="Playwright suite passed" ;;
+            cancelled) state=error;   desc="Run cancelled" ;;
+            *)         state=failure; desc="Playwright suite failed" ;;
+          esac
+          gh api -X POST "repos/${{ github.repository }}/statuses/${{ steps.sha.outputs.head }}" \
+            -f state="$state" \
+            -f context="E2E (full browser matrix)" \
+            -f description="$desc" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Post result back to the PR
         if: always()

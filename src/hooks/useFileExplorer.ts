@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { isSupabaseConfigured } from '@/env'
 import { rowToAsset } from '@/lib/api/assets'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import type { Asset, AssetFolder } from '@/types'
 import type { Database } from '@/types/database'
@@ -178,15 +179,18 @@ export function useFileExplorer(initialFolderId: string | null = null): UseFileE
 
     setIsLoading(true)
     try {
+      const organizationId = getClientOrganizationId()
       const folderQuery = supabase
         .from('asset_folders')
-        .select('id, name, parent_id, artist_id, created_by, created_at, updated_at')
+        .select('id, name, parent_id, artist_id, created_by, created_at, updated_at, organization_id')
+        .eq('organization_id', organizationId)
         .order('name', { ascending: true })
       const assetQuery = supabase
         .from('assets')
         .select(
-          'id, filename, original_filename, mime_type, size_bytes, r2_key, public_url, uploaded_by, created_at, folder_id, artist_id, tags, sha256_hash, release_id, alt_text, is_press_approved, press_suggested, press_category, press_caption, photographer_credit, downloadable_for_press',
+          'id, filename, original_filename, mime_type, size_bytes, r2_key, public_url, uploaded_by, created_at, folder_id, artist_id, tags, sha256_hash, release_id, alt_text, is_press_approved, press_suggested, press_category, press_caption, photographer_credit, downloadable_for_press, organization_id',
         )
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
 
       if (folderId === null) {
@@ -207,7 +211,7 @@ export function useFileExplorer(initialFolderId: string | null = null): UseFileE
       setAllFolders(mappedFolders)
       setFolders(mappedFolders.filter((folder) => folder.parentId === folderId))
       setFolderPath(buildFolderPath(mappedFolders, folderId))
-      setAssets((assetData ?? []).map(mapAsset))
+      setAssets((assetData ?? []).map((row) => mapAsset(row as AssetRow)))
     } finally {
       setIsLoading(false)
     }

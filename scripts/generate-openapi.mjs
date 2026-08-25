@@ -48,11 +48,13 @@ function getTag(routePath) {
     'page-events': 'Public',
     'exchange-rates': 'Public',
     'log-error': 'Public',
+    v1: 'Partner API',
   };
   return map[root] ?? 'Public';
 }
 
 function getSecurity(routePath, auth) {
+  if (routePath.startsWith('/api/v1/')) return [{ PartnerApiKey: [] }];
   if (auth.bearerCron) return [{ CronSecret: [] }];
   if (routePath.startsWith('/api/admin/')) {
     if (auth.bearerAdminOnly) return [{ AdminBearer: [] }];
@@ -179,6 +181,8 @@ const tagDescriptions = {
   Public: 'Unauthenticated public endpoints.',
   Sync: 'Artist/release sync jobs (cron or admin triggered).',
   Upload: 'Media upload endpoints.',
+  'Partner API':
+    'Public, versioned REST API (/api/v1/*) for partner organizations. Bearer organization API key (dt_live_…), gated behind the partner_api feature flag and per-key scopes. Data is isolated to the calling organization. Follows the Zalando RESTful API Guidelines.',
 };
 
 const tags = [...new Set(sortedPaths.map((r) => getTag(r.path)))].sort();
@@ -234,6 +238,14 @@ lines.push('    CronSecret:');
 lines.push('      type: http');
 lines.push('      scheme: bearer');
 lines.push('      description: Static secret from CRON_SECRET env var (Supabase Cron / internal jobs).');
+lines.push('    PartnerApiKey:');
+lines.push('      type: http');
+lines.push('      scheme: bearer');
+lines.push('      description: >');
+lines.push('        Organization API key, prefixed `dt_live_`, sent as `Authorization: Bearer <key>`.');
+lines.push('        Keys carry scopes (e.g. `read`, or `*` for all) and are validated against');
+lines.push('        organization_api_keys; revoked keys are rejected. The owning organization');
+lines.push('        must have the `partner_api` feature enabled.');
 lines.push('');
 lines.push('  schemas:');
 lines.push('    ErrorResponse:');
@@ -282,6 +294,92 @@ lines.push('        database:');
 lines.push('          type: object');
 lines.push('          properties:');
 lines.push('            status: { type: string, enum: [online, offline] }');
+// --- Partner API (/api/v1/*) schemas — Zalando RESTful API Guidelines ---
+lines.push('    PartnerArtist:');
+lines.push('      type: object');
+lines.push('      description: Artist record scoped to the calling organization.');
+lines.push('      properties:');
+lines.push('        id: { type: string, format: uuid }');
+lines.push('        name: { type: string }');
+lines.push('        slug: { type: string }');
+lines.push('        genres: { type: array, items: { type: string } }');
+lines.push('        country: { type: string, nullable: true }');
+lines.push('        is_visible: { type: boolean }');
+lines.push('        created_at: { type: string, format: date-time }');
+lines.push('        updated_at: { type: string, format: date-time, description: "Detail endpoint only." }');
+lines.push('    PartnerRelease:');
+lines.push('      type: object');
+lines.push('      description: Release record scoped to the calling organization.');
+lines.push('      properties:');
+lines.push('        id: { type: string, format: uuid }');
+lines.push('        title: { type: string }');
+lines.push('        artist_id: { type: string, format: uuid }');
+lines.push('        release_date: { type: string, format: date, nullable: true }');
+lines.push('        type: { type: string, nullable: true }');
+lines.push('        catalog_number: { type: string, nullable: true }');
+lines.push('        isrc: { type: string, nullable: true }');
+lines.push('        featured: { type: boolean }');
+lines.push('        created_at: { type: string, format: date-time }');
+lines.push('        updated_at: { type: string, format: date-time, description: "Detail endpoint only." }');
+lines.push('    PartnerReleaseSubmission:');
+lines.push('      type: object');
+lines.push('      description: Release submission scoped to the calling organization.');
+lines.push('      properties:');
+lines.push('        id: { type: string, format: uuid }');
+lines.push('        artist_id: { type: string, format: uuid }');
+lines.push('        status: { type: string }');
+lines.push('        title: { type: string }');
+lines.push('        release_date: { type: string, format: date, nullable: true }');
+lines.push('        type: { type: string, nullable: true }');
+lines.push('        genre: { type: string, nullable: true }');
+lines.push('        isrc: { type: string, nullable: true }');
+lines.push('        catalog_number: { type: string, nullable: true }');
+lines.push('        audio_download_url: { type: string, nullable: true, description: "Detail endpoint only." }');
+lines.push('        cover_art_url: { type: string, nullable: true, description: "Detail endpoint only." }');
+lines.push('        notes: { type: string, nullable: true, description: "Detail endpoint only." }');
+lines.push('        created_at: { type: string, format: date-time }');
+lines.push('        updated_at: { type: string, format: date-time }');
+lines.push('    PartnerArtistList:');
+lines.push('      type: object');
+lines.push('      required: [data, nextCursor]');
+lines.push('      properties:');
+lines.push('        data: { type: array, items: { $ref: "#/components/schemas/PartnerArtist" } }');
+lines.push('        nextCursor: { type: string, nullable: true, description: "Opaque cursor for the next page, or null when exhausted." }');
+lines.push('    PartnerReleaseList:');
+lines.push('      type: object');
+lines.push('      required: [data, nextCursor]');
+lines.push('      properties:');
+lines.push('        data: { type: array, items: { $ref: "#/components/schemas/PartnerRelease" } }');
+lines.push('        nextCursor: { type: string, nullable: true }');
+lines.push('    PartnerReleaseSubmissionList:');
+lines.push('      type: object');
+lines.push('      required: [data, nextCursor]');
+lines.push('      properties:');
+lines.push('        data: { type: array, items: { $ref: "#/components/schemas/PartnerReleaseSubmission" } }');
+lines.push('        nextCursor: { type: string, nullable: true }');
+lines.push('    PartnerArtistEnvelope:');
+lines.push('      type: object');
+lines.push('      required: [data]');
+lines.push('      properties:');
+lines.push('        data: { $ref: "#/components/schemas/PartnerArtist" }');
+lines.push('    PartnerReleaseEnvelope:');
+lines.push('      type: object');
+lines.push('      required: [data]');
+lines.push('      properties:');
+lines.push('        data: { $ref: "#/components/schemas/PartnerRelease" }');
+lines.push('    PartnerReleaseSubmissionEnvelope:');
+lines.push('      type: object');
+lines.push('      required: [data]');
+lines.push('      properties:');
+lines.push('        data: { $ref: "#/components/schemas/PartnerReleaseSubmission" }');
+lines.push('    PartnerAnalyticsExport:');
+lines.push('      type: object');
+lines.push('      description: JSON analytics payload (returned when format=json; default response is text/csv).');
+lines.push('      properties:');
+lines.push('        stats: { type: array, items: { type: object, additionalProperties: true } }');
+lines.push('        territoryMetrics: { type: array, items: { type: object, additionalProperties: true } }');
+lines.push('        listenerMetrics: { type: array, items: { type: object, additionalProperties: true } }');
+lines.push('        statements: { type: array, items: { type: object, additionalProperties: true } }');
 lines.push('');
 lines.push('  responses:');
 lines.push('    BadRequest:');
@@ -346,6 +444,56 @@ const schemaOverrides = {
       responses: { 200: { schema: 'HealthLiveness' }, 503: { description: 'Database offline' } },
     },
   },
+  // --- Partner API (/api/v1/*) — cursor pagination + typed envelopes ---
+  '/api/v1/artists': {
+    GET: {
+      summary: 'List artists',
+      parameters: [
+        { name: 'limit', in: 'query', description: 'Page size (1-200).', schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 } },
+        { name: 'cursor', in: 'query', description: "Opaque cursor from a previous response's nextCursor.", schema: { type: 'string' } },
+      ],
+      responses: { 200: { schema: 'PartnerArtistList' } },
+    },
+  },
+  '/api/v1/artists/{id}': {
+    GET: { summary: 'Get artist by ID', responses: { 200: { schema: 'PartnerArtistEnvelope' } } },
+  },
+  '/api/v1/releases': {
+    GET: {
+      summary: 'List releases',
+      parameters: [
+        { name: 'limit', in: 'query', description: 'Page size (1-200).', schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 } },
+        { name: 'cursor', in: 'query', description: "Opaque cursor from a previous response's nextCursor.", schema: { type: 'string' } },
+      ],
+      responses: { 200: { schema: 'PartnerReleaseList' } },
+    },
+  },
+  '/api/v1/releases/{id}': {
+    GET: { summary: 'Get release by ID', responses: { 200: { schema: 'PartnerReleaseEnvelope' } } },
+  },
+  '/api/v1/release-submissions': {
+    GET: {
+      summary: 'List release submissions',
+      parameters: [
+        { name: 'limit', in: 'query', description: 'Page size (1-200).', schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 } },
+        { name: 'cursor', in: 'query', description: "Opaque cursor from a previous response's nextCursor.", schema: { type: 'string' } },
+      ],
+      responses: { 200: { schema: 'PartnerReleaseSubmissionList' } },
+    },
+  },
+  '/api/v1/release-submissions/{id}': {
+    GET: { summary: 'Get release submission by ID', responses: { 200: { schema: 'PartnerReleaseSubmissionEnvelope' } } },
+  },
+  '/api/v1/analytics/export': {
+    GET: {
+      summary: 'Export artist analytics (CSV default, JSON when format=json)',
+      parameters: [
+        { name: 'artistId', in: 'query', required: true, description: 'Artist to export; must belong to the calling organization.', schema: { type: 'string', format: 'uuid' } },
+        { name: 'format', in: 'query', description: 'Response format.', schema: { type: 'string', enum: ['csv', 'json'], default: 'csv' } },
+      ],
+      responses: { 200: { schema: 'PartnerAnalyticsExport' } },
+    },
+  },
 };
 
 for (const route of sortedPaths) {
@@ -356,11 +504,12 @@ for (const route of sortedPaths) {
 
   for (const method of route.methods) {
     if (method === 'OPTIONS') continue;
+    const override = schemaOverrides[route.path]?.[method];
     const opId = (method.toLowerCase() + route.path.replace(/^\/api\//, '').replace(/\{[^}]+\}/g, 'ById').replace(/\//g, '_')).replace(/_+/g, '_');
     lines.push(`    ${method.toLowerCase()}:`);
     lines.push(`      operationId: ${opId}`);
     lines.push(`      tags: [${tag}]`);
-    const summary = cleanSummary(route.summary, method, route.path);
+    const summary = override?.summary ?? cleanSummary(route.summary, method, route.path);
     lines.push(`      summary: ${yamlEscape(summary)}`);
     lines.push('      security:');
     if (security.length > 0) {
@@ -372,7 +521,6 @@ for (const route of sortedPaths) {
       lines.push('        - {}');
     }
 
-    const override = schemaOverrides[route.path]?.[method];
     const params = override?.parameters ?? [];
     if (pathParams.length > 0 || params.length > 0) {
       lines.push('      parameters:');
@@ -386,14 +534,17 @@ for (const route of sortedPaths) {
       for (const p of params) {
         lines.push(`        - name: ${p.name}`);
         lines.push(`          in: ${p.in}`);
+        if (p.required) lines.push('          required: true');
         if (p.description) lines.push(`          description: ${yamlEscape(p.description)}`);
         lines.push('          schema:');
+        lines.push(`            type: ${p.schema.type}`);
         if (p.schema.enum) {
-          lines.push(`            type: ${p.schema.type}`);
           lines.push(`            enum: [${p.schema.enum.map((e) => JSON.stringify(e)).join(', ')}]`);
-        } else {
-          lines.push(`            type: ${p.schema.type}`);
         }
+        if (p.schema.minimum !== undefined) lines.push(`            minimum: ${p.schema.minimum}`);
+        if (p.schema.maximum !== undefined) lines.push(`            maximum: ${p.schema.maximum}`);
+        if (p.schema.default !== undefined) lines.push(`            default: ${p.schema.default}`);
+        if (p.schema.format) lines.push(`            format: ${p.schema.format}`);
       }
     }
 

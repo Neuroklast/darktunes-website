@@ -1,9 +1,11 @@
 /**
- * src/lib/api/distributorImportBatches.ts — Bronze import batch metadata.
+ * src/lib/api/distributorImportBatches.ts — Bronze import batch metadata
+ * for Sales Statement CSV imports. Scoped by organization_id.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type Row = Database['public']['Tables']['distributor_import_batches']['Row']
@@ -33,6 +35,7 @@ export interface CreateImportBatchData {
   status?: BatchStatus
   rulesPresetId?: string | null
   uploadedBy?: string | null
+  organizationId?: string
 }
 
 function rowToBatch(row: Row): DistributorImportBatch {
@@ -51,13 +54,22 @@ function rowToBatch(row: Row): DistributorImportBatch {
   }
 }
 
+export class DuplicateImportBatchError extends Error {
+  constructor() {
+    super('An active import batch with this file hash already exists')
+    this.name = 'DuplicateImportBatchError'
+  }
+}
+
 export async function createImportBatch(
   db: DbClient,
   data: CreateImportBatchData,
 ): Promise<DistributorImportBatch> {
+  const organizationId = data.organizationId ?? DEFAULT_ORGANIZATION_ID
   const { data: row, error } = await db
     .from('distributor_import_batches')
     .insert({
+      organization_id: organizationId,
       period_start: data.periodStart,
       period_end: data.periodEnd,
       distributor: data.distributor,
@@ -71,7 +83,10 @@ export async function createImportBatch(
     .select()
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (error.code === '23505') throw new DuplicateImportBatchError()
+    throw new Error(error.message)
+  }
   if (!row) throw new Error('No data returned from createImportBatch')
   return rowToBatch(row as Row)
 }
@@ -79,11 +94,13 @@ export async function createImportBatch(
 export async function findImportBatchByFileHash(
   db: DbClient,
   fileHash: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<DistributorImportBatch | null> {
   const normalized = fileHash.toLowerCase()
   const { data, error } = await db
     .from('distributor_import_batches')
     .select('*')
+    .eq('organization_id', organizationId)
     .eq('file_hash', normalized)
     .neq('status', 'failed')
     .order('created_at', { ascending: false })
@@ -97,12 +114,13 @@ export async function findImportBatchByFileHash(
 export async function getImportBatchById(
   db: DbClient,
   id: string,
+  organizationId?: string,
 ): Promise<DistributorImportBatch | null> {
-  const { data, error } = await db
-    .from('distributor_import_batches')
-    .select('*')
-    .eq('id', id)
-    .single()
+  let query = db.from('distributor_import_batches').select('*').eq('id', id)
+  if (organizationId) {
+    query = query.eq('organization_id', organizationId)
+  }
+  const { data, error } = await query.maybeSingle()
 
   if (error) {
     if (error.code === 'PGRST116') return null
@@ -185,10 +203,12 @@ export async function getStatementProvenanceByStatementIds(
 export async function listImportBatches(
   db: DbClient,
   limit = 50,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<DistributorImportBatch[]> {
   const { data, error } = await db
     .from('distributor_import_batches')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('created_at', { ascending: false })
     .limit(limit)
 

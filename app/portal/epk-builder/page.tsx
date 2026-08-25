@@ -19,6 +19,7 @@ import { buildEpkPickerAssets } from '@/lib/epk/pickerAssets'
 import { buildEpkFontPublicUrl, listEpkFonts } from '@/lib/api/epkFonts'
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
 import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { getTranslations } from 'next-intl/server'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EpkBuilderClient } from './_components/EpkBuilderClient'
@@ -58,7 +59,7 @@ async function EpkBuilderContent({ searchParams }: { searchParams: Promise<{ art
 
   if (!user) redirect('/portal/login')
 
-  const flags = await getFeatureFlagsForRole(supabase, 'artist').catch(
+  const flags = await getFeatureFlagsForRole(supabase, 'artist', await getRequestOrganizationId().catch(() => undefined)).catch(
     (): Record<string, boolean> => ({}),
   )
   if (flags['artist.epk_builder'] === false) notFound()
@@ -72,7 +73,7 @@ async function EpkBuilderContent({ searchParams }: { searchParams: Promise<{ art
 
   const [profile, siteSettings, assets, labelAssets, releases, fontRecords] = await Promise.all([
     getArtistProfileByArtistId(supabase, artist.id).catch(() => null),
-    getCachedSiteSettings().catch(() => null),
+    getCachedSiteSettings(await getRequestOrganizationId().catch(() => undefined)).catch(() => null),
     getArtistAssets(supabase, artist.id).catch(() => []),
     getAssetsByArtist(supabase, artist.id).catch(() => []),
     getReleasesByArtistId(supabase, artist.id).catch(() => []),

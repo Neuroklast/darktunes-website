@@ -8,13 +8,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { DateField } from '@/components/ui/date-field'
 import { Button } from '@/components/ui/button'
-import type { Database } from '@/types/database'
+import type { AccreditationRequest } from '@/types'
 import { createAccreditationRequest } from '../_actions/accreditation'
 
-type AccreditationRow = Database['public']['Tables']['accreditation_requests']['Row']
-
 interface AccreditationClientProps {
-  initialRequests: AccreditationRow[]
+  initialRequests: AccreditationRequest[]
 }
 
 export function AccreditationClient({ initialRequests }: AccreditationClientProps) {
@@ -36,21 +34,7 @@ export function AccreditationClient({ initialRequests }: AccreditationClientProp
         publication: form.publication,
         reason: form.reason,
       })
-      setRequests((prev) => [
-        {
-          id: created.id,
-          journalist_id: created.journalistId,
-          event_name: created.eventName,
-          event_date: created.eventDate,
-          publication: created.publication,
-          reason: created.reason,
-          status: created.status,
-          admin_note: created.adminNote ?? null,
-          created_at: created.createdAt,
-          updated_at: created.updatedAt,
-        },
-        ...prev,
-      ])
+      setRequests((prev) => [created, ...prev])
       setForm({ eventName: '', eventDate: '', publication: '', reason: '' })
       toast.success(t('accreditationForm.submitSuccess'))
     } catch (err) {
@@ -87,12 +71,12 @@ export function AccreditationClient({ initialRequests }: AccreditationClientProp
       <div className="space-y-3">
         {requests.map((request) => (
           <div key={request.id} className="rounded-lg border border-border p-4">
-            <p className="font-medium">{request.event_name}</p>
+            <p className="font-medium">{request.eventName}</p>
             <p className="text-sm text-muted-foreground">
-              {request.publication} · {request.event_date} · {request.status}
+              {request.publication} · {request.eventDate} · {request.status}
             </p>
-            {request.admin_note && (
-              <p className="mt-2 text-sm text-muted-foreground">{t('accreditationForm.adminNote')}: {request.admin_note}</p>
+            {request.adminNote && (
+              <p className="mt-2 text-sm text-muted-foreground">{t('accreditationForm.adminNote')}: {request.adminNote}</p>
             )}
           </div>
         ))}

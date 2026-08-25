@@ -14,6 +14,8 @@
   "getTickets": "Tickets",
   "fullProfile": "Vollständiges Profil →",
   "news": "News",
+  "showAll": "Alle anzeigen ({total})",
+  "showLess": "Weniger anzeigen",
   "collapse": "Einklappen",
   "expand": "Ausklappen",
   "share": "Teilen",

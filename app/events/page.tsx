@@ -9,6 +9,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
 import { getCachedPublicConcerts } from '@/lib/cache/publicQueries'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { EventsPageContent } from './_components/EventsPageContent'
 import { getMetadataBrand, pageTitle } from '@/lib/seo/metadata'
 
@@ -23,8 +24,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function EventsPage() {
+  const orgId = await getRequestOrganizationId()
   const [concerts, tPages, tConcerts] = await Promise.all([
-    getCachedPublicConcerts(),
+    getCachedPublicConcerts(orgId),
     getTranslations('pages'),
     getTranslations('concerts'),
   ])

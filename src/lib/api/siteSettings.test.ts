@@ -330,6 +330,18 @@ describe('getSiteSettings – round-trip for all admin-managed fields', () => {
     expect(result.carouselAutoplayMs).toBe(0)
     expect(result.videosPerPage).toBe(9)
     expect(result.videosLinkToPage).toBe(false)
+    expect(result.artistProfileVideoRows).toBe(2)
+    expect(result.artistProfileNewsRows).toBe(2)
+  })
+
+  it('maps artist profile video/news preview rows', async () => {
+    const db = makeMockDb([
+      { key: 'artist_profile_video_rows', value: '4' },
+      { key: 'artist_profile_news_rows', value: '3' },
+    ])
+    const result = await getSiteSettings(db)
+    expect(result.artistProfileVideoRows).toBe(4)
+    expect(result.artistProfileNewsRows).toBe(3)
   })
 
   it('maps homepageSectionOrder from DB row', async () => {

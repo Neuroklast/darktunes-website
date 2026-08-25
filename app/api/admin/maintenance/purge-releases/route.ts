@@ -2,41 +2,51 @@
  * app/api/admin/maintenance/purge-releases/route.ts
  *
  * POST /api/admin/maintenance/purge-releases
- * Auth: admin only
+ * Auth: admin only (host organization)
  * Returns: { releasesDeleted: number, junctionDeleted: number }
  *
- * Permanently deletes ALL rows from `release_artists` (junction table) and
- * then ALL rows from `releases`. This is an irreversible, destructive operation
- * guarded by a two-step confirmation in the UI.
+ * Permanently deletes releases (and release_artists junction rows) for the
+ * **request host organization only**. Guarded by a two-step confirmation in the UI.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorHandler, ApiError } from '@/lib/errors'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
-export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdmin(token)
 
+export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
+  const { organizationId } = await requireAdminFromRequest(req)
   const db = await createServiceRoleSupabaseClient()
 
-  // Delete release_artists first to avoid FK violations (even though CASCADE
-  // would handle it, being explicit is safer and gives us the count).
+  const { data: orgReleases, error: listError } = await db
+    .from('releases')
+    .select('id')
+    .eq('organization_id', organizationId)
+
+  if (listError) {
+    throw new ApiError(500, `Failed to list releases: ${listError.message}`)
+  }
+
+  const releaseIds = (orgReleases ?? []).map((r) => r.id)
+  if (releaseIds.length === 0) {
+    return NextResponse.json({ releasesDeleted: 0, junctionDeleted: 0 })
+  }
+
+  // Delete release_artists first to avoid FK violations and count junction rows.
   const { data: junctionData, error: junctionError } = await db
     .from('release_artists')
     .delete()
-    .not('release_id', 'is', null)
+    .in('release_id', releaseIds)
     .select('release_id')
 
   if (junctionError) {
     throw new ApiError(500, `Failed to purge release_artists: ${junctionError.message}`)
   }
 
-  // Now delete all releases
   const { data: releasesData, error: releasesError } = await db
     .from('releases')
     .delete()
-    .not('id', 'is', null)
+    .eq('organization_id', organizationId)
     .select('id')
 
   if (releasesError) {

@@ -4,6 +4,48 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ---
 
+## Multi-tenant isolation
+
+| Anti-pattern | Rule |
+|--------------|------|
+| Client explorer selects assets without `organization_id` filter | Always filter + write `organization_id` from host context (`getClientOrganizationId` / `requireAdmin*FromRequest`) |
+| Hash dedupe or “artists” root folder shared across labels | Scope `getAssetByHash` and `asset_folders` uniqueness per org |
+| EPK templates treated as global CMS content | Templates are label-owned; DAL takes `organizationId` |
+| Storage RPC / feedback admin unscoped with service role | Pass host `organizationId` into aggregates and artist-joined feedback queries |
+| Sales Statement workspaces keyed only by period | Period uniqueness must include `organization_id` (each label has its own Q1/Q2 workspace) |
+| `site_settings` keyed only by `key` | Composite PK `(organization_id, key)` + org-keyed ISR caches; public pages pass host org |
+| Platform KV upserts still use `onConflict: 'key'` after composite PK | Heartbeats, alert cooldown, sync lease must upsert `organization_id,key` (usually Org #0) |
+| Shared R2 prefixes across labels | New non-Org-#0 objects use `tenants/{organizationId}/…`; dual-read candidates for expand phase |
+| Download only the stored `r2_key` after key-layout change | Pass `organizationId` into `downloadObjectFromR2` / `sha256HexFromR2Object` / delete helpers so legacy + tenants/ keys both resolve |
+| Portal feature flags as global `id` PK | Composite PK `(organization_id, id)`; seed catalog on `createOrganization`; portal/admin always pass host org |
+| Staff RLS only checks role, not organization | Use `user_can_access_organization(org_id)` on staff SELECT bypass + INSERT/UPDATE/DELETE for CMS and media tables |
+| Public SELECT “staff sees all” without org gate | Split: public visibility path OR (staff role AND org access) so Host B drafts never leak to Host A staff JWT |
+| Accounting tables have `organization_id` but admin policy is still role-only | Gate Sales Statement presets/workspaces/summaries/batches, settlement_periods, and flag writes the same way as CMS |
+| Artist-scoped finance rows (no org column) open to all staff | Use `user_can_access_artist(artist_id)` (joins artists → org) on invoices, billing, docs, metrics, messages, EPK admin policies |
+| Staff bypass on `artist_private_data` via role alone | PII policies must require org/artist access, not only `get_my_role() IN ('admin','editor')` |
+| Tour planner admin policies query `users.role` only | Nest via `user_can_access_artist` (or tour → artist org) so Host A staff cannot open Host B logistics |
+| Mailbox folders/rules global across labels | `message_folders` / `message_rules` need `organization_id` + DAL filter; rule apply uses artist org |
+| Promo pool / press applications shared across labels | `promo_tracks`, `journalist_applications`, `accreditation_requests` need `organization_id`; journalist track SELECT should require approved app for that org |
+| Admin journalist APIs auth without host org | Use `requireAdminFromRequest` so list/approve is host-scoped, not global service-role dump |
+| Press download logs global across labels | `journalist_downloads.organization_id` on insert + admin SELECT gate; analytics/history always pass host org |
+| `api_credentials` admin policy ignores `label_id` | Treat `label_id` as organization id in RLS (`user_can_access_organization(label_id)`) |
+| Stripe webhook logic only in route handler | Extract `processStripeWebhookEvent` for unit tests (dedupe + activate + past_due) |
+| Any `admin` role can manage all organizations / platform_admins | Gate org SaaS tables with `user_can_access_organization`; manage `platform_admins` only via SECURITY DEFINER `user_is_platform_admin()` (no RLS recursion) |
+| Video submissions admin list unscoped | Join `artists.organization_id` (or denormalize later); badge counts must use the same host filter |
+| Shared Apify monthly budget across labels | `apify_usage_months` PK must be `(organization_id, year_month)`; sync filters roster by host org |
+| Cron Apify only runs Org #0 | Fan-out `listActiveOrganizations` with shared wall-clock budget; admin UI stays host-scoped |
+| Custom domain “verify” is a trust-on-click admin button | Prove ownership with public DNS TXT (`verifyDomainTxtToken`); gate admin domain APIs with `assertAdminOrganizationAccess` |
+| Platform org console lists every tenant for any admin | `listOrganizationsAccessibleToUser`: platform_admins see all; others only memberships + Org #0 |
+| Security docs only describe artist multi-tenancy | Document **label** isolation (`organization_id`, host headers, staff RLS helpers) separately from portal artist membership |
+| Portal financial audit defaults to Org #0 | `withPortalMembership` must expose `organizationId` from host context for stamps |
+| Financial audit trail is global | Stamp `organization_id` on insert; admin analytics list filters host org |
+| Stripe checkout trusts body `organizationId` without auth | Require session + membership/platform_admin (`assertBillingOrganizationAccess`); signup uses `/api/onboarding/register` |
+| One global sync uploadFn for multi-org drain | Create `createSyncUploadFn(…, job.organizationId)` per job so cover-art keys stay tenant-scoped |
+| Calling the product “SOS” in user/docs copy | User-facing name is **Sales Statement**; `sos_*` code paths may stay for expand→migrate |
+| CI only stubs org isolation | `check:organization-scope` must fail when audited files lose markers |
+| Admin “purge all releases” has no org filter | Service-role maintenance must use `requireAdmin*FromRequest` + host `organizationId` (or Org #0-only for platform-wide logs) |
+| Portal FAQ is a global catalogue | Label help content needs `organization_id` + per-org slug uniqueness |
+
 ## Database & schema
 
 | Anti-pattern | Rule |
@@ -28,9 +70,12 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Anti-pattern | Rule |
 |--------------|------|
 | Permanent `data-lenis-prevent` on a desktop grid that is only a mobile horizontal strip | Prevent only real nested scrollports; desktop page scroll must keep Lenis |
+| Blanket `data-lenis-prevent` on Swiper/coverflow because of jank | Jank ≠ prevent. Vertical stays on Lenis; axis-route horizontal; reduce VFX via `html[data-scrolling]` |
+| Treating horizontal-only overflow as a Lenis prevent target | Metrics fallback is **vertical only** — horizontal strips must not dead-zone page scroll |
 | Matching `[class*="overflow-x-auto"]` for Lenis prevent | Tailwind keeps the token in the class string under responsive overrides — check **computed overflow + scroll metrics** |
-| Lenis `syncTouch: true` on phones with fixed VFX / `will-change` layers | Disable Lenis on `(pointer: coarse)`; native scroll. Ghosting/double-image otherwise |
-| Permanent `will-change: transform` after ScrollReveal | Clear to `auto` on animation complete |
+| Lenis `syncTouch: true` on phones with fixed VFX / `will-change` layers | `syncTouch: false` (native touch). Ghosting/double-image otherwise |
+| Permanent `will-change: transform` after ScrollReveal / on glow-cards during scroll | Clear to `auto` on animation complete; drop promotion while `data-scrolling` |
+| Spotify wheel via `window.scrollY + delta` | Use `lenis.scroll + delta` so virtual and native positions stay aligned |
 
 ## Mobile multi-column editors
 
@@ -40,7 +85,21 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Desktop toolbar `flex-wrap` of 20+ controls on phone | Compact primary row + overflow menu; segment control for panels |
 | Fixed 3-column mailbox (`w-52` + `w-72` + chat) on phones | Messenger pattern: list **or** full-screen thread below `md`; folders in a sheet |
 
+## Supabase Realtime (browser)
+
+| Anti-pattern | Rule |
+|--------------|------|
+| Two components each call `.channel('fixed-name').on(…).subscribe()` on `createBrowserClient` | Singleton client returns the **already subscribed** channel → `.on` after `subscribe` throws. **One owner** (context provider) or unique topics per instance (`useId`) |
+| Putting the refresh `useCallback` in the subscribe effect deps | Callback identity churn re-runs the effect; cleanup `removeChannel` is async → re-attach races. Keep handlers in a **ref**; deps only `enabled` / ids / client |
+| Assuming channel name alone is enough when two consumers need the same data | Prefer **lift subscription** (`AdminNavBadgesProvider`) over two unique topics that double-hit the same tables |
+
 ## Session additions
+
+### 2026-08-10 — Admin nav postgres_changes after subscribe
+
+- **Symptom:** Production console `cannot add postgres_changes callbacks for realtime:admin-nav-portal-messages after subscribe()`.
+- **Cause:** `AdminSidebarNav` + `AdminPushBootstrap` both ran `useAdminNavBadges` with fixed (then later per-instance) topics on the singleton SSR browser client.
+- **Fix:** `AdminNavBadgesProvider` single subscribe; context consumers; `refreshRef` + `useId` topics as defense in depth.
 
 ### 2026-08-08 — Calendar cold load + portal mailbox mobile
 
@@ -209,6 +268,79 @@ Distilled anti-patterns from project history. **Append session findings before o
 ---
 
 ## Session additions
+
+### 2026-08-17 — Odesli `hasMoreWork` can park one job forever
+
+- **Finding:** Global Odesli jobs query `smart_url IS NULL`. Artist-profile URLs and skippable 404/405/422 left that column null, so the same first 40 rows were reclaimed every run. `batch.length >= limit` set `hasMoreWork` even with zero progress → Sync Queue stayed at **1 running** after releases/videos had already succeeded.
+- **Rule:** Permanent Odesli failures must leave the `IS NULL` queue (fallback `smart_url` or empty `platform_links`). Set `hasMoreWork` only when the batch advanced or hit 429. Skip cover re-download when `cover_art` is already on the label CDN.
+
+### 2026-08-14 — Don’t toast warehouse layer names
+
+**“Gold revenue differs from approved statements” compared CSV `net_revenue` (before label share) to `amount_eur` (after share).** It fired on every normal persist and the tester could not tell what to do. Operator toasts must use the product words (portal revenue, approved payout). Gold vs statement is not an integrity check unless both sides use the same money definition.
+
+**Portal analytics is not the statement workbook.** Artists must only see the euro amount after the label share — never the split % or a “before/after” pair they can reverse-engineer. Excel keeps the waterfall.
+
+### 2026-08-13 — Server Actions + startTransition crash Settlement Center
+
+**Save to Portal used `startTransition` around `persistSosAnalytics` (Server Action) with 1000+ metric rows.** Next.js flight/digest failures there are not a toast — they become the production Server Components overlay or `app/error.tsx`. Draft “Ready for draft” then called the same action after `uploadStatement`. Rule: large SOS persist goes over a regular admin POST; wrap persist in try/catch so the page stays up.
+
+### 2026-08-14 — Name-key change must update every artist lookup
+
+**Grouping `FrozenPlasma` → `frozenplasma` while split/expense/manual/carry-forward still used `toLowerCase()` (`frozen plasma`) silently dropped workspace rules to the 50% default.** The standalone SOS generator stayed consistent (`toLowerCase()` on both sides). Same key helper everywhere, including opening-balance maps. Do not port the standalone Blackbook UI into this site — keep the website cards/dialogs and only share the payout math.
+
+**Raphael’s workspace has both `FrozenPlasma` @ 50% and `Frozen Plasma` @ 80% + sourceOverrides.** After collapsing the name key, `.find()` hits the 50% row first and Believe stays 50%. Prefer the richer / spaced rule when several rows share a key.
+
+### 2026-08-13 — Bandcamp “FrozenPlasma” is still Frozen Plasma
+
+**Grouping/roster match was `toLowerCase()` only.** Bandcamp omits the space; Believe does not. Collapse whitespace in the artist key or the same act becomes two settlement artists and persist skips unlinked names.
+
+### 2026-08-13 — Bandsintown lookup is the artist name
+
+**The public events API path is `/artists/{artistname}/events`.** A raw numeric id in the field 404s/returns empty. Label the field **Bandsintown Artist Name**. `id:12345` is a separate optional syntax, not the default.
+
+### 2026-08-13 — Odesli 429 must not abort the rest of the drain
+
+**`break` on the first 429 dropped the rest of the Odesli batch, skipped artist `platform_links`, and `results.some(rateLimited)` rescheduled the whole artist job for 15 minutes.** Skip the item, continue, set `hasMoreWork`, reschedule with 0 cooldown. Never let one API’s 429 mark a multi-API job rate-limited.
+
+### 2026-08-13 — iTunes lookup `limit=200` is a page, not the catalog
+
+**Treat a full 200-collection lookup as “page 1”.** Page Search with `offset` and dedupe by `collectionId`. Exact-name miss → first search hit, otherwise catalogs stay empty for “Artist Official” style names.
+
+### 2026-08-13 — Secrets that move tables must move every reader
+
+**Dual-write + nulling `artists.bandsintown_api_key` is not a complete migration.** Cron `syncAll` and Health still decided eligibility from the public column, so per-artist keys in `artist_private_data` made Bandsintown look unconfigured and silently skip. Rule: every secret move lists every reader (sync, health, portal, admin) in the same change.
+
+### 2026-08-13 — Enqueue is not execute
+
+**`POST /api/sync-api` for Spotify/Odesli only wrote `sync_queue` rows.** Admin UI kicked `/api/sync`; cron `trigger-sync` did not, so jobs sat until the 5-minute process-queue tick. Rule: the enqueue route kicks the executor (`kickSyncExecutorAfterEnqueue`). Client kicks stay a safety net.
+
+### 2026-08-13 — Bronze file_hash needs a partial unique index
+
+**Application lookup is not enough under concurrent POST/confirm.** Unique on `file_hash` where status is not `failed` lets retries through and maps `23505` to `{ duplicate: true }`. Compilation summaries must convert to EUR the same way payouts do — raw `net_revenue` is pre-FX.
+
+### 2026-08-13 — Do not seed historical FX with static fallbacks
+
+**Pre-filling every month with `FALLBACK_EXCHANGE_RATES` makes later converts look like they have a real ECB month.** Missing month → use spot; missing/≤0 rate still throws. Empty currency is EUR + warning, not a throw. Intentional parser filters must land in `skipped[]` or `rowsSkipped` is only parse errors.
+
+### 2026-08-13 — Statement status is a graph, not a free PATCH
+
+**`updateSalesStatementStatus` used to write any CHECK-valid status.** The 7-step workflow was only UI/KPI. Rule: `STATEMENT_TRANSITIONS` in the DAL; same-status is a no-op; illegal edge → `InvalidStatementTransitionError` / 422. Draft uniqueness and one invoice per statement need a **partial unique index**, not only an application lookup (races).
+
+### 2026-08-13 — Opening balance must not live inside period payout
+
+**`finalPayout` / `amount_eur` is period activity only.** Folding last period’s leftover into the same number double-counts it when archive posts `carry_in` for the next period. Show opening as its own line; persist period payout; carry-forward from ledger outstanding cents (`ledger rows exist` — not `ledger || statement`, because 0 is a valid NET). Track owner % that do not sum to 100% must not leak the residual onto the original artist. After `invoice_liability`, do not also post `payment` on the same invoice.
+
+### 2026-08-13 — Lenis duration on the instance makes wheel scroll stepped
+
+**Do not set both `lerp` and `duration`/`easing` on `LENIS_OPTIONS`:** Lenis’ animator prefers duration when both exist, so each Windows mouse-wheel notch restarts a ~1s ease instead of damping toward the target. Wheel = lerp only; pass duration only on programmatic `scrollTo` (anchors).
+
+### 2026-08-13 — Next.js `error.tsx` is not the React ErrorFallback
+
+**Segment render crashes never hit `Providers`’ `ErrorFallback`:** `app/error.tsx` wraps the page first. If it does not call `reportClientError('ui', …)`, production has no `app_logs` row and testers report “the app crashed, no logs”. ChunkLoadError + unconditional `location.reload()` loops after a bad lazy import (e.g. Statement History). Rule: report from `error.tsx` / `global-error.tsx`; reload a chunk error **once** per fingerprint.
+
+### 2026-08-11 — App version SSOT (no more 0.0.0 theater)
+
+**Continuous deploy without a product version creates fake SemVer:** Claiming Keep a Changelog + SemVer while leaving `package.json` at `0.0.0`, never tagging, and dumping everything under `[Unreleased]` is process theater. Rule: version lives in `package.json`; cut CHANGELOG sections on release; annotated tags `vX.Y.Z` for history; show version+commit in Admin System Health (`src/lib/appVersion.ts`). Ritual: `docs/RELEASING.md`. Do not treat Dependabot dependency bumps as app releases.
 
 ### 2026-08-07 — Admin dual-auth must not let stale Bearer block cookies
 

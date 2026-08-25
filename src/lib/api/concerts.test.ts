@@ -58,6 +58,7 @@ function makeTwoStepMockDb(
 const mockConcerts: ConcertRowWithArtist[] = [
   {
     id: 'concert-cancelled',
+    organization_id: '00000000-0000-0000-0000-000000000000',
     artist_id: 'artist-1',
     artists: { name: 'Artist A' },
     event_name: 'Cancelled Show',
@@ -84,6 +85,7 @@ const mockConcerts: ConcertRowWithArtist[] = [
   },
   {
     id: 'concert-ok',
+    organization_id: '00000000-0000-0000-0000-000000000000',
     artist_id: 'artist-2',
     artists: { name: 'Artist B' },
     event_name: 'Upcoming Show',
@@ -208,6 +210,7 @@ describe('getAllVisibleConcertsForCalendar', () => {
   it('maps nested artists in a single select (past + future)', async () => {
     const calendarRow = {
       id: 'cal-c1',
+  organization_id: '00000000-0000-0000-0000-000000000000',
       artist_id: 'art-1',
       event_name: 'Spring Show',
       venue_name: 'Arena',

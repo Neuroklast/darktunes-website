@@ -41,6 +41,8 @@ tags:
     description: Press accreditation application flow.
   - name: Newsletter
     description: Double opt-in newsletter subscription.
+  - name: Partner API
+    description: "Public, versioned REST API (/api/v1/*) for partner organizations. Bearer organization API key (dt_live_…), gated behind the partner_api feature flag and per-key scopes. Data is isolated to the calling organization. Follows the Zalando RESTful API Guidelines."
   - name: Portal
     description: Artist portal dashboard APIs.
   - name: Press
@@ -68,6 +70,14 @@ components:
       type: http
       scheme: bearer
       description: Static secret from CRON_SECRET env var (Supabase Cron / internal jobs).
+    PartnerApiKey:
+      type: http
+      scheme: bearer
+      description: >
+        Organization API key, prefixed `dt_live_`, sent as `Authorization: Bearer <key>`.
+        Keys carry scopes (e.g. `read`, or `*` for all) and are validated against
+        organization_api_keys; revoked keys are rejected. The owning organization
+        must have the `partner_api` feature enabled.
 
   schemas:
     ErrorResponse:
@@ -116,6 +126,91 @@ components:
           type: object
           properties:
             status: { type: string, enum: [online, offline] }
+    PartnerArtist:
+      type: object
+      description: Artist record scoped to the calling organization.
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        genres: { type: array, items: { type: string } }
+        country: { type: string, nullable: true }
+        is_visible: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time, description: "Detail endpoint only." }
+    PartnerRelease:
+      type: object
+      description: Release record scoped to the calling organization.
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        artist_id: { type: string, format: uuid }
+        release_date: { type: string, format: date, nullable: true }
+        type: { type: string, nullable: true }
+        catalog_number: { type: string, nullable: true }
+        isrc: { type: string, nullable: true }
+        featured: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time, description: "Detail endpoint only." }
+    PartnerReleaseSubmission:
+      type: object
+      description: Release submission scoped to the calling organization.
+      properties:
+        id: { type: string, format: uuid }
+        artist_id: { type: string, format: uuid }
+        status: { type: string }
+        title: { type: string }
+        release_date: { type: string, format: date, nullable: true }
+        type: { type: string, nullable: true }
+        genre: { type: string, nullable: true }
+        isrc: { type: string, nullable: true }
+        catalog_number: { type: string, nullable: true }
+        audio_download_url: { type: string, nullable: true, description: "Detail endpoint only." }
+        cover_art_url: { type: string, nullable: true, description: "Detail endpoint only." }
+        notes: { type: string, nullable: true, description: "Detail endpoint only." }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    PartnerArtistList:
+      type: object
+      required: [data, nextCursor]
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/PartnerArtist" } }
+        nextCursor: { type: string, nullable: true, description: "Opaque cursor for the next page, or null when exhausted." }
+    PartnerReleaseList:
+      type: object
+      required: [data, nextCursor]
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/PartnerRelease" } }
+        nextCursor: { type: string, nullable: true }
+    PartnerReleaseSubmissionList:
+      type: object
+      required: [data, nextCursor]
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/PartnerReleaseSubmission" } }
+        nextCursor: { type: string, nullable: true }
+    PartnerArtistEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/PartnerArtist" }
+    PartnerReleaseEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/PartnerRelease" }
+    PartnerReleaseSubmissionEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/PartnerReleaseSubmission" }
+    PartnerAnalyticsExport:
+      type: object
+      description: JSON analytics payload (returned when format=json; default response is text/csv).
+      properties:
+        stats: { type: array, items: { type: object, additionalProperties: true } }
+        territoryMetrics: { type: array, items: { type: object, additionalProperties: true } }
+        listenerMetrics: { type: array, items: { type: object, additionalProperties: true } }
+        statements: { type: array, items: { type: object, additionalProperties: true } }
 
   responses:
     BadRequest:
@@ -213,6 +308,31 @@ paths:
       summary: Create or submit /api/admin/analytics/sync-listeners
       security:
         - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/analytics/sync-spotify-plays:
+    post:
+      operationId: postadmin_analytics_sync-spotify-plays
+      tags: [Admin]
+      summary: Create or submit /api/admin/analytics/sync-spotify-plays
+      security:
+        - CronSecret: []
       requestBody:
         required: true
         content:
@@ -671,6 +791,74 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/custom-domains:
+    get:
+      operationId: getadmin_custom-domains
+      tags: [Admin]
+      summary: Retrieve /api/admin/custom-domains
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: postadmin_custom-domains
+      tags: [Admin]
+      summary: Create or submit /api/admin/custom-domains
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/custom-domains/verify:
+    post:
+      operationId: postadmin_custom-domains_verify
+      tags: [Admin]
+      summary: Create or submit /api/admin/custom-domains/verify
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/admin/enrich-artist-discogs:
     post:
       operationId: postadmin_enrich-artist-discogs
@@ -700,7 +888,7 @@ paths:
     get:
       operationId: getadmin_epk-templates
       tags: [Admin]
-      summary: GET — list all EPK templates (admin) POST — create template
+      summary: GET — list all EPK templates for the host organization (admin) POST — create template
       security:
         - AdminBearer: []
       responses:
@@ -718,7 +906,7 @@ paths:
     post:
       operationId: postadmin_epk-templates
       tags: [Admin]
-      summary: GET — list all EPK templates (admin) POST — create template
+      summary: GET — list all EPK templates for the host organization (admin) POST — create template
       security:
         - AdminBearer: []
       requestBody:
@@ -742,7 +930,7 @@ paths:
     patch:
       operationId: patchadmin_epk-templates
       tags: [Admin]
-      summary: GET — list all EPK templates (admin) POST — create template
+      summary: GET — list all EPK templates for the host organization (admin) POST — create template
       security:
         - AdminBearer: []
       requestBody:
@@ -766,7 +954,7 @@ paths:
     delete:
       operationId: deleteadmin_epk-templates
       tags: [Admin]
-      summary: GET — list all EPK templates (admin) POST — create template
+      summary: GET — list all EPK templates for the host organization (admin) POST — create template
       security:
         - AdminBearer: []
       responses:
@@ -780,11 +968,167 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/fan-page/review/{artistId}:
+    post:
+      operationId: postadmin_fan-page_review_ById
+      tags: [Admin]
+      summary: POST — Admin approve/reject Fan Page
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: artistId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/fan-page/review/{artistId}/preview-token:
+    get:
+      operationId: getadmin_fan-page_review_ById_preview-token
+      tags: [Admin]
+      summary: short-lived fan page preview link
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: artistId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/fan-page/review/{artistId}/trusted:
+    patch:
+      operationId: patchadmin_fan-page_review_ById_trusted
+      tags: [Admin]
+      summary: toggle direct fan page publish
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: artistId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/fan-page/reviews:
+    get:
+      operationId: getadmin_fan-page_reviews
+      tags: [Admin]
+      summary: list fan pages for admin review
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/admin/feature-flags/{id}:
     patch:
       operationId: patchadmin_feature-flags_ById
       tags: [Admin]
       summary: "Update /api/admin/feature-flags/{id}"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/feedback:
+    get:
+      operationId: getadmin_feedback
+      tags: [Admin]
+      summary: list artist product feedback for admin/editor
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/feedback/{id}:
+    patch:
+      operationId: patchadmin_feedback_ById
+      tags: [Admin]
+      summary: update feedback status
       security:
         - AdminBearer: []
       parameters:
@@ -1151,11 +1495,11 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-  /api/admin/maintenance/reset-checklists:
+  /api/admin/maintenance/strip-release-suffixes:
     post:
-      operationId: postadmin_maintenance_reset-checklists
+      operationId: postadmin_maintenance_strip-release-suffixes
       tags: [Admin]
-      summary: Create or submit /api/admin/maintenance/reset-checklists
+      summary: Create or submit /api/admin/maintenance/strip-release-suffixes
       security:
         - AdminBearer: []
       requestBody:
@@ -1168,6 +1512,564 @@ paths:
       responses:
         '200':
           description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/messages/{id}/export:
+    get:
+      operationId: getadmin_messages_ById_export
+      tags: [Admin]
+      summary: "Retrieve /api/admin/messages/{id}/export"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/messages/{id}/notes:
+    get:
+      operationId: getadmin_messages_ById_notes
+      tags: [Admin]
+      summary: "GET/POST /api/admin/messages/[id]/notes?source=portal|label Staff-only internal notes."
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: postadmin_messages_ById_notes
+      tags: [Admin]
+      summary: "GET/POST /api/admin/messages/[id]/notes?source=portal|label Staff-only internal notes."
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/messages/{id}/ops:
+    patch:
+      operationId: patchadmin_messages_ById_ops
+      tags: [Admin]
+      summary: "Update /api/admin/messages/{id}/ops"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/messages/send:
+    post:
+      operationId: postadmin_messages_send
+      tags: [Admin]
+      summary: Create or submit /api/admin/messages/send
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/organization-api-keys:
+    get:
+      operationId: getadmin_organization-api-keys
+      tags: [Admin]
+      summary: Retrieve /api/admin/organization-api-keys
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: postadmin_organization-api-keys
+      tags: [Admin]
+      summary: Create or submit /api/admin/organization-api-keys
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/organization-audit-log:
+    get:
+      operationId: getadmin_organization-audit-log
+      tags: [Admin]
+      summary: Retrieve /api/admin/organization-audit-log
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/organization-webhooks:
+    get:
+      operationId: getadmin_organization-webhooks
+      tags: [Admin]
+      summary: Retrieve /api/admin/organization-webhooks
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: postadmin_organization-webhooks
+      tags: [Admin]
+      summary: Create or submit /api/admin/organization-webhooks
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/organization-webhooks/{id}:
+    patch:
+      operationId: patchadmin_organization-webhooks_ById
+      tags: [Admin]
+      summary: "Update /api/admin/organization-webhooks/{id}"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: deleteadmin_organization-webhooks_ById
+      tags: [Admin]
+      summary: "Delete /api/admin/organization-webhooks/{id}"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/organizations:
+    get:
+      operationId: getadmin_organizations
+      tags: [Admin]
+      summary: Retrieve /api/admin/organizations
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/organizations/{id}/export:
+    get:
+      operationId: getadmin_organizations_ById_export
+      tags: [Admin]
+      summary: "Retrieve /api/admin/organizations/{id}/export"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/partner-webhooks/emit:
+    post:
+      operationId: postadmin_partner-webhooks_emit
+      tags: [Admin]
+      summary: Create or submit /api/admin/partner-webhooks/emit
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/portal-faq/categories:
+    get:
+      operationId: getadmin_portal-faq_categories
+      tags: [Admin]
+      summary: Retrieve /api/admin/portal-faq/categories
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: postadmin_portal-faq_categories
+      tags: [Admin]
+      summary: Create or submit /api/admin/portal-faq/categories
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/portal-faq/categories/{id}:
+    patch:
+      operationId: patchadmin_portal-faq_categories_ById
+      tags: [Admin]
+      summary: "Update /api/admin/portal-faq/categories/{id}"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: deleteadmin_portal-faq_categories_ById
+      tags: [Admin]
+      summary: "Delete /api/admin/portal-faq/categories/{id}"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/portal-faq/items:
+    get:
+      operationId: getadmin_portal-faq_items
+      tags: [Admin]
+      summary: Retrieve /api/admin/portal-faq/items
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: postadmin_portal-faq_items
+      tags: [Admin]
+      summary: Create or submit /api/admin/portal-faq/items
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/portal-faq/items/{id}:
+    patch:
+      operationId: patchadmin_portal-faq_items_ById
+      tags: [Admin]
+      summary: "Update /api/admin/portal-faq/items/{id}"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: deleteadmin_portal-faq_items_ById
+      tags: [Admin]
+      summary: "Delete /api/admin/portal-faq/items/{id}"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
           content:
             application/json:
               schema:
@@ -1467,6 +2369,60 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /api/admin/release-submissions/{id}:
+    get:
+      operationId: getadmin_release-submissions_ById
+      tags: [Admin]
+      summary: "Retrieve /api/admin/release-submissions/{id}"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: postadmin_release-submissions_ById
+      tags: [Admin]
+      summary: "Create or submit /api/admin/release-submissions/{id}"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: patchadmin_release-submissions_ById
       tags: [Admin]
@@ -1479,6 +2435,93 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/release-submissions/{id}/export-believe:
+    get:
+      operationId: getadmin_release-submissions_ById_export-believe
+      tags: [Admin]
+      summary: "Retrieve /api/admin/release-submissions/{id}/export-believe"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/release-submissions/export:
+    get:
+      operationId: getadmin_release-submissions_export
+      tags: [Admin]
+      summary: Retrieve /api/admin/release-submissions/export
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/release-submissions/export-columns:
+    get:
+      operationId: getadmin_release-submissions_export-columns
+      tags: [Admin]
+      summary: Retrieve /api/admin/release-submissions/export-columns
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: putadmin_release-submissions_export-columns
+      tags: [Admin]
+      summary: Replace /api/admin/release-submissions/export-columns
+      security:
+        - AdminBearer: []
       requestBody:
         required: true
         content:
@@ -1783,6 +2826,30 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/sales-statements/{id}:
+    delete:
+      operationId: deleteadmin_sales-statements_ById
+      tags: [Admin]
+      summary: "Delete /api/admin/sales-statements/{id}"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/admin/sales-statements/{id}/approve:
     patch:
       operationId: patchadmin_sales-statements_ById_approve
@@ -1999,7 +3066,7 @@ paths:
     get:
       operationId: getadmin_sos_import-batches
       tags: [Admin]
-      summary: list bronze import batches
+      summary: list Sales Statement bronze import batches (host org)
       security:
         - AdminBearer: []
       responses:
@@ -2017,7 +3084,7 @@ paths:
     post:
       operationId: postadmin_sos_import-batches
       tags: [Admin]
-      summary: list bronze import batches
+      summary: list Sales Statement bronze import batches (host org)
       security:
         - AdminBearer: []
       requestBody:
@@ -2296,6 +3363,94 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/sos/import-batches/{id}/multipart/presign-part:
+    post:
+      operationId: postadmin_sos_import-batches_ById_multipart_presign-part
+      tags: [Admin]
+      summary: presigned UploadPart URL (browser → R2)
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/sos/import-batches/{id}/presign-download:
+    get:
+      operationId: getadmin_sos_import-batches_ById_presign-download
+      tags: [Admin]
+      summary: presigned GET URL for browser → R2 download
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/sos/import-batches/{id}/presign-upload:
+    post:
+      operationId: postadmin_sos_import-batches_ById_presign-upload
+      tags: [Admin]
+      summary: presigned PUT URL for direct browser → R2 upload
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/admin/sos/import-batches/{id}/reprocess:
     post:
       operationId: postadmin_sos_import-batches_ById_reprocess
@@ -2363,7 +3518,7 @@ paths:
     get:
       operationId: getadmin_sos_period-summaries
       tags: [Admin]
-      summary: list historical period summaries
+      summary: list Sales Statement period summaries (host org)
       security:
         - AdminBearer: []
       responses:
@@ -2381,7 +3536,7 @@ paths:
     post:
       operationId: postadmin_sos_period-summaries
       tags: [Admin]
-      summary: list historical period summaries
+      summary: list Sales Statement period summaries (host org)
       security:
         - AdminBearer: []
       requestBody:
@@ -2406,7 +3561,7 @@ paths:
     get:
       operationId: getadmin_sos_presets
       tags: [Admin]
-      summary: list all rule presets
+      summary: list all Sales Statement rule presets (host org)
       security:
         - AdminBearer: []
       responses:
@@ -2424,7 +3579,7 @@ paths:
     post:
       operationId: postadmin_sos_presets
       tags: [Admin]
-      summary: list all rule presets
+      summary: list all Sales Statement rule presets (host org)
       security:
         - AdminBearer: []
       requestBody:
@@ -2449,7 +3604,7 @@ paths:
     put:
       operationId: putadmin_sos_presets_ById
       tags: [Admin]
-      summary: update a preset (name and/or config)
+      summary: update a Sales Statement preset (name and/or config)
       security:
         - AdminBearer: []
       parameters:
@@ -2479,7 +3634,7 @@ paths:
     delete:
       operationId: deleteadmin_sos_presets_ById
       tags: [Admin]
-      summary: update a preset (name and/or config)
+      summary: update a Sales Statement preset (name and/or config)
       security:
         - AdminBearer: []
       parameters:
@@ -2503,7 +3658,7 @@ paths:
     get:
       operationId: getadmin_sos_presets_default
       tags: [Admin]
-      summary: ensure and return the Default preset
+      summary: ensure and return the Default Sales Statement preset
       security:
         - AdminBearer: []
       responses:
@@ -2521,7 +3676,7 @@ paths:
     put:
       operationId: putadmin_sos_presets_default
       tags: [Admin]
-      summary: ensure and return the Default preset
+      summary: ensure and return the Default Sales Statement preset
       security:
         - AdminBearer: []
       requestBody:
@@ -2577,6 +3732,23 @@ paths:
       responses:
         '200':
           description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: deleteadmin_sos_workspaces
+      tags: [Admin]
+      summary: load workspace for period
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Deleted
           content:
             application/json:
               schema:
@@ -2644,6 +3816,49 @@ paths:
       responses:
         '200':
           description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/submission-release-type-rules:
+    get:
+      operationId: getadmin_submission-release-type-rules
+      tags: [Admin]
+      summary: Retrieve /api/admin/submission-release-type-rules
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: putadmin_submission-release-type-rules
+      tags: [Admin]
+      summary: Replace /api/admin/submission-release-type-rules
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
           content:
             application/json:
               schema:
@@ -2807,6 +4022,49 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/sync/jobs:
+    get:
+      operationId: getadmin_sync_jobs
+      tags: [Admin]
+      summary: list recent queue jobs (Advanced console)
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: postadmin_sync_jobs
+      tags: [Admin]
+      summary: list recent queue jobs (Advanced console)
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/admin/users:
     get:
       operationId: getadmin_users
@@ -2880,11 +4138,97 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/users/{id}/custom-roles:
+    get:
+      operationId: getadmin_users_ById_custom-roles
+      tags: [Admin]
+      summary: list assigned custom roles
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: putadmin_users_ById_custom-roles
+      tags: [Admin]
+      summary: list assigned custom roles
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/admin/users/{id}/link-artist:
     patch:
       operationId: patchadmin_users_ById_link-artist
       tags: [Admin]
       summary: "Update /api/admin/users/{id}/link-artist"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/users/{id}/resend-invite:
+    post:
+      operationId: postadmin_users_ById_resend-invite
+      tags: [Admin]
+      summary: "Create or submit /api/admin/users/{id}/resend-invite"
       security:
         - AdminBearer: []
       parameters:
@@ -3185,7 +4529,7 @@ paths:
       tags: [Health]
       summary: Database liveness only (default)
       security:
-        - {}
+        - CronSecret: []
       parameters:
         - name: mode
           in: query
@@ -3209,17 +4553,21 @@ paths:
         '503':
           description: Database offline
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     head:
       operationId: headhealth
       tags: [Health]
       summary: Database liveness only (default)
       security:
-        - {}
+        - CronSecret: []
       responses:
         '200':
           description: Liveness probe (no body)
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /api/health/alert:
     get:
@@ -3315,7 +4663,7 @@ paths:
       tags: [Journalist Applications]
       summary: "PATCH — Admin: approve or reject a journalist application. The applicant's profile role is automatically updated by the"
       security:
-        - SessionBearer: []
+        - {}
       parameters:
         - name: id
           in: path
@@ -3337,8 +4685,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
         '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /api/log-error:
     post:
@@ -3369,7 +4715,7 @@ paths:
     post:
       operationId: postnewsletter
       tags: [Newsletter]
-      summary: Create or submit /api/newsletter
+      summary: Legacy newsletter subscription endpoint. Newsletter sign-up is handled via the darkmerch.com Shopify embed
       security:
         - {}
       requestBody:
@@ -3392,7 +4738,7 @@ paths:
     get:
       operationId: getnewsletter_unsubscribe
       tags: [Newsletter]
-      summary: Retrieve /api/newsletter/unsubscribe
+      summary: Legacy one-click unsubscribe endpoint. Newsletter management moved to Shopify. Old unsubscribe links redirect
       security:
         - {}
       responses:
@@ -3409,7 +4755,7 @@ paths:
     get:
       operationId: getnewsletter_verify
       tags: [Newsletter]
-      summary: Retrieve /api/newsletter/verify
+      summary: Legacy Double Opt-In verification endpoint. Newsletter sign-up moved to Shopify. Old confirmation links redirect
       security:
         - {}
       responses:
@@ -3420,6 +4766,29 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/onboarding/register:
+    post:
+      operationId: postonboarding_register
+      tags: [Public]
+      summary: Create or submit /api/onboarding/register
+      security:
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
   /api/page-events:
@@ -3446,6 +4815,50 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+  /api/plans:
+    get:
+      operationId: getplans
+      tags: [Public]
+      summary: Retrieve /api/plans
+      security:
+        - SessionBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/accept-terms:
+    post:
+      operationId: postportal_accept-terms
+      tags: [Portal]
+      summary: Create or submit /api/portal/accept-terms
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/portal/billing-profile:
     get:
       operationId: getportal_billing-profile
@@ -3469,31 +4882,6 @@ paths:
       operationId: postportal_billing-profile
       tags: [Portal]
       summary: Create or submit /api/portal/billing-profile
-      security:
-        - SessionBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/portal/checklist:
-    patch:
-      operationId: patchportal_checklist
-      tags: [Portal]
-      summary: toggle a release checklist item.
       security:
         - SessionBearer: []
       requestBody:
@@ -3599,11 +4987,36 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/cover-art-check:
+    post:
+      operationId: postportal_cover-art-check
+      tags: [Portal]
+      summary: Create or submit /api/portal/cover-art-check
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/portal/documents/{id}:
     delete:
       operationId: deleteportal_documents_ById
       tags: [Portal]
-      summary: DELETE — remove a document (DB row + R2 object)
+      summary: DELETE — remove a document (DB row + R2 object) Membership via withPortalMembershipWrite; DB delete via portalMemberWrite.
       security:
         - SessionBearer: []
       parameters:
@@ -3627,7 +5040,7 @@ paths:
     get:
       operationId: getportal_documents_ById_download
       tags: [Portal]
-      summary: GET — generate a short-lived (10 min) presigned download URL for a private document. Verifies artist ownership before generating the URL.
+      summary: GET — generate a short-lived (10 min) presigned download URL for a private document. Membership via withPortalMembershipWrite; DB read via portalMemberWrite canary.
       security:
         - SessionBearer: []
       parameters:
@@ -3923,7 +5336,7 @@ paths:
     post:
       operationId: postportal_epk_versions_ById_restore
       tags: [Portal]
-      summary: POST — restore an EPK document from a version snapshot
+      summary: POST — restore an EPK document from a version snapshot Membership via withPortalMembershipWrite; restore via portalMemberWrite.
       security:
         - SessionBearer: []
       parameters:
@@ -3932,6 +5345,229 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/fan-page/document:
+    get:
+      operationId: getportal_fan-page_document
+      tags: [Portal]
+      summary: GET/PUT — Fan Page document load/save Membership is verified with the bearer client; document reads/writes use
+      security:
+        - SessionBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: putportal_fan-page_document
+      tags: [Portal]
+      summary: GET/PUT — Fan Page document load/save Membership is verified with the bearer client; document reads/writes use
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/fan-page/preview-token:
+    post:
+      operationId: postportal_fan-page_preview-token
+      tags: [Portal]
+      summary: POST — Issue a short-lived preview token for draft Fan Page viewing. Membership via withPortalMembershipWrite (no DB write).
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/fan-page/publish:
+    post:
+      operationId: postportal_fan-page_publish
+      tags: [Portal]
+      summary: POST — Fan Page publish workflow (draft / review / direct) Membership via withPortalMembershipWrite; publish write via portalMemberWrite.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/faq:
+    get:
+      operationId: getportal_faq
+      tags: [Portal]
+      summary: Retrieve /api/portal/faq
+      security:
+        - SessionBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/feedback:
+    get:
+      operationId: getportal_feedback
+      tags: [Portal]
+      summary: list own feedback history
+      security:
+        - SessionBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: postportal_feedback
+      tags: [Portal]
+      summary: list own feedback history
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/integrations/bandsintown:
+    get:
+      operationId: getportal_integrations_bandsintown
+      tags: [Portal]
+      summary: Retrieve /api/portal/integrations/bandsintown
+      security:
+        - SessionBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: putportal_integrations_bandsintown
+      tags: [Portal]
+      summary: Replace /api/portal/integrations/bandsintown
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/integrations/bandsintown/sync:
+    post:
+      operationId: postportal_integrations_bandsintown_sync
+      tags: [Portal]
+      summary: Create or submit /api/portal/integrations/bandsintown/sync
+      security:
+        - SessionBearer: []
       requestBody:
         required: true
         content:
@@ -3973,6 +5609,29 @@ paths:
       responses:
         '200':
           description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: deleteportal_interview-requests_ById
+      tags: [Portal]
+      summary: "Delete /api/portal/interview-requests/{id}"
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
           content:
             application/json:
               schema:
@@ -4059,7 +5718,7 @@ paths:
     patch:
       operationId: patchportal_messages_ById
       tags: [Portal]
-      summary: "Update /api/portal/messages/{id}"
+      summary: "PATCH — star, mark read, move folder, soft-delete, restore. Auth: Bearer (preferred) or cookie (dual-auth)."
       security:
         - SessionBearer: []
       parameters:
@@ -4086,11 +5745,36 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/messages/artist-reply:
+    post:
+      operationId: postportal_messages_artist-reply
+      tags: [Portal]
+      summary: Create or submit /api/portal/messages/artist-reply
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/portal/messages/folders:
     get:
       operationId: getportal_messages_folders
       tags: [Portal]
-      summary: list folders
+      summary: "GET/POST/PATCH/DELETE — portal message folders. Auth: Bearer (preferred) or cookie (dual-auth window)."
       security:
         - SessionBearer: []
       responses:
@@ -4108,7 +5792,7 @@ paths:
     post:
       operationId: postportal_messages_folders
       tags: [Portal]
-      summary: list folders
+      summary: "GET/POST/PATCH/DELETE — portal message folders. Auth: Bearer (preferred) or cookie (dual-auth window)."
       security:
         - SessionBearer: []
       requestBody:
@@ -4132,7 +5816,7 @@ paths:
     patch:
       operationId: patchportal_messages_folders
       tags: [Portal]
-      summary: list folders
+      summary: "GET/POST/PATCH/DELETE — portal message folders. Auth: Bearer (preferred) or cookie (dual-auth window)."
       security:
         - SessionBearer: []
       requestBody:
@@ -4156,7 +5840,7 @@ paths:
     delete:
       operationId: deleteportal_messages_folders
       tags: [Portal]
-      summary: list folders
+      summary: "GET/POST/PATCH/DELETE — portal message folders. Auth: Bearer (preferred) or cookie (dual-auth window)."
       security:
         - SessionBearer: []
       responses:
@@ -4218,7 +5902,7 @@ paths:
     put:
       operationId: putportal_profile
       tags: [Portal]
-      summary: upsert the artist's EPK profile.
+      summary: partial or full upsert of the artist's EPK profile
       security:
         - SessionBearer: []
       requestBody:
@@ -4277,6 +5961,31 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/statements/{id}/source-csv:
+    get:
+      operationId: getportal_statements_ById_source-csv
+      tags: [Portal]
+      summary: "Retrieve /api/portal/statements/{id}/source-csv"
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/portal/statements/{id}/view:
     post:
       operationId: postportal_statements_ById_view
@@ -4308,11 +6017,71 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/submission-form-drafts:
+    get:
+      operationId: getportal_submission-form-drafts
+      tags: [Portal]
+      summary: "GET / PUT / DELETE /api/portal/submission-form-drafts?artistId=&formType=release|video Server-side draft storage for portal submission wizards."
+      security:
+        - SessionBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: putportal_submission-form-drafts
+      tags: [Portal]
+      summary: "GET / PUT / DELETE /api/portal/submission-form-drafts?artistId=&formType=release|video Server-side draft storage for portal submission wizards."
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: deleteportal_submission-form-drafts
+      tags: [Portal]
+      summary: "GET / PUT / DELETE /api/portal/submission-form-drafts?artistId=&formType=release|video Server-side draft storage for portal submission wizards."
+      security:
+        - SessionBearer: []
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/portal/submit-release:
     post:
       operationId: postportal_submit-release
       tags: [Portal]
-      summary: Maps snake_case DB field keys (from submission_form_schema) to their camelCase counterparts in the validated request body.
+      summary: Create or submit /api/portal/submit-release
       security:
         - SessionBearer: []
       requestBody:
@@ -5206,6 +6975,84 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/tour-planner/tours/{id}/share:
+    get:
+      operationId: getportal_tour-planner_tours_ById_share
+      tags: [Portal]
+      summary: GET — list active share links for a tour POST — create a public read-only share link
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: postportal_tour-planner_tours_ById_share
+      tags: [Portal]
+      summary: GET — list active share links for a tour POST — create a public read-only share link
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      operationId: deleteportal_tour-planner_tours_ById_share
+      tags: [Portal]
+      summary: GET — list active share links for a tour POST — create a public read-only share link
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/portal/upload-asset:
     post:
       operationId: postportal_upload-asset
@@ -5371,6 +7218,73 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/push/subscribe:
+    post:
+      operationId: postpush_subscribe
+      tags: [Public]
+      summary: Create or submit /api/push/subscribe
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/push/unsubscribe:
+    post:
+      operationId: postpush_unsubscribe
+      tags: [Public]
+      summary: Create or submit /api/push/unsubscribe
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/push/vapid-public-key:
+    get:
+      operationId: getpush_vapid-public-key
+      tags: [Public]
+      summary: Retrieve /api/push/vapid-public-key
+      security:
+        - {}
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/revalidate:
     post:
       operationId: postrevalidate
@@ -5443,6 +7357,54 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/stripe/checkout:
+    post:
+      operationId: poststripe_checkout
+      tags: [Public]
+      summary: Start Stripe Checkout for an existing organization subscription. Requires authenticated caller with platform_admin or organization_users membership.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/stripe/webhook:
+    post:
+      operationId: poststripe_webhook
+      tags: [Public]
+      summary: Create or submit /api/stripe/webhook
+      security:
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
   /api/sync:
     get:
@@ -5600,7 +7562,7 @@ paths:
       tags: [Sync]
       summary: Retrieve /api/sync/artist
       security:
-        - AdminBearer: []
+        - {}
       responses:
         '200':
           description: Success
@@ -5610,15 +7572,13 @@ paths:
                 type: object
                 additionalProperties: true
         '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
       operationId: postsync_artist
       tags: [Sync]
       summary: Create or submit /api/sync/artist
       security:
-        - AdminBearer: []
+        - {}
       requestBody:
         required: true
         content:
@@ -5634,8 +7594,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
         '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /api/sync/execute:
     get:
@@ -5680,7 +7638,7 @@ paths:
     get:
       operationId: getsync_queue
       tags: [Sync]
-      summary: Retrieve /api/sync/queue
+      summary: POST — enqueue full artist sync jobs for every artist GET — return current queue stats (pending/running/done/failed)
       security:
         - CronSecret: []
       responses:
@@ -5698,7 +7656,7 @@ paths:
     post:
       operationId: postsync_queue
       tags: [Sync]
-      summary: Create or submit /api/sync/queue
+      summary: POST — enqueue full artist sync jobs for every artist GET — return current queue stats (pending/running/done/failed)
       security:
         - CronSecret: []
       requestBody:
@@ -5768,7 +7726,7 @@ paths:
       tags: [Upload]
       summary: "Securely handles file uploads to Cloudflare R2 entirely server-side, preventing CORS policy issues that would occur with direct client uploads."
       security:
-        - AdminBearer: []
+        - SessionBearer: []
       requestBody:
         required: true
         content:
@@ -5794,7 +7752,7 @@ paths:
       tags: [Upload]
       summary: Create or submit /api/upload-epk
       security:
-        - AdminBearer: []
+        - {}
       requestBody:
         required: true
         content:
@@ -5810,6 +7768,205 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/analytics/export:
+    get:
+      operationId: getv1_analytics_export
+      tags: [Partner API]
+      summary: "Export artist analytics (CSV default, JSON when format=json)"
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - name: artistId
+          in: query
+          required: true
+          description: Artist to export; must belong to the calling organization.
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          description: Response format.
+          schema:
+            type: string
+            enum: ["csv", "json"]
+            default: csv
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerAnalyticsExport"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/artists:
+    get:
+      operationId: getv1_artists
+      tags: [Partner API]
+      summary: List artists
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - name: limit
+          in: query
+          description: Page size (1-200).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          description: Opaque cursor from a previous response's nextCursor.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerArtistList"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/artists/{id}:
+    get:
+      operationId: getv1_artists_ById
+      tags: [Partner API]
+      summary: Get artist by ID
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerArtistEnvelope"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/release-submissions:
+    get:
+      operationId: getv1_release-submissions
+      tags: [Partner API]
+      summary: List release submissions
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - name: limit
+          in: query
+          description: Page size (1-200).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          description: Opaque cursor from a previous response's nextCursor.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerReleaseSubmissionList"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/release-submissions/{id}:
+    get:
+      operationId: getv1_release-submissions_ById
+      tags: [Partner API]
+      summary: Get release submission by ID
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerReleaseSubmissionEnvelope"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/releases:
+    get:
+      operationId: getv1_releases
+      tags: [Partner API]
+      summary: List releases
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - name: limit
+          in: query
+          description: Page size (1-200).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          description: Opaque cursor from a previous response's nextCursor.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerReleaseList"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/releases/{id}:
+    get:
+      operationId: getv1_releases_ById
+      tags: [Partner API]
+      summary: Get release by ID
+      security:
+        - PartnerApiKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerReleaseEnvelope"
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }

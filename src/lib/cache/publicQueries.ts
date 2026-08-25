@@ -8,12 +8,11 @@
  * failing Supabase connection stores an empty result in the Data Cache rather
  * than propagating an error on every subsequent request.
  *
- * Revalidation tags are shared with the admin-side on-demand revalidation so
- * that `revalidateTag('releases')` etc. works across all pages.
+ * Cache keys and tags are organization-scoped (`o:{orgId}:…`) to prevent
+ * cross-tenant bleed. Pass `organizationId` from `getRequestOrganizationId()`.
  */
 
 import { unstable_cache } from 'next/cache'
-import { cache } from 'react'
 import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
 import { getAllVisibleReleasesForCalendar, getPublicReleases } from '@/lib/api/releases'
 import { getPublicNewsPosts } from '@/lib/api/news'
@@ -21,96 +20,127 @@ import { getPublicVideos } from '@/lib/api/videos'
 import { getAllVisibleConcertsForCalendar, getPublicConcerts } from '@/lib/api/concerts'
 import { getPublicArtists, type PublicArtist } from '@/lib/api/publicArtist'
 import { getSiteSettings } from '@/lib/api/siteSettings'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
+import { orgTag } from '@/lib/organizations/cacheTags'
 import type { Release, NewsPost, Video, Concert, SiteSettings } from '@/types'
 
-// Rely on on-demand revalidateTag() webhooks (/api/revalidate-content) rather than
-// short-lived TTLs. A 1-hour TTL caps staleness when webhooks miss; content
-// maintenance (scheduled publish, hero enforcement, emoji cleanup) now runs via
-// the Supabase Cron → Edge Function pipeline to keep the read path read-only.
 const TTL = 3600 // seconds
 
-/** All public releases, cache-keyed to the `releases` tag. */
-export const getCachedPublicReleases = cache(unstable_cache(
-  async (): Promise<Release[]> =>
-    getPublicReleases(createPublicSupabaseClient()).catch(() => [] as Release[]),
-  ['public-releases'],
-  { revalidate: TTL, tags: ['releases'] },
-))
+/** All public releases for an organization. */
+export function getCachedPublicReleases(
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Release[]> {
+  return unstable_cache(
+    async (): Promise<Release[]> =>
+      getPublicReleases(createPublicSupabaseClient(), organizationId).catch(() => [] as Release[]),
+    ['public-releases', organizationId],
+    { revalidate: TTL, tags: ['releases', orgTag(organizationId, 'releases')] },
+  )()
+}
 
 /**
  * Slim portal calendar payload (nested artists, calendar columns only).
- * Cookie-free client inside unstable_cache; invalidated with `releases` tag.
  */
-export const getCachedCalendarReleases = cache(unstable_cache(
-  async (): Promise<Release[]> =>
-    getAllVisibleReleasesForCalendar(createPublicSupabaseClient()).catch(() => [] as Release[]),
-  ['portal-calendar-releases'],
-  { revalidate: TTL, tags: ['releases'] },
-))
+export function getCachedCalendarReleases(
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Release[]> {
+  return unstable_cache(
+    async (): Promise<Release[]> =>
+      getAllVisibleReleasesForCalendar(createPublicSupabaseClient(), organizationId).catch(
+        () => [] as Release[],
+      ),
+    ['portal-calendar-releases', organizationId],
+    { revalidate: TTL, tags: ['releases', orgTag(organizationId, 'releases')] },
+  )()
+}
 
 /**
  * Slim portal calendar concerts (past + future, nested artists).
- * Cookie-free client; invalidated with `concerts` tag.
  */
-export const getCachedCalendarConcerts = cache(unstable_cache(
-  async (): Promise<Concert[]> =>
-    getAllVisibleConcertsForCalendar(createPublicSupabaseClient()).catch(() => [] as Concert[]),
-  ['portal-calendar-concerts'],
-  { revalidate: TTL, tags: ['concerts'] },
-))
+export function getCachedCalendarConcerts(
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Concert[]> {
+  return unstable_cache(
+    async (): Promise<Concert[]> =>
+      getAllVisibleConcertsForCalendar(createPublicSupabaseClient(), organizationId).catch(
+        () => [] as Concert[],
+      ),
+    ['portal-calendar-concerts', organizationId],
+    { revalidate: TTL, tags: ['concerts', orgTag(organizationId, 'concerts')] },
+  )()
+}
 
-/** All public news posts, cache-keyed to the `news` tag. */
-export const getCachedPublicNews = cache(unstable_cache(
-  async (): Promise<NewsPost[]> =>
-    getPublicNewsPosts(createPublicSupabaseClient()).catch(() => [] as NewsPost[]),
-  ['public-news'],
-  { revalidate: TTL, tags: ['news'] },
-))
-
-/** All public videos (full catalogue), cache-keyed to the `videos` tag. */
-const _getCachedPublicVideosAll = cache(unstable_cache(
-  async (): Promise<Video[]> =>
-    getPublicVideos(createPublicSupabaseClient()).catch(() => [] as Video[]),
-  ['public-videos', 'all'],
-  { revalidate: TTL, tags: ['videos'] },
-))
-
-/** Public videos with Shorts excluded, cache-keyed to the `videos` tag. */
-const _getCachedPublicVideosNoShorts = cache(unstable_cache(
-  async (): Promise<Video[]> =>
-    getPublicVideos(createPublicSupabaseClient(), { excludeShorts: true }).catch(() => [] as Video[]),
-  ['public-videos', 'no-shorts'],
-  { revalidate: TTL, tags: ['videos'] },
-))
+/** All public news posts for an organization. */
+export function getCachedPublicNews(
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<NewsPost[]> {
+  return unstable_cache(
+    async (): Promise<NewsPost[]> =>
+      getPublicNewsPosts(createPublicSupabaseClient(), organizationId).catch(
+        () => [] as NewsPost[],
+      ),
+    ['public-news', organizationId],
+    { revalidate: TTL, tags: ['news', orgTag(organizationId, 'news')] },
+  )()
+}
 
 /**
  * Returns public videos, optionally excluding YouTube Shorts.
- * Two separate cache entries are used so each variant has a stable cache key.
  */
-export function getCachedPublicVideos(options: { excludeShorts?: boolean } = {}): Promise<Video[]> {
-  return options.excludeShorts ? _getCachedPublicVideosNoShorts() : _getCachedPublicVideosAll()
+export function getCachedPublicVideos(
+  options: { excludeShorts?: boolean; organizationId?: string } = {},
+): Promise<Video[]> {
+  const organizationId = options.organizationId ?? DEFAULT_ORGANIZATION_ID
+  const excludeShorts = options.excludeShorts === true
+  return unstable_cache(
+    async (): Promise<Video[]> =>
+      getPublicVideos(createPublicSupabaseClient(), {
+        excludeShorts,
+        organizationId,
+      }).catch(() => [] as Video[]),
+    ['public-videos', organizationId, excludeShorts ? 'no-shorts' : 'all'],
+    { revalidate: TTL, tags: ['videos', orgTag(organizationId, 'videos')] },
+  )()
 }
 
-/** All public concerts, cache-keyed to the `concerts` tag. */
-export const getCachedPublicConcerts = cache(unstable_cache(
-  async (): Promise<Concert[]> =>
-    getPublicConcerts(createPublicSupabaseClient()).catch(() => [] as Concert[]),
-  ['public-concerts'],
-  { revalidate: TTL, tags: ['concerts'] },
-))
+/** All public concerts for an organization. */
+export function getCachedPublicConcerts(
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<Concert[]> {
+  return unstable_cache(
+    async (): Promise<Concert[]> =>
+      getPublicConcerts(createPublicSupabaseClient(), organizationId).catch(() => [] as Concert[]),
+    ['public-concerts', organizationId],
+    { revalidate: TTL, tags: ['concerts', orgTag(organizationId, 'concerts')] },
+  )()
+}
 
-/** All public artists (safe columns only), cache-keyed to the `artists` tag. */
-export const getCachedPublicArtists = cache(unstable_cache(
-  async (): Promise<PublicArtist[]> =>
-    getPublicArtists(createPublicSupabaseClient()).catch(() => [] as PublicArtist[]),
-  ['public-artists'],
-  { revalidate: TTL, tags: ['artists'] },
-))
+/** All public artists (safe columns only) for an organization. */
+export function getCachedPublicArtists(
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<PublicArtist[]> {
+  return unstable_cache(
+    async (): Promise<PublicArtist[]> =>
+      getPublicArtists(createPublicSupabaseClient(), organizationId).catch(
+        () => [] as PublicArtist[],
+      ),
+    ['public-artists', organizationId],
+    { revalidate: TTL, tags: ['artists', orgTag(organizationId, 'artists')] },
+  )()
+}
 
-/** Site-wide settings, cache-keyed to the `site-settings` tag. */
-export const getCachedSiteSettings = cache(unstable_cache(
-  async (): Promise<SiteSettings | null> =>
-    getSiteSettings(createPublicSupabaseClient()).catch(() => null),
-  ['public-site-settings'],
-  { revalidate: TTL, tags: ['site-settings'] },
-))
+/** Per-organization CMS settings (label name, theme, legal, …). */
+export function getCachedSiteSettings(
+  organizationId?: string | null,
+): Promise<SiteSettings | null> {
+  const orgId = organizationId?.trim() || DEFAULT_ORGANIZATION_ID
+  return unstable_cache(
+    async (): Promise<SiteSettings | null> =>
+      getSiteSettings(createPublicSupabaseClient(), orgId).catch(() => null),
+    ['public-site-settings', orgId],
+    {
+      revalidate: TTL,
+      tags: ['site-settings', orgTag(orgId, 'site-settings')],
+    },
+  )()
+}

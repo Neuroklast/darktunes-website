@@ -29,6 +29,73 @@ import {
 } from '@/lib/rbac'
 import { isSupabaseEnvConfigured } from '@/lib/supabase/isConfigured'
 import type { UserRole } from '@/types/users'
+import {
+  DEFAULT_ORGANIZATION_ID,
+  DEFAULT_ORGANIZATION_SLUG,
+  HEADER_ORGANIZATION_ID,
+  HEADER_ORGANIZATION_SLUG,
+  HEADER_ORGANIZATION_STATUS,
+  HEADER_SURFACE,
+} from '@/lib/organizations/constants'
+import {
+  isSuspendedOrgAllowedPath,
+  lookupOrganizationForRequest,
+} from '@/lib/organizations/lookupOrganization'
+import { resolveOrganizationSlugFromHost } from '@/lib/organizations/resolveFromHost'
+
+/**
+ * Attach org/surface headers. Looks up non-default slugs in DB so
+ * x-organization-id is set before RSC runs (not only Org #0).
+ */
+async function applyOrganizationHeaders(
+  res: NextResponse,
+  request: NextRequest,
+): Promise<NextResponse> {
+  const host = request.headers.get('host')
+  const resolved = resolveOrganizationSlugFromHost(host)
+  const pathname = request.nextUrl.pathname
+
+  res.headers.set(HEADER_ORGANIZATION_SLUG, resolved.organizationSlug)
+  res.headers.set(HEADER_SURFACE, resolved.surface)
+
+  if (resolved.surface === 'marketing') {
+    res.headers.set(HEADER_ORGANIZATION_ID, DEFAULT_ORGANIZATION_ID)
+    res.headers.set(HEADER_ORGANIZATION_STATUS, 'active')
+    return res
+  }
+
+  const lookup = await lookupOrganizationForRequest(host, resolved.organizationSlug)
+  res.headers.set(HEADER_ORGANIZATION_ID, lookup.id)
+  res.headers.set(HEADER_ORGANIZATION_STATUS, lookup.status)
+  res.headers.set(HEADER_ORGANIZATION_SLUG, lookup.slug || resolved.organizationSlug)
+
+  // Unknown pilot subdomain: optional strict mode
+  const strictHosts = process.env.MULTI_TENANT_STRICT_HOSTS === 'true'
+  if (
+    strictHosts &&
+    !lookup.found &&
+    resolved.organizationSlug !== DEFAULT_ORGANIZATION_SLUG &&
+    !resolved.isApex
+  ) {
+    return new NextResponse('Site not found', { status: 404 })
+  }
+
+  // Suspended / non-active tenants: block public surface except billing paths
+  if (
+    lookup.found &&
+    lookup.status !== 'active' &&
+    lookup.status !== 'pending' &&
+    !isSuspendedOrgAllowedPath(pathname)
+  ) {
+    const body = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Unavailable</title></head><body style="font-family:system-ui;padding:2rem;max-width:32rem"><h1>Site unavailable</h1><p>This label site is not active. If you manage the account, sign in to update billing.</p><p><a href="/login">Sign in</a> · <a href="/pricing">Plans</a></p></body></html>`
+    return new NextResponse(body, {
+      status: 503,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })
+  }
+
+  return res
+}
 
 function classifyRoute(pathname: string) {
   return {
@@ -52,6 +119,21 @@ function routeIsProtected(flags: ReturnType<typeof classifyRoute>): boolean {
     flags.isPromoPoolRoute ||
     flags.isAccountRoute
   )
+}
+
+/**
+ * Stamps the request-context headers that every pass-through response must carry.
+ *
+ * src/i18n/request.ts resolves its i18n namespace bundle from x-pathname, and
+ * app/portal/layout.tsx reads x-pathname / x-url. A response returned without
+ * them silently degrades to the public ('*') bundle, dropping route-specific
+ * namespaces — e.g. `portal` on /login, which then renders MISSING_MESSAGE.
+ * Redirects are exempt: the follow-up request is proxied again from scratch.
+ */
+function withRequestContext(res: NextResponse, request: NextRequest): NextResponse {
+  res.headers.set('x-pathname', request.nextUrl.pathname)
+  res.headers.set('x-url', request.url)
+  return res
 }
 
 function redirectUnauthenticatedToLogin(request: NextRequest): NextResponse {
@@ -80,12 +162,12 @@ export async function proxy(request: NextRequest) {
   const route = classifyRoute(pathname)
   const protectedRoute = routeIsProtected(route)
 
-  // Public routes (not protected, not login): inject x-pathname and return immediately
-  // to avoid unnecessary auth overhead on every public page request.
+  // Public routes (not protected, not login): inject request context and return
+  // immediately to avoid unnecessary auth overhead on every public page request.
   if (!protectedRoute && !route.isLoginPage) {
     const res = NextResponse.next({ request })
     res.headers.set('x-pathname', pathname)
-    return res
+    return applyOrganizationHeaders(res, request)
   }
 
   // CI placeholder credentials: enforce route redirects without calling Supabase
@@ -96,7 +178,7 @@ export async function proxy(request: NextRequest) {
     }
     const res = NextResponse.next({ request })
     res.headers.set('x-pathname', pathname)
-    return res
+    return applyOrganizationHeaders(res, request)
   }
 
   let supabaseResponse = NextResponse.next({ request })
@@ -139,17 +221,12 @@ export async function proxy(request: NextRequest) {
     if (user && (hasRecoveryCode || !hasExchangedCode)) {
       await supabase.auth.signOut()
     }
-    // Must set x-pathname here too, or the request never reaches the shared
-    // header assignment below and next-intl falls back to the public "*"
-    // namespace bundle (no "portal" strings — raw "portal.xxx" keys render).
-    supabaseResponse.headers.set('x-pathname', pathname)
-    return supabaseResponse
+    return withRequestContext(supabaseResponse, request)
   }
 
   // Invite links must let the user set a password before role-based redirects.
   if (isLoginPage && request.nextUrl.searchParams.get('type') === 'invite') {
-    supabaseResponse.headers.set('x-pathname', pathname)
-    return supabaseResponse
+    return withRequestContext(supabaseResponse, request)
   }
 
   const isAdminRoute = route.isAdminRoute
@@ -170,8 +247,7 @@ export async function proxy(request: NextRequest) {
   // Central Login Redirection Logic for Authenticated Users
   if (isLoginPage && user && profileRole) {
     if (shouldStayOnLoginPage(request.nextUrl.searchParams)) {
-      supabaseResponse.headers.set('x-pathname', pathname)
-      return supabaseResponse
+      return withRequestContext(supabaseResponse, request)
     }
 
     const returnTo = request.nextUrl.searchParams.get('returnTo')
@@ -216,7 +292,12 @@ export async function proxy(request: NextRequest) {
     }
 
     if (isEditorRoute && profileRole === 'editor') {
-      const toggles = await getFeatureToggles(supabase).catch(() => DEFAULT_FEATURE_TOGGLES)
+      const host = request.headers.get('host')
+      const resolved = resolveOrganizationSlugFromHost(host)
+      const lookup = await lookupOrganizationForRequest(host, resolved.organizationSlug)
+      const toggles = await getFeatureToggles(supabase, lookup.id).catch(
+        () => DEFAULT_FEATURE_TOGGLES,
+      )
       if (!toggles.editorTools) {
         const loginUrl = request.nextUrl.clone()
         loginUrl.pathname = '/login'
@@ -295,7 +376,7 @@ export async function proxy(request: NextRequest) {
   // Forward the full URL (including query string) so portal layout can extract ?artistId
   supabaseResponse.headers.set('x-url', request.url)
 
-  return supabaseResponse
+  return applyOrganizationHeaders(supabaseResponse, request)
 }
 
 export const config = {

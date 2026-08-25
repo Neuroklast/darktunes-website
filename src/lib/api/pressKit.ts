@@ -9,6 +9,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PressAsset, PressKitItem } from '@/types'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { rowToAsset } from './assets'
 import { mergePortalGalleryPhotos } from './portalGalleryPress'
 
@@ -40,10 +41,22 @@ function rowToPressAsset(row: KitItemWithAsset): PressAsset | null {
   }
 }
 
+function filterKitRowsByOrganization(
+  rows: KitItemWithAsset[],
+  organizationId: string,
+): KitItemWithAsset[] {
+  return rows.filter((row) => {
+    const assetOrg = row.assets?.organization_id
+    if (!assetOrg) return true
+    return assetOrg === organizationId
+  })
+}
+
 /** All kit items for one scope: artistId = null → label-wide kit only. */
 export async function getPressKitItemsByScope(
   db: DbClient,
   artistId: string | null,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<PressAsset[]> {
   const query = db
     .from('press_kit_items')
@@ -59,8 +72,8 @@ export async function getPressKitItemsByScope(
   const { data, error } = await query
   if (error) throw new Error(error.message)
 
-  return (data ?? [])
-    .map((row) => rowToPressAsset(row as KitItemWithAsset))
+  return filterKitRowsByOrganization((data ?? []) as KitItemWithAsset[], organizationId)
+    .map((row) => rowToPressAsset(row))
     .filter((item): item is PressAsset => item !== null)
 }
 
@@ -97,9 +110,10 @@ export async function getPressKitForArtist(db: DbClient, artistId: string): Prom
 export async function getPressKitItems(
   db: DbClient,
   artistId?: string | null,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<PressAsset[]> {
   if (artistId !== undefined) {
-    return getPressKitItemsByScope(db, artistId)
+    return getPressKitItemsByScope(db, artistId, organizationId)
   }
 
   const { data, error } = await db
@@ -109,8 +123,8 @@ export async function getPressKitItems(
 
   if (error) throw new Error(error.message)
 
-  return (data ?? [])
-    .map((row) => rowToPressAsset(row as KitItemWithAsset))
+  return filterKitRowsByOrganization((data ?? []) as KitItemWithAsset[], organizationId)
+    .map((row) => rowToPressAsset(row))
     .filter((item): item is PressAsset => item !== null)
 }
 

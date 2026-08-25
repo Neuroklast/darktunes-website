@@ -9,6 +9,7 @@ import { getPromoTracks, createPromoTrack, deletePromoTrack } from '@/lib/api/pr
 import type { JournalistApplication } from '@/lib/api/journalistApplications'
 import type { PromoTrack } from '@/lib/api/promoTracks'
 import { listRequests } from '@/lib/api/accreditations'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -56,12 +57,17 @@ export function PressManager() {
   const loadAll = useCallback(async () => {
     setLoading(true)
     try {
+      const organizationId = getClientOrganizationId()
       const [appsRes, trackRows, artistRows, accreditationRows, downloadRows, kitRows] = await Promise.all([
         fetch('/api/journalist-applications').then((response) => response.json()).catch(() => ({ applications: [] })),
-        getPromoTracks(supabase).catch(() => []),
-        getArtists(supabase).catch(() => []),
-        listRequests(supabase).catch(() => []),
-        supabase.from('journalist_downloads').select('id', { count: 'exact', head: false }).then(({ data }) => data ?? [], () => []),
+        getPromoTracks(supabase, organizationId).catch(() => []),
+        getArtists(supabase, organizationId).catch(() => []),
+        listRequests(supabase, organizationId).catch(() => []),
+        supabase
+          .from('journalist_downloads')
+          .select('id', { count: 'exact', head: false })
+          .eq('organization_id', organizationId)
+          .then(({ data }) => data ?? [], () => []),
         supabase.from('press_kit_items').select('id', { count: 'exact', head: true }).then(({ count }) => count ?? 0, () => 0),
       ])
       setApplications(appsRes.applications ?? [])
@@ -114,18 +120,22 @@ export function PressManager() {
       if (!uploadRes.ok) throw new Error('Upload failed')
       const { r2Key } = (await uploadRes.json()) as { r2Key: string }
 
-      await createPromoTrack(supabase, {
-        title: trackForm.title,
-        artist_name: trackForm.artistName,
-        r2_key: r2Key,
-        file_size_bytes: trackFile.size,
-        genre: trackForm.genre || null,
-        bpm: trackForm.bpm ? Number(trackForm.bpm) : null,
-        key: trackForm.key || null,
-        release_date: trackForm.releaseDate || null,
-        nda_required: trackForm.ndaRequired,
-        embargo_until: trackForm.embargoUntil ? new Date(trackForm.embargoUntil).toISOString() : null,
-      })
+      await createPromoTrack(
+        supabase,
+        {
+          title: trackForm.title,
+          artist_name: trackForm.artistName,
+          r2_key: r2Key,
+          file_size_bytes: trackFile.size,
+          genre: trackForm.genre || null,
+          bpm: trackForm.bpm ? Number(trackForm.bpm) : null,
+          key: trackForm.key || null,
+          release_date: trackForm.releaseDate || null,
+          nda_required: trackForm.ndaRequired,
+          embargo_until: trackForm.embargoUntil ? new Date(trackForm.embargoUntil).toISOString() : null,
+        },
+        getClientOrganizationId(),
+      )
       setTrackForm({ title: '', artistName: '', genre: '', bpm: '', key: '', releaseDate: '', embargoUntil: '', ndaRequired: false })
       setTrackFile(null)
       toast.success(tToast('promo_track_uploaded'))
@@ -230,7 +240,7 @@ export function PressManager() {
                   <p className="font-medium">{track.title} — {track.artistName}</p>
                   <p className="text-sm text-muted-foreground">{[track.genre, track.bpm ? `${track.bpm} BPM` : null, track.key].filter(Boolean).join(' · ') || 'No metadata'}</p>
                 </div>
-                <Button size="sm" variant="destructive" onClick={() => deletePromoTrack(supabase, track.id).then(loadAll).catch(() => toast.error(tToast('delete_failed')))}>Delete</Button>
+                <Button size="sm" variant="destructive" onClick={() => deletePromoTrack(supabase, track.id, getClientOrganizationId()).then(loadAll).catch(() => toast.error(tToast('delete_failed')))}>Delete</Button>
               </CardContent>
             </Card>
           ))}

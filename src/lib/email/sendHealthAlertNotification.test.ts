@@ -7,6 +7,7 @@ const snapshot: HealthResponse = {
   statusLabel: 'Action required',
   statusDetail: 'Database unreachable',
   healthScore: 0,
+  app: { version: '1.6.0', commit: null },
   database: {
     status: 'offline',
     latencyMs: null,

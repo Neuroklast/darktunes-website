@@ -15,16 +15,25 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { RATE_LIMIT_JOB_COOLDOWN_MS } from '@/lib/sync/retryPolicy'
 
 type DbClient = SupabaseClient<Database>
 type SyncQueueRow = Database['public']['Tables']['sync_queue']['Row']
 
-export type SyncJobType = 'full' | 'spotify' | 'discogs' | 'youtube' | 'odesli'
+export type SyncJobType =
+  | 'full'
+  | 'spotify'
+  | 'discogs'
+  | 'youtube'
+  | 'odesli'
+  | 'songkick'
+  | 'bandsintown'
 export type SyncJobStatus = 'pending' | 'running' | 'done' | 'failed' | 'cancelled'
 
 export interface SyncJob {
   id: string
+  organizationId: string
   artistId: string | null
   artistName: string | null
   jobType: SyncJobType
@@ -78,7 +87,14 @@ function newExecutorLeaseToken(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
 }
 
-const ARTIST_SCOPED_JOB_TYPES: SyncJobType[] = ['full', 'spotify', 'discogs', 'youtube']
+const ARTIST_SCOPED_JOB_TYPES: SyncJobType[] = [
+  'full',
+  'spotify',
+  'discogs',
+  'youtube',
+  'songkick',
+  'bandsintown',
+]
 
 /** Job types that block enqueueing the same artist for `jobType`. */
 export function conflictingArtistJobTypes(jobType: SyncJobType): SyncJobType[] {
@@ -91,6 +107,10 @@ export function conflictingArtistJobTypes(jobType: SyncJobType): SyncJobType[] {
       return ['full', 'discogs']
     case 'youtube':
       return ['full', 'youtube']
+    case 'songkick':
+      return ['full', 'songkick']
+    case 'bandsintown':
+      return ['full', 'bandsintown']
     default:
       return [jobType]
   }
@@ -102,6 +122,7 @@ function rowToSyncJob(
 ): SyncJob {
   return {
     id: row.id,
+    organizationId: row.organization_id ?? DEFAULT_ORGANIZATION_ID,
     artistId: row.artist_id ?? null,
     artistName,
     jobType: (row.job_type as SyncJobType) ?? 'full',
@@ -128,9 +149,11 @@ export async function tryAcquireSyncExecutorLease(
   leaseMs = EXECUTOR_LEASE_MS,
 ): Promise<string | null> {
   const now = Date.now()
+  // Platform-wide lease lives on Org #0 (shared sync worker, not per label).
   const { data: existing, error: readError } = await db
     .from('site_settings')
     .select('value')
+    .eq('organization_id', DEFAULT_ORGANIZATION_ID)
     .eq('key', SYNC_EXECUTOR_LEASE_KEY)
     .maybeSingle()
 
@@ -153,6 +176,7 @@ export async function tryAcquireSyncExecutorLease(
     const { data, error } = await db
       .from('site_settings')
       .update({ value })
+      .eq('organization_id', DEFAULT_ORGANIZATION_ID)
       .eq('key', SYNC_EXECUTOR_LEASE_KEY)
       .eq('value', existing.value)
       .select('key')
@@ -164,6 +188,7 @@ export async function tryAcquireSyncExecutorLease(
   }
 
   const { error: insertError } = await db.from('site_settings').insert({
+    organization_id: DEFAULT_ORGANIZATION_ID,
     key: SYNC_EXECUTOR_LEASE_KEY,
     value,
   })
@@ -190,6 +215,7 @@ export async function releaseSyncExecutorLease(
     const { data: existing, error: readError } = await db
       .from('site_settings')
       .select('value')
+      .eq('organization_id', DEFAULT_ORGANIZATION_ID)
       .eq('key', SYNC_EXECUTOR_LEASE_KEY)
       .maybeSingle()
 
@@ -206,6 +232,7 @@ export async function releaseSyncExecutorLease(
     const { error } = await db
       .from('site_settings')
       .update({ value: encodeExecutorLease(new Date(0).toISOString(), 'released') })
+      .eq('organization_id', DEFAULT_ORGANIZATION_ID)
       .eq('key', SYNC_EXECUTOR_LEASE_KEY)
       .eq('value', existing!.value)
 
@@ -217,10 +244,11 @@ export async function releaseSyncExecutorLease(
 
   const { error } = await db.from('site_settings').upsert(
     {
+      organization_id: DEFAULT_ORGANIZATION_ID,
       key: SYNC_EXECUTOR_LEASE_KEY,
       value: encodeExecutorLease(new Date(0).toISOString(), 'released'),
     },
-    { onConflict: 'key' },
+    { onConflict: 'organization_id,key' },
   )
   if (error) {
     throw new Error(`Failed to release sync executor lease: ${error.message}`)
@@ -281,6 +309,7 @@ export async function enqueueArtistSyncJobs(
   db: DbClient,
   artistIds: string[],
   jobType: SyncJobType = 'full',
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<number> {
   if (artistIds.length === 0) return 0
 
@@ -288,6 +317,7 @@ export async function enqueueArtistSyncJobs(
   const { data: existing } = await db
     .from('sync_queue')
     .select('artist_id')
+    .eq('organization_id', organizationId)
     .in('artist_id', artistIds)
     .in('status', ['pending', 'running'])
     .in('job_type', conflictingArtistJobTypes(jobType))
@@ -301,6 +331,7 @@ export async function enqueueArtistSyncJobs(
     artist_id: artistId,
     job_type: jobType,
     status: 'pending' as const,
+    organization_id: organizationId,
   }))
 
   const { error } = await db.from('sync_queue').insert(jobs)
@@ -315,10 +346,12 @@ export async function enqueueArtistSyncJobs(
 export async function enqueueOdesliSyncJob(
   db: DbClient,
   cooldownMs = 0,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<number> {
   const { data: existing } = await db
     .from('sync_queue')
     .select('id')
+    .eq('organization_id', organizationId)
     .eq('job_type', 'odesli')
     .is('artist_id', null)
     .in('status', ['pending', 'running'])
@@ -332,6 +365,7 @@ export async function enqueueOdesliSyncJob(
     job_type: 'odesli',
     status: 'pending',
     scheduled_at: scheduledAt,
+    organization_id: organizationId,
   })
 
   if (error) throw new Error(`Failed to enqueue Odesli sync job: ${error.message}`)
@@ -341,15 +375,41 @@ export async function enqueueOdesliSyncJob(
 /**
  * Enqueues Spotify sync jobs for artists with a spotify_id.
  */
-export async function enqueueSpotifySyncJobs(db: DbClient): Promise<number> {
+export async function enqueueSpotifySyncJobs(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<number> {
   const { data: artists, error } = await db
     .from('artists')
     .select('id')
+    .eq('organization_id', organizationId)
     .not('spotify_id', 'is', null)
 
   if (error) throw new Error(`Failed to load artists for Spotify queue: ${error.message}`)
   const artistIds = (artists ?? []).map((a) => a.id)
-  return enqueueArtistSyncJobs(db, artistIds, 'spotify')
+  return enqueueArtistSyncJobs(db, artistIds, 'spotify', organizationId)
+}
+
+export async function enqueueSongkickSyncJobs(db: DbClient): Promise<number> {
+  const { data: artists, error } = await db
+    .from('artists')
+    .select('id')
+    .not('songkick_id', 'is', null)
+
+  if (error) throw new Error(`Failed to load artists for Songkick queue: ${error.message}`)
+  const artistIds = (artists ?? []).map((a) => a.id)
+  return enqueueArtistSyncJobs(db, artistIds, 'songkick')
+}
+
+export async function enqueueBandsintownSyncJobs(db: DbClient): Promise<number> {
+  const { data: artists, error } = await db
+    .from('artists')
+    .select('id')
+    .not('bandsintown_id', 'is', null)
+
+  if (error) throw new Error(`Failed to load artists for Bandsintown queue: ${error.message}`)
+  const artistIds = (artists ?? []).map((a) => a.id)
+  return enqueueArtistSyncJobs(db, artistIds, 'bandsintown')
 }
 
 /**
@@ -630,13 +690,15 @@ export interface ListSyncJobsOptions {
  */
 export async function listSyncJobs(
   db: DbClient,
-  options: ListSyncJobsOptions = {},
+  options: ListSyncJobsOptions & { organizationId?: string } = {},
 ): Promise<SyncJob[]> {
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 100)
+  const organizationId = options.organizationId ?? DEFAULT_ORGANIZATION_ID
 
   let query = db
     .from('sync_queue')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('created_at', { ascending: false })
     .limit(limit)
 

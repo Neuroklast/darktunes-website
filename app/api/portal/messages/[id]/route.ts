@@ -20,6 +20,7 @@ import {
 import { resolvePortalArtist } from '@/lib/api/artistProfiles'
 import { authenticatePortalBearer } from '@/lib/portal/bearerAuth'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import {
   portalMemberWrite,
   type PortalMembershipContext,
@@ -76,10 +77,12 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
     throw new ApiError(403, 'Not authorized to update this message')
   }
 
+  const organizationId = await getRequestOrganizationId(userDb)
+
   // Pin membership on sender or recipient artist (single auth path — no re-login)
   let artist
   try {
-    artist = await resolvePortalArtist(userDb, user.id, membership.artist_id)
+    artist = await resolvePortalArtist(userDb, user.id, membership.artist_id, organizationId)
   } catch (err) {
     const msgText = err instanceof Error ? err.message : ''
     if (msgText.startsWith('FORBIDDEN')) {
@@ -93,6 +96,7 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
     token,
     user,
     artist,
+    organizationId,
     userDb,
     serviceDb,
   }

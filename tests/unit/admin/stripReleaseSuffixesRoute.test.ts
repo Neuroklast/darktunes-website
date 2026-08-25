@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
-const verifyAdminMock = vi.fn()
+const requireAdminFromRequestMock = vi.fn()
 const createServiceRoleSupabaseClientMock = vi.fn()
 
 vi.mock('@/lib/adminAuth', () => ({
-  extractBearerToken: () => 'test-token',
-  verifyAdmin: verifyAdminMock,
+  requireAdminFromRequest: (...args: unknown[]) => requireAdminFromRequestMock(...args),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -16,9 +16,14 @@ vi.mock('@/lib/supabase/server', () => ({
 type ReleaseRow = { id: string; title: string }
 
 function makeDb(rows: ReleaseRow[]) {
-  const selectMock = vi.fn(async () => ({ data: rows, error: null }))
-  const eqMock = vi.fn(async () => ({ error: null }))
-  const updateMock = vi.fn((payload: { title: string }) => ({ eq: eqMock, payload }))
+  const selectEqMock = vi.fn(async () => ({ data: rows, error: null }))
+  const selectMock = vi.fn(() => ({ eq: selectEqMock }))
+
+  const updateEqIdMock = vi.fn(() => ({
+    eq: vi.fn(async () => ({ error: null })),
+  }))
+  const updateMock = vi.fn((_payload: { title: string }) => ({ eq: updateEqIdMock }))
+
   const fromMock = vi.fn(() => ({
     select: selectMock,
     update: updateMock,
@@ -27,8 +32,8 @@ function makeDb(rows: ReleaseRow[]) {
   return {
     db: { from: fromMock },
     selectMock,
+    selectEqMock,
     updateMock,
-    eqMock,
   }
 }
 
@@ -39,11 +44,15 @@ async function importRoute() {
 describe('POST /api/admin/maintenance/strip-release-suffixes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    verifyAdminMock.mockResolvedValue('admin-user-id')
+    requireAdminFromRequestMock.mockResolvedValue({
+      userId: 'admin-user-id',
+      role: 'admin',
+      organizationId: DEFAULT_ORGANIZATION_ID,
+    })
   })
 
   it('updates only rows whose title changes after suffix stripping', async () => {
-    const { db, updateMock } = makeDb([
+    const { db, updateMock, selectEqMock } = makeDb([
       { id: 'r1', title: 'Darkwalker - Single' },
       { id: 'r2', title: 'Otherside - EP' },
       { id: 'r3', title: 'No Suffix Title' },
@@ -53,11 +62,12 @@ describe('POST /api/admin/maintenance/strip-release-suffixes', () => {
     const { POST } = await importRoute()
     const request = new NextRequest('http://localhost/api/admin/maintenance/strip-release-suffixes', {
       method: 'POST',
-      headers: { authorization: '******' },
+      headers: { authorization: 'Bearer t' },
     })
 
     const response = await POST(request)
     expect(response.status).toBe(200)
+    expect(selectEqMock).toHaveBeenCalledWith('organization_id', DEFAULT_ORGANIZATION_ID)
     expect(updateMock).toHaveBeenCalledTimes(2)
     expect(updateMock.mock.calls[0][0]).toEqual({ title: 'Darkwalker' })
     expect(updateMock.mock.calls[1][0]).toEqual({ title: 'Otherside' })
@@ -82,7 +92,7 @@ describe('POST /api/admin/maintenance/strip-release-suffixes', () => {
     const { POST } = await importRoute()
     const request = new NextRequest('http://localhost/api/admin/maintenance/strip-release-suffixes', {
       method: 'POST',
-      headers: { authorization: '******' },
+      headers: { authorization: 'Bearer t' },
     })
 
     const response = await POST(request)

@@ -7,6 +7,7 @@
 
 import type { Metadata } from 'next'
 import { getCachedPublicVideos, getCachedSiteSettings } from '@/lib/cache/publicQueries'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { getMetadataBrand, pageTitle } from '@/lib/seo/metadata'
 import { VideosPageContent } from './_components/VideosPageContent'
 
@@ -21,12 +22,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function VideosPage() {
+  const orgId = await getRequestOrganizationId()
   const [settings] = await Promise.all([
-    getCachedSiteSettings(),
+    getCachedSiteSettings(orgId),
   ])
 
   const videos = await getCachedPublicVideos({
     excludeShorts: settings?.excludeShortsFromPublic ?? false,
+    organizationId: orgId,
   })
 
   return (

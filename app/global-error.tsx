@@ -12,37 +12,37 @@
  */
 
 import { useEffect } from 'react'
+import { hasAttemptedChunkReload, isChunkLoadError, shouldReloadForChunkError } from '@/lib/clientChunkError'
+import { reportClientError } from '@/lib/clientErrorReporter'
 
 interface GlobalErrorProps {
   error: Error & { digest?: string }
   reset: () => void
 }
 
-/** Returns true when the error is caused by a stale webpack chunk (post-deploy). */
-function isChunkLoadError(error: Error): boolean {
-  return (
-    error.name === 'ChunkLoadError' ||
-    error.message.includes('Loading chunk') ||
-    error.message.includes('Failed to fetch dynamically imported module')
-  )
-}
-
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
   useEffect(() => {
-    // Stale chunk after a new deployment → hard reload fetches the new manifest.
-    if (isChunkLoadError(error)) {
+    const storage = typeof window !== 'undefined' ? window.sessionStorage : null
+    if (shouldReloadForChunkError(error, storage)) {
       window.location.reload()
       return
     }
 
-    // In development surface the full error; in production keep the console clean.
+    reportClientError('ui', error, {
+      boundary: 'app/global-error.tsx',
+      digest: error.digest ?? null,
+      path: typeof window !== 'undefined' ? window.location.pathname : null,
+    })
+
     if (process.env.NODE_ENV !== 'production') {
       console.error('[GlobalError]', error)
     }
   }, [error])
 
-  // Nothing to render while the reload is in-flight.
-  if (isChunkLoadError(error)) return <html lang="en"><body /></html>
+  const storage = typeof window !== 'undefined' ? window.sessionStorage : null
+  if (isChunkLoadError(error) && !hasAttemptedChunkReload(error, storage)) {
+    return <html lang="en"><body /></html>
+  }
 
   return (
     <html lang="en">

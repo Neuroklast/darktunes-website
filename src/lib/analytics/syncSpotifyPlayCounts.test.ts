@@ -26,33 +26,32 @@ function makeDb(opts: {
 
   const from = vi.fn((table: string) => {
     if (table === 'apify_usage_months') {
+      const usageRow = {
+        organization_id: '00000000-0000-0000-0000-000000000000',
+        year_month: '2026-07',
+        urls_charged: usage.urls_charged,
+        budget: usage.budget,
+        updated_at: new Date().toISOString(),
+      }
+      const usageTerminal = {
+        maybeSingle: async () => ({ data: usageRow, error: null }),
+        single: async () => ({
+          data: { ...usageRow, urls_charged: usage.urls_charged + 1 },
+          error: null,
+        }),
+      }
       return {
         select: () => ({
           eq: () => ({
-            maybeSingle: async () => ({
-              data: {
-                year_month: '2026-07',
-                urls_charged: usage.urls_charged,
-                budget: usage.budget,
-                updated_at: new Date().toISOString(),
-              },
-              error: null,
-            }),
-            single: async () => ({
-              data: {
-                year_month: '2026-07',
-                urls_charged: usage.urls_charged + 1,
-                budget: usage.budget,
-                updated_at: new Date().toISOString(),
-              },
-              error: null,
-            }),
+            eq: () => usageTerminal,
+            ...usageTerminal,
           }),
         }),
         upsert: () => ({
           select: () => ({
             single: async () => ({
               data: {
+                organization_id: '00000000-0000-0000-0000-000000000000',
                 year_month: '2026-07',
                 urls_charged: usage.urls_charged + 1,
                 budget: usage.budget,
@@ -65,27 +64,27 @@ function makeDb(opts: {
       }
     }
     if (table === 'artists') {
-      return {
-        select: () => ({
-          eq: async () => {
-            // artists load for targets uses is_visible
-            if (opts.visibleArtistIds && !opts.artists) {
-              return {
-                data: visibleArtistIds.map((id) => ({ id })),
-                error: null,
-              }
-            }
-            return { data: artists, error: null }
-          },
-        }),
+      const result = () => {
+        if (opts.visibleArtistIds && !opts.artists) {
+          return { data: visibleArtistIds.map((id) => ({ id })), error: null }
+        }
+        return { data: artists, error: null }
       }
+      // Fluent .eq().eq() then await
+      const artistChain = {
+        eq: () => artistChain,
+        then: (onfulfilled: (v: unknown) => unknown, onrejected?: (e: unknown) => unknown) =>
+          Promise.resolve(result()).then(onfulfilled, onrejected),
+      }
+      return { select: () => artistChain }
     }
     if (table === 'releases') {
-      return {
-        select: () => ({
-          eq: async () => ({ data: releases, error: null }),
-        }),
+      const releaseChain = {
+        eq: () => releaseChain,
+        then: (onfulfilled: (v: unknown) => unknown, onrejected?: (e: unknown) => unknown) =>
+          Promise.resolve({ data: releases, error: null }).then(onfulfilled, onrejected),
       }
+      return { select: () => releaseChain }
     }
     if (table === 'artist_listener_metrics' || table === 'spotify_track_play_snapshots') {
       return {

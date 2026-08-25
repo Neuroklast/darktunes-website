@@ -66,7 +66,13 @@ export function SpotifyMultiPlayer({ playlists }: SpotifyMultiPlayerProps) {
               aria-hidden="true"
               className="absolute inset-0 z-10 cursor-pointer"
               onWheel={(e) => {
-                lenis?.scrollTo(window.scrollY + e.deltaY, { immediate: false })
+                // Keep Lenis as the scroll owner (virtual scroll position, not window.scrollY).
+                e.preventDefault()
+                if (lenis) {
+                  lenis.scrollTo(lenis.scroll + e.deltaY, { immediate: false, force: true })
+                  return
+                }
+                window.scrollBy({ top: e.deltaY, behavior: 'auto' })
               }}
               onClick={handleOverlayClick}
               title="Klicken, um den Spotify-Player zu bedienen"

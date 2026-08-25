@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { listRequests, updateStatus } from '@/lib/api/accreditations'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { useTranslations } from 'next-intl'
@@ -18,7 +19,7 @@ export function AccreditationsManager() {
 
   const load = useCallback(async () => {
     try {
-      const rows = await listRequests(supabase)
+      const rows = await listRequests(supabase, getClientOrganizationId())
       setRequests(rows)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('loadError'))
@@ -34,7 +35,7 @@ export function AccreditationsManager() {
     try {
       // If the admin hasn't typed anything new in the textarea, preserve the existing note.
       const updatedNote = notes[id] !== undefined ? notes[id] : (existingAdminNote || null)
-      await updateStatus(supabase, id, status, updatedNote)
+      await updateStatus(supabase, id, status, updatedNote, getClientOrganizationId())
       const statusText = status === 'approved' ? t('approved') : t('rejected')
       toast.success(t('updateSuccess', { status: statusText }))
       await load()

@@ -8,6 +8,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { getArtistProfileByArtistId, resolvePortalArtist } from '@/lib/api/artistProfiles'
 import { countAssetsByArtist } from '@/lib/api/assets'
 import { getStreamingStatsByArtistId, getAggregatedStreamsByPlatform } from '@/lib/api/streamingStats'
@@ -32,7 +33,7 @@ export default async function PortalPage({ searchParams }: { searchParams: Promi
   if (!user) return null
 
   const artist = await resolvePortalArtist(supabase, user.id, artistId).catch(() => null)
-  const featureFlags = await getFeatureFlagsForRole(supabase, 'artist').catch(
+  const featureFlags = await getFeatureFlagsForRole(supabase, 'artist', await getRequestOrganizationId().catch(() => undefined)).catch(
     () => ({} as Record<string, boolean>),
   )
   const statementsEnabled = featureFlags['artist.statements'] !== false

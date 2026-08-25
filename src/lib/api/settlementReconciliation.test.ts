@@ -36,6 +36,15 @@ describe('settlementReconciliation', () => {
     expect(issues[0]?.entryId).toBe('2')
   })
 
+  it('allows negative statement_payout and carry_in (expense / debit opening)', () => {
+    const issues = validateLedgerEntrySigns([
+      entry({ id: '1', entryType: 'statement_payout', amountEur: -25 }),
+      entry({ id: '2', entryType: 'carry_in', amountEur: -10 }),
+      entry({ id: '3', entryType: 'invoice_liability', amountEur: -50 }),
+    ])
+    expect(issues).toHaveLength(0)
+  })
+
   it('reconciles register KPI with row ledger balances', () => {
     const result = reconcileRegisterOpenBalance(
       [

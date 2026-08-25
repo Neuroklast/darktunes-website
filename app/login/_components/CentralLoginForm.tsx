@@ -41,6 +41,7 @@ export function CentralLoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
   const [recoveryError, setRecoveryError] = useState<string | null>(null)
+  const [hydrated, setHydrated] = useState(false)
 
   const errorParam = searchParams.get('error')
   const isRecoveryUrl = searchParams.get('type') === 'recovery'
@@ -56,6 +57,14 @@ export function CentralLoginForm() {
     if (typeof window !== 'undefined' && window.location.hash.includes('type=invite')) {
       setHashInviteFlow(true)
     }
+  }, [])
+
+  // Gate the controlled login inputs until React has hydrated: a value filled
+  // before onChange is wired (WebKit hydrates slowly; also very fast real typers)
+  // would otherwise be wiped by the controlled re-render. `hydrated` is false on
+  // both the server and the first client render, so there is no hydration mismatch.
+  useEffect(() => {
+    setHydrated(true)
   }, [])
 
   useEffect(() => {
@@ -358,7 +367,7 @@ export function CentralLoginForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || !hydrated}
                   className="bg-muted border-border"
                   autoComplete="email"
                 />
@@ -381,7 +390,7 @@ export function CentralLoginForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || !hydrated}
                   className="bg-muted border-border"
                   autoComplete="current-password"
                 />
@@ -403,7 +412,7 @@ export function CentralLoginForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || !hydrated}
                   className="bg-muted border-border"
                   autoComplete="email"
                 />

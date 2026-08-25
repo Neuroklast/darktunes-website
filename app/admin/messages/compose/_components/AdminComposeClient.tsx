@@ -12,6 +12,7 @@ import { useAuthContext } from '@/contexts/AuthContext'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { getArtists } from '@/lib/api/artists'
 import { getMessageTemplates } from '@/lib/api/labelMessages'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import type { MessageTemplate } from '@/types'
 
 export function AdminComposeClient() {
@@ -48,7 +49,7 @@ export function AdminComposeClient() {
         })
         const [artistRes, templateRes] = await Promise.allSettled([
           getArtists(supabase),
-          getMessageTemplates(supabase),
+          getMessageTemplates(supabase, getClientOrganizationId()),
         ])
         if (cancelled) return
         if (artistRes.status === 'fulfilled') {

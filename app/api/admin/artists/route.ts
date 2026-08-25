@@ -12,8 +12,8 @@ import { withErrorHandler } from '@/lib/errors'
 import { getArtists } from '@/lib/api/artists'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
   const supabase = await createServiceRoleSupabaseClient()
-  const artists = await getArtists(supabase)
+  const artists = await getArtists(supabase, organizationId)
   return NextResponse.json({ artists })
 })

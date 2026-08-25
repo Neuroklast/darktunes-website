@@ -29,6 +29,7 @@ import type {
 } from '@/lib/sos/types'
 import type { CsvImportProfile } from '@/lib/sos/ingest/types'
 import { DEFAULT_PDF_EXPORT_SETTINGS, DEFAULT_LABEL_INFO } from '@/lib/sos/defaults'
+import { DEFAULT_EXCEL_EXPORT_STATE, type ExcelExportState } from '@/lib/sos/excelExportSettings'
 import { DEFAULT_PRESET_NAME } from '@/lib/sos/sosAccountingSettings'
 import { useSosRulesPresets, type PresetConfig } from '@/hooks/useSosRulesPresets'
 import { useAccountingLabels } from '@/lib/i18n/accountingFallbacks'
@@ -65,6 +66,7 @@ interface CsvProfileManagerProps {
   labelInfo: Partial<LabelInfo>
   pdfSettings: PdfExportSettings
   csvImportProfiles: CsvImportProfile[]
+  excelExport: ExcelExportState
   onLoad: (preset: PresetConfig) => void
 }
 
@@ -92,6 +94,7 @@ function legacyToConfig(preset: LegacySosPreset): PresetConfig {
     labelInfo: DEFAULT_LABEL_INFO,
     pdfSettings: DEFAULT_PDF_EXPORT_SETTINGS,
     csvImportProfiles: [],
+    excelExport: DEFAULT_EXCEL_EXPORT_STATE,
   }
 }
 
@@ -111,7 +114,7 @@ function countRules(config: PresetConfig): number {
 export function CsvProfileManager({
   artistMappings, compilationFilters, splitFees, manualRevenues, expenses,
   ignoredEntries, csvAliases, trackRevenueAssignments, appDefaults, emailConfig,
-  labelInfo, pdfSettings, csvImportProfiles, onLoad,
+  labelInfo, pdfSettings, csvImportProfiles, excelExport, onLoad,
 }: CsvProfileManagerProps) {
   const t = useAccountingLabels()
   const { presets, isLoading, isSaving, savePreset, deletePreset, reloadPresets } =
@@ -177,11 +180,12 @@ export function CsvProfileManager({
       labelInfo,
       pdfSettings,
       csvImportProfiles,
+      excelExport,
     }),
     [
       artistMappings, compilationFilters, splitFees, manualRevenues, expenses,
       ignoredEntries, csvAliases, appDefaults, emailConfig, trackRevenueAssignments,
-      labelInfo, pdfSettings, csvImportProfiles,
+      labelInfo, pdfSettings, csvImportProfiles, excelExport,
     ],
   )
 

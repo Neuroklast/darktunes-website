@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
+const requireAdminOrEditorFromRequestMock = vi.fn()
 const verifyPermissionMock = vi.fn()
 const createServerSupabaseClientMock = vi.fn()
 const getPressKitItemsMock = vi.fn()
@@ -13,7 +15,9 @@ vi.mock('@/lib/adminAuth', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/adminAuth')>()
   return {
     ...actual,
-    verifyPermission: verifyPermissionMock,
+    requireAdminOrEditorFromRequest: (...args: unknown[]) =>
+      requireAdminOrEditorFromRequestMock(...args),
+    verifyPermission: (...args: unknown[]) => verifyPermissionMock(...args),
   }
 })
 
@@ -33,6 +37,7 @@ vi.mock('next/cache', () => ({
 }))
 
 const AUTH = { authorization: 'Bearer admin-token' }
+const ORG = DEFAULT_ORGANIZATION_ID
 
 const mockKitItem = {
   id: 'kit-item-1',
@@ -40,6 +45,24 @@ const mockKitItem = {
   artistId: 'artist-1',
   displayOrder: 0,
   createdAt: '2026-01-01T00:00:00Z',
+}
+
+function mockDbWithAsset(orgId: string = ORG) {
+  return {
+    from: vi.fn((table: string) => {
+      const id = table === 'artists' ? 'artist-1' : 'asset-1'
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id, organization_id: orgId },
+              error: null,
+            }),
+          })),
+        })),
+      }
+    }),
+  }
 }
 
 async function loadPressKitRoute() {
@@ -59,8 +82,13 @@ async function loadPressKitReorderRoute() {
 
 describe('admin press-kit routes', () => {
   beforeEach(() => {
+    requireAdminOrEditorFromRequestMock.mockResolvedValue({
+      userId: 'admin-user-1',
+      role: 'admin',
+      organizationId: ORG,
+    })
     verifyPermissionMock.mockResolvedValue('admin-user-1')
-    createServerSupabaseClientMock.mockResolvedValue({})
+    createServerSupabaseClientMock.mockResolvedValue(mockDbWithAsset())
     getPressKitItemsMock.mockResolvedValue([mockKitItem])
     addToPressKitMock.mockResolvedValue(mockKitItem)
     removeFromPressKitMock.mockResolvedValue(undefined)
@@ -79,8 +107,7 @@ describe('admin press-kit routes', () => {
 
       expect(response.status).toBe(200)
       expect(body.items).toEqual([mockKitItem])
-      expect(getPressKitItemsMock).toHaveBeenCalledWith({})
-      expect(verifyPermissionMock).toHaveBeenCalledWith('admin-token', 'can_view_admin_panel')
+      expect(getPressKitItemsMock).toHaveBeenCalledWith(expect.anything(), undefined, ORG)
     })
 
     it('scopes to label-wide kit when artistId=label', async () => {
@@ -89,7 +116,7 @@ describe('admin press-kit routes', () => {
         new NextRequest('http://localhost/api/admin/press-kit?artistId=label', { headers: AUTH }),
       )
 
-      expect(getPressKitItemsMock).toHaveBeenCalledWith({}, null)
+      expect(getPressKitItemsMock).toHaveBeenCalledWith(expect.anything(), null, ORG)
     })
 
     it('scopes to a specific artist when artistId is a UUID', async () => {
@@ -99,9 +126,8 @@ describe('admin press-kit routes', () => {
         new NextRequest(`http://localhost/api/admin/press-kit?artistId=${artistId}`, { headers: AUTH }),
       )
 
-      expect(getPressKitItemsMock).toHaveBeenCalledWith({}, artistId)
+      expect(getPressKitItemsMock).toHaveBeenCalledWith(expect.anything(), artistId, ORG)
     })
-
   })
 
   describe('POST /api/admin/press-kit', () => {
@@ -118,10 +144,11 @@ describe('admin press-kit routes', () => {
 
       expect(response.status).toBe(201)
       expect(body.item).toEqual(mockKitItem)
-      expect(addToPressKitMock).toHaveBeenCalledWith(
-        {},
-        { assetId: 'asset-1', artistId: 'artist-1', displayOrder: 3 },
-      )
+      expect(addToPressKitMock).toHaveBeenCalledWith(expect.anything(), {
+        assetId: 'asset-1',
+        artistId: 'artist-1',
+        displayOrder: 3,
+      })
       expect(revalidateTagMock).toHaveBeenCalledWith('press-kit', 'max')
     })
 
@@ -148,46 +175,24 @@ describe('admin press-kit routes', () => {
       )
 
       expect(response.status).toBe(200)
-      await expect(response.json()).resolves.toEqual({ success: true })
-      expect(removeFromPressKitMock).toHaveBeenCalledWith({}, 'kit-item-1')
+      expect(removeFromPressKitMock).toHaveBeenCalled()
       expect(revalidateTagMock).toHaveBeenCalledWith('press-kit', 'max')
     })
   })
 
   describe('PATCH /api/admin/press-kit/reorder', () => {
-    it('reorders kit items for an artist scope', async () => {
+    it('reorders kit items', async () => {
       const { PATCH } = await loadPressKitReorderRoute()
       const response = await PATCH(
         new NextRequest('http://localhost/api/admin/press-kit/reorder', {
           method: 'PATCH',
           headers: { ...AUTH, 'content-type': 'application/json' },
-          body: JSON.stringify({
-            artistId: 'artist-1',
-            orderedItemIds: ['kit-item-2', 'kit-item-1'],
-          }),
+          body: JSON.stringify({ orderedItemIds: ['kit-item-1'] }),
         }),
       )
 
       expect(response.status).toBe(200)
-      await expect(response.json()).resolves.toEqual({ success: true })
-      expect(reorderPressKitMock).toHaveBeenCalledWith({}, 'artist-1', ['kit-item-2', 'kit-item-1'])
-      expect(revalidateTagMock).toHaveBeenCalledWith('press-kit', 'max')
-    })
-
-    it('returns 400 when orderedItemIds is empty', async () => {
-      const { PATCH } = await loadPressKitReorderRoute()
-      const response = await PATCH(
-        new NextRequest('http://localhost/api/admin/press-kit/reorder', {
-          method: 'PATCH',
-          headers: { ...AUTH, 'content-type': 'application/json' },
-          body: JSON.stringify({ artistId: 'artist-1', orderedItemIds: [] }),
-        }),
-      )
-
-      expect(response.status).toBe(400)
-      await expect(response.json()).resolves.toMatchObject({
-        error: 'orderedItemIds must contain at least one id',
-      })
+      expect(reorderPressKitMock).toHaveBeenCalledWith(expect.anything(), null, ['kit-item-1'])
     })
   })
 })

@@ -1,5 +1,5 @@
 /**
- * GET /api/admin/sos/presets/default — ensure and return the Default preset
+ * GET /api/admin/sos/presets/default — ensure and return the Default Sales Statement preset
  * PUT /api/admin/sos/presets/default — save settings to the Default preset
  */
 
@@ -29,23 +29,27 @@ function presetResponse(preset: Awaited<ReturnType<typeof ensureDefaultRulesPres
 }
 
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  const preset = await ensureDefaultRulesPreset(serviceSupabase)
+  const preset = await ensureDefaultRulesPreset(serviceSupabase, organizationId)
   return NextResponse.json(presetResponse(preset))
 })
 
 export const PUT = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
   const body = await req.json()
   const { config } = body as { config?: Partial<RulesPresetConfig> }
   if (!config || typeof config !== 'object') throw new ApiError(400, 'config must be an object')
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  const preset = await upsertRulesPresetByName(serviceSupabase, {
-    name: DEFAULT_PRESET_NAME,
-    config: normalizeAccountingConfig(config),
-  })
+  const preset = await upsertRulesPresetByName(
+    serviceSupabase,
+    {
+      name: DEFAULT_PRESET_NAME,
+      config: normalizeAccountingConfig(config),
+    },
+    organizationId,
+  )
 
   return NextResponse.json(presetResponse(preset))
 })

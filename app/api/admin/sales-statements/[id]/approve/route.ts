@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
 import {
   approveAndNotifySalesStatement,
+  getSalesStatementByIdForOrganization,
   linkApprovedStatementToSettlement,
 } from '@/lib/api/salesStatements'
 import { assertStatementPeriodWritable } from '@/lib/api/settlementPeriods'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { notifyStatementArtist } from '@/lib/sos/notifyStatementArtist'
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+
 const approveSchema = z.object({
   notes: z.string().max(4000).optional(),
 })
 
 export const PATCH = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const userId = await verifyAdmin(token)
+  const { userId, organizationId } = await requireAdminFromRequest(req)
 
   const id = req.nextUrl.pathname.split('/').at(-2)
   if (!id) throw new ApiError(400, 'Missing statement id')
@@ -27,6 +28,9 @@ export const PATCH = withErrorHandler(async (req: NextRequest) => {
   }
 
   const supabase = await createServerSupabaseClient()
+  const existing = await getSalesStatementByIdForOrganization(supabase, id, organizationId)
+  if (!existing) throw new ApiError(404, 'Statement not found')
+
   await assertStatementPeriodWritable(supabase, id)
 
   const serviceSupabase = await createServiceRoleSupabaseClient()

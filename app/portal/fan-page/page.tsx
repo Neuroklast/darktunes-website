@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { notFound, redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
@@ -50,7 +51,7 @@ async function FanPageBuilderContent({
 
   if (!user) redirect('/portal/login')
 
-  const flags = await getFeatureFlagsForRole(supabase, 'artist').catch(
+  const flags = await getFeatureFlagsForRole(supabase, 'artist', await getRequestOrganizationId().catch(() => undefined)).catch(
     (): Record<string, boolean> => ({}),
   )
   if (flags['artist.fan_page'] === false) notFound()

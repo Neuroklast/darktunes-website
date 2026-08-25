@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { getAdminInvoiceById, recordInvoicePayment } from '@/lib/api/artistInvoices'
 import { assertSettlementPeriodWritableById } from '@/lib/api/settlementPeriods'
-import { appendLedgerEntry, hasLedgerEntry } from '@/lib/api/settlementLedger'
+import {
+  appendLedgerEntry,
+  hasLedgerEntry,
+  resolvePaymentLedgerEntryType,
+} from '@/lib/api/settlementLedger'
 import { logFinancialEvent } from '@/lib/api/financialAudit'
 import {
   checkAndClaimIdempotencyKey,
@@ -23,8 +27,7 @@ const paymentSchema = z.object({
 })
 
 export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const userId = await verifyAdmin(token)
+  const { userId, organizationId } = await requireAdminFromRequest(req)
 
   const id = req.nextUrl.pathname.split('/').at(-2)
   if (!id) throw new ApiError(400, 'Missing invoice id')
@@ -77,12 +80,12 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
       invoice.id,
       'invoice_liability',
     )
-    if (!alreadyHasLiability) {
-      const entryType = invoice.status === 'paid' ? 'payment' : 'partial_payment'
+    const paymentEntryType = resolvePaymentLedgerEntryType(alreadyHasLiability, invoice.status)
+    if (paymentEntryType) {
       await appendLedgerEntry(supabase, {
         artistId: invoice.artistId,
         settlementPeriodId: invoice.settlementPeriodId ?? null,
-        entryType,
+        entryType: paymentEntryType,
         amountEur: -parsed.data.amountCents / 100,
         currency: invoice.currency,
         referenceType: 'artist_invoice',
@@ -101,6 +104,7 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
       entityId: id,
       action: 'record_payment',
       actorId: userId,
+      organizationId,
       afterData: {
         status: invoice.status,
         paid_amount_cents: invoice.paidAmountCents,

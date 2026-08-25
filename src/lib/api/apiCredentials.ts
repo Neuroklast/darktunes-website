@@ -19,8 +19,8 @@ import {
 type DbClient = SupabaseClient<Database>
 
 /**
- * Sentinel UUID for the default single-label tenant.
- * PostgreSQL PRIMARY KEY columns cannot be NULL — use this instead of NULL.
+ * Sentinel UUID for the default single-label tenant (Org #0 / darkTunes).
+ * Same value as DEFAULT_ORGANIZATION_ID — api_credentials.label_id is the org key.
  */
 export const DEFAULT_LABEL_ID = '00000000-0000-0000-0000-000000000000'
 

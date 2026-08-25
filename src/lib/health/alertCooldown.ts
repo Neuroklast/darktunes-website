@@ -2,10 +2,12 @@
  * src/lib/health/alertCooldown.ts
  *
  * Persists alert dispatch cooldown state in site_settings.
+ * Platform-wide (Org #0) — not per label tenant.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 const ALERT_STATE_KEY = 'health_alert_state'
 
@@ -33,6 +35,7 @@ export async function getHealthAlertDispatchState(
   const { data, error } = await db
     .from('site_settings')
     .select('value')
+    .eq('organization_id', DEFAULT_ORGANIZATION_ID)
     .eq('key', ALERT_STATE_KEY)
     .maybeSingle()
 
@@ -76,8 +79,12 @@ export async function markHealthAlertsDispatched(
 ): Promise<void> {
   const payload: HealthAlertDispatchState = { lastSentAt: at, fingerprint }
   const { error } = await db.from('site_settings').upsert(
-    { key: ALERT_STATE_KEY, value: JSON.stringify(payload) },
-    { onConflict: 'key' },
+    {
+      organization_id: DEFAULT_ORGANIZATION_ID,
+      key: ALERT_STATE_KEY,
+      value: JSON.stringify(payload),
+    },
+    { onConflict: 'organization_id,key' },
   )
   if (error) throw new Error(`Failed to persist health alert state: ${error.message}`)
 }

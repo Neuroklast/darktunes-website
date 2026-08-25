@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { deleteAssetRecord, updateAsset } from '@/lib/api/assets'
-import { extractBearerToken, verifyPermission } from '@/lib/adminAuth'
+import { extractBearerToken, requireAdminOrEditorFromRequest, verifyPermission } from '@/lib/adminAuth'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { deleteR2Objects, getAssetsForDeletion } from '../_utils'
@@ -57,8 +57,7 @@ export const PATCH = withErrorHandler(async (request: NextRequest): Promise<Next
 })
 
 export const DELETE = withErrorHandler(async (request: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(request.headers.get('authorization'))
-  await verifyPermission(token, 'can_view_admin_panel')
+  const { organizationId } = await requireAdminOrEditorFromRequest(request)
 
   const id = extractId(request)
   if (!id) throw new ApiError(400, 'Missing asset id')
@@ -68,7 +67,7 @@ export const DELETE = withErrorHandler(async (request: NextRequest): Promise<Nex
   const asset = assets[0]
   if (!asset) throw new ApiError(404, 'Asset not found')
 
-  await deleteR2Objects([asset])
+  await deleteR2Objects([asset], organizationId)
   await deleteAssetRecord(supabase, id)
 
   return NextResponse.json({ success: true })

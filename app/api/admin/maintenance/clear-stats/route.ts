@@ -3,17 +3,17 @@
  *
  * POST /api/admin/maintenance/clear-stats
  * Body: { table: 'streaming_stats' | 'sos_period_summaries' }
- * Auth: admin only
+ * Auth: admin only (host organization)
  * Returns: { deleted: number }
  *
- * Deletes all rows from the specified statistics table. Validates the table
- * name against an allowlist to prevent arbitrary table deletion.
+ * Deletes stats rows for the host organization only.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorHandler, ApiError } from '@/lib/errors'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+
 const ALLOWED_STATS_TABLES = [
   'streaming_stats',
   'sos_period_summaries',
@@ -26,8 +26,7 @@ function isAllowedStatsTable(value: unknown): value is StatsTable {
 }
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdmin(token)
+  const { organizationId } = await requireAdminFromRequest(req)
 
   let table: unknown
   try {
@@ -43,13 +42,36 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
 
   const db = await createServiceRoleSupabaseClient()
 
-  // Delete all rows. PostgREST requires at least one filter on DELETE;
-  // `not('id', 'is', null)` is equivalent to `WHERE id IS NOT NULL` which
-  // matches every row since `id` is declared NOT NULL in all stats tables.
+  if (table === 'sos_period_summaries') {
+    const { data, error } = await db
+      .from('sos_period_summaries')
+      .delete()
+      .eq('organization_id', organizationId)
+      .select('id')
+
+    if (error) throw new ApiError(500, `Failed to clear ${table}: ${error.message}`)
+    return NextResponse.json({ deleted: (data ?? []).length })
+  }
+
+  // streaming_stats is artist-scoped; restrict via artists of this organization.
+  const { data: artists, error: artistsError } = await db
+    .from('artists')
+    .select('id')
+    .eq('organization_id', organizationId)
+
+  if (artistsError) {
+    throw new ApiError(500, `Failed to list artists for stats clear: ${artistsError.message}`)
+  }
+
+  const artistIds = (artists ?? []).map((a) => a.id)
+  if (artistIds.length === 0) {
+    return NextResponse.json({ deleted: 0 })
+  }
+
   const { data, error } = await db
-    .from(table)
+    .from('streaming_stats')
     .delete()
-    .not('id', 'is', null)
+    .in('artist_id', artistIds)
     .select('id')
 
   if (error) throw new ApiError(500, `Failed to clear ${table}: ${error.message}`)

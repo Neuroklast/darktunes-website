@@ -1,7 +1,7 @@
 /**
  * app/api/admin/sos/period-summaries/route.ts
  *
- * GET  /api/admin/sos/period-summaries  — list historical period summaries
+ * GET  /api/admin/sos/period-summaries  — list Sales Statement period summaries (host org)
  * POST /api/admin/sos/period-summaries  — upsert a period summary (same path as Save to Portal)
  */
 
@@ -34,14 +34,14 @@ function summaryToApiRow(summary: SosPeriodSummary) {
 }
 
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  const summaries = await listSosPeriodSummaries(serviceSupabase)
+  const summaries = await listSosPeriodSummaries(serviceSupabase, organizationId)
   return NextResponse.json({ summaries: summaries.map(summaryToApiRow) })
 })
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
   const body = await req.json()
   const {
     period_start,
@@ -68,9 +68,14 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  await assertSettlementPeriodWritable(serviceSupabase, period_start, period_end)
+  await assertSettlementPeriodWritable(
+    serviceSupabase,
+    period_start,
+    period_end,
+    organizationId,
+  )
 
-  const existing = (await listSosPeriodSummaries(serviceSupabase)).find(
+  const existing = (await listSosPeriodSummaries(serviceSupabase, organizationId)).find(
     (s) => s.periodStart === period_start && s.periodEnd === period_end,
   )
 
@@ -87,6 +92,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
     artistBreakdowns: artist_breakdowns ?? [],
     platformBreakdowns: platform_breakdowns ?? [],
     sourceBatchIds: mergedBatchIds,
+    organizationId,
   })
 
   return NextResponse.json(

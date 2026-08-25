@@ -115,7 +115,22 @@ A modern alternative music label platform that combines:
 
 ---
 
-## 6. Out of scope (current)
+## 6. Multi-tenant SaaS (in progress)
+
+Program branch: `feat/multi-tenant-saas`. Agent SSOT: [docs/agent/multi-tenant.md](docs/agent/multi-tenant.md).  
+Prior art to port (not merge wholesale): [PR #417](https://github.com/Neuroklast/darktunes-website/pull/417).
+
+| Surface | Host class | Users |
+|---------|------------|--------|
+| Label public + admin + portal | darkTunes apex; later `{slug}.platform` / custom domain | Fans, label staff, artists |
+| SaaS marketing + checkout | `MARKETING_HOSTS` / platform apex | Prospective labels |
+| Platform ops | Super-admin routes | Internal operators |
+
+**Model:** shared app + shared DB; `organization_id` isolation; Stripe Billing for monthly/yearly plans (`starter` / `professional` / `business`). darkTunes is Org #0 and stays online during rollout.
+
+**Not in SaaS MVP:** Stripe Connect (fan payments), DB-per-tenant, separate marketing repo.
+
+## 7. Out of scope (current)
 
 - Full ticketing / artist↔admin reply thread on product feedback.
 - Third-party IBAN lookup APIs (explicitly forbidden).
@@ -124,7 +139,7 @@ A modern alternative music label platform that combines:
 
 ---
 
-## 7. Design direction (public)
+## 8. Design direction (public)
 
 Gritty underground alternative aesthetic: near-black backgrounds, purple accents, Oxanium / Roboto Slab / JetBrains Mono hierarchy, CRT scanlines as brand texture (never harm readability). Spring-based motion; reduced-motion respected.
 
@@ -132,7 +147,7 @@ Admin/portal use denser dashboard chrome (`ScrollableAppShell`), not public Leni
 
 ---
 
-## 8. Edge cases
+## 9. Edge cases
 
 | Case | Behavior |
 |------|----------|

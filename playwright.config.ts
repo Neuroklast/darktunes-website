@@ -15,6 +15,15 @@
  */
 
 import { defineConfig, devices } from '@playwright/test'
+import { config as loadEnv } from 'dotenv'
+
+/* Local Supabase stack credentials, written by `npm run db:e2e:start`
+ * (scripts/e2e-db-setup.mjs). Falls back to placeholders below when absent
+ * so `npm run test:e2e` still works for route-level tests that don't need a
+ * real backend. Loaded here (not relying on Next's own .env.local handling)
+ * so both the webServer's Next process AND the Playwright test runner itself
+ * (tests/helpers/*) see the same values. */
+loadEnv({ path: '.env.e2e.local', quiet: true })
 
 const ciWorkers = Number(process.env.PLAYWRIGHT_WORKERS || '2')
 
@@ -24,8 +33,13 @@ export default defineConfig({
   /* Maximum time a single test may run. */
   timeout: 30_000,
 
-  /* Maximum time for the full test suite. */
-  globalTimeout: 10 * 60_000,
+  /* Maximum time for the full test suite. With `workers: 1` (see below) the
+   * whole matrix — 3 browser projects over every tests/e2e spec — runs
+   * serially, so this must accommodate hundreds of sequential tests on CI's
+   * slower runners. The previous flat 10 min silently truncated CI runs
+   * mid-suite: reporting just stops partway through, which reads like a hang
+   * rather than a timeout. */
+  globalTimeout: (process.env.CI ? 60 : 30) * 60_000,
 
   /* Fail the build on CI if a test.only() accidentally gets committed. */
   forbidOnly: !!process.env.CI,
@@ -36,11 +50,24 @@ export default defineConfig({
   /* Retry once on CI to reduce flakiness caused by resource contention. */
   retries: process.env.CI ? 1 : 0,
 
-  /* CI: 2 workers by default (GHA free runners are dual-core); override via PLAYWRIGHT_WORKERS. */
-  workers: process.env.CI ? (Number.isFinite(ciWorkers) && ciWorkers > 0 ? ciWorkers : 2) : undefined,
+  /* Parallelism: DB-backed runs share one Supabase stack + fixture users
+   * (tests/helpers/README.md), so workers stay serial to avoid races
+   * (E2E-TESTS.md "Test isolation"). Override with PLAYWRIGHT_WORKERS only
+   * for non-DB smoke runs. */
+  workers:
+    process.env.PLAYWRIGHT_WORKERS && Number.isFinite(Number(process.env.PLAYWRIGHT_WORKERS))
+      ? Number(process.env.PLAYWRIGHT_WORKERS)
+      : 1,
 
   /* Reporter: 'list' for concise terminal output; HTML report always generated. */
   reporter: [['list'], ['html', { open: 'never' }]],
+
+  /* Ensures the local Supabase stack (Docker) is up, healthy, and its fixture
+   * auth users exist before any test runs; optionally stops it afterward.
+   * See tests/e2e/global-setup.ts for why this can't provision from scratch
+   * (webServer below already starts before globalSetup runs). */
+  globalSetup: './tests/e2e/global-setup.ts',
+  globalTeardown: './tests/e2e/global-teardown.ts',
 
   use: {
     /* Base URL used by page.goto('/') etc. */
@@ -106,13 +133,25 @@ export default defineConfig({
     env: {
       /* Ensure the server binds to the expected port. */
       PORT: '3000',
-      /* Placeholders so `next build` succeeds when CI secrets are unset (empty string). */
+      /* Local-stack defaults (Supabase CLI's well-known local dev demo
+       * credentials — public, identical for every project using default
+       * supabase/config.toml, safe to hardcode). Used only when
+       * .env.e2e.local hasn't been loaded above (e.g. before the first
+       * `npm run db:e2e:start`) so a plain `next build` still succeeds and,
+       * once tests/e2e/global-setup.ts brings the stack up, actually points
+       * at a real backend instead of an unreachable fake domain. */
       NEXT_PUBLIC_SUPABASE_URL:
-        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+        process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321',
       NEXT_PUBLIC_SUPABASE_ANON_KEY:
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key-for-ci-build',
-      SUPABASE_SERVICE_ROLE_KEY:
-        process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role-key-for-ci',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0',
+      /* SECURITY: never hardcode a service-role key — it bypasses RLS. Unlike
+       * the anon key above (public by design), the service-role key must come
+       * only from the environment: `.env.e2e.local` (written by
+       * `npm run db:e2e:start`, loaded via dotenv at the top of this file) or
+       * CI secrets. If it's absent, env.server.ts fails fast telling you to
+       * start the stack — the correct behavior, not a silently embedded secret. */
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
       CLOUDFLARE_R2_ACCOUNT_ID: process.env.CLOUDFLARE_R2_ACCOUNT_ID || 'placeholder-r2-account',
       CLOUDFLARE_R2_ACCESS_KEY_ID:
         process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || 'placeholder-r2-access-key',
@@ -121,6 +160,13 @@ export default defineConfig({
       CLOUDFLARE_R2_BUCKET_NAME: process.env.CLOUDFLARE_R2_BUCKET_NAME || 'placeholder-bucket',
       CLOUDFLARE_R2_PUBLIC_URL:
         process.env.CLOUDFLARE_R2_PUBLIC_URL || 'https://cdn.placeholder.example',
+      /* Required by src/lib/env.server.ts's Zod schema (64-char hex) wherever
+       * api_credentials encrypt/decrypt code runs — not just at build time,
+       * e.g. /portal at runtime. No E2E test exercises real encrypted
+       * credentials, so a fixed placeholder is fine. */
+      API_CREDENTIALS_ENCRYPTION_KEY:
+        process.env.API_CREDENTIALS_ENCRYPTION_KEY ||
+        'a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8',
     },
   },
 })

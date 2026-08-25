@@ -17,14 +17,17 @@ import { renderLegalTemplate } from '@/lib/legal/placeholders'
 import type { SiteSettings } from '@/types'
 import { DatenschutzContent } from './_components/DatenschutzContent'
 import { getLocale, getTranslations } from 'next-intl/server'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 
-const getCachedSettings = unstable_cache(
-  async (): Promise<SiteSettings> => {
-    return getSiteSettings(createPublicSupabaseClient())
-  },
-  ['site-settings'],
-  { revalidate: 60, tags: ['site-settings'] },
-)
+function getCachedSettings(organizationId: string) {
+  return unstable_cache(
+    async (): Promise<SiteSettings> => {
+      return getSiteSettings(createPublicSupabaseClient(), organizationId)
+    },
+    ['site-settings', organizationId],
+    { revalidate: 60, tags: ['site-settings', `o:${organizationId}:site-settings`] },
+  )()
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('datenschutz')
@@ -121,7 +124,7 @@ Diese Website verwendet für die einheitliche Darstellung von Schriftarten Web F
 
 ## 11. Artist Portal und Abrechnung
 
-Wenn Sie als Künstler unser Artist Portal nutzen, verarbeiten wir zusätzliche personenbezogene Daten, die für die Vertragsabwicklung und die Auszahlung von Tantiemen (SOS Statements) erforderlich sind.
+Wenn Sie als Künstler unser Artist Portal nutzen, verarbeiten wir zusätzliche personenbezogene Daten, die für die Vertragsabwicklung und die Auszahlung von Tantiemen (Sales Statements) erforderlich sind.
 
 ### Welche Daten werden verarbeitet?
 Zur Verwaltung Ihres Accounts und zur Durchführung der Abrechnung ("Billing Profile Management") erfassen wir sensible Finanzdaten. Dazu gehören Ihr vollständiger Name, Ihre Anschrift, Steuernummer bzw. USt-IdNr., Bankverbindungen (IBAN/BIC), Ihr Steuerstatus sowie historische Abrechnungsdaten ("settlement ledger").
@@ -241,8 +244,9 @@ Tax- and settlement-relevant data as well as generated invoices and statements a
 }
 
 export default async function DatenschutzPage() {
+  const organizationId = await getRequestOrganizationId()
   const [settings, locale] = await Promise.all([
-    getCachedSettings().catch((): SiteSettings => SITE_SETTINGS_DEFAULTS),
+    getCachedSettings(organizationId).catch((): SiteSettings => SITE_SETTINGS_DEFAULTS),
     getLocale(),
   ])
   const [tDatenschutz, tPages] = await Promise.all([

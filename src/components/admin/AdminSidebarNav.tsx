@@ -58,6 +58,7 @@ import {
   Globe,
   Question,
   ChatTeardropDots,
+  Buildings,
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -66,7 +67,7 @@ import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { DashboardNotificationBell } from '@/components/admin/DashboardNotificationBell'
 import { NavCountBadge } from '@/components/nav/NavCountBadge'
-import { useAdminNavBadges } from '@/hooks/useAdminNavBadges'
+import { useAdminNavBadgesContext } from '@/contexts/AdminNavBadgesContext'
 
 import { getCmsPromoLogPath, getCmsTabPath, getCmsHomePath } from '@/lib/editor/cmsPaths'
 
@@ -99,6 +100,7 @@ type NavItemKey =
   | 'colors'
   | 'settings'
   | 'apiKeys'
+  | 'organizations'
   | 'support'
   | 'system'
 
@@ -172,6 +174,7 @@ const NAV_GROUPS: NavGroup[] = [
       { labelKey: 'messages', href: '/admin/messages', icon: ChatCircle, adminOnly: true, badgeKey: 'messages' },
       { labelKey: 'promotionActivity', href: '/admin/promo-log', editorHref: getCmsPromoLogPath('editor'), icon: MegaphoneSimple, adminOnly: false },
       { labelKey: 'users', href: '/admin/users', icon: UsersThree, adminOnly: true },
+      { labelKey: 'organizations', href: '/admin/organizations', icon: Buildings, adminOnly: true },
     ],
   },
   {
@@ -208,7 +211,8 @@ export function AdminSidebarNav() {
         : profile.role
   const notificationUserId = user?.id
   const showNotificationBell = Boolean(notificationUserId)
-  const badges = useAdminNavBadges(notificationUserId ?? null, isAdmin)
+  // Shared realtime subscription via AdminNavBadgesProvider (see AdminClientLayout)
+  const badges = useAdminNavBadgesContext()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [pwaInstalled, setPwaInstalled] = useState(false)
 

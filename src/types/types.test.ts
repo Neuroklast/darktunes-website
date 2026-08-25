@@ -124,6 +124,8 @@ describe('SiteSettings interface', () => {
     videosPerPage: 9,
     videosLinkToPage: false,
     excludeShortsFromPublic: false,
+    artistProfileVideoRows: 2,
+    artistProfileNewsRows: 2,
     concertsPerPage: 8,
     concertsLinkToPage: false,
     carouselAutoplayMs: 0,

@@ -18,7 +18,15 @@ import {
 import { describeJobError } from '@/lib/sync/userFacingErrors'
 
 const STATUSES: SyncJobStatus[] = ['pending', 'running', 'done', 'failed', 'cancelled']
-const JOB_TYPES: SyncJobType[] = ['full', 'spotify', 'discogs', 'youtube', 'odesli']
+const JOB_TYPES: SyncJobType[] = [
+  'full',
+  'spotify',
+  'discogs',
+  'youtube',
+  'odesli',
+  'songkick',
+  'bandsintown',
+]
 
 function isStatus(value: string): value is SyncJobStatus {
   return (STATUSES as string[]).includes(value)

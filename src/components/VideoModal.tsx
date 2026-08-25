@@ -46,7 +46,7 @@ export function VideoModal({ video, open, onClose, placeholderUrl, youtubeLabel 
               <button
                 onClick={onClose}
                 aria-label="Close video"
-                className="absolute -top-12 right-0 z-50 rounded-full bg-background/80 backdrop-blur-sm p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-foreground hover:bg-accent hover:text-accent-foreground transition-all hover:scale-110 border border-border"
+                className="absolute top-4 right-4 z-50 rounded-full bg-background/80 backdrop-blur-sm p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-foreground hover:bg-accent hover:text-accent-foreground transition-all hover:scale-110 border border-border"
               >
                 <X size={20} weight="bold" aria-hidden="true" />
               </button>

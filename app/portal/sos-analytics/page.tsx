@@ -8,6 +8,8 @@
 export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
@@ -63,7 +65,9 @@ async function SosAnalyticsContent({
 
   if (!user) return null
 
-  const flags = await getFeatureFlagsForRole(supabase, 'artist').catch(
+  const organizationId =
+    (await getRequestOrganizationId().catch(() => undefined)) ?? DEFAULT_ORGANIZATION_ID
+  const flags = await getFeatureFlagsForRole(supabase, 'artist', organizationId).catch(
     () => ({} as Record<string, boolean>),
   )
   if (flags['artist.analytics'] === false) {
@@ -116,7 +120,7 @@ async function SosAnalyticsContent({
           bySource: { portal: 0, share: 0, press: 0 },
         }),
     artist
-      ? getPressDownloadStatsByArtistId(supabase, artist.id).catch(() => ({
+      ? getPressDownloadStatsByArtistId(supabase, artist.id, organizationId).catch(() => ({
           totalDownloads: 0,
           last30Days: 0,
           uniqueJournalists: 0,

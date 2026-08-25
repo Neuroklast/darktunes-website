@@ -14,6 +14,7 @@ import { getSiteSettings, SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
 import type { SiteSettings } from '@/types'
 import type { Database } from '@/types/database'
 import { getTranslations } from 'next-intl/server'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 
 // Cookie-free public client — safe inside unstable_cache callbacks where
 // Next.js Dynamic APIs (cookies, headers) are unavailable. site_settings has
@@ -25,13 +26,15 @@ function createPublicSupabaseClient() {
   )
 }
 
-const getCachedSettings = unstable_cache(
-  async (): Promise<SiteSettings> => {
-    return getSiteSettings(createPublicSupabaseClient())
-  },
-  ['site-settings'],
-  { revalidate: 60, tags: ['site-settings'] },
-)
+function getCachedSettings(organizationId: string) {
+  return unstable_cache(
+    async (): Promise<SiteSettings> => {
+      return getSiteSettings(createPublicSupabaseClient(), organizationId)
+    },
+    ['site-settings', organizationId],
+    { revalidate: 60, tags: ['site-settings', `o:${organizationId}:site-settings`] },
+  )()
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('impressum')
@@ -42,8 +45,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ImpressumPage() {
+  const organizationId = await getRequestOrganizationId()
   const [settings, tImpressum, tPages] = await Promise.all([
-    getCachedSettings().catch((): SiteSettings => SITE_SETTINGS_DEFAULTS),
+    getCachedSettings(organizationId).catch((): SiteSettings => SITE_SETTINGS_DEFAULTS),
     getTranslations('impressum'),
     getTranslations('pages'),
   ])

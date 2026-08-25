@@ -43,6 +43,7 @@ function tagsForJobType(jobType: SyncJobType): PublicContentTag[] {
   // YouTube channel sync is a separate route; artist-scoped "youtube" jobs fall
   // through to full artist sync (releases/concerts) as a legacy fallback.
   if (jobType === 'odesli') return ['releases', 'artists']
+  if (jobType === 'songkick' || jobType === 'bandsintown') return ['concerts', 'artists']
   return [...RELEASE_SYNC_TAGS]
 }
 
@@ -65,18 +66,12 @@ async function processSyncJob(
   if (job.jobType === 'odesli') {
     const result = await syncOdesliBatch(deps)
     const odesliResult = result.results.find((r) => r.api === 'odesli')
-    const rateLimited = odesliResult?.rateLimited ?? false
     const hasMoreWork = odesliResult?.hasMoreWork ?? false
 
-    if (hasMoreWork || rateLimited) {
-      await rescheduleSyncJob(
-        db,
-        job.id,
-        rateLimited ? RATE_LIMIT_JOB_COOLDOWN_MS : 0,
-        rateLimited
-          ? { undoAttemptIncrement: true, currentAttemptCount: job.attemptCount }
-          : undefined,
-      )
+    // Odesli 429s skip the item and continue; leftover rows stay smart_url=null.
+    // Never park the job for 15 minutes or abort the rest of the drain.
+    if (hasMoreWork) {
+      await rescheduleSyncJob(db, job.id, 0)
     } else {
       await markSyncJobDone(db, job.id)
     }
@@ -90,7 +85,8 @@ async function processSyncJob(
   }
 
   const result = await syncSingleArtist(job.artistId, job.jobType, deps)
-  const rateLimited = result.results.some((r) => r.rateLimited)
+  // Odesli rate limits must not reschedule a full/spotify/… artist job.
+  const rateLimited = result.results.some((r) => r.api !== 'odesli' && r.rateLimited)
 
   if (rateLimited) {
     // Push this artist out of the due window; keep draining other artists.
@@ -124,8 +120,6 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     { auth: { persistSession: false } },
   )
 
-  const syncCredentials = await getSyncCredentials(db)
-
   // Await so health UI never loses the kick (void + early alreadyRunning return
   // previously dropped heartbeats when the isolate froze after the response).
   await recordHealthHeartbeat(db, 'sync_execute')
@@ -136,16 +130,22 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     return NextResponse.json({ accepted: true, alreadyRunning: true, continued: false })
   }
 
-  const uploadFn = createSyncUploadFn(
-    serverEnv.CLOUDFLARE_R2_ACCOUNT_ID,
-    serverEnv.CLOUDFLARE_R2_ACCESS_KEY_ID,
-    serverEnv.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
-    serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
-    serverEnv.CLOUDFLARE_R2_PUBLIC_URL,
-  )
-
   const siteOrigin = resolveExecutorSiteOrigin(request.url)
   const canSelfChain = Boolean(siteOrigin && authHeader.startsWith('Bearer '))
+
+  /** Per-org credentials cache for this drain (avoids reload every job). */
+  const credentialsByOrg = new Map<
+    string,
+    Awaited<ReturnType<typeof getSyncCredentials>>
+  >()
+
+  async function credentialsForOrg(organizationId: string) {
+    const existing = credentialsByOrg.get(organizationId)
+    if (existing) return existing
+    const creds = await getSyncCredentials(db, organizationId)
+    credentialsByOrg.set(organizationId, creds)
+    return creds
+  }
 
   waitUntil(
     (async () => {
@@ -177,6 +177,16 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
           }
 
           try {
+            const syncCredentials = await credentialsForOrg(job.organizationId)
+            // Per-job R2 prefix so pilot labels never write flat Org #0 cover-art keys
+            const uploadFn = createSyncUploadFn(
+              serverEnv.CLOUDFLARE_R2_ACCOUNT_ID,
+              serverEnv.CLOUDFLARE_R2_ACCESS_KEY_ID,
+              serverEnv.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+              serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
+              serverEnv.CLOUDFLARE_R2_PUBLIC_URL,
+              job.organizationId,
+            )
             const tags = await processSyncJob(db, job, uploadFn, syncCredentials)
             // processSyncJob finalises via markSyncJobDone/rescheduleSyncJob, both
             // of which honour cancel_requested_at. Re-check so we never leave a

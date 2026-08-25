@@ -8,6 +8,7 @@ import {
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getImportBatchById } from '@/lib/api/distributorImportBatches'
 import { ApiError } from '@/lib/errors'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { createR2Client } from '@/lib/r2Utils'
 import type { Database } from '@/types/database'
 
@@ -36,8 +37,9 @@ export async function createBronzeMultipartR2Context(): Promise<BronzeMultipartR
 export async function getWritableImportBatch(
   supabase: SupabaseClient<Database>,
   batchId: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ) {
-  const batch = await getImportBatchById(supabase, batchId)
+  const batch = await getImportBatchById(supabase, batchId, organizationId)
   if (!batch) throw new ApiError(404, 'Import batch not found')
   if (batch.fileHash || batch.status === 'completed') {
     throw new ApiError(409, 'Import batch already has archived content')

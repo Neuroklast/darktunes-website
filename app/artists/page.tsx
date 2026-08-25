@@ -10,6 +10,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import { getCachedPublicArtists } from '@/lib/cache/publicQueries'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { ArtistsGridContent } from './_components/ArtistsGridContent'
 import { getMetadataBrand, pageTitle } from '@/lib/seo/metadata'
 
@@ -23,8 +24,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ArtistsPage() {
+  const orgId = await getRequestOrganizationId()
   const [artists, tNav] = await Promise.all([
-    getCachedPublicArtists(),
+    getCachedPublicArtists(orgId),
     getTranslations('navigation'),
   ])
 

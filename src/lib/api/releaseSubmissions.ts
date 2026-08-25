@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { Release, ReleaseSubmission, SubmissionStatus } from '@/types'
 import { createRelease, rowToRelease } from '@/lib/api/releases'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type Row = Database['public']['Tables']['release_submissions']['Row']
@@ -49,10 +50,14 @@ export async function getReleaseSubmissionsByArtistId(
   return (data ?? []).map(rowToSubmission)
 }
 
-export async function getAllReleaseSubmissions(db: DbClient): Promise<ReleaseSubmission[]> {
+export async function getAllReleaseSubmissions(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<ReleaseSubmission[]> {
   const { data, error } = await db
     .from('release_submissions')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('created_at', { ascending: false })
     .limit(200)
   if (error) throw new Error(error.message)
@@ -65,7 +70,10 @@ export async function createReleaseSubmission(
 ): Promise<ReleaseSubmission> {
   const { data, error } = await db
     .from('release_submissions')
-    .insert(payload)
+    .insert({
+      ...payload,
+      organization_id: payload.organization_id ?? DEFAULT_ORGANIZATION_ID,
+    })
     .select()
     .single()
   if (error) throw new Error(error.message)

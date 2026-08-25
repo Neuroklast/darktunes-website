@@ -97,8 +97,12 @@ export interface UploadedFile {
   uploadedAt: string
   /** Number of successfully parsed data rows. */
   rowsParsed?: number
-  /** Number of rows skipped due to parse errors. */
+  /** Number of rows skipped due to parse errors or intentional filters. */
   rowsSkipped?: number
+  /** Rows whose currency cell was empty and treated as EUR. */
+  emptyCurrencyRows?: number
+  /** Unique intentional skip reasons (bandcamp-payout, empty-line, …). */
+  skipReasons?: string[]
   /** Number of unique artists found. */
   uniqueArtistsCount?: number
   /** Bronze import batch ID when raw CSV was archived in R2. */
@@ -499,6 +503,8 @@ export interface ArtistRevenue {
   totalRevenue: number
   splitPercentage: number
   finalAmount: number
+  openingBalanceEur?: number
+  amountDueEur?: number
   totalQuantity: number
   /** Total recoupable expenses deducted from gross revenue before split. */
   totalExpenses: number
@@ -516,6 +522,10 @@ export interface ArtistRevenue {
   physicalReleasesRevenue: number
   /** Split percentage (0–100) actually applied to digital (streaming/download) revenue. */
   digitalSplitPercentage: number
+  /** Split percentage (0–100) actually applied to Believe digital revenue. */
+  believeSplitPercentage: number
+  /** Split percentage (0–100) actually applied to Bandcamp revenue. */
+  bandcampSplitPercentage: number
   /** Split percentage (0–100) actually applied to physical releases revenue. */
   physicalSplitPercentage: number
   /** Split percentage (0–100) actually applied to Darkmerch/merchandise revenue. */
@@ -667,6 +677,10 @@ export interface SafeProcessedArtistData {
   grossRevenue: number
   splitPercentage: number
   finalPayout: number
+  /** Opening brought into this period (not included in finalPayout). */
+  openingBalanceEur: number
+  /** finalPayout + openingBalanceEur. */
+  amountDueEur: number
   totalQuantity: number
   /** Total recoupable expenses deducted from gross revenue before split. */
   totalExpenses: number

@@ -6,6 +6,7 @@ import {
   buildDefaultOgDescription,
   buildDefaultSeoDescription,
 } from '@/lib/brand/tenantDefaults'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import type { SiteSettings } from '@/types'
 
 export type MetadataContext = {
@@ -14,8 +15,9 @@ export type MetadataContext = {
 }
 
 export async function getMetadataContext(): Promise<MetadataContext> {
+  const organizationId = await getRequestOrganizationId().catch(() => undefined)
   const settings =
-    (await getCachedSiteSettings().catch(() => null)) ?? SITE_SETTINGS_DEFAULTS
+    (await getCachedSiteSettings(organizationId).catch(() => null)) ?? SITE_SETTINGS_DEFAULTS
   return { settings, brand: resolveBrandFromSettings(settings) }
 }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorHandler, ApiError } from '@/lib/errors'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
-import { extractBearerToken, verifyAdminOrEditor } from '@/lib/adminAuth'
+import { requireAdminOrEditorFromRequest } from '@/lib/adminAuth'
 import { getAllReleaseSubmissions } from '@/lib/api/releaseSubmissions'
 import { getTracksBySubmissionIds } from '@/lib/api/releaseSubmissionTracks'
 import { getAllFormSchemaFields } from '@/lib/api/submissionFormSchema'
@@ -23,8 +23,7 @@ function slugifyFilenamePart(value: string): string {
 }
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdminOrEditor(token)
+  const { organizationId } = await requireAdminOrEditorFromRequest(req)
   const supabase = await createServiceRoleSupabaseClient()
 
   const format = req.nextUrl.searchParams.get('format') ?? 'csv'
@@ -44,7 +43,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }
   }
 
-  let submissions = await getAllReleaseSubmissions(supabase)
+  let submissions = await getAllReleaseSubmissions(supabase, organizationId)
   if (statusFilter) {
     submissions = submissions.filter((s) => s.status === statusFilter)
   }

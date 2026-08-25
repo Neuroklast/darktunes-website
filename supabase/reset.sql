@@ -1224,9 +1224,12 @@ CREATE INDEX IF NOT EXISTS idx_assets_sha256_hash ON public.assets (sha256_hash)
 
 -- Aggregate catalog storage (avoids PostgREST row-limit undercount on SELECT size_bytes).
 -- Returns JSON object so PostgREST/supabase-js always yields a single object (not empty set edge cases).
--- DROP first: CREATE OR REPLACE cannot change return type (e.g. TABLE → json).
+-- DROP first: CREATE OR REPLACE cannot change return type / arg list (e.g. TABLE → json, add org filter).
 DROP FUNCTION IF EXISTS public.get_assets_storage_stats();
-CREATE OR REPLACE FUNCTION public.get_assets_storage_stats()
+DROP FUNCTION IF EXISTS public.get_assets_storage_stats(UUID);
+CREATE OR REPLACE FUNCTION public.get_assets_storage_stats(
+  p_organization_id UUID DEFAULT NULL
+)
 RETURNS json
 LANGUAGE sql
 STABLE
@@ -1238,14 +1241,16 @@ AS $$
     'asset_count', COUNT(*)::bigint,
     'zero_size_count', COUNT(*) FILTER (WHERE a.size_bytes = 0)::bigint
   )
-  FROM public.assets a;
+  FROM public.assets a
+  WHERE p_organization_id IS NULL
+     OR a.organization_id = p_organization_id;
 $$;
 
-COMMENT ON FUNCTION public.get_assets_storage_stats() IS
-  'JSON: used_bytes, asset_count, zero_size_count over public.assets for admin storage bar';
+COMMENT ON FUNCTION public.get_assets_storage_stats(UUID) IS
+  'JSON: used_bytes, asset_count, zero_size_count over public.assets (optional org filter) for admin storage bar';
 
-REVOKE ALL ON FUNCTION public.get_assets_storage_stats() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.get_assets_storage_stats() TO service_role;
+REVOKE ALL ON FUNCTION public.get_assets_storage_stats(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_assets_storage_stats(UUID) TO service_role;
 CREATE INDEX IF NOT EXISTS idx_assets_release_id  ON public.assets (release_id);
 CREATE INDEX IF NOT EXISTS idx_assets_press_approved ON public.assets (is_press_approved) WHERE is_press_approved = TRUE;
 CREATE INDEX IF NOT EXISTS idx_assets_press_suggested ON public.assets (press_suggested) WHERE press_suggested = TRUE;
@@ -3082,7 +3087,7 @@ DROP POLICY IF EXISTS "idempotency_keys: service_role only" ON public.idempotenc
 CREATE TABLE IF NOT EXISTS public.sync_queue (
   id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   artist_id     UUID        REFERENCES public.artists (id) ON DELETE CASCADE,
-  job_type      TEXT        NOT NULL DEFAULT 'full',  -- 'full' | 'spotify' | 'discogs' | 'youtube' | 'odesli'
+  job_type      TEXT        NOT NULL DEFAULT 'full',  -- 'full' | 'spotify' | 'discogs' | 'youtube' | 'odesli' | 'songkick' | 'bandsintown'
   status        TEXT        NOT NULL DEFAULT 'pending', -- 'pending' | 'running' | 'done' | 'failed' | 'cancelled'
   scheduled_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   started_at    TIMESTAMPTZ,
@@ -3597,6 +3602,8 @@ CREATE POLICY "site_settings_public_read" ON public.site_settings
       'videos_per_page',
       'videos_link_to_page',
       'exclude_shorts_from_public',
+      'artist_profile_video_rows',
+      'artist_profile_news_rows',
       'concerts_per_page',
       'concerts_link_to_page',
       'feature_toggles',
@@ -4412,12 +4419,12 @@ CREATE POLICY "journalist_applications: admin all" ON public.journalist_applicat
 -- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "portal_feature_flags: authenticated read" ON public.portal_feature_flags;
 DROP POLICY IF EXISTS "portal_feature_flags: admin write" ON public.portal_feature_flags;
+DROP POLICY IF EXISTS "portal_feature_flags: org scoped read" ON public.portal_feature_flags;
 
--- Allows any authenticated user to read portal feature flags
+-- Baseline (pre multi-tenant column). Org-scoped policy is re-applied in multi-tenant block.
 CREATE POLICY "portal_feature_flags: authenticated read" ON public.portal_feature_flags
   FOR SELECT USING (auth.role() = 'authenticated');
 
--- Allows admins to manage portal feature flags
 CREATE POLICY "portal_feature_flags: admin write" ON public.portal_feature_flags
   FOR ALL
   USING (public.get_my_role() = 'admin')
@@ -4589,7 +4596,8 @@ INSERT INTO public.site_settings (key, value) VALUES
   ('noise_opacity',         '0.04'),
   ('crt_scanlines_enabled', 'true'),
   ('vignette_intensity',    '0.5')
-ON CONFLICT (key) DO NOTHING;
+-- Infer target: key-only PK (fresh) or (organization_id, key) after multi-tenant expand
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.portal_feature_flags (id, label, enabled, target_role) VALUES
   ('artist.analytics', 'Artist Analytics Dashboard', TRUE, 'artist'),
@@ -4602,14 +4610,14 @@ INSERT INTO public.portal_feature_flags (id, label, enabled, target_role) VALUES
   ('artist.fan_page', 'Fan Page Builder', TRUE, 'artist'),
   ('artist.tour_planner', 'Tour Planner (TRACK)', TRUE, 'artist'),
   ('journalist.accreditation', 'Journalist Accreditation', TRUE, 'journalist')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.portal_feature_flags (id, label, enabled, target_role) VALUES
   ('press.applications',  'Press Portal Applications',          TRUE, 'journalist'),
   ('press.zip_download',  'Press Kit ZIP Download',             TRUE, 'journalist'),
   ('press.audio_preview', 'Promo Track In-Browser Preview',     TRUE, 'journalist'),
   ('press.contact',       'Press Inquiry Form',                 TRUE, 'journalist')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- ============================================================
 -- artist_assets — files uploaded by artists via the portal
@@ -6729,6 +6737,21 @@ ALTER TABLE public.artist_invoices
 ALTER TABLE public.artist_invoices
   ADD COLUMN IF NOT EXISTS settlement_period_id UUID REFERENCES public.settlement_periods (id) ON DELETE SET NULL;
 
+-- One active draft per artist+period (storno excluded). Race-safe complement to
+-- assertNoDuplicateDraft. One SOS-linked invoice per statement.
+CREATE UNIQUE INDEX IF NOT EXISTS sales_statements_one_draft_per_period
+  ON public.sales_statements (artist_id, period_start, period_end)
+  WHERE status = 'draft' AND document_type IS DISTINCT FROM 'storno';
+
+CREATE UNIQUE INDEX IF NOT EXISTS artist_invoices_one_per_statement
+  ON public.artist_invoices (statement_id)
+  WHERE statement_id IS NOT NULL;
+
+-- Same CSV hash may be retried after a failed batch; active hashes stay unique.
+CREATE UNIQUE INDEX IF NOT EXISTS distributor_import_batches_file_hash_active
+  ON public.distributor_import_batches (file_hash)
+  WHERE file_hash IS NOT NULL AND status IS DISTINCT FROM 'failed';
+
 ALTER TABLE public.sales_statement_line_items
   ADD COLUMN IF NOT EXISTS amount_original NUMERIC(14, 4);
 ALTER TABLE public.sales_statement_line_items
@@ -6904,3 +6927,2593 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+-- =============================================================================
+-- MULTI-TENANCY (organizations) — SaaS foundation (ported from PR #417)
+-- Sentinel UUID 00000000-0000-0000-0000-000000000000 = Org #0 (default label).
+-- Additive + idempotent. Apply after core schema exists.
+-- =============================================================================
+
+DO $$ BEGIN
+  CREATE TYPE public.organization_status AS ENUM ('active', 'suspended', 'pending');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.organization_user_role AS ENUM (
+    'owner', 'admin', 'finance', 'marketing', 'artist_manager', 'member'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.subscription_status AS ENUM (
+    'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'paused'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.custom_domain_status AS ENUM ('pending', 'verified', 'active', 'failed');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS public.organizations (
+  id          UUID                        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        TEXT                        NOT NULL,
+  slug        TEXT                        NOT NULL UNIQUE,
+  status      public.organization_status  NOT NULL DEFAULT 'active',
+  created_at  TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ                 NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_organizations_slug ON public.organizations (slug);
+CREATE INDEX IF NOT EXISTS idx_organizations_status ON public.organizations (status);
+
+DROP TRIGGER IF EXISTS trg_organizations_updated_at ON public.organizations;
+CREATE TRIGGER trg_organizations_updated_at
+  BEFORE UPDATE ON public.organizations
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+INSERT INTO public.organizations (id, name, slug, status) VALUES
+  ('00000000-0000-0000-0000-000000000000', 'darkTunes Music Group', 'darktunes', 'active')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.organizations (id, name, slug, status) VALUES
+  ('11111111-1111-1111-1111-111111111111', 'Demo Label', 'demo-label', 'active')
+ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS public.organization_users (
+  organization_id UUID                           NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  user_id         UUID                           NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
+  role            public.organization_user_role  NOT NULL DEFAULT 'member',
+  created_at      TIMESTAMPTZ                    NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (organization_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_organization_users_user_id ON public.organization_users (user_id);
+
+CREATE TABLE IF NOT EXISTS public.organization_branding (
+  organization_id UUID        PRIMARY KEY REFERENCES public.organizations (id) ON DELETE CASCADE,
+  logo_url        TEXT,
+  primary_color   TEXT,
+  secondary_color TEXT,
+  font_family     TEXT,
+  favicon_url     TEXT,
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+DROP TRIGGER IF EXISTS trg_organization_branding_updated_at ON public.organization_branding;
+CREATE TRIGGER trg_organization_branding_updated_at
+  BEFORE UPDATE ON public.organization_branding
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE OR REPLACE FUNCTION public.user_belongs_to_organization(org_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.organization_users ou
+    WHERE ou.organization_id = org_id
+      AND ou.user_id = auth.uid()
+  );
+$$;
+
+ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_branding ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "organizations: member read" ON public.organizations;
+DROP POLICY IF EXISTS "organizations: admin all" ON public.organizations;
+CREATE POLICY "organizations: member read" ON public.organizations
+  FOR SELECT USING (public.user_belongs_to_organization(id));
+CREATE POLICY "organizations: admin all" ON public.organizations
+  FOR ALL
+  USING (public.get_my_role() = 'admin')
+  WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_users: own read" ON public.organization_users;
+DROP POLICY IF EXISTS "organization_users: admin all" ON public.organization_users;
+CREATE POLICY "organization_users: own read" ON public.organization_users
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "organization_users: admin all" ON public.organization_users
+  FOR ALL
+  USING (public.get_my_role() = 'admin')
+  WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_branding: member read" ON public.organization_branding;
+DROP POLICY IF EXISTS "organization_branding: admin all" ON public.organization_branding;
+CREATE POLICY "organization_branding: member read" ON public.organization_branding
+  FOR SELECT USING (public.user_belongs_to_organization(organization_id));
+CREATE POLICY "organization_branding: admin all" ON public.organization_branding
+  FOR ALL
+  USING (public.get_my_role() = 'admin')
+  WITH CHECK (public.get_my_role() = 'admin');
+
+ALTER TABLE public.artists ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.releases ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.news_posts ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.videos ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.concerts ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.release_submissions ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.genres ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.sync_queue ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.asset_folders ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.epk_templates ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+-- Sales Statement accounting tables (code paths may still use sos_* table names)
+ALTER TABLE public.sos_rules_presets ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.sos_accounting_workspaces ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.sos_period_summaries ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.distributor_import_batches ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.settlement_periods ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.message_templates ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.portal_feature_flags ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.artists SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.releases SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.news_posts SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.videos SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.concerts SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.release_submissions SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.genres SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.assets SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.sync_queue SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.asset_folders SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.epk_templates SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.sos_rules_presets SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.sos_accounting_workspaces SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.sos_period_summaries SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.distributor_import_batches SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.site_settings SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.settlement_periods SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.message_templates SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+UPDATE public.portal_feature_flags SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL;
+
+ALTER TABLE public.artists ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.artists ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.releases ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.releases ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.news_posts ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.news_posts ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.videos ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.videos ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.concerts ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.concerts ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.release_submissions ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.release_submissions ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.genres ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.genres ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.assets ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.assets ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.sync_queue ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.sync_queue ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.asset_folders ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.asset_folders ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.epk_templates ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.epk_templates ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.sos_rules_presets ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.sos_rules_presets ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.sos_accounting_workspaces ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.sos_accounting_workspaces ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.sos_period_summaries ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.sos_period_summaries ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.distributor_import_batches ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.distributor_import_batches ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.site_settings ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.site_settings ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.settlement_periods ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.settlement_periods ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.message_templates ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.message_templates ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.portal_feature_flags ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.portal_feature_flags ALTER COLUMN organization_id SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_artists_organization_id ON public.artists (organization_id);
+CREATE INDEX IF NOT EXISTS idx_releases_organization_id ON public.releases (organization_id);
+CREATE INDEX IF NOT EXISTS idx_news_posts_organization_id ON public.news_posts (organization_id);
+CREATE INDEX IF NOT EXISTS idx_videos_organization_id ON public.videos (organization_id);
+CREATE INDEX IF NOT EXISTS idx_concerts_organization_id ON public.concerts (organization_id);
+CREATE INDEX IF NOT EXISTS idx_release_submissions_organization_id ON public.release_submissions (organization_id);
+CREATE INDEX IF NOT EXISTS idx_genres_organization_id ON public.genres (organization_id);
+CREATE INDEX IF NOT EXISTS idx_assets_organization_id ON public.assets (organization_id);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_organization_id ON public.sync_queue (organization_id);
+CREATE INDEX IF NOT EXISTS idx_asset_folders_organization_id ON public.asset_folders (organization_id);
+CREATE INDEX IF NOT EXISTS idx_epk_templates_organization_id ON public.epk_templates (organization_id);
+CREATE INDEX IF NOT EXISTS idx_sos_rules_presets_organization_id ON public.sos_rules_presets (organization_id);
+CREATE INDEX IF NOT EXISTS idx_sos_accounting_workspaces_organization_id ON public.sos_accounting_workspaces (organization_id);
+CREATE INDEX IF NOT EXISTS idx_sos_period_summaries_organization_id ON public.sos_period_summaries (organization_id);
+CREATE INDEX IF NOT EXISTS idx_distributor_import_batches_organization_id ON public.distributor_import_batches (organization_id);
+CREATE INDEX IF NOT EXISTS idx_site_settings_organization_id ON public.site_settings (organization_id);
+CREATE INDEX IF NOT EXISTS idx_settlement_periods_organization_id ON public.settlement_periods (organization_id);
+CREATE INDEX IF NOT EXISTS idx_message_templates_organization_id ON public.message_templates (organization_id);
+CREATE INDEX IF NOT EXISTS idx_portal_feature_flags_organization_id ON public.portal_feature_flags (organization_id);
+
+-- portal_feature_flags: composite PK so each label can toggle portal modules independently
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'portal_feature_flags_pkey'
+      AND conrelid = 'public.portal_feature_flags'::regclass
+  ) THEN
+    IF (
+      SELECT count(*) FROM pg_attribute a
+      JOIN pg_constraint c ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+      WHERE c.conname = 'portal_feature_flags_pkey' AND NOT a.attisdropped
+    ) = 1 THEN
+      ALTER TABLE public.portal_feature_flags DROP CONSTRAINT portal_feature_flags_pkey;
+    END IF;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'portal_feature_flags_pkey'
+      AND conrelid = 'public.portal_feature_flags'::regclass
+  ) THEN
+    ALTER TABLE public.portal_feature_flags
+      ADD CONSTRAINT portal_feature_flags_pkey PRIMARY KEY (organization_id, id);
+  END IF;
+END $$;
+
+-- site_settings: composite PK so each label has its own key/value CMS bag.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'site_settings_pkey'
+      AND conrelid = 'public.site_settings'::regclass
+  ) THEN
+    -- Only drop when still single-column (key) primary key
+    IF (
+      SELECT count(*) FROM pg_attribute a
+      JOIN pg_constraint c ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+      WHERE c.conname = 'site_settings_pkey' AND NOT a.attisdropped
+    ) = 1 THEN
+      ALTER TABLE public.site_settings DROP CONSTRAINT site_settings_pkey;
+    END IF;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'site_settings_pkey'
+      AND conrelid = 'public.site_settings'::regclass
+  ) THEN
+    ALTER TABLE public.site_settings
+      ADD CONSTRAINT site_settings_pkey PRIMARY KEY (organization_id, key);
+  END IF;
+END $$;
+
+-- portal_feature_flags RLS: tighten after organization_id exists
+DROP POLICY IF EXISTS "portal_feature_flags: authenticated read" ON public.portal_feature_flags;
+DROP POLICY IF EXISTS "portal_feature_flags: org scoped read" ON public.portal_feature_flags;
+CREATE POLICY "portal_feature_flags: org scoped read" ON public.portal_feature_flags
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor', 'journalist')
+    OR public.user_belongs_to_organization(organization_id)
+    OR EXISTS (
+      SELECT 1
+      FROM public.artist_members am
+      JOIN public.artists a ON a.id = am.artist_id
+      WHERE am.user_id = auth.uid()
+        AND a.organization_id = portal_feature_flags.organization_id
+    )
+  );
+
+-- Settlement periods uniqueness per organization
+ALTER TABLE public.settlement_periods
+  DROP CONSTRAINT IF EXISTS settlement_periods_period_start_period_end_key;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_settlement_periods_org_dates
+  ON public.settlement_periods (organization_id, period_start, period_end);
+
+-- Sales Statement uniqueness is per organization (periods / preset names may repeat across labels).
+DROP INDEX IF EXISTS uq_sos_rules_presets_name_ci;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sos_rules_presets_org_name_ci
+  ON public.sos_rules_presets (organization_id, lower(btrim(name)));
+
+ALTER TABLE public.sos_accounting_workspaces
+  DROP CONSTRAINT IF EXISTS sos_accounting_workspaces_period_start_period_end_key;
+DROP INDEX IF EXISTS uq_sos_accounting_workspaces_org_period;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sos_accounting_workspaces_org_period
+  ON public.sos_accounting_workspaces (organization_id, period_start, period_end);
+
+DROP INDEX IF EXISTS sos_period_summaries_period_key;
+CREATE UNIQUE INDEX IF NOT EXISTS sos_period_summaries_org_period_key
+  ON public.sos_period_summaries (organization_id, period_start, period_end);
+
+-- Folder name uniqueness is per organization (each label may have its own "artists" root).
+DROP INDEX IF EXISTS uq_asset_folders_name_parent;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_asset_folders_name_parent_org
+  ON public.asset_folders (organization_id, name, COALESCE(parent_id::text, ''));
+
+-- Artist insert → folder tree must land in the artist's organization.
+CREATE OR REPLACE FUNCTION public.create_artist_asset_folder()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
+DECLARE
+  v_root_id UUID;
+  v_org_id UUID;
+BEGIN
+  v_org_id := COALESCE(NEW.organization_id, '00000000-0000-0000-0000-000000000000'::uuid);
+
+  INSERT INTO public.asset_folders (name, parent_id, artist_id, created_by, organization_id)
+  VALUES ('artists', NULL, NULL, NULL, v_org_id)
+  ON CONFLICT DO NOTHING;
+
+  SELECT id INTO v_root_id
+  FROM public.asset_folders
+  WHERE name = 'artists'
+    AND parent_id IS NULL
+    AND organization_id = v_org_id
+  LIMIT 1;
+
+  INSERT INTO public.asset_folders (name, parent_id, artist_id, created_by, organization_id)
+  VALUES (NEW.name, v_root_id, NEW.id, NULL, v_org_id)
+  ON CONFLICT DO NOTHING;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_artists_organization_slug ON public.artists (organization_id, slug);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_news_posts_organization_slug ON public.news_posts (organization_id, slug);
+
+CREATE TABLE IF NOT EXISTS public.organization_api_keys (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  UUID        NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  name             TEXT        NOT NULL,
+  key_prefix       TEXT        NOT NULL,
+  key_hash         TEXT        NOT NULL,
+  scopes           TEXT[]      NOT NULL DEFAULT '{read}',
+  revoked_at       TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_used_at     TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_organization_api_keys_org ON public.organization_api_keys (organization_id);
+CREATE INDEX IF NOT EXISTS idx_organization_api_keys_hash ON public.organization_api_keys (key_hash);
+
+CREATE TABLE IF NOT EXISTS public.organization_webhook_endpoints (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  UUID        NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  url              TEXT        NOT NULL,
+  secret           TEXT        NOT NULL,
+  events           TEXT[]      NOT NULL DEFAULT '{}',
+  enabled          BOOLEAN     NOT NULL DEFAULT TRUE,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_organization_webhooks_org ON public.organization_webhook_endpoints (organization_id);
+
+DROP TRIGGER IF EXISTS trg_organization_webhook_endpoints_updated_at ON public.organization_webhook_endpoints;
+CREATE TRIGGER trg_organization_webhook_endpoints_updated_at
+  BEFORE UPDATE ON public.organization_webhook_endpoints
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.organization_webhook_deliveries (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  endpoint_id      UUID        NOT NULL REFERENCES public.organization_webhook_endpoints (id) ON DELETE CASCADE,
+  event_type       TEXT        NOT NULL,
+  payload          JSONB       NOT NULL,
+  status           TEXT        NOT NULL DEFAULT 'pending',
+  response_status  INTEGER,
+  error_message    TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_endpoint ON public.organization_webhook_deliveries (endpoint_id);
+
+CREATE TABLE IF NOT EXISTS public.plans (
+  id                      UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug                    TEXT        NOT NULL UNIQUE,
+  name                    TEXT        NOT NULL,
+  price_monthly_cents     INTEGER     NOT NULL DEFAULT 0,
+  price_yearly_cents      INTEGER     NOT NULL DEFAULT 0,
+  stripe_price_monthly_id TEXT,
+  stripe_price_yearly_id  TEXT,
+  is_active               BOOLEAN     NOT NULL DEFAULT TRUE,
+  sort_order              INTEGER     NOT NULL DEFAULT 0,
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.plan_features (
+  plan_id      UUID NOT NULL REFERENCES public.plans (id) ON DELETE CASCADE,
+  feature_key  TEXT NOT NULL,
+  value        TEXT NOT NULL DEFAULT 'true',
+  PRIMARY KEY (plan_id, feature_key)
+);
+
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+  id                      UUID                          PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id         UUID                          NOT NULL UNIQUE REFERENCES public.organizations (id) ON DELETE CASCADE,
+  plan_id                 UUID                          NOT NULL REFERENCES public.plans (id),
+  stripe_customer_id      TEXT,
+  stripe_subscription_id  TEXT,
+  status                  public.subscription_status    NOT NULL DEFAULT 'incomplete',
+  billing_interval        TEXT                          NOT NULL DEFAULT 'month',
+  current_period_end      TIMESTAMPTZ,
+  cancel_at_period_end    BOOLEAN                       NOT NULL DEFAULT FALSE,
+  created_at              TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
+  updated_at              TIMESTAMPTZ                   NOT NULL DEFAULT NOW()
+);
+
+DROP TRIGGER IF EXISTS trg_subscriptions_updated_at ON public.subscriptions;
+CREATE TRIGGER trg_subscriptions_updated_at
+  BEFORE UPDATE ON public.subscriptions
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.organization_features (
+  organization_id UUID NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  feature_key     TEXT NOT NULL,
+  enabled         BOOLEAN NOT NULL DEFAULT TRUE,
+  PRIMARY KEY (organization_id, feature_key)
+);
+
+CREATE TABLE IF NOT EXISTS public.custom_domains (
+  id                  UUID                          PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id     UUID                          NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  domain              TEXT                          NOT NULL UNIQUE,
+  status              public.custom_domain_status   NOT NULL DEFAULT 'pending',
+  verification_token  TEXT                          NOT NULL,
+  verified_at         TIMESTAMPTZ,
+  created_at          TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ                   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_custom_domains_org ON public.custom_domains (organization_id);
+
+DROP TRIGGER IF EXISTS trg_custom_domains_updated_at ON public.custom_domains;
+CREATE TRIGGER trg_custom_domains_updated_at
+  BEFORE UPDATE ON public.custom_domains
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.organization_audit_log (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  UUID        NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  user_id          UUID        REFERENCES public.users (id) ON DELETE SET NULL,
+  action           TEXT        NOT NULL,
+  target_type      TEXT,
+  target_id        TEXT,
+  metadata         JSONB,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_organization_audit_log_org ON public.organization_audit_log (organization_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.stripe_webhook_events (
+  id           TEXT PRIMARY KEY,
+  type         TEXT NOT NULL,
+  processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  payload      JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE TABLE IF NOT EXISTS public.platform_admins (
+  user_id    UUID PRIMARY KEY REFERENCES public.users (id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.organization_api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_webhook_endpoints ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_webhook_deliveries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plan_features ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_features ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.custom_domains ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stripe_webhook_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.platform_admins ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "organization_api_keys: admin all" ON public.organization_api_keys;
+CREATE POLICY "organization_api_keys: admin all" ON public.organization_api_keys
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_webhooks: admin all" ON public.organization_webhook_endpoints;
+CREATE POLICY "organization_webhooks: admin all" ON public.organization_webhook_endpoints
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_webhook_deliveries: admin all" ON public.organization_webhook_deliveries;
+CREATE POLICY "organization_webhook_deliveries: admin all" ON public.organization_webhook_deliveries
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "plans: public read" ON public.plans;
+CREATE POLICY "plans: public read" ON public.plans FOR SELECT USING (is_active = TRUE);
+
+DROP POLICY IF EXISTS "plan_features: public read" ON public.plan_features;
+CREATE POLICY "plan_features: public read" ON public.plan_features FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "subscriptions: member read" ON public.subscriptions;
+DROP POLICY IF EXISTS "subscriptions: admin all" ON public.subscriptions;
+CREATE POLICY "subscriptions: member read" ON public.subscriptions
+  FOR SELECT USING (public.user_belongs_to_organization(organization_id));
+CREATE POLICY "subscriptions: admin all" ON public.subscriptions
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_features: member read" ON public.organization_features;
+DROP POLICY IF EXISTS "organization_features: admin all" ON public.organization_features;
+CREATE POLICY "organization_features: member read" ON public.organization_features
+  FOR SELECT USING (public.user_belongs_to_organization(organization_id));
+CREATE POLICY "organization_features: admin all" ON public.organization_features
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "custom_domains: member read" ON public.custom_domains;
+DROP POLICY IF EXISTS "custom_domains: admin all" ON public.custom_domains;
+CREATE POLICY "custom_domains: member read" ON public.custom_domains
+  FOR SELECT USING (public.user_belongs_to_organization(organization_id));
+CREATE POLICY "custom_domains: admin all" ON public.custom_domains
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "organization_audit_log: member read" ON public.organization_audit_log;
+DROP POLICY IF EXISTS "organization_audit_log: admin all" ON public.organization_audit_log;
+CREATE POLICY "organization_audit_log: member read" ON public.organization_audit_log
+  FOR SELECT USING (public.user_belongs_to_organization(organization_id));
+CREATE POLICY "organization_audit_log: admin all" ON public.organization_audit_log
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+DROP POLICY IF EXISTS "platform_admins: self read" ON public.platform_admins;
+CREATE POLICY "platform_admins: self read" ON public.platform_admins
+  FOR SELECT USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "platform_admins: admin all" ON public.platform_admins;
+CREATE POLICY "platform_admins: admin all" ON public.platform_admins
+  FOR ALL USING (public.get_my_role() = 'admin') WITH CHECK (public.get_my_role() = 'admin');
+
+INSERT INTO public.organization_branding (organization_id, primary_color, secondary_color) VALUES
+  ('00000000-0000-0000-0000-000000000000', '#c41e3a', '#1a1a2e'),
+  ('11111111-1111-1111-1111-111111111111', '#2563eb', '#0f172a')
+ON CONFLICT (organization_id) DO NOTHING;
+
+INSERT INTO public.plans (id, slug, name, price_monthly_cents, price_yearly_cents, sort_order) VALUES
+  ('22222222-2222-2222-2222-222222222221', 'starter', 'Starter', 4900, 47000, 1),
+  ('22222222-2222-2222-2222-222222222222', 'professional', 'Professional', 12900, 123000, 2),
+  ('22222222-2222-2222-2222-222222222223', 'business', 'Business', 29900, 287000, 3)
+ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO public.plan_features (plan_id, feature_key, value) VALUES
+  ('22222222-2222-2222-2222-222222222221', 'max_artists', '10'),
+  ('22222222-2222-2222-2222-222222222221', 'epk_builder', 'true'),
+  ('22222222-2222-2222-2222-222222222221', 'custom_domain', 'false'),
+  ('22222222-2222-2222-2222-222222222222', 'max_artists', '50'),
+  ('22222222-2222-2222-2222-222222222222', 'epk_builder', 'true'),
+  ('22222222-2222-2222-2222-222222222222', 'advanced_analytics', 'true'),
+  ('22222222-2222-2222-2222-222222222222', 'custom_domain', 'true'),
+  ('22222222-2222-2222-2222-222222222223', 'max_artists', 'unlimited'),
+  ('22222222-2222-2222-2222-222222222223', 'epk_builder', 'true'),
+  ('22222222-2222-2222-2222-222222222223', 'advanced_analytics', 'true'),
+  ('22222222-2222-2222-2222-222222222223', 'custom_domain', 'true'),
+  ('22222222-2222-2222-2222-222222222223', 'partner_api', 'true')
+ON CONFLICT (plan_id, feature_key) DO NOTHING;
+
+INSERT INTO public.organization_features (organization_id, feature_key, enabled) VALUES
+  ('00000000-0000-0000-0000-000000000000', 'partner_api', TRUE),
+  ('00000000-0000-0000-0000-000000000000', 'custom_domain', TRUE),
+  ('00000000-0000-0000-0000-000000000000', 'advanced_analytics', TRUE),
+  ('11111111-1111-1111-1111-111111111111', 'partner_api', TRUE),
+  ('11111111-1111-1111-1111-111111111111', 'custom_domain', TRUE)
+ON CONFLICT (organization_id, feature_key) DO NOTHING;
+
+INSERT INTO public.organization_users (organization_id, user_id, role)
+SELECT
+  '00000000-0000-0000-0000-000000000000',
+  u.id,
+  CASE WHEN u.role::text = 'admin' THEN 'admin'::public.organization_user_role
+       ELSE 'member'::public.organization_user_role END
+FROM public.users u
+WHERE u.role::text IN ('admin', 'editor')
+ON CONFLICT (organization_id, user_id) DO NOTHING;
+
+-- =============================================================================
+-- MULTI-TENANT RLS: staff isolation for organization-scoped tables
+-- Aligns with assertAdminOrganizationAccess (platform admin / membership / Org #0 legacy)
+-- Public anon key lists stay host-agnostic; app DAL still filters by host org for public.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.user_can_access_organization(org_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    EXISTS (
+      SELECT 1 FROM public.platform_admins pa WHERE pa.user_id = auth.uid()
+    )
+    OR public.user_belongs_to_organization(org_id)
+    OR (
+      org_id = '00000000-0000-0000-0000-000000000000'::uuid
+      AND public.get_my_role() IN ('admin', 'editor')
+    );
+$$;
+
+COMMENT ON FUNCTION public.user_can_access_organization(UUID) IS
+  'Staff may access org data: platform_admins, organization_users membership, or Org #0 legacy admin/editor';
+
+-- Assets: staff read/write limited to accessible organizations
+DROP POLICY IF EXISTS "assets: staff read" ON public.assets;
+CREATE POLICY "assets: staff read" ON public.assets
+  FOR SELECT USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() IN ('admin', 'editor'))
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "assets: can_view_admin_panel insert" ON public.assets;
+CREATE POLICY "assets: can_view_admin_panel insert" ON public.assets
+  FOR INSERT WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "assets: can_view_admin_panel update" ON public.assets;
+CREATE POLICY "assets: can_view_admin_panel update" ON public.assets
+  FOR UPDATE USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "assets: admin delete" ON public.assets;
+CREATE POLICY "assets: admin delete" ON public.assets
+  FOR DELETE USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Asset folders
+DROP POLICY IF EXISTS "asset_folders: staff read" ON public.asset_folders;
+CREATE POLICY "asset_folders: staff read" ON public.asset_folders
+  FOR SELECT TO authenticated
+  USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() IN ('admin', 'editor'))
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "asset_folders: can_view_admin_panel write" ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: can_view_admin_panel update" ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: editor+ write" ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: editor+ update" ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: admin delete" ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: staff write" ON public.asset_folders;
+DROP POLICY IF EXISTS "asset_folders: staff update" ON public.asset_folders;
+
+CREATE POLICY "asset_folders: staff write" ON public.asset_folders
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() IN ('admin', 'editor'))
+    AND public.user_can_access_organization(organization_id)
+  );
+
+CREATE POLICY "asset_folders: staff update" ON public.asset_folders
+  FOR UPDATE TO authenticated
+  USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() IN ('admin', 'editor'))
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() IN ('admin', 'editor'))
+    AND public.user_can_access_organization(organization_id)
+  );
+
+CREATE POLICY "asset_folders: admin delete" ON public.asset_folders
+  FOR DELETE TO authenticated
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- EPK templates (admin)
+DROP POLICY IF EXISTS "epk_templates: admin all" ON public.epk_templates;
+CREATE POLICY "epk_templates: admin all" ON public.epk_templates
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Message templates
+DROP POLICY IF EXISTS "message_templates: admin all" ON public.message_templates;
+CREATE POLICY "message_templates: admin all" ON public.message_templates
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- site_settings staff write limited to accessible orgs
+DROP POLICY IF EXISTS "site_settings_admin_write" ON public.site_settings;
+CREATE POLICY "site_settings_admin_write" ON public.site_settings
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- site_settings staff SELECT must also be org-gated (public key list remains open)
+DROP POLICY IF EXISTS "site_settings_public_read" ON public.site_settings;
+CREATE POLICY "site_settings_public_read" ON public.site_settings
+  FOR SELECT USING (
+    (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_organization(organization_id)
+    )
+    OR key = ANY (ARRAY[
+      'label_name','label_short_name','label_tagline','contact_email','privacy_policy_url','terms_url',
+      'instagram_url','youtube_url','spotify_url','spotify_playlist_uri','spotify_playlists',
+      'hero_badge','hero_news_badge','hero_description','hero_content_type','hero_featured_id',
+      'hero_custom_bg_url','hero_default_primary_btn_label','hero_default_secondary_btn_label',
+      'seo_title','seo_description','og_title','og_description',
+      'impressum_company_name','impressum_legal_form','impressum_representative','impressum_address',
+      'impressum_vat_id','impressum_register_court','impressum_register_number','impressum_phone','impressum_email',
+      'datenschutz_content','datenschutz_content_en','agb_content','agb_content_en','portal_terms_version',
+      'consent_placeholder_url','noise_opacity','crt_scanlines_enabled','vignette_intensity','shopify_store_url',
+      'submit_hub_url','submit_hub_label','submit_hub_description','submit_hub_section_heading',
+      'show_about_in_header','show_about_in_footer','about_nav_label','youtube_channel_id','carousel_autoplay_ms',
+      'videos_per_page','videos_link_to_page','exclude_shorts_from_public','concerts_per_page','concerts_link_to_page',
+      'feature_toggles','logo_url','favicon_url','about_headline','about_subheading','about_body',
+      'newsletter_heading','newsletter_description','spotify_section_heading','spotify_section_subheading',
+      'videos_section_heading','videos_section_subheading','news_section_heading','news_section_subheading',
+      'concerts_section_heading','concerts_section_subheading','releases_section_heading','releases_section_subheading',
+      'homepage_section_order','homepage_news_count','contact_topics','custom_social_links',
+      'theme_primary','theme_secondary','theme_background','theme_foreground','theme_card','theme_muted',
+      'theme_accent','theme_border','theme_gradient_hero_from','theme_gradient_hero_to','theme_gradient_hero_dir',
+      'theme_gradient_accent_from','theme_gradient_accent_to','theme_gradient_accent_dir','theme_config'
+    ]::text[])
+  );
+-- site_settings_public_read org gate
+
+-- =============================================================================
+-- CMS staff RLS: artists/releases/news/videos/concerts/genres
+-- Public SELECT stays open for visible content (app filters host org).
+-- Staff bypass paths require user_can_access_organization(organization_id).
+-- =============================================================================
+
+-- artists
+DROP POLICY IF EXISTS "artists: public read visible" ON public.artists;
+CREATE POLICY "artists: public read visible" ON public.artists
+  FOR SELECT USING (
+    is_visible = TRUE
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "artists: can_manage_artists insert" ON public.artists;
+CREATE POLICY "artists: can_manage_artists insert" ON public.artists
+  FOR INSERT WITH CHECK (
+    (public.has_permission('can_manage_artists') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "artists: can_manage_artists update" ON public.artists;
+CREATE POLICY "artists: can_manage_artists update" ON public.artists
+  FOR UPDATE USING (
+    (public.has_permission('can_manage_artists') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    (public.has_permission('can_manage_artists') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "artists: admin delete" ON public.artists;
+CREATE POLICY "artists: admin delete" ON public.artists
+  FOR DELETE USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- releases
+DROP POLICY IF EXISTS "releases: public read visible" ON public.releases;
+CREATE POLICY "releases: public read visible" ON public.releases
+  FOR SELECT USING (
+    (
+      is_visible = TRUE
+      AND (
+        artist_id IS NULL
+        OR EXISTS (
+          SELECT 1 FROM public.artists a
+          WHERE a.id = artist_id AND a.is_visible = TRUE
+        )
+      )
+    )
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "releases: can_manage_releases insert" ON public.releases;
+CREATE POLICY "releases: can_manage_releases insert" ON public.releases
+  FOR INSERT WITH CHECK (
+    (public.has_permission('can_manage_releases') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "releases: can_manage_releases update" ON public.releases;
+CREATE POLICY "releases: can_manage_releases update" ON public.releases
+  FOR UPDATE USING (
+    (public.has_permission('can_manage_releases') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    (public.has_permission('can_manage_releases') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "releases: admin delete" ON public.releases;
+CREATE POLICY "releases: admin delete" ON public.releases
+  FOR DELETE USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- news_posts
+DROP POLICY IF EXISTS "news_posts: public read" ON public.news_posts;
+CREATE POLICY "news_posts: public read" ON public.news_posts
+  FOR SELECT USING (
+    (
+      status IN ('published', 'scheduled')
+      AND published_at <= NOW()
+      AND is_press_only = false
+    )
+    OR (
+      (
+        public.has_permission('can_edit_news')
+        OR public.has_permission('can_publish_news')
+        OR public.get_my_role() IN ('admin', 'editor', 'journalist')
+      )
+      AND public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "news_posts: can_publish_news insert" ON public.news_posts;
+CREATE POLICY "news_posts: can_publish_news insert" ON public.news_posts
+  FOR INSERT WITH CHECK (
+    (public.has_permission('can_publish_news') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "news_posts: can_edit_news update" ON public.news_posts;
+CREATE POLICY "news_posts: can_edit_news update" ON public.news_posts
+  FOR UPDATE USING (
+    (public.has_permission('can_edit_news') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    (public.has_permission('can_edit_news') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "news_posts: admin delete" ON public.news_posts;
+CREATE POLICY "news_posts: admin delete" ON public.news_posts
+  FOR DELETE USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- videos
+DROP POLICY IF EXISTS "videos: public read" ON public.videos;
+CREATE POLICY "videos: public read" ON public.videos
+  FOR SELECT USING (
+    is_visible = TRUE
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "videos: can_manage_videos insert" ON public.videos;
+CREATE POLICY "videos: can_manage_videos insert" ON public.videos
+  FOR INSERT WITH CHECK (
+    (public.has_permission('can_manage_videos') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "videos: can_manage_videos update" ON public.videos;
+CREATE POLICY "videos: can_manage_videos update" ON public.videos
+  FOR UPDATE USING (
+    (public.has_permission('can_manage_videos') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    (public.has_permission('can_manage_videos') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "videos: admin delete" ON public.videos;
+CREATE POLICY "videos: admin delete" ON public.videos
+  FOR DELETE USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- concerts (staff admin policies; artist-own policies unchanged)
+DROP POLICY IF EXISTS "concerts: public read visible" ON public.concerts;
+CREATE POLICY "concerts: public read visible" ON public.concerts
+  FOR SELECT USING (
+    artist_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = artist_id AND a.is_visible = TRUE
+    )
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "Allow admin inserts on concerts" ON public.concerts;
+CREATE POLICY "Allow admin inserts on concerts" ON public.concerts
+  FOR INSERT WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "Allow admin updates on concerts" ON public.concerts;
+CREATE POLICY "Allow admin updates on concerts" ON public.concerts
+  FOR UPDATE USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "Allow admin deletes on concerts" ON public.concerts;
+CREATE POLICY "Allow admin deletes on concerts" ON public.concerts
+  FOR DELETE USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- genres catalogue
+DROP POLICY IF EXISTS "genres_write_admin" ON public.genres;
+CREATE POLICY "genres_write_admin" ON public.genres
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- CMS staff RLS: artists/releases/news/videos/concerts/genres
+
+-- =============================================================================
+-- sync_queue / release_submissions staff RLS
+-- =============================================================================
+
+DROP POLICY IF EXISTS "sync_queue: admin all" ON public.sync_queue;
+CREATE POLICY "sync_queue: admin all" ON public.sync_queue
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "release_submissions: editor+ read all" ON public.release_submissions;
+CREATE POLICY "release_submissions: editor+ read all" ON public.release_submissions
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "release_submissions: editor+ update" ON public.release_submissions;
+CREATE POLICY "release_submissions: editor+ update" ON public.release_submissions
+  FOR UPDATE USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  ) WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- sync_queue / release_submissions staff RLS
+
+-- =============================================================================
+-- Sales Statement / settlement / portal flags staff RLS (organization_id)
+-- Admin policies require user_can_access_organization. Artist-linked SELECT
+-- policies on distributor batches stay unchanged.
+-- =============================================================================
+
+-- Sales Statement rule presets
+DROP POLICY IF EXISTS "sos_rules_presets: admin all" ON public.sos_rules_presets;
+CREATE POLICY "sos_rules_presets: admin all" ON public.sos_rules_presets
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Sales Statement accounting workspaces
+DROP POLICY IF EXISTS "sos_accounting_workspaces: admin/editor all" ON public.sos_accounting_workspaces;
+CREATE POLICY "sos_accounting_workspaces: admin/editor all" ON public.sos_accounting_workspaces
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Sales Statement period summaries
+DROP POLICY IF EXISTS "sos_period_summaries: admin all" ON public.sos_period_summaries;
+CREATE POLICY "sos_period_summaries: admin all" ON public.sos_period_summaries
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Bronze import batches (Sales Statement chain-of-custody)
+DROP POLICY IF EXISTS "distributor_import_batches: admin all" ON public.distributor_import_batches;
+CREATE POLICY "distributor_import_batches: admin all" ON public.distributor_import_batches
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Settlement register periods
+DROP POLICY IF EXISTS "settlement_periods: admin all" ON public.settlement_periods;
+CREATE POLICY "settlement_periods: admin all" ON public.settlement_periods
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Portal feature flags: staff write limited to accessible orgs
+DROP POLICY IF EXISTS "portal_feature_flags: admin write" ON public.portal_feature_flags;
+CREATE POLICY "portal_feature_flags: admin write" ON public.portal_feature_flags
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Sales Statement / settlement / portal flags staff RLS
+
+-- =============================================================================
+-- Nested staff RLS: artist-scoped financial rows (via artists.organization_id)
+-- =============================================================================
+
+DROP POLICY IF EXISTS "sales_statements: admin all" ON public.sales_statements;
+CREATE POLICY "sales_statements: admin all" ON public.sales_statements
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = sales_statements.artist_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = sales_statements.artist_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "settlement_ledger: admin all" ON public.artist_settlement_ledger;
+CREATE POLICY "settlement_ledger: admin all" ON public.artist_settlement_ledger
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = artist_settlement_ledger.artist_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = artist_settlement_ledger.artist_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "carry_forwards: admin all" ON public.period_carry_forwards;
+CREATE POLICY "carry_forwards: admin all" ON public.period_carry_forwards
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = period_carry_forwards.artist_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.artists a
+      WHERE a.id = period_carry_forwards.artist_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  );
+
+-- Nested staff RLS (sales_statements / settlement ledger / carry-forwards)
+-- =============================================================================
+-- Nested staff RLS via artists.organization_id (helper + finance/portal/metrics)
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.user_can_access_artist(p_artist_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.artists a
+    WHERE a.id = p_artist_id
+      AND public.user_can_access_organization(a.organization_id)
+  );
+$$;
+
+COMMENT ON FUNCTION public.user_can_access_artist(UUID) IS
+  'Staff may access artist-scoped rows when they can access the artist''s organization';
+
+-- artist_private_data (PII): close staff bypass + admin all
+DROP POLICY IF EXISTS "artist_private_data: member read" ON public.artist_private_data;
+CREATE POLICY "artist_private_data: member read" ON public.artist_private_data
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.artist_members am
+      WHERE am.artist_id = artist_id AND am.user_id = auth.uid()
+    )
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_artist(artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "artist_private_data: member write" ON public.artist_private_data;
+CREATE POLICY "artist_private_data: member write" ON public.artist_private_data
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM public.artist_members am
+      WHERE am.artist_id = artist_id AND am.user_id = auth.uid()
+    )
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_artist(artist_id)
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.artist_members am
+      WHERE am.artist_id = artist_id AND am.user_id = auth.uid()
+    )
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_artist(artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "artist_private_data: admin all" ON public.artist_private_data;
+CREATE POLICY "artist_private_data: admin all" ON public.artist_private_data
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- artist_members
+DROP POLICY IF EXISTS "artist_members: admin all" ON public.artist_members;
+CREATE POLICY "artist_members: admin all" ON public.artist_members
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- Finance / billing / documents
+DROP POLICY IF EXISTS "artist_invoices: admin all" ON public.artist_invoices;
+CREATE POLICY "artist_invoices: admin all" ON public.artist_invoices
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_billing_profiles: admin all" ON public.artist_billing_profiles;
+CREATE POLICY "artist_billing_profiles: admin all" ON public.artist_billing_profiles
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_documents: admin all" ON public.artist_documents;
+CREATE POLICY "artist_documents: admin all" ON public.artist_documents
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- Metrics / streaming
+DROP POLICY IF EXISTS "streaming_stats: admin all" ON public.streaming_stats;
+CREATE POLICY "streaming_stats: admin all" ON public.streaming_stats
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_territory_metrics: admin all" ON public.artist_territory_metrics;
+CREATE POLICY "artist_territory_metrics: admin all" ON public.artist_territory_metrics
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_listener_metrics: admin all" ON public.artist_listener_metrics;
+CREATE POLICY "artist_listener_metrics: admin all" ON public.artist_listener_metrics
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "spotify_track_play_snapshots: admin all" ON public.spotify_track_play_snapshots;
+CREATE POLICY "spotify_track_play_snapshots: admin all" ON public.spotify_track_play_snapshots
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "sales_statement_line_items: admin all" ON public.sales_statement_line_items;
+CREATE POLICY "sales_statement_line_items: admin all" ON public.sales_statement_line_items
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1
+      FROM public.sales_statements ss
+      WHERE ss.id = statement_id
+        AND public.user_can_access_artist(ss.artist_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1
+      FROM public.sales_statements ss
+      WHERE ss.id = statement_id
+        AND public.user_can_access_artist(ss.artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "event_impact: admin all" ON public.event_impact;
+CREATE POLICY "event_impact: admin all" ON public.event_impact
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "promo_impact: admin all" ON public.promo_impact;
+CREATE POLICY "promo_impact: admin all" ON public.promo_impact
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "page_events: admin all" ON public.page_events;
+CREATE POLICY "page_events: admin all" ON public.page_events
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND artist_id IS NOT NULL
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND artist_id IS NOT NULL
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "merch_orders: admin all" ON public.merch_orders;
+CREATE POLICY "merch_orders: admin all" ON public.merch_orders
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "release_checklists: admin all" ON public.release_checklists;
+CREATE POLICY "release_checklists: admin all" ON public.release_checklists
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- Label ↔ artist messages
+DROP POLICY IF EXISTS "label_messages: admin all" ON public.label_messages;
+CREATE POLICY "label_messages: admin all" ON public.label_messages
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "message_attachments: admin all" ON public.message_attachments;
+CREATE POLICY "message_attachments: admin all" ON public.message_attachments
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND EXISTS (
+      SELECT 1
+      FROM public.label_messages lm
+      WHERE lm.id = message_id
+        AND public.user_can_access_artist(lm.artist_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND EXISTS (
+      SELECT 1
+      FROM public.label_messages lm
+      WHERE lm.id = message_id
+        AND public.user_can_access_artist(lm.artist_id)
+    )
+  );
+
+-- Portal mailbox
+DROP POLICY IF EXISTS "portal_msg_folders: admin all" ON public.portal_message_folders;
+CREATE POLICY "portal_msg_folders: admin all" ON public.portal_message_folders
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "portal_messages: admin all" ON public.portal_messages;
+CREATE POLICY "portal_messages: admin all" ON public.portal_messages
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND (
+      public.user_can_access_artist(from_artist_id)
+      OR (to_artist_id IS NOT NULL AND public.user_can_access_artist(to_artist_id))
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(from_artist_id)
+  );
+
+DROP POLICY IF EXISTS "portal_attach: admin all" ON public.portal_message_attachments;
+CREATE POLICY "portal_attach: admin all" ON public.portal_message_attachments
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND EXISTS (
+      SELECT 1
+      FROM public.portal_messages pm
+      WHERE pm.id = message_id
+        AND (
+          public.user_can_access_artist(pm.from_artist_id)
+          OR (pm.to_artist_id IS NOT NULL AND public.user_can_access_artist(pm.to_artist_id))
+        )
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND EXISTS (
+      SELECT 1
+      FROM public.portal_messages pm
+      WHERE pm.id = message_id
+        AND public.user_can_access_artist(pm.from_artist_id)
+    )
+  );
+
+-- EPK / landing pages (admin + editor staff paths)
+DROP POLICY IF EXISTS "artist_epks: admin all" ON public.artist_epks;
+CREATE POLICY "artist_epks: admin all" ON public.artist_epks
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "epk_versions: admin all" ON public.epk_versions;
+CREATE POLICY "epk_versions: admin all" ON public.epk_versions
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_landing_pages: admin all" ON public.artist_landing_pages;
+CREATE POLICY "artist_landing_pages: admin all" ON public.artist_landing_pages
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_landing_pages: editor+ read all" ON public.artist_landing_pages;
+CREATE POLICY "artist_landing_pages: editor+ read all" ON public.artist_landing_pages
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "artist_landing_pages: editor+ update" ON public.artist_landing_pages;
+CREATE POLICY "artist_landing_pages: editor+ update" ON public.artist_landing_pages
+  FOR UPDATE USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "epk_fonts: admin all" ON public.epk_fonts;
+CREATE POLICY "epk_fonts: admin all" ON public.epk_fonts
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND (
+      (artist_id IS NOT NULL AND public.user_can_access_artist(artist_id))
+      OR (
+        artist_id IS NULL
+        AND public.user_can_access_organization('00000000-0000-0000-0000-000000000000'::uuid)
+      )
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND (
+      (artist_id IS NOT NULL AND public.user_can_access_artist(artist_id))
+      OR (
+        artist_id IS NULL
+        AND public.user_can_access_organization('00000000-0000-0000-0000-000000000000'::uuid)
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "epk_share_links: admin all" ON public.epk_share_links;
+CREATE POLICY "epk_share_links: admin all" ON public.epk_share_links
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "epk_download_events: admin all" ON public.epk_download_events;
+CREATE POLICY "epk_download_events: admin all" ON public.epk_download_events
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- Nested staff RLS via user_can_access_artist
+
+-- =============================================================================
+-- Tour planner + promo_log + concert_artists nested staff RLS
+-- =============================================================================
+
+DROP POLICY IF EXISTS "tours: admin all" ON public.tours;
+CREATE POLICY "tours: admin all" ON public.tours
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_stops: admin all" ON public.tour_stops;
+CREATE POLICY "tour_stops: admin all" ON public.tour_stops
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_contacts: admin all" ON public.tour_contacts;
+CREATE POLICY "tour_contacts: admin all" ON public.tour_contacts
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_tasks: admin all" ON public.tour_tasks;
+CREATE POLICY "tour_tasks: admin all" ON public.tour_tasks
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_crew: admin all" ON public.tour_crew_members;
+CREATE POLICY "tour_crew: admin all" ON public.tour_crew_members
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.tours t
+      WHERE t.id = tour_id
+        AND public.user_can_access_artist(t.artist_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.tours t
+      WHERE t.id = tour_id
+        AND public.user_can_access_artist(t.artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "tour_merch_items: admin all" ON public.tour_merch_items;
+CREATE POLICY "tour_merch_items: admin all" ON public.tour_merch_items
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_merch_settlements: admin all" ON public.tour_merch_settlements;
+CREATE POLICY "tour_merch_settlements: admin all" ON public.tour_merch_settlements
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_share_links: admin all" ON public.tour_share_links;
+CREATE POLICY "tour_share_links: admin all" ON public.tour_share_links
+  FOR ALL
+  USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_share_links: artist manage" ON public.tour_share_links;
+CREATE POLICY "tour_share_links: artist manage" ON public.tour_share_links
+  FOR ALL
+  USING (
+    artist_id IN (SELECT am.artist_id FROM public.artist_members am WHERE am.user_id = auth.uid())
+    OR (
+      (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+      AND public.user_can_access_artist(artist_id)
+    )
+  )
+  WITH CHECK (
+    artist_id IN (SELECT am.artist_id FROM public.artist_members am WHERE am.user_id = auth.uid())
+    OR (
+      (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+      AND public.user_can_access_artist(artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "tour_collaborators: admin all" ON public.tour_collaborators;
+CREATE POLICY "tour_collaborators: admin all" ON public.tour_collaborators
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.tours t
+      WHERE t.id = tour_id
+        AND public.user_can_access_artist(t.artist_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.tours t
+      WHERE t.id = tour_id
+        AND public.user_can_access_artist(t.artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "tour_stop_performing_artists: admin all" ON public.tour_stop_performing_artists;
+CREATE POLICY "tour_stop_performing_artists: admin all" ON public.tour_stop_performing_artists
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.tour_stops ts
+      WHERE ts.id = stop_id
+        AND public.user_can_access_artist(ts.artist_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.tour_stops ts
+      WHERE ts.id = stop_id
+        AND public.user_can_access_artist(ts.artist_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "tour_stop_artist_private: admin all" ON public.tour_stop_artist_private;
+CREATE POLICY "tour_stop_artist_private: admin all" ON public.tour_stop_artist_private
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "tour_artist_finance: admin all" ON public.tour_artist_finance;
+CREATE POLICY "tour_artist_finance: admin all" ON public.tour_artist_finance
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "concert_artists: admin all" ON public.concert_artists;
+CREATE POLICY "concert_artists: admin all" ON public.concert_artists
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.concerts c
+      WHERE c.id = concert_id
+        AND public.user_can_access_organization(c.organization_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND EXISTS (
+      SELECT 1 FROM public.concerts c
+      WHERE c.id = concert_id
+        AND public.user_can_access_organization(c.organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "promo_log: admin all" ON public.promo_log_entries;
+CREATE POLICY "promo_log: admin all" ON public.promo_log_entries
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- =============================================================================
+-- message_folders / message_rules: expand organization_id + staff RLS
+-- =============================================================================
+
+ALTER TABLE public.message_folders ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.message_rules ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.message_folders
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+UPDATE public.message_rules
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+ALTER TABLE public.message_folders ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.message_folders ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.message_rules ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.message_rules ALTER COLUMN organization_id SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_message_folders_organization_id ON public.message_folders (organization_id);
+CREATE INDEX IF NOT EXISTS idx_message_rules_organization_id ON public.message_rules (organization_id);
+
+DROP POLICY IF EXISTS "message_folders: admin all" ON public.message_folders;
+CREATE POLICY "message_folders: admin all" ON public.message_folders
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "message_rules: admin all" ON public.message_rules;
+CREATE POLICY "message_rules: admin all" ON public.message_rules
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Tour planner + mailbox folders/rules org isolation
+
+-- =============================================================================
+-- Press / promo isolation: organization_id expand + staff RLS
+-- =============================================================================
+
+ALTER TABLE public.promo_tracks ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.journalist_applications ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+ALTER TABLE public.accreditation_requests ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.promo_tracks
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+UPDATE public.journalist_applications
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+UPDATE public.accreditation_requests
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+ALTER TABLE public.promo_tracks ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.promo_tracks ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.journalist_applications ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.journalist_applications ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.accreditation_requests ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.accreditation_requests ALTER COLUMN organization_id SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_promo_tracks_organization_id ON public.promo_tracks (organization_id);
+CREATE INDEX IF NOT EXISTS idx_journalist_applications_organization_id ON public.journalist_applications (organization_id);
+CREATE INDEX IF NOT EXISTS idx_accreditation_requests_organization_id ON public.accreditation_requests (organization_id);
+
+-- Promo tracks: journalists only see tracks for orgs they were approved on; staff org-gated
+DROP POLICY IF EXISTS "promo_tracks: journalist read" ON public.promo_tracks;
+CREATE POLICY "promo_tracks: journalist read" ON public.promo_tracks
+  FOR SELECT USING (
+    (
+      public.get_my_role() = 'journalist'
+      AND EXISTS (
+        SELECT 1
+        FROM public.journalist_applications ja
+        WHERE ja.user_id = auth.uid()
+          AND ja.status = 'approved'
+          AND ja.organization_id = promo_tracks.organization_id
+      )
+    )
+    OR (
+      public.get_my_role() IN ('admin', 'editor')
+      AND public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "promo_tracks: admin all" ON public.promo_tracks;
+CREATE POLICY "promo_tracks: admin all" ON public.promo_tracks
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Journalist applications
+DROP POLICY IF EXISTS "journalist_applications: admin all" ON public.journalist_applications;
+CREATE POLICY "journalist_applications: admin all" ON public.journalist_applications
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Accreditation requests
+DROP POLICY IF EXISTS "accreditation_requests: admin all" ON public.accreditation_requests;
+CREATE POLICY "accreditation_requests: admin all" ON public.accreditation_requests
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Press kit staff writes via assets.organization_id (public read stays asset-flag based)
+DROP POLICY IF EXISTS "press_kit_items: can_view_admin_panel insert" ON public.press_kit_items;
+CREATE POLICY "press_kit_items: can_view_admin_panel insert" ON public.press_kit_items
+  FOR INSERT WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND EXISTS (
+      SELECT 1 FROM public.assets a
+      WHERE a.id = asset_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "press_kit_items: can_view_admin_panel update" ON public.press_kit_items;
+CREATE POLICY "press_kit_items: can_view_admin_panel update" ON public.press_kit_items
+  FOR UPDATE USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND EXISTS (
+      SELECT 1 FROM public.assets a
+      WHERE a.id = asset_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  ) WITH CHECK (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND EXISTS (
+      SELECT 1 FROM public.assets a
+      WHERE a.id = asset_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "press_kit_items: can_view_admin_panel delete" ON public.press_kit_items;
+CREATE POLICY "press_kit_items: can_view_admin_panel delete" ON public.press_kit_items
+  FOR DELETE USING (
+    (public.has_permission('can_view_admin_panel') OR public.get_my_role() = 'admin')
+    AND EXISTS (
+      SELECT 1 FROM public.assets a
+      WHERE a.id = asset_id
+        AND public.user_can_access_organization(a.organization_id)
+    )
+  );
+
+-- Interview requests: staff may manage rows for artists in their org
+DROP POLICY IF EXISTS "interview_requests: admin all" ON public.interview_requests;
+CREATE POLICY "interview_requests: admin all" ON public.interview_requests
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- Press / promo organization isolation
+
+-- =============================================================================
+-- journalist_downloads organization_id + api_credentials org-gated staff RLS
+-- =============================================================================
+
+ALTER TABLE public.journalist_downloads ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.journalist_downloads
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+-- Best-effort backfill from linked asset or release org when present
+UPDATE public.journalist_downloads jd
+SET organization_id = a.organization_id
+FROM public.assets a
+WHERE jd.asset_id = a.id
+  AND jd.organization_id = '00000000-0000-0000-0000-000000000000'
+  AND a.organization_id IS NOT NULL
+  AND a.organization_id <> '00000000-0000-0000-0000-000000000000';
+
+UPDATE public.journalist_downloads jd
+SET organization_id = r.organization_id
+FROM public.releases r
+WHERE jd.release_id = r.id
+  AND jd.organization_id = '00000000-0000-0000-0000-000000000000'
+  AND r.organization_id IS NOT NULL
+  AND r.organization_id <> '00000000-0000-0000-0000-000000000000';
+
+ALTER TABLE public.journalist_downloads ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.journalist_downloads ALTER COLUMN organization_id SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_journalist_downloads_organization_id
+  ON public.journalist_downloads (organization_id);
+
+DROP POLICY IF EXISTS "journalist_downloads: own read" ON public.journalist_downloads;
+CREATE POLICY "journalist_downloads: own read" ON public.journalist_downloads
+  FOR SELECT USING (journalist_id = auth.uid());
+
+DROP POLICY IF EXISTS "journalist_downloads: own insert" ON public.journalist_downloads;
+CREATE POLICY "journalist_downloads: own insert" ON public.journalist_downloads
+  FOR INSERT WITH CHECK (
+    journalist_id = auth.uid()
+    AND (
+      public.get_my_role() IN ('journalist', 'admin')
+      OR public.user_can_access_organization(organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "journalist_downloads: admin read" ON public.journalist_downloads;
+CREATE POLICY "journalist_downloads: admin read" ON public.journalist_downloads
+  FOR SELECT USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- api_credentials.label_id is the organization key (DEFAULT_LABEL_ID = Org #0)
+DROP POLICY IF EXISTS "api_credentials_admin_only" ON public.api_credentials;
+CREATE POLICY "api_credentials_admin_only" ON public.api_credentials
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(label_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(label_id)
+  );
+
+-- journalist_downloads + api_credentials org isolation
+
+-- =============================================================================
+-- Org SaaS staff policies + video_submissions / portal_feedback / message notes
+-- =============================================================================
+
+-- organizations: label staff only touch orgs they can access (platform_admins via helper)
+DROP POLICY IF EXISTS "organizations: admin all" ON public.organizations;
+CREATE POLICY "organizations: admin all" ON public.organizations
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(id)
+  );
+
+DROP POLICY IF EXISTS "organization_users: admin all" ON public.organization_users;
+CREATE POLICY "organization_users: admin all" ON public.organization_users
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_branding: admin all" ON public.organization_branding;
+CREATE POLICY "organization_branding: admin all" ON public.organization_branding
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_api_keys: admin all" ON public.organization_api_keys;
+CREATE POLICY "organization_api_keys: admin all" ON public.organization_api_keys
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_webhooks: admin all" ON public.organization_webhook_endpoints;
+CREATE POLICY "organization_webhooks: admin all" ON public.organization_webhook_endpoints
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_webhook_deliveries: admin all" ON public.organization_webhook_deliveries;
+CREATE POLICY "organization_webhook_deliveries: admin all" ON public.organization_webhook_deliveries
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND EXISTS (
+      SELECT 1
+      FROM public.organization_webhook_endpoints e
+      WHERE e.id = endpoint_id
+        AND public.user_can_access_organization(e.organization_id)
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND EXISTS (
+      SELECT 1
+      FROM public.organization_webhook_endpoints e
+      WHERE e.id = endpoint_id
+        AND public.user_can_access_organization(e.organization_id)
+    )
+  );
+
+DROP POLICY IF EXISTS "subscriptions: admin all" ON public.subscriptions;
+CREATE POLICY "subscriptions: admin all" ON public.subscriptions
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_features: admin all" ON public.organization_features;
+CREATE POLICY "organization_features: admin all" ON public.organization_features
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "custom_domains: admin all" ON public.custom_domains;
+CREATE POLICY "custom_domains: admin all" ON public.custom_domains
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "organization_audit_log: admin all" ON public.organization_audit_log;
+CREATE POLICY "organization_audit_log: admin all" ON public.organization_audit_log
+  FOR ALL
+  USING (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() = 'admin'
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Only existing platform admins may manage the platform_admins table
+-- (SECURITY DEFINER avoids RLS recursion on platform_admins itself)
+CREATE OR REPLACE FUNCTION public.user_is_platform_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.platform_admins pa WHERE pa.user_id = auth.uid()
+  );
+$$;
+
+DROP POLICY IF EXISTS "platform_admins: admin all" ON public.platform_admins;
+CREATE POLICY "platform_admins: admin all" ON public.platform_admins
+  FOR ALL
+  USING (public.user_is_platform_admin())
+  WITH CHECK (public.user_is_platform_admin());
+
+-- video_submissions staff paths
+DROP POLICY IF EXISTS "video_submissions: editor+ read all" ON public.video_submissions;
+CREATE POLICY "video_submissions: editor+ read all" ON public.video_submissions
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "video_submissions: editor+ update" ON public.video_submissions;
+CREATE POLICY "video_submissions: editor+ update" ON public.video_submissions
+  FOR UPDATE USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- portal_feedback staff paths
+DROP POLICY IF EXISTS "portal_feedback: editor+ read all" ON public.portal_feedback;
+CREATE POLICY "portal_feedback: editor+ read all" ON public.portal_feedback
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+DROP POLICY IF EXISTS "portal_feedback: editor+ update" ON public.portal_feedback;
+CREATE POLICY "portal_feedback: editor+ update" ON public.portal_feedback
+  FOR UPDATE USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_artist(artist_id)
+  );
+
+-- Mailbox internal notes / events: nest through label or portal messages
+DROP POLICY IF EXISTS "message_internal_notes: admin all" ON public.message_internal_notes;
+DROP POLICY IF EXISTS "message_internal_notes: editor read write" ON public.message_internal_notes;
+CREATE POLICY "message_internal_notes: staff all" ON public.message_internal_notes
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND (
+      (
+        message_source = 'label'
+        AND EXISTS (
+          SELECT 1
+          FROM public.label_messages lm
+          WHERE lm.id = message_id
+            AND public.user_can_access_artist(lm.artist_id)
+        )
+      )
+      OR (
+        message_source = 'portal'
+        AND EXISTS (
+          SELECT 1
+          FROM public.portal_messages pm
+          WHERE pm.id = message_id
+            AND (
+              public.user_can_access_artist(pm.from_artist_id)
+              OR (pm.to_artist_id IS NOT NULL AND public.user_can_access_artist(pm.to_artist_id))
+            )
+        )
+      )
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND (
+      (
+        message_source = 'label'
+        AND EXISTS (
+          SELECT 1
+          FROM public.label_messages lm
+          WHERE lm.id = message_id
+            AND public.user_can_access_artist(lm.artist_id)
+        )
+      )
+      OR (
+        message_source = 'portal'
+        AND EXISTS (
+          SELECT 1
+          FROM public.portal_messages pm
+          WHERE pm.id = message_id
+            AND public.user_can_access_artist(pm.from_artist_id)
+        )
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "message_events: admin all" ON public.message_events;
+DROP POLICY IF EXISTS "message_events: editor insert read" ON public.message_events;
+CREATE POLICY "message_events: staff all" ON public.message_events
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND (
+      (
+        message_source = 'label'
+        AND EXISTS (
+          SELECT 1
+          FROM public.label_messages lm
+          WHERE lm.id = message_id
+            AND public.user_can_access_artist(lm.artist_id)
+        )
+      )
+      OR (
+        message_source = 'portal'
+        AND EXISTS (
+          SELECT 1
+          FROM public.portal_messages pm
+          WHERE pm.id = message_id
+            AND (
+              public.user_can_access_artist(pm.from_artist_id)
+              OR (pm.to_artist_id IS NOT NULL AND public.user_can_access_artist(pm.to_artist_id))
+            )
+        )
+      )
+    )
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND (
+      (
+        message_source = 'label'
+        AND EXISTS (
+          SELECT 1
+          FROM public.label_messages lm
+          WHERE lm.id = message_id
+            AND public.user_can_access_artist(lm.artist_id)
+        )
+      )
+      OR (
+        message_source = 'portal'
+        AND EXISTS (
+          SELECT 1
+          FROM public.portal_messages pm
+          WHERE pm.id = message_id
+            AND public.user_can_access_artist(pm.from_artist_id)
+        )
+      )
+    )
+  );
+
+-- Org SaaS + submissions + mailbox notes isolation
+
+-- =============================================================================
+-- financial_audit_events + apify_usage_months organization isolation
+-- =============================================================================
+
+ALTER TABLE public.financial_audit_events ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.financial_audit_events
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+ALTER TABLE public.financial_audit_events ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.financial_audit_events ALTER COLUMN organization_id SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_financial_audit_organization_id
+  ON public.financial_audit_events (organization_id);
+
+DROP POLICY IF EXISTS "financial_audit: admin read" ON public.financial_audit_events;
+CREATE POLICY "financial_audit: admin read" ON public.financial_audit_events
+  FOR SELECT USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "financial_audit: admin insert" ON public.financial_audit_events;
+CREATE POLICY "financial_audit: admin insert" ON public.financial_audit_events
+  FOR INSERT WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- Apify usage is per-organization (each label has its own monthly URL budget)
+ALTER TABLE public.apify_usage_months ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.apify_usage_months
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+ALTER TABLE public.apify_usage_months ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.apify_usage_months ALTER COLUMN organization_id SET NOT NULL;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'apify_usage_months_pkey'
+      AND conrelid = 'public.apify_usage_months'::regclass
+  ) THEN
+    IF (
+      SELECT count(*) FROM pg_attribute a
+      JOIN pg_constraint c ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+      WHERE c.conname = 'apify_usage_months_pkey' AND NOT a.attisdropped
+    ) = 1 THEN
+      ALTER TABLE public.apify_usage_months DROP CONSTRAINT apify_usage_months_pkey;
+    END IF;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'apify_usage_months_pkey'
+      AND conrelid = 'public.apify_usage_months'::regclass
+  ) THEN
+    ALTER TABLE public.apify_usage_months
+      ADD CONSTRAINT apify_usage_months_pkey PRIMARY KEY (organization_id, year_month);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_apify_usage_months_organization_id
+  ON public.apify_usage_months (organization_id);
+
+DROP POLICY IF EXISTS "apify_usage_months: admin all" ON public.apify_usage_months;
+CREATE POLICY "apify_usage_months: admin all" ON public.apify_usage_months
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- financial_audit + apify_usage organization isolation
+
+-- ---------------------------------------------------------------------------
+-- portal_faq_categories / portal_faq_items organization isolation
+-- Each label has its own portal help FAQ; seed stays Org #0.
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.portal_faq_categories ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.portal_faq_categories
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+ALTER TABLE public.portal_faq_categories ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.portal_faq_categories ALTER COLUMN organization_id SET NOT NULL;
+
+ALTER TABLE public.portal_faq_items ADD COLUMN IF NOT EXISTS organization_id UUID
+  DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES public.organizations (id);
+
+UPDATE public.portal_faq_items
+SET organization_id = '00000000-0000-0000-0000-000000000000'
+WHERE organization_id IS NULL;
+
+ALTER TABLE public.portal_faq_items ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE public.portal_faq_items ALTER COLUMN organization_id SET NOT NULL;
+
+-- Slug uniqueness is per organization (each label may re-use dashboard, music, etc.)
+ALTER TABLE public.portal_faq_categories DROP CONSTRAINT IF EXISTS portal_faq_categories_slug_key;
+DROP INDEX IF EXISTS portal_faq_categories_slug_key;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_portal_faq_categories_org_slug
+  ON public.portal_faq_categories (organization_id, slug);
+
+ALTER TABLE public.portal_faq_items DROP CONSTRAINT IF EXISTS portal_faq_items_slug_key;
+DROP INDEX IF EXISTS portal_faq_items_slug_key;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_portal_faq_items_org_slug
+  ON public.portal_faq_items (organization_id, slug);
+
+CREATE INDEX IF NOT EXISTS idx_portal_faq_categories_organization_id
+  ON public.portal_faq_categories (organization_id);
+CREATE INDEX IF NOT EXISTS idx_portal_faq_items_organization_id
+  ON public.portal_faq_items (organization_id);
+
+DROP POLICY IF EXISTS "portal_faq_categories: editor+ write" ON public.portal_faq_categories;
+CREATE POLICY "portal_faq_categories: editor+ write" ON public.portal_faq_categories
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+DROP POLICY IF EXISTS "portal_faq_items: editor+ write" ON public.portal_faq_items;
+CREATE POLICY "portal_faq_items: editor+ write" ON public.portal_faq_items
+  FOR ALL
+  USING (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  )
+  WITH CHECK (
+    public.get_my_role() IN ('admin', 'editor')
+    AND public.user_can_access_organization(organization_id)
+  );
+
+-- portal_faq organization isolation

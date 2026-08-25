@@ -5,6 +5,12 @@ import {
   DEFAULT_LABEL_INFO,
   DEFAULT_PDF_EXPORT_SETTINGS,
 } from '@/lib/sos/defaults'
+import {
+  DEFAULT_EXCEL_EXPORT_STATE,
+  normalizeExcelExportState,
+  type ExcelExportState,
+  type ExcelExportStatePatch,
+} from '@/lib/sos/excelExportSettings'
 import type {
   AppDefaults,
   ArtistMapping,
@@ -36,6 +42,7 @@ export interface SosAccountingSettings {
   labelInfo: Partial<LabelInfo>
   pdfSettings: PdfExportSettings
   csvImportProfiles: CsvImportProfile[]
+  excelExport: ExcelExportState
 }
 
 export const DEFAULT_SOS_ACCOUNTING_SETTINGS: SosAccountingSettings = {
@@ -52,10 +59,16 @@ export const DEFAULT_SOS_ACCOUNTING_SETTINGS: SosAccountingSettings = {
   labelInfo: DEFAULT_LABEL_INFO,
   pdfSettings: DEFAULT_PDF_EXPORT_SETTINGS,
   csvImportProfiles: [],
+  excelExport: DEFAULT_EXCEL_EXPORT_STATE,
 }
 
 export function normalizeAccountingConfig(
-  raw: Partial<SosAccountingSettings> | null | undefined,
+  raw: (Omit<Partial<SosAccountingSettings>, 'excelExport' | 'appDefaults'> & {
+    excelExport?: ExcelExportStatePatch
+    appDefaults?: Partial<AppDefaults>
+    /** Standalone SOS generator export used this name. */
+    pdfExportSettings?: PdfExportSettings
+  }) | null | undefined,
 ): SosAccountingSettings {
   return {
     artistMappings: raw?.artistMappings ?? [],
@@ -66,11 +79,23 @@ export function normalizeAccountingConfig(
     ignoredEntries: raw?.ignoredEntries ?? [],
     csvAliases: raw?.csvAliases ?? [],
     trackRevenueAssignments: raw?.trackRevenueAssignments ?? [],
-    appDefaults: { ...DEFAULT_APP_DEFAULTS, ...raw?.appDefaults },
+    appDefaults: {
+      ...DEFAULT_APP_DEFAULTS,
+      ...raw?.appDefaults,
+      sourceSplits: {
+        ...DEFAULT_APP_DEFAULTS.sourceSplits,
+        ...raw?.appDefaults?.sourceSplits,
+      },
+    },
     emailConfig: { ...DEFAULT_EMAIL_CONFIG, ...raw?.emailConfig },
     labelInfo: { ...DEFAULT_LABEL_INFO, ...raw?.labelInfo },
-    pdfSettings: { ...DEFAULT_PDF_EXPORT_SETTINGS, ...raw?.pdfSettings },
+    pdfSettings: {
+      ...DEFAULT_PDF_EXPORT_SETTINGS,
+      ...raw?.pdfSettings,
+      ...raw?.pdfExportSettings,
+    },
     csvImportProfiles: raw?.csvImportProfiles ?? [],
+    excelExport: normalizeExcelExportState(raw?.excelExport),
   }
 }
 

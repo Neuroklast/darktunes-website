@@ -34,6 +34,7 @@ function makeMockDb(data: unknown = null, error: unknown = null): DbClient {
 
 const row = {
   id: 'sub-1',
+  organization_id: '00000000-0000-0000-0000-000000000000',
   artist_id: 'artist-1',
   status: 'received' as const,
   title: 'My Release',

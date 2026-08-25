@@ -70,6 +70,8 @@ export const SITE_SETTINGS_PUBLIC_KEYS = [
   'videos_per_page',
   'videos_link_to_page',
   'exclude_shorts_from_public',
+  'artist_profile_video_rows',
+  'artist_profile_news_rows',
   'concerts_per_page',
   'concerts_link_to_page',
   'feature_toggles',

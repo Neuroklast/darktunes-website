@@ -7,6 +7,7 @@ import {
   processTransactionsWithCompilations,
   aggregateTerritoryMetrics,
 } from './index'
+import { applyTrackRevenueAssignments } from './distribution'
 
 function makeTx(overrides: Partial<SalesTransaction>): SalesTransaction {
   return {
@@ -43,6 +44,16 @@ describe('distribution helpers', () => {
     expect(
       resolveMainArtist('Guest Act', [{ id: 'm1', featuringName: 'Guest Act', primaryArtist: 'Neuroklast' }]),
     ).toBe('Neuroklast')
+  })
+
+  it('resolveMainArtist matches FrozenPlasma to a Frozen Plasma mapping', () => {
+    expect(
+      resolveMainArtist('FrozenPlasma', [{
+        id: 'm-fp',
+        featuringName: 'Frozen Plasma',
+        primaryArtist: 'Frozen Plasma',
+      }]),
+    ).toBe('Frozen Plasma')
   })
 
   it('isCompilation matches EAN filter exactly', () => {
@@ -93,7 +104,7 @@ describe('processTransactionsWithCompilations', () => {
     expect(row.finalPayout).toBeCloseTo(115, 4)
   })
 
-  it('applies carry-forward balance to final payout', () => {
+  it('keeps opening off final payout and reports it separately', () => {
     const { artistData } = processTransactionsWithCompilations(
       [makeTx({ id: 'a', net_revenue: 50 })],
       {
@@ -103,7 +114,9 @@ describe('processTransactionsWithCompilations', () => {
       },
     )
 
-    expect(artistData[0].finalPayout).toBeCloseTo(37.5, 4)
+    expect(artistData[0].finalPayout).toBeCloseTo(50, 4)
+    expect(artistData[0].openingBalanceEur).toBeCloseTo(-12.5, 4)
+    expect(artistData[0].amountDueEur).toBeCloseTo(37.5, 4)
   })
 
   it('filters transactions to label roster artists', () => {
@@ -137,6 +150,66 @@ describe('processTransactionsWithCompilations', () => {
     expect(artistData[0].grossRevenue).toBe(40)
   })
 
+  it('sums compilation summary after FX conversion', () => {
+    const { filteredCompilations } = processTransactionsWithCompilations(
+      [makeTx({
+        id: 'a',
+        upc_ean: 'COMP-001',
+        net_revenue: 108,
+        currency: 'USD',
+        sales_month: '2024-03',
+      })],
+      {
+        ...emptyConfig(),
+        compilationFilters: [{ id: 'comp', type: 'ean', identifier: 'COMP-001', label: 'Comp' }],
+        exchangeRates: { USD: 1.08 },
+      },
+    )
+
+    expect(filteredCompilations[0]?.revenue).toBeCloseTo(100, 5)
+  })
+
+  it('applies Frozen Plasma workspace splits when Bandcamp CSV artist is FrozenPlasma', () => {
+    const { artistData } = processTransactionsWithCompilations(
+      [
+        makeTx({
+          id: 'believe',
+          source: 'believe',
+          original_artist: 'FrozenPlasma',
+          main_artist: 'FrozenPlasma',
+          net_revenue: 100,
+        }),
+        makeTx({
+          id: 'bandcamp',
+          source: 'bandcamp',
+          original_artist: 'FrozenPlasma',
+          main_artist: 'FrozenPlasma',
+          net_revenue: 100,
+        }),
+      ],
+      {
+        ...emptyConfig(),
+        labelArtists: [{ id: 'fp', name: 'Frozen Plasma' }],
+        defaultSplitPercentage: 50,
+        distributionFeePercentage: 0,
+        splitFees: [{
+          artist: 'Frozen Plasma',
+          percentage: 50,
+          sourceOverrides: [
+            { source: 'believe', percentage: 80 },
+            { source: 'bandcamp', percentage: 50 },
+          ],
+        }],
+      },
+    )
+
+    expect(artistData).toHaveLength(1)
+    expect(artistData[0].artist).toBe('Frozen Plasma')
+    expect(artistData[0].believeSplitPercentage).toBe(80)
+    expect(artistData[0].bandcampSplitPercentage).toBe(50)
+    expect(artistData[0].finalPayout).toBeCloseTo(130, 4)
+  })
+
   it('honours per-source believe split bucket', () => {
     const { artistData } = processTransactionsWithCompilations(
       [makeTx({ id: 'a', source: 'believe', net_revenue: 100 })],
@@ -148,6 +221,43 @@ describe('processTransactionsWithCompilations', () => {
 
     expect(artistData[0].believeSplitPercentage).toBe(70)
     expect(artistData[0].finalPayout).toBeCloseTo(70, 4)
+  })
+})
+
+describe('applyTrackRevenueAssignments', () => {
+  it('splits 60/40 with last-owner residual', () => {
+    const rows = applyTrackRevenueAssignments(
+      [{ ...makeTx({ id: 't1', net_revenue: 100, quantity: 10 }), main_artist: 'Neuroklast' }],
+      [{
+        id: 'a1',
+        trackTitle: 'Track',
+        owners: [
+          { artist: 'Alpha', percentage: 60 },
+          { artist: 'Beta', percentage: 40 },
+        ],
+      }],
+    )
+    expect(rows).toHaveLength(2)
+    expect(rows[0].net_revenue + rows[1].net_revenue).toBeCloseTo(100, 8)
+    expect(rows.map((r) => r.main_artist).sort()).toEqual(['Alpha', 'Beta'])
+  })
+
+  it('does not leak revenue when owner percentages do not sum to 100', () => {
+    const original = { ...makeTx({ id: 't1', net_revenue: 100 }), main_artist: 'Neuroklast' }
+    const rows = applyTrackRevenueAssignments(
+      [original],
+      [{
+        id: 'a1',
+        trackTitle: 'Track',
+        owners: [
+          { artist: 'Alpha', percentage: 70 },
+          { artist: 'Beta', percentage: 20 },
+        ],
+      }],
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0].net_revenue).toBe(100)
+    expect(rows[0].main_artist).toBe('Neuroklast')
   })
 })
 

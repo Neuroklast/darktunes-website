@@ -23,6 +23,7 @@ import {
   upsertMessageReceipt,
 } from '@/lib/messaging/receipts'
 import { applyPortalMessageRulesOnInsert } from '@/lib/api/messageRules'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type MsgRow = Database['public']['Tables']['portal_messages']['Row']
@@ -247,19 +248,43 @@ export async function getFromArtistMessages(
   return (data ?? []).map(rowToMessage)
 }
 
+async function artistIdsForOrganization(
+  db: DbClient,
+  organizationId: string,
+): Promise<string[] | null> {
+  try {
+    const { data, error } = await db
+      .from('artists')
+      .select('id')
+      .eq('organization_id', organizationId)
+    if (error) return null
+    return (data ?? []).map((r) => r.id)
+  } catch {
+    return null
+  }
+}
+
 /** Messages sent by artists to the label (admin inbox). */
 export async function getIncomingToLabelMessages(
   db: DbClient,
-  opts?: MessageListOptions,
+  opts?: MessageListOptions & { organizationId?: string },
 ): Promise<PortalMessage[]> {
   const limit = resolveMessageListLimit(opts?.limit, MESSAGE_ADMIN_INBOX_DEFAULT_LIMIT)
   const offset = resolveMessageListOffset(opts?.offset)
+  const organizationId = opts?.organizationId ?? DEFAULT_ORGANIZATION_ID
 
-  const { data, error } = await db
+  const artistIds = await artistIdsForOrganization(db, organizationId)
+  if (artistIds && artistIds.length === 0) return []
+
+  let query = db
     .from('portal_messages')
     .select('*')
     .eq('to_label', true)
     .is('deleted_at', null)
+  if (artistIds) {
+    query = query.in('from_artist_id', artistIds)
+  }
+  const { data, error } = await query
     .order('sent_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
@@ -268,13 +293,23 @@ export async function getIncomingToLabelMessages(
 }
 
 /** Unread count for artist-to-label messages (admin inbox). */
-export async function getIncomingToLabelUnreadCount(db: DbClient): Promise<number> {
-  const { count, error } = await db
+export async function getIncomingToLabelUnreadCount(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<number> {
+  const artistIds = await artistIdsForOrganization(db, organizationId)
+  if (artistIds && artistIds.length === 0) return 0
+
+  let query = db
     .from('portal_messages')
     .select('id', { count: 'exact', head: true })
     .eq('to_label', true)
     .is('read_at', null)
     .is('deleted_at', null)
+  if (artistIds) {
+    query = query.in('from_artist_id', artistIds)
+  }
+  const { count, error } = await query
 
   if (error) throw new Error(error.message)
   return count ?? 0

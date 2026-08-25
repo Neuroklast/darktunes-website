@@ -22,6 +22,8 @@ const baseRevenue = (overrides: Partial<ArtistRevenue>): ArtistRevenue => ({
   monthlyBreakdown: [],
   releaseBreakdown: [],
   digitalSplitPercentage: 80,
+  believeSplitPercentage: 80,
+  bandcampSplitPercentage: 80,
   physicalSplitPercentage: 80,
   darkmerchSplitPercentage: 80,
   ...overrides,

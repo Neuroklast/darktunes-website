@@ -31,6 +31,8 @@ import { deleteSalesStatement } from '@/lib/api/settlementCenterApi'
 import { useMergedAccountingLabels } from '@/lib/i18n/accountingFallbacks'
 import { interpolate } from '@/lib/i18n/interpolate'
 import { PUBLIC_QUERY_LIMITS } from '@/lib/api/queryLimits'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
+import { artistNameFromEmbed } from '@/lib/sos/statementArtistName'
 
 type StatementRow = {
   id: string
@@ -102,13 +104,19 @@ function formatEur(amount: number | null): string {
 }
 
 function formatDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
   return new Intl.DateTimeFormat('de-DE', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date(value))
+  }).format(date)
+}
+
+function statementArtistName(statement: { artists?: unknown }): string {
+  return artistNameFromEmbed(statement.artists)
 }
 
 interface StatementsManagerProps {
@@ -147,6 +155,49 @@ export function StatementsManager({
     setError(null)
 
     const supabase = createBrowserSupabaseClient()
+    const organizationId = getClientOrganizationId()
+
+    // Sales statements have no organization_id — scope via artists in this org.
+    const { data: orgArtists, error: artistsError } = await supabase
+      .from('artists')
+      .select('id')
+      .eq('organization_id', organizationId)
+
+    if (artistsError) {
+      // Pre-schema fallback: unscoped list (single-tenant)
+      const { data, error: fetchError } = await supabase
+        .from('sales_statements')
+        .select(`
+          id,
+          artist_id,
+          filename,
+          period,
+          amount_eur,
+          status,
+          label_notes,
+          created_at,
+          artists!inner(name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(PUBLIC_QUERY_LIMITS.statementsAdmin)
+
+      if (fetchError) {
+        setError(fetchError.message)
+        setLoading(false)
+        return
+      }
+      setStatements((data ?? []) as StatementRow[])
+      setLoading(false)
+      return
+    }
+
+    const artistIds = (orgArtists ?? []).map((a) => a.id)
+    if (artistIds.length === 0) {
+      setStatements([])
+      setLoading(false)
+      return
+    }
+
     const { data, error: fetchError } = await supabase
       .from('sales_statements')
       .select(`
@@ -160,6 +211,7 @@ export function StatementsManager({
         created_at,
         artists!inner(name)
       `)
+      .in('artist_id', artistIds)
       .order('created_at', { ascending: false })
       .limit(PUBLIC_QUERY_LIMITS.statementsAdmin)
 
@@ -182,7 +234,7 @@ export function StatementsManager({
     if (!query) return statements
     return statements.filter(
       (statement) =>
-        statement.artists.name.toLowerCase().includes(query) ||
+        statementArtistName(statement).toLowerCase().includes(query) ||
         statement.period.toLowerCase().includes(query) ||
         statement.filename.toLowerCase().includes(query),
     )
@@ -310,7 +362,7 @@ export function StatementsManager({
                 variant="outline"
                 className="gap-1 text-destructive border-destructive/40"
                 disabled={deletingId === statement.id}
-                onClick={() => setDeleteTarget({ id: statement.id, artistName: statement.artists.name })}
+                onClick={() => setDeleteTarget({ id: statement.id, artistName: statementArtistName(statement) })}
               >
                 {deletingId === statement.id ? (
                   <CircleNotch size={14} className="animate-spin" />
@@ -369,7 +421,7 @@ export function StatementsManager({
                     })
                   }}
                   aria-label={interpolate(t.historySelectArtist, {
-                    artist: row.original.artists.name,
+                    artist: statementArtistName(row.original),
                   })}
                   disabled={!isDraft}
                 />
@@ -382,7 +434,7 @@ export function StatementsManager({
       id: 'artist',
       header: t.historyColArtist,
       enableSorting: false,
-      cell: ({ row }) => row.original.artists.name,
+      cell: ({ row }) => statementArtistName(row.original),
     },
     {
       accessorKey: 'period',
@@ -581,7 +633,7 @@ export function StatementsManager({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-medium truncate">{statement.artists.name}</p>
+                  <p className="font-medium truncate">{statementArtistName(statement)}</p>
                   <p className="text-sm text-muted-foreground font-mono">{statement.period}</p>
                 </div>
               </div>

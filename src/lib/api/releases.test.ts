@@ -47,6 +47,7 @@ function makeMockDb(data: unknown = null, error: unknown = null): DbClient {
 
 const mockReleaseRow: ReleaseRow = {
   id: 'rel-001',
+  organization_id: '00000000-0000-0000-0000-000000000000',
   title: 'Polymorph',
   artist_id: 'art-001',
   release_date: '2024-03-15',
@@ -194,6 +195,7 @@ describe('getAllVisibleReleasesForCalendar', () => {
   it('maps nested release_artists in a single select (no extra junction round-trips)', async () => {
     const calendarRow = {
       id: 'rel-cal-1',
+  organization_id: '00000000-0000-0000-0000-000000000000',
       title: 'Calendar Cut',
       artist_id: 'art-001',
       release_date: '2025-06-01',

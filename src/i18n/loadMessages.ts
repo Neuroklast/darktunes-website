@@ -41,11 +41,52 @@ const NAMESPACES = [
 type Namespace = (typeof NAMESPACES)[number]
 
 /**
- * Per-route namespace bundles.
+ * Namespaces rendered by the root layout shell (app/layout.tsx), which wraps
+ * EVERY route: SiteHeader (navigation), SiteFooter (footer), ConsentBanner
+ * (consent), PWAInstallPrompt (pwa), plus `errors` for error boundaries.
  *
- * Each entry is a prefix string mapped to the minimal set of namespaces that
+ * resolveBundle() merges these into every bundle rather than repeating them
+ * per route. Do NOT try to trim them from dashboard bundles on the grounds
+ * that NavHidingWrapper renders null there: that component hides the header
+ * and footer from its own HIDDEN_PREFIXES list, and coupling the two lists
+ * silently breaks routes it does not hide — /promo-pool rendered SiteFooter
+ * with no `footer` namespace for exactly that reason. All five files together
+ * are ~3.5 KB, cheaper than the class of MISSING_MESSAGE bugs it avoids.
+ */
+const SHELL_NAMESPACES = [
+  'navigation',
+  'footer',
+  'consent',
+  'pwa',
+  'errors',
+] as const satisfies readonly Namespace[]
+
+/** Content namespaces shared by every public (non-dashboard) page. */
+const PUBLIC_NAMESPACES = [
+  'hero',
+  'artists',
+  'releases',
+  'news',
+  'videos',
+  'concerts',
+  'spotify',
+  'newsletter',
+  'releaseDetail',
+  'artistDetail',
+  'pages',
+  'newsPage',
+  'about',
+  'datenschutz',
+  'impressum',
+  'contact',
+] as const satisfies readonly Namespace[]
+
+/**
+ * Per-route namespace bundles, layered ON TOP OF SHELL_NAMESPACES.
+ *
+ * Each entry is a prefix string mapped to the route-specific namespaces that
  * routes under that prefix consume.  resolveBundle() picks the longest
- * matching prefix so more-specific entries always win.
+ * matching prefix so more-specific entries always win, then merges the shell.
  *
  * When adding a new namespace, extend the appropriate bundle (or add a new one)
  * so it is not silently dropped for the relevant route group.
@@ -54,7 +95,8 @@ export const ROUTE_BUNDLES: Record<string, readonly Namespace[]> = {
   // Standalone centralized login page — needs portal strings for the form
   // plus the public shell (header, footer, consent, PWA prompt).
   '/login': ['portal', 'navigation', 'footer', 'consent', 'errors', 'pwa'],
-  '/portal': ['portal', 'portalHelp', 'errors', 'pwa'],
+  // `newsletter`: /portal/fan-page embeds the public NewsletterSection.
+  '/portal': ['portal', 'portalHelp', 'newsletter', 'errors', 'pwa'],
   // Admin reuses portal components (e.g. EventManager) — include portal strings
   // or keys render as raw "portal.tour_heading" in the admin UI.
   '/admin': ['admin', 'adminSubmissions', 'portal', 'errors', 'pwa'],
@@ -64,52 +106,34 @@ export const ROUTE_BUNDLES: Record<string, readonly Namespace[]> = {
     'pressLanding',
     'pressLogin',
     'apply',
+    'portal',
     'pressContact',
     'pressDashboard',
     'pressReleases',
     'pressKit',
     'pressProfile',
     'promoPool',
-    'errors',
-    'pwa',
   ],
-  '/promo-pool': ['promoPool', 'navigation', 'errors', 'pwa'],
+  '/promo-pool': ['promoPool'],
+  // Public detail pages that reuse portal-owned components. Scoped to these
+  // prefixes because portal.json is ~78 KB — far too large for the * bundle.
+  '/events': [...PUBLIC_NAMESPACES, 'portal'],
+  '/fan': [...PUBLIC_NAMESPACES, 'portal'],
   // Default public bundle used for every other route
-  '*': [
-    'navigation',
-    'hero',
-    'artists',
-    'releases',
-    'news',
-    'videos',
-    'concerts',
-    'spotify',
-    'footer',
-    'newsletter',
-    'consent',
-    'releaseDetail',
-    'artistDetail',
-    'pages',
-    'newsPage',
-    'about',
-    'datenschutz',
-    'impressum',
-    'contact',
-    'errors',
-    'pwa',
-  ],
+  '*': PUBLIC_NAMESPACES,
 }
 
 /**
- * Returns the namespace bundle for a given pathname.
- * Longest-prefix match wins; falls back to the * (public) bundle.
+ * Returns the namespace bundle for a given pathname: the always-present shell
+ * namespaces plus the longest-prefix route match (falling back to * / public).
  */
 export function resolveBundle(pathname: string): readonly Namespace[] {
   const prefixes = Object.keys(ROUTE_BUNDLES).filter((p) => p !== '*')
   const match = prefixes
     .filter((p) => pathname === p || pathname.startsWith(p + '/'))
     .sort((a, b) => b.length - a.length)[0]
-  return ROUTE_BUNDLES[match ?? '*'] ?? ROUTE_BUNDLES['*']!
+  const routeBundle = ROUTE_BUNDLES[match ?? '*'] ?? ROUTE_BUNDLES['*']!
+  return [...new Set([...SHELL_NAMESPACES, ...routeBundle])]
 }
 
 const loaders: Record<Locale, Record<Namespace, () => Promise<unknown>>> = {

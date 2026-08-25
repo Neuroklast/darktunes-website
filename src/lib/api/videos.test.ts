@@ -39,6 +39,7 @@ function makeMockDb(data: unknown = null, error: unknown = null): DbClient {
 
 const mockVideoRow: VideoRow = {
   id: 'vid-001',
+  organization_id: '00000000-0000-0000-0000-000000000000',
   title: 'Monsters (Official Music Video)',
   artist_id: 'artist-001',
   youtube_id: 'Bx51eegLTY8',

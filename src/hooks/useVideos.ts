@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from '@/env'
 import * as videosApi from '@/lib/api/videos'
 import { logEditorActivity } from '@/lib/editorActivityLogger'
 import { revalidateContentCache } from '@/lib/admin/revalidateContentCache'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import type { Video } from '@/types'
 import type { Database } from '@/types/database'
 
@@ -24,7 +25,7 @@ export function useVideos() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await videosApi.getVideos(supabase)
+      const data = await videosApi.getVideos(supabase, getClientOrganizationId())
       setVideos(data)
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))
@@ -47,7 +48,10 @@ export function useVideos() {
   }, [supabase])
 
   const createVideo = async (data: VideoInsert): Promise<void> => {
-    const created = await videosApi.createVideo(supabase, data)
+    const created = await videosApi.createVideo(supabase, {
+      ...data,
+      organization_id: data.organization_id ?? getClientOrganizationId(),
+    })
     await logEditorActivity(supabase, {
       action: 'create',
       entityType: 'video',

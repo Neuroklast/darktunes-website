@@ -3,6 +3,7 @@ import {
   EXECUTOR_MIN_JOB_HEADROOM_MS,
   EXECUTOR_TIME_BUDGET_MS,
   canClaimAnotherJob,
+  kickSyncExecutorAfterEnqueue,
   remainingExecutorBudgetMs,
   resolveExecutorSiteOrigin,
   selfChainSyncExecutor,
@@ -53,7 +54,79 @@ describe('resolveExecutorSiteOrigin', () => {
   })
 })
 
+describe('kickSyncExecutorAfterEnqueue', () => {
+  it('POSTs /api/sync when jobs were just enqueued', async () => {
+    const prev = process.env.NEXT_PUBLIC_SITE_URL
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://label.example'
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, text: async () => '{}' })
+    try {
+      const kicked = await kickSyncExecutorAfterEnqueue({
+        queued: 3,
+        requestUrl: 'https://label.example/api/sync-api',
+        authorizationHeader: 'Bearer cron-secret',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+      expect(kicked).toBe(true)
+      expect(fetchImpl).toHaveBeenCalledWith(
+        'https://label.example/api/sync',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer cron-secret',
+          }),
+        }),
+      )
+    } finally {
+      process.env.NEXT_PUBLIC_SITE_URL = prev
+    }
+  })
+
+  it('does not kick when nothing was enqueued', async () => {
+    const fetchImpl = vi.fn()
+    const kicked = await kickSyncExecutorAfterEnqueue({
+      queued: 0,
+      requestUrl: 'https://label.example/api/sync-api',
+      authorizationHeader: 'Bearer cron-secret',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+    expect(kicked).toBe(false)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('does not kick without a Bearer header', async () => {
+    const fetchImpl = vi.fn()
+    const kicked = await kickSyncExecutorAfterEnqueue({
+      queued: 2,
+      requestUrl: 'https://label.example/api/sync-api',
+      authorizationHeader: '',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+    expect(kicked).toBe(false)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+})
+
 describe('selfChainSyncExecutor', () => {
+  it('does not hang when the child executor never responds', async () => {
+    const fetchImpl = vi.fn().mockImplementation(
+      (_url: string, init?: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'))
+          })
+        }),
+    )
+
+    await expect(
+      selfChainSyncExecutor({
+        origin: 'https://label.example',
+        authorizationHeader: 'Bearer secret',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        timeoutMs: 20,
+      }),
+    ).resolves.toBeUndefined()
+  })
+
   it('POSTs /api/sync with auth and self-chain header', async () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, text: async () => '{}' })
     await selfChainSyncExecutor({

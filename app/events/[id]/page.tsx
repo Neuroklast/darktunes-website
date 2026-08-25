@@ -10,6 +10,7 @@ import { notFound } from 'next/navigation'
 import { getLocale } from 'next-intl/server'
 import { toBcp47 } from '@/i18n/locales'
 import { getCachedPublicConcerts } from '@/lib/cache/publicQueries'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 
 import { EventDetailContent } from './_components/EventDetailContent'
 import { entityTitle, getMetadataBrand, pageTitle } from '@/lib/seo/metadata'
@@ -22,7 +23,8 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
-  const concerts = await getCachedPublicConcerts()
+  const orgId = await getRequestOrganizationId()
+  const concerts = await getCachedPublicConcerts(orgId)
   const concert = concerts.find((c) => c.id === id)
   const { labelName } = await getMetadataBrand()
   if (!concert) return { title: pageTitle('Event not found', labelName) }
@@ -49,9 +51,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function EventDetailPage({ params }: Props) {
+  const orgId = await getRequestOrganizationId()
   const { id } = await params
 
-  const concerts = await getCachedPublicConcerts()
+  const concerts = await getCachedPublicConcerts(orgId)
 
   const concert = concerts.find((c) => c.id === id)
   if (!concert) notFound()

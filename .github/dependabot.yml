@@ -3,7 +3,25 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+    groups:
+      radix-ui:
+        patterns:
+          - "@radix-ui/*"
+      aws-sdk:
+        patterns:
+          - "@aws-sdk/*"
+      tiptap:
+        patterns:
+          - "@tiptap/*"
+      eslint-typescript:
+        patterns:
+          - "eslint*"
+          - "@typescript-eslint/*"
+          - "typescript-eslint"
+      dnd-kit:
+        patterns:
+          - "@dnd-kit/*"
 
   - package-ecosystem: "devcontainers"
     directory: "/"

@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic'
 
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getDownloadHistory } from '@/lib/api/journalistDownloads'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { getTranslations } from 'next-intl/server'
 
 export default async function DownloadHistoryPage() {
@@ -11,8 +13,11 @@ export default async function DownloadHistoryPage() {
   } = await supabase.auth.getUser()
   if (!user) return null
 
+  const organizationId =
+    (await getRequestOrganizationId().catch(() => undefined)) ?? DEFAULT_ORGANIZATION_ID
+
   const [history, t] = await Promise.all([
-    getDownloadHistory(supabase, user.id).catch(() => []),
+    getDownloadHistory(supabase, user.id, organizationId).catch(() => []),
     getTranslations('pressDashboard'),
   ])
 

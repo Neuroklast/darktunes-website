@@ -8,6 +8,7 @@
 export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { resolvePortalArtist } from '@/lib/api/artistProfiles'
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
@@ -46,7 +47,7 @@ async function MarketingContent({ searchParams }: { searchParams: Promise<{ arti
   if (!user) return null
 
   const artist = await resolvePortalArtist(supabase, user.id, artistId).catch(() => null)
-  const flags = await getFeatureFlagsForRole(supabase, 'artist').catch(() => ({} as Record<string, boolean>))
+  const flags = await getFeatureFlagsForRole(supabase, 'artist', await getRequestOrganizationId().catch(() => undefined)).catch(() => ({} as Record<string, boolean>))
   if (flags['artist.marketing'] === false) {
     return <p className="text-muted-foreground">Marketing module is currently disabled.</p>
   }

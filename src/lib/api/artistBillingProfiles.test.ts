@@ -233,17 +233,15 @@ describe('isBillingProfileComplete', () => {
     expect(isBillingProfileComplete(profile)).toBe(false)
   })
 
-  it('requires VIES-valid VAT for reverse_charge', () => {
+  it('is complete for reverse_charge with only a valid address (issuer VAT optional)', () => {
     const base: ArtistBillingProfile = {
       ...completeProfile,
-      taxNumber: undefined,
-      vatId: 'ESB12345678',
       taxStatus: 'reverse_charge',
-      isSmallBusiness: false,
+      taxNumber: undefined,
+      vatId: undefined,
       vatViesValid: null,
     }
-    expect(isBillingProfileComplete(base)).toBe(false)
-    expect(isBillingProfileComplete({ ...base, vatViesValid: false })).toBe(false)
-    expect(isBillingProfileComplete({ ...base, vatViesValid: true })).toBe(true)
+    expect(isBillingProfileComplete(base)).toBe(true)
+    expect(isBillingProfileComplete({ ...base, vatId: 'DE123456789', vatViesValid: false })).toBe(true)
   })
 })

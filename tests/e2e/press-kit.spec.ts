@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { getTestUser, loginAsAdmin, loginForPressDashboard } from '../helpers/auth'
-import { isSupabaseE2EConfigured } from '../helpers/supabase'
+import { loginAsAdmin, loginForPressDashboard } from '../helpers/auth'
 import { gotoAndSettle } from '../helpers/pageSettle'
 
 test.describe('Press kit — API security', () => {
@@ -29,11 +28,6 @@ test.describe('Press kit — API security', () => {
 
 test.describe('Press kit — route access', () => {
   test('unauthenticated users are redirected from journalist press kit dashboard', async ({ page }) => {
-    if (!isSupabaseE2EConfigured()) {
-      test.skip(true, 'Supabase env missing — middleware auth checks are disabled without env vars')
-      return
-    }
-
     await page.goto('/press/dashboard/press-kit', { waitUntil: 'domcontentloaded' })
     await expect(page).toHaveURL(/\/login/)
     expect(page.url()).toContain('returnTo')
@@ -42,11 +36,6 @@ test.describe('Press kit — route access', () => {
 
 test.describe('Press kit — admin builder', () => {
   test('admin can open the Press Kit builder tab', async ({ page }) => {
-    if (!getTestUser('admin')) {
-      test.skip(true, 'E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD not configured')
-      return
-    }
-
     await loginAsAdmin(page)
     await page.goto('/admin/press', { waitUntil: 'domcontentloaded' })
 
@@ -62,11 +51,6 @@ test.describe('Press kit — admin builder', () => {
   })
 
   test('admin press kit tab shows empty state or curated items', async ({ page }) => {
-    if (!getTestUser('admin')) {
-      test.skip(true, 'E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD not configured')
-      return
-    }
-
     await loginAsAdmin(page)
     await page.goto('/admin/press', { waitUntil: 'domcontentloaded' })
     await page.getByRole('tab', { name: 'Press Kit' }).click()
@@ -80,11 +64,6 @@ test.describe('Press kit — admin builder', () => {
 
 test.describe('Press kit — journalist dashboard', () => {
   test('press dashboard renders the press kit page for authorized users', async ({ page }) => {
-    if (!getTestUser('journalist') && !getTestUser('admin')) {
-      test.skip(true, 'E2E_JOURNALIST or E2E_ADMIN credentials not configured')
-      return
-    }
-
     await loginForPressDashboard(page)
     await page.goto('/press/dashboard/press-kit', { waitUntil: 'domcontentloaded' })
 
@@ -94,15 +73,6 @@ test.describe('Press kit — journalist dashboard', () => {
   })
 
   test('press photo lightbox opens and closes when kit images exist', async ({ page }) => {
-    if (!getTestUser('journalist') && !getTestUser('admin')) {
-      test.skip(true, 'E2E_JOURNALIST or E2E_ADMIN credentials not configured')
-      return
-    }
-    if (!isSupabaseE2EConfigured()) {
-      test.skip(true, 'Supabase env missing for press kit content checks')
-      return
-    }
-
     await loginForPressDashboard(page)
     await gotoAndSettle(page, '/press/dashboard/press-kit')
 
@@ -121,15 +91,6 @@ test.describe('Press kit — journalist dashboard', () => {
   })
 
   test('lightbox next control advances when multiple images exist', async ({ page }) => {
-    if (!getTestUser('journalist') && !getTestUser('admin')) {
-      test.skip(true, 'E2E_JOURNALIST or E2E_ADMIN credentials not configured')
-      return
-    }
-    if (!isSupabaseE2EConfigured()) {
-      test.skip(true, 'Supabase env missing for press kit content checks')
-      return
-    }
-
     await loginForPressDashboard(page)
     await gotoAndSettle(page, '/press/dashboard/press-kit')
 

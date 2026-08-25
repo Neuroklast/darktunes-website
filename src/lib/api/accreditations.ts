@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { AccreditationRequest } from '@/types'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type AccreditationRow = Database['public']['Tables']['accreditation_requests']['Row']
@@ -24,10 +25,15 @@ function rowToAccreditation(row: AccreditationRow): AccreditationRequest {
 export async function createRequest(
   db: DbClient,
   data: AccreditationInsert,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<AccreditationRequest> {
+  const payload: AccreditationInsert = {
+    ...data,
+    organization_id: data.organization_id ?? organizationId,
+  }
   const { data: row, error } = await db
     .from('accreditation_requests')
-    .insert(data)
+    .insert(payload)
     .select()
     .single()
   if (error) throw new Error(error.message)
@@ -35,10 +41,14 @@ export async function createRequest(
   return rowToAccreditation(row)
 }
 
-export async function listRequests(db: DbClient): Promise<AccreditationRequest[]> {
+export async function listRequests(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<AccreditationRequest[]> {
   const { data, error } = await db
     .from('accreditation_requests')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []).map(rowToAccreditation)
@@ -49,11 +59,13 @@ export async function updateStatus(
   id: string,
   status: 'approved' | 'rejected',
   adminNote: string | null,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<AccreditationRequest> {
   const { data, error } = await db
     .from('accreditation_requests')
     .update({ status, admin_note: adminNote })
     .eq('id', id)
+    .eq('organization_id', organizationId)
     .select()
     .single()
   if (error) throw new Error(error.message)

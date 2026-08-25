@@ -71,7 +71,14 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
   }, [])
 
   const processAndStore = useCallback(
-    async (rawFile: File, id: string): Promise<{ data: string; rowsParsed: number; rowsSkipped: number; uniqueArtists: number }> => {
+    async (rawFile: File, id: string): Promise<{
+      data: string
+      rowsParsed: number
+      rowsSkipped: number
+      uniqueArtists: number
+      emptyCurrencyRows: number
+      skipReasons: string[]
+    }> => {
       setFileState(id, { status: 'uploading', progress: 0 })
 
       // Detect UTF-16 BOM (0xFF 0xFE for LE, 0xFE 0xFF for BE) and decode
@@ -109,6 +116,8 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
       let rowsParsed: number
       let rowsSkipped: number
       let uniqueArtists: number
+      let emptyCurrencyRows = 0
+      let skipReasons: string[] = []
       let salesMonths: string[] = []
 
       if (type === 'shopify') {
@@ -138,8 +147,10 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
           setFileState(id, { progress: progress.percentage })
         })
         rowsParsed = result.transactions.length
-        rowsSkipped = result.errors.length
+        rowsSkipped = result.errors.length + result.skipped.length
         uniqueArtists = result.uniqueArtists.length
+        emptyCurrencyRows = result.emptyCurrencyRows
+        skipReasons = [...new Set(result.skipped.map((skip) => skip.reason))]
         salesMonths = result.transactions.map((t) => t.sales_month)
       }
 
@@ -168,7 +179,7 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
         }
       })()
 
-      return { data, rowsParsed, rowsSkipped, uniqueArtists }
+      return { data, rowsParsed, rowsSkipped, uniqueArtists, emptyCurrencyRows, skipReasons }
     },
     [type, setFileState, setFileMetas, t.xlsxConvertWarning]
   )
@@ -194,11 +205,18 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
         rawFiles.map(async (rawFile, i) => {
           const id = ids[i]
           try {
-            const { data, rowsParsed, rowsSkipped, uniqueArtists } = await processAndStore(rawFile, id)
+            const { data, rowsParsed, rowsSkipped, uniqueArtists, emptyCurrencyRows, skipReasons } = await processAndStore(rawFile, id)
             // Update metadata with parsed stats (no raw data stored in KV).
             setFileMetas(current =>
               (current ?? []).map(f =>
-                f.id === id ? { ...f, rowsParsed, rowsSkipped, uniqueArtistsCount: uniqueArtists } : f
+                f.id === id ? {
+                  ...f,
+                  rowsParsed,
+                  rowsSkipped,
+                  uniqueArtistsCount: uniqueArtists,
+                  emptyCurrencyRows,
+                  skipReasons,
+                } : f
               )
             )
             // Notify parent for history logging.
@@ -212,6 +230,8 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
               rowsParsed,
               rowsSkipped,
               uniqueArtistsCount: uniqueArtists,
+              emptyCurrencyRows,
+              skipReasons,
             }
             callbacks?.onFileAdded?.(uploadedFile, rowsParsed, rowsSkipped, uniqueArtists)
           } catch (err) {
@@ -265,10 +285,17 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
       )
 
       try {
-        const { data, rowsParsed, rowsSkipped, uniqueArtists } = await processAndStore(rawFile, id)
+        const { data, rowsParsed, rowsSkipped, uniqueArtists, emptyCurrencyRows, skipReasons } = await processAndStore(rawFile, id)
         setFileMetas(current =>
           (current ?? []).map(f =>
-            f.id === id ? { ...f, rowsParsed, rowsSkipped, uniqueArtistsCount: uniqueArtists } : f
+            f.id === id ? {
+              ...f,
+              rowsParsed,
+              rowsSkipped,
+              uniqueArtistsCount: uniqueArtists,
+              emptyCurrencyRows,
+              skipReasons,
+            } : f
           )
         )
         const uploadedFile: UploadedFile = {
@@ -281,6 +308,8 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
           rowsParsed,
           rowsSkipped,
           uniqueArtistsCount: uniqueArtists,
+          emptyCurrencyRows,
+          skipReasons,
         }
         callbacks?.onFileAdded?.(uploadedFile, rowsParsed, rowsSkipped, uniqueArtists)
         toast.success(t.fileReplaceSuccess.replace('{filename}', rawFile.name))

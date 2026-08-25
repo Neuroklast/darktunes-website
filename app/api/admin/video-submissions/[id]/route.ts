@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { withErrorHandler } from '@/lib/errors'
-import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
-import { extractBearerToken, verifyAdminOrEditor } from '@/lib/adminAuth'
+import { withErrorHandler, ApiError } from '@/lib/errors'
+import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { requireAdminOrEditorFromRequest } from '@/lib/adminAuth'
 import { updateVideoSubmissionStatus } from '@/lib/api/videoSubmissions'
 import { emitNotification } from '@/lib/notifications/emit'
 
@@ -17,22 +17,30 @@ const patchSchema = z.object({
 })
 
 export const PATCH = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdminOrEditor(token)
-  const supabase = await createServerSupabaseClient()
+  const { organizationId } = await requireAdminOrEditorFromRequest(req)
+  const serviceRole = await createServiceRoleSupabaseClient()
 
   const id = extractId(req)
   const body = patchSchema.parse(await req.json())
 
-  const submission = await updateVideoSubmissionStatus(
-    supabase,
-    id,
-    body.status,
-    body.adminReply,
-  )
+  let submission
+  try {
+    submission = await updateVideoSubmissionStatus(
+      serviceRole,
+      id,
+      body.status,
+      body.adminReply,
+      organizationId,
+    )
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Update failed'
+    if (message.toLowerCase().includes('no data') || message.includes('PGRST116')) {
+      throw new ApiError(404, 'Video submission not found')
+    }
+    throw err
+  }
 
   if (body.status === 'accepted' || body.status === 'rejected') {
-    const serviceRole = await createServiceRoleSupabaseClient()
     const decisionLabel = body.status === 'accepted' ? 'accepted' : 'rejected'
     const subjectMap: Record<string, string> = {
       accepted: `Your video "${submission.title}" has been accepted`,

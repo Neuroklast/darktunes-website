@@ -2,9 +2,11 @@
  * src/lib/api/portalFeedback.ts
  *
  * Data Access Layer for the `portal_feedback` table.
+ * Admin list/count/status updates are scoped via artists.organization_id.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import type { Database } from '@/types/database'
 
 type DbClient = SupabaseClient<Database>
@@ -114,10 +116,12 @@ export interface ListPortalFeedbackAdminOptions {
   search?: string
   limit?: number
   offset?: number
+  /** Host organization — required for multi-tenant isolation */
+  organizationId?: string
 }
 
 type AdminJoinRow = FeedbackRow & {
-  artists: { name: string } | null
+  artists: { name: string; organization_id?: string } | null
 }
 
 export async function listPortalFeedbackAdmin(
@@ -126,11 +130,13 @@ export async function listPortalFeedbackAdmin(
 ): Promise<{ items: PortalFeedbackAdminItem[]; total: number }> {
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 100)
   const offset = Math.max(options.offset ?? 0, 0)
+  const organizationId = options.organizationId ?? DEFAULT_ORGANIZATION_ID
 
-  // Left join artists — never drop feedback if artist row is missing/unreadable
+  // Inner join artists so org filter is reliable (orphaned rows excluded)
   let query = db
     .from('portal_feedback')
-    .select('*, artists(name)', { count: 'exact' })
+    .select('*, artists!inner(name, organization_id)', { count: 'exact' })
+    .eq('artists.organization_id', organizationId)
 
   if (options.status) {
     query = query.eq('status', options.status)
@@ -162,7 +168,18 @@ export async function updatePortalFeedbackStatus(
   db: DbClient,
   id: string,
   status: PortalFeedbackStatus,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<PortalFeedback> {
+  // Guard: only update rows whose artist belongs to the host organization
+  const { data: owned, error: ownErr } = await db
+    .from('portal_feedback')
+    .select('id, artists!inner(organization_id)')
+    .eq('id', id)
+    .eq('artists.organization_id', organizationId)
+    .maybeSingle()
+  if (ownErr) throw new Error(ownErr.message)
+  if (!owned) throw new Error('Feedback not found')
+
   const { data: row, error } = await db
     .from('portal_feedback')
     .update({ status })
@@ -177,11 +194,13 @@ export async function updatePortalFeedbackStatus(
 export async function countPortalFeedbackByStatus(
   db: DbClient,
   status: PortalFeedbackStatus,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<number> {
   const { count, error } = await db
     .from('portal_feedback')
-    .select('id', { count: 'exact', head: true })
+    .select('id, artists!inner(organization_id)', { count: 'exact', head: true })
     .eq('status', status)
+    .eq('artists.organization_id', organizationId)
   if (error) throw new Error(error.message)
   return count ?? 0
 }

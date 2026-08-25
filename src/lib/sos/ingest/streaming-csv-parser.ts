@@ -1,6 +1,10 @@
 import Papa from 'papaparse'
 import type { SalesTransaction } from './csv-parser'
-import { mapCSVHeadersToModel, parseCSVLine } from './csv-parser'
+import { mapCSVHeadersToModel } from './csv-parser'
+import { normalizeDateToMonth } from './normalizeDateToMonth'
+
+export { normalizeDateToMonth } from './normalizeDateToMonth'
+export type { DateParseSource } from './normalizeDateToMonth'
 
 export interface ParseProgress {
   processedRows: number
@@ -9,23 +13,24 @@ export interface ParseProgress {
   isComplete: boolean
 }
 
+export interface ParseSkip {
+  row: number
+  reason: string
+}
+
 export interface StreamingParseResult {
   transactions: SalesTransaction[]
   uniqueArtists: string[]
   errors: Array<{ row: number; reason: string; data: string }>
+  skipped: ParseSkip[]
+  emptyCurrencyRows: number
 }
 
 /** Rows to process per scheduler tick to keep the UI responsive. */
 const CHUNK_SIZE = 5000
 
-function detectDelimiter(lines: string[]): string {
-  // Take the first 6 non-empty lines as the sample; parse up to 6 rows
-  // so PapaParse has enough context to auto-detect the delimiter reliably.
-  const sampleLines = lines.filter(l => l.trim()).slice(0, 6)
-  const sample = sampleLines.join('\n')
-  if (!sample) return ','
-  const result = Papa.parse(sample, { delimiter: '', preview: sampleLines.length })
-  return (result.meta as { delimiter?: string }).delimiter || ','
+function isEmptyCsvRow(values: string[]): boolean {
+  return values.every((cell) => !cell.trim())
 }
 
 /**
@@ -33,63 +38,6 @@ function detectDelimiter(lines: string[]): string {
  */
 function stripBOM(text: string): string {
   return text.startsWith('\uFEFF') ? text.slice(1) : text
-}
-
-/**
- * Converts any incoming date string to a canonical `YYYY-MM` month key.
- *
- * Handles:
- *  - Already ISO: "2024-09" → "2024-09"
- *  - ISO with day:  "2024-09-01" → "2024-09"
- *  - European (DD/MM/YYYY):  "01/09/2024" → "2024-09"
- *  - Bandcamp (M/D/YY h:mma): "9/30/25 5:39pm" → "2025-09"
- *  - American (M/D/YYYY): "9/30/2025" → "2025-09"
- */
-export function normalizeDateToMonth(dateStr: string): string {
-  if (!dateStr) return ''
-  const s = dateStr.trim()
-  if (!s) return ''
-
-  // Already YYYY-MM or YYYY-MM-DD
-  const isoMatch = s.match(/^(\d{4})-(\d{2})(?:-\d{2})?/)
-  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}`
-
-  // Slash-separated: X/Y/Z [optional time]
-  const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/)
-  if (slashMatch) {
-    const a = parseInt(slashMatch[1], 10)
-    const b = parseInt(slashMatch[2], 10)
-    const rawYear = parseInt(slashMatch[3], 10)
-    const year = rawYear < 100 ? 2000 + rawYear : rawYear
-
-    // If the second part > 12 it cannot be a month → format is M/D/Y (American/Bandcamp)
-    if (b > 12) {
-      if (a >= 1 && a <= 12) return `${year}-${String(a).padStart(2, '0')}`
-      return ''
-    }
-    // If the year is 2-digit → American/Bandcamp format M/D/YY, first part is month
-    if (rawYear < 100) {
-      if (a >= 1 && a <= 12) return `${year}-${String(a).padStart(2, '0')}`
-      return ''
-    }
-    // 4-digit year: treat as European DD/MM/YYYY → second part is month
-    if (b >= 1 && b <= 12) return `${year}-${String(b).padStart(2, '0')}`
-    return ''
-  }
-
-  // Dot-separated (DE): "01.09.2024"
-  const dotMatch = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/)
-  if (dotMatch) {
-    const year = parseInt(dotMatch[3], 10)
-    const month = parseInt(dotMatch[2], 10)
-    if (month >= 1 && month <= 12) {
-      return `${year}-${String(month).padStart(2, '0')}`
-    }
-  }
-
-  // Fallback: return empty string for unrecognised formats so invalid dates
-  // don't silently propagate through the system as 'Unknown' month keys.
-  return ''
 }
 
 /**
@@ -131,10 +79,9 @@ function parseQuantity(raw: string): number {
 }
 
 function processChunk(
-  lines: string[],
+  rows: string[][],
   headers: string[],
   mapping: Record<string, string>,
-  delimiter: string,
   source: 'believe' | 'bandcamp',
   startIndex: number,
   parseTag: string
@@ -142,26 +89,31 @@ function processChunk(
   transactions: SalesTransaction[]
   artists: Set<string>
   errors: Array<{ row: number; reason: string; data: string }>
+  skipped: ParseSkip[]
+  emptyCurrencyRows: number
 } {
   const transactions: SalesTransaction[] = []
   const artists = new Set<string>()
   const errors: Array<{ row: number; reason: string; data: string }> = []
+  const skipped: ParseSkip[] = []
+  let emptyCurrencyRows = 0
   const expectedCols = headers.length
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    if (!line.trim()) continue
+  for (let i = 0; i < rows.length; i++) {
+    const values = rows[i].map((cell) => cell ?? '')
+    const rowNumber = startIndex + i + 2
+    const rowPreview = values.join(',').substring(0, 120)
+    if (isEmptyCsvRow(values)) {
+      skipped.push({ row: rowNumber, reason: 'empty-line' })
+      continue
+    }
 
     try {
-      const values = parseCSVLine(line, delimiter)
-
-      // Be lenient: if a row has fewer columns, fill with empty strings.
-      // If it has way more (>= 2× expected), it's likely a corrupted row.
       if (values.length >= expectedCols * 2 && values.length > expectedCols) {
         errors.push({
-          row: startIndex + i + 2,
+          row: rowNumber,
           reason: `Too many columns: expected ~${expectedCols}, got ${values.length}`,
-          data: line.substring(0, 120),
+          data: rowPreview,
         })
         continue
       }
@@ -181,8 +133,10 @@ function processChunk(
       const releaseType = (mappedData.release_type ?? '').trim().toLowerCase()
 
       // ── Bandcamp-specific row filters ──────────────────────────────────────
-      // Skip payout rows: these are label-internal transfers, not sales income.
-      if (source === 'bandcamp' && releaseType === 'payout') continue
+      if (source === 'bandcamp' && releaseType === 'payout') {
+        skipped.push({ row: rowNumber, reason: 'bandcamp-payout' })
+        continue
+      }
 
       // ── Revenue resolution ─────────────────────────────────────────────────
       // Universal rule: use the "net amount" / "Net Revenue" column (net_revenue)
@@ -195,7 +149,9 @@ function processChunk(
       // also suffered from fuzzy-matching contamination by the GBP/PLN/USD
       // balance columns (all four map to balance_eur and the last write wins).
       const netRevenue = parseRevenue(mappedData.net_revenue ?? '')
-      const currency = (mappedData.currency ?? 'EUR').trim() || 'EUR'
+      const rawCurrency = (mappedData.currency ?? '').trim()
+      if (!rawCurrency) emptyCurrencyRows += 1
+      const currency = rawCurrency || 'EUR'
 
       const quantity = parseQuantity(mappedData.quantity ?? '')
 
@@ -234,14 +190,16 @@ function processChunk(
         }
       }
 
-      // Skip rows with no artist and no revenue (Bandcamp transfer rows)
-      if (!originalArtist && netRevenue === 0) continue
+      if (!originalArtist && netRevenue === 0) {
+        skipped.push({ row: rowNumber, reason: 'no-artist-zero-revenue' })
+        continue
+      }
 
       if (originalArtist) artists.add(originalArtist)
 
       // Normalise the date to YYYY-MM for all sources.
       const rawMonth = (mappedData.sales_month ?? '').trim()
-      const salesMonth = normalizeDateToMonth(rawMonth)
+      const salesMonth = normalizeDateToMonth(rawMonth, source)
 
       // Bandcamp CSVs have no dedicated platform column; default to "Bandcamp".
       const platform = (mappedData.platform ?? '').trim() || (source === 'bandcamp' ? 'Bandcamp' : '')
@@ -267,14 +225,14 @@ function processChunk(
       })
     } catch (err) {
       errors.push({
-        row: startIndex + i + 2,
+        row: rowNumber,
         reason: err instanceof Error ? err.message : 'Unknown parsing error',
-        data: line.substring(0, 120),
+        data: rowPreview,
       })
     }
   }
 
-  return { transactions, artists, errors }
+  return { transactions, artists, errors, skipped, emptyCurrencyRows }
 }
 
 /**
@@ -295,46 +253,55 @@ export async function parseCSVContentStreaming(
   const allTransactions: SalesTransaction[] = []
   const uniqueArtistsSet = new Set<string>()
   const allErrors: Array<{ row: number; reason: string; data: string }> = []
+  const allSkipped: ParseSkip[] = []
+  let emptyCurrencyRows = 0
 
-  // Normalise line endings and remove BOM
-  const normalised = stripBOM(csvContent).replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  const lines = normalised.split('\n')
+  const parsed = Papa.parse<string[]>(stripBOM(csvContent), {
+    delimiter: '',
+    skipEmptyLines: false,
+  })
+  const records = (parsed.data ?? []).map((row) =>
+    Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : [String(row ?? '')],
+  )
 
-  // Find first non-empty line (header)
-  const firstNonEmpty = lines.findIndex(l => l.trim().length > 0)
+  const firstNonEmpty = records.findIndex((row) => !isEmptyCsvRow(row))
   if (firstNonEmpty === -1) {
-    return { transactions: [], uniqueArtists: [], errors: [] }
+    return { transactions: [], uniqueArtists: [], errors: [], skipped: [], emptyCurrencyRows: 0 }
   }
 
-  // Detect delimiter using the header + first few data lines for accuracy
-  const sampleLines = lines.slice(firstNonEmpty, firstNonEmpty + 6)
-  const delimiter = detectDelimiter(sampleLines)
-  const headerLine = lines[firstNonEmpty]
-  const headers = parseCSVLine(headerLine, delimiter).map(h => h.trim())
+  const headers = records[firstNonEmpty].map((header) => header.trim())
 
-  if (headers.length === 0) {
-    return { transactions: [], uniqueArtists: [], errors: [{ row: 1, reason: 'Empty header row', data: '' }] }
+  if (headers.length === 0 || headers.every((header) => !header)) {
+    return {
+      transactions: [],
+      uniqueArtists: [],
+      errors: [{ row: 1, reason: 'Empty header row', data: '' }],
+      skipped: [],
+      emptyCurrencyRows: 0,
+    }
   }
 
   const mapping = columnMapping ?? mapCSVHeadersToModel(headers, customAliases)
-  const dataLines = lines.slice(firstNonEmpty + 1)
-  const totalRows = dataLines.length
+  const dataRows = records.slice(firstNonEmpty + 1)
+  const totalRows = dataRows.length
   let processedRows = 0
 
   // Short random tag to make transaction IDs unique across multiple parse calls.
   const parseTag = `${source}-${Math.random().toString(36).slice(2, 8)}`
 
-  for (let i = 0; i < dataLines.length; i += CHUNK_SIZE) {
-    const chunk = dataLines.slice(i, i + CHUNK_SIZE)
+  for (let i = 0; i < dataRows.length; i += CHUNK_SIZE) {
+    const chunk = dataRows.slice(i, i + CHUNK_SIZE)
 
     // Yield to the event loop between chunks
     await new Promise<void>(resolve => setTimeout(resolve, 0))
 
-    const result = processChunk(chunk, headers, mapping, delimiter, source, processedRows, parseTag)
+    const result = processChunk(chunk, headers, mapping, source, processedRows, parseTag)
 
     for (const t of result.transactions) allTransactions.push(t)
     result.artists.forEach(a => uniqueArtistsSet.add(a))
     for (const e of result.errors) allErrors.push(e)
+    for (const skip of result.skipped) allSkipped.push(skip)
+    emptyCurrencyRows += result.emptyCurrencyRows
 
     processedRows += chunk.length
 
@@ -350,5 +317,7 @@ export async function parseCSVContentStreaming(
     transactions: allTransactions,
     uniqueArtists: Array.from(uniqueArtistsSet).sort(),
     errors: allErrors,
+    skipped: allSkipped,
+    emptyCurrencyRows,
   }
 }

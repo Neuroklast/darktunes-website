@@ -66,7 +66,10 @@ export async function collectDescendantFolderIds(db: DbClient, folderId: string)
   return ids
 }
 
-export async function deleteR2Objects(assets: AssetDeleteRow[]): Promise<void> {
+export async function deleteR2Objects(
+  assets: AssetDeleteRow[],
+  organizationId?: string,
+): Promise<void> {
   if (assets.length === 0) return
 
   const { serverEnv } = await import('@/lib/env.server')
@@ -77,6 +80,11 @@ export async function deleteR2Objects(assets: AssetDeleteRow[]): Promise<void> {
   )
 
   for (const asset of assets) {
-    await deleteObjectFromR2(asset.r2Key, r2, serverEnv.CLOUDFLARE_R2_BUCKET_NAME)
+    await deleteObjectFromR2(
+      asset.r2Key,
+      r2,
+      serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
+      organizationId,
+    )
   }
 }

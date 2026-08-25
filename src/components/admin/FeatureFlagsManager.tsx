@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { getFeatureFlags } from '@/lib/api/featureFlags'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import { useTranslations } from 'next-intl'
 import { getErrorMessage } from '@/lib/clientErrors'
 import type { ApiErrorResponse } from '@/lib/errors'
@@ -28,7 +29,7 @@ export function FeatureFlagsManager() {
   const groupedFlags = useMemo(() => groupPortalFeatureFlags(flags), [flags])
 
   useEffect(() => {
-    void getFeatureFlags(supabase)
+    void getFeatureFlags(supabase, getClientOrganizationId())
       .then((rows) => setFlags(rows.filter((flag) => !DEPRECATED_PORTAL_FEATURE_FLAGS.has(flag.id))))
       .catch(() => toast.error(tErrors('SERVER_ERROR')))
   }, [supabase, tErrors])

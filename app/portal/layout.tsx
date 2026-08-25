@@ -26,6 +26,7 @@ import { getArtistsByUserId, getArtistProfileByArtistId } from '@/lib/api/artist
 import { shouldRedirectToOnboarding } from '@/lib/portal/onboardingGate'
 import { needsPortalTermsAcceptance } from '@/lib/portal/termsGate'
 import { getSiteSettings } from '@/lib/api/siteSettings'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { DEFAULT_PORTAL_TERMS_VERSION } from '@/lib/legal/defaults'
 import { PortalTermsGate } from './_components/PortalTermsGate'
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
@@ -179,7 +180,7 @@ async function PortalLayoutContent({ children }: { children: ReactNode }) {
     : null) ?? artists[0] ?? null
 
   const [featureFlags, badgeCounts, artistProfile, faqTree, siteSettings] = await Promise.all([
-    getFeatureFlagsForRole(supabase, 'artist').catch(() => ({} as Record<string, boolean>)),
+    getFeatureFlagsForRole(supabase, 'artist', await getRequestOrganizationId().catch(() => undefined)).catch(() => ({} as Record<string, boolean>)),
     artist
       ? getPortalBadgeCounts(supabase, artist.id, user.id).catch(() => ({
           messages: 0,
@@ -192,7 +193,7 @@ async function PortalLayoutContent({ children }: { children: ReactNode }) {
       ? getArtistProfileByArtistId(supabase, artist.id).catch(() => null)
       : Promise.resolve(null),
     getCachedPortalFaq(),
-    getSiteSettings(supabase).catch(() => null),
+    getSiteSettings(supabase, await getRequestOrganizationId(supabase).catch(() => undefined)).catch(() => null),
   ])
 
   if (shouldRedirectToOnboarding(artist, artistProfile, currentPath)) {

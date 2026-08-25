@@ -2,17 +2,21 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import {
   computeCarryForwardOpeningBalance,
-  getArtistOutstandingBalance,
-  invoiceGrossCents,
+  getLedgerEntriesForArtist,
+  getOutstandingBalancesForPeriod,
+  resolveCarryStatementBalance,
+  sumLedgerBalance,
+  unpaidInvoiceContributionCents,
   type CarryForwardBreakdown,
 } from '@/lib/api/settlementLedger'
 import { reconcileRegisterOpenBalance } from '@/lib/api/settlementReconciliation'
 import { listInvoicesByStatementIds } from '@/lib/api/artistInvoices'
 import { getSalesStatementsForPeriod } from '@/lib/api/salesStatements'
 import {
-  getOrCreateSettlementPeriod,
+  getSettlementPeriodByDates,
   type SettlementPeriod,
 } from '@/lib/api/settlementPeriods'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 
@@ -36,7 +40,7 @@ export interface SettlementRegisterRow {
 }
 
 export interface SettlementRegister {
-  period: SettlementPeriod
+  period: SettlementPeriod | null
   rows: SettlementRegisterRow[]
   kpis: {
     approved: number
@@ -52,17 +56,15 @@ export async function buildSettlementRegister(
   db: DbClient,
   periodStart: string,
   periodEnd: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<SettlementRegister> {
-  const period = await getOrCreateSettlementPeriod(db, periodStart, periodEnd)
-
-  const { data: artists, error: artistsError } = await db
-    .from('artists')
-    .select('id, name')
-    .order('name')
-
-  if (artistsError) throw new Error(artistsError.message)
-
-  const statements = await getSalesStatementsForPeriod(db, periodStart, periodEnd)
+  const period = await getSettlementPeriodByDates(db, periodStart, periodEnd, organizationId)
+  const statements = await getSalesStatementsForPeriod(
+    db,
+    periodStart,
+    periodEnd,
+    organizationId,
+  )
   const statementByArtist = new Map<string, (typeof statements)[number]>()
   for (const statement of statements) {
     if (!statementByArtist.has(statement.artist_id)) {
@@ -76,15 +78,23 @@ export async function buildSettlementRegister(
   )
   const invoiceByStatement = new Map(invoices.map((inv) => [inv.statementId, inv]))
 
-  const { data: carryRows } = await db
-    .from('period_carry_forwards')
-    .select('artist_id, opening_balance_eur')
-    .eq('from_period_id', period.id)
+  const balances = period
+    ? await getOutstandingBalancesForPeriod(db, period.id)
+    : new Map<string, number>()
 
-  const { data: openingRows } = await db
-    .from('period_carry_forwards')
-    .select('artist_id, opening_balance_eur')
-    .eq('to_period_id', period.id)
+  const { data: carryRows } = period
+    ? await db
+        .from('period_carry_forwards')
+        .select('artist_id, opening_balance_eur')
+        .eq('from_period_id', period.id)
+    : { data: [] as Array<{ artist_id: string; opening_balance_eur: number | string }> }
+
+  const { data: openingRows } = period
+    ? await db
+        .from('period_carry_forwards')
+        .select('artist_id, opening_balance_eur')
+        .eq('to_period_id', period.id)
+    : { data: [] as Array<{ artist_id: string; opening_balance_eur: number | string }> }
 
   const carryByArtist = new Map(
     (carryRows ?? []).map((row) => [row.artist_id, Number(row.opening_balance_eur)]),
@@ -93,13 +103,26 @@ export async function buildSettlementRegister(
     (openingRows ?? []).map((row) => [row.artist_id, Number(row.opening_balance_eur)]),
   )
 
+  const artistIds = new Set<string>([
+    ...statementByArtist.keys(),
+    ...balances.keys(),
+    ...carryByArtist.keys(),
+    ...openingByArtist.keys(),
+  ])
+
+  const { data: artists, error: artistsError } = artistIds.size
+    ? await db.from('artists').select('id, name').in('id', [...artistIds]).order('name')
+    : { data: [] as Array<{ id: string; name: string }>, error: null }
+
+  if (artistsError) throw new Error(artistsError.message)
+
   const rows: SettlementRegisterRow[] = []
   const artistRows = artists ?? []
 
   for (const artist of artistRows) {
     const statement = statementByArtist.get(artist.id)
     const invoice = statement ? invoiceByStatement.get(statement.id) : undefined
-    const ledgerBalance = await getArtistOutstandingBalance(db, artist.id, period.id)
+    const ledgerBalance = balances.get(artist.id) ?? 0
 
     rows.push({
       artistId: artist.id,
@@ -172,7 +195,8 @@ export async function computeCarryForwardBalances(
       return sum + Number(s.amount_eur ?? 0)
     }, 0)
 
-    const ledgerBalance = await getArtistOutstandingBalance(db, artistId, periodId)
+    const ledgerEntries = await getLedgerEntriesForArtist(db, artistId, periodId)
+    const ledgerBalance = sumLedgerBalance(ledgerEntries)
 
     const { data: invoices } = await db
       .from('artist_invoices')
@@ -183,18 +207,18 @@ export async function computeCarryForwardBalances(
     let unpaidInvoiceCents = 0
     let partialRemainder = 0
     for (const inv of invoices ?? []) {
-      const total = invoiceGrossCents(
-        Array.isArray(inv.line_items) ? inv.line_items : [],
-        Number(inv.tax_rate_pct ?? 0),
-      )
-      const paid = Number(inv.paid_amount_cents ?? 0)
-      if (inv.status === 'paid') continue
-      if (paid > 0) partialRemainder += total - paid
-      else unpaidInvoiceCents += total
+      const contribution = unpaidInvoiceContributionCents(inv)
+      if (contribution <= 0) continue
+      if (Number(inv.paid_amount_cents ?? 0) > 0) partialRemainder += contribution
+      else unpaidInvoiceCents += contribution
     }
 
     const breakdown: CarryForwardBreakdown = {
-      statementBalanceEur: ledgerBalance || statementBalance,
+      statementBalanceEur: resolveCarryStatementBalance(
+        ledgerEntries.length > 0,
+        ledgerBalance,
+        statementBalance,
+      ),
       unpaidInvoiceCents,
       partialPaymentRemainderCents: partialRemainder,
     }

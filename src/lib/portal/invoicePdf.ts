@@ -321,6 +321,11 @@ export async function generateInvoicePdf(options: InvoicePdfOptions): Promise<Ui
       footerY,
     )
     footerY += 6
+    const labelVatId = options.label.vatId?.trim()
+    if (labelVatId) {
+      doc.text(`USt-IdNr. des Leistungsempfängers: ${labelVatId}`, margin, footerY)
+      footerY += 6
+    }
   }
 
   if (options.fxNote?.trim()) {

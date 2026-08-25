@@ -7,7 +7,7 @@ import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
-import { getImportBatchById } from '@/lib/api/distributorImportBatches'
+import { findImportBatchByFileHash, getImportBatchById } from '@/lib/api/distributorImportBatches'
 import { writeAppLog } from '@/lib/appLog'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { createR2Client, sha256HexFromR2Object } from '@/lib/r2Utils'
@@ -18,7 +18,7 @@ function extractBatchIdFromPath(pathname: string): string | null {
 }
 
 export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
   const id = extractBatchIdFromPath(new URL(req.url).pathname)
   if (!id) throw new ApiError(400, 'Invalid import batch path')
 
@@ -33,7 +33,7 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
 
   const normalizedHash = fileHash.toLowerCase()
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  const batch = await getImportBatchById(serviceSupabase, id)
+  const batch = await getImportBatchById(serviceSupabase, id, organizationId)
   if (!batch) throw new ApiError(404, 'Import batch not found')
 
   const { serverEnv } = await import('@/lib/env.server')
@@ -47,6 +47,7 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
     batch.r2Key,
     s3,
     serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
+    organizationId,
   )
   if (computedHash !== normalizedHash) {
     await writeAppLog({
@@ -63,7 +64,15 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
     .update({ file_hash: normalizedHash, status: 'completed' })
     .eq('id', id)
 
-  if (error) throw new ApiError(500, error.message)
+  if (error) {
+    if (error.code === '23505') {
+      const existing = await findImportBatchByFileHash(serviceSupabase, normalizedHash)
+      if (existing) {
+        return NextResponse.json({ ok: true, duplicate: true, batch: existing })
+      }
+    }
+    throw new ApiError(500, error.message)
+  }
 
   return NextResponse.json({ ok: true })
 })

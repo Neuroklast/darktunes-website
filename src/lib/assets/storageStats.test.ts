@@ -11,6 +11,8 @@ import type { Database } from '@/types/database'
 
 type Db = SupabaseClient<Database>
 
+const ORG = '00000000-0000-0000-0000-000000000000'
+
 describe('coerceNonNegInt', () => {
   it('coerces number string and bigint', () => {
     expect(coerceNonNegInt(12.9)).toBe(12)
@@ -54,53 +56,48 @@ describe('parseAggregateSum', () => {
 })
 
 describe('sumSizeBytesPaginated', () => {
-  it('sums pages', async () => {
-    const range = vi
-      .fn()
-      .mockResolvedValueOnce({
-        data: [{ size_bytes: 100 }, { size_bytes: 0 }],
-        error: null,
-      })
-      .mockResolvedValueOnce({ data: [], error: null })
-
-    // first page 2 rows < 1000 → stop after first
-    range.mockReset()
-    range.mockResolvedValue({
+  it('sums pages for one organization', async () => {
+    const range = vi.fn().mockResolvedValue({
       data: [{ size_bytes: 100 }, { size_bytes: 50 }, { size_bytes: 0 }],
       error: null,
     })
+    const eq = vi.fn().mockReturnThis()
 
     const db = {
       from: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnThis(),
+        eq,
         order: vi.fn().mockReturnThis(),
         range,
       }),
     } as unknown as Db
 
-    const stats = await sumSizeBytesPaginated(db)
+    const stats = await sumSizeBytesPaginated(db, ORG)
     expect(stats.usedBytes).toBe(150)
     expect(stats.assetCount).toBe(3)
     expect(stats.zeroSizeCount).toBe(1)
     expect(stats.source).toBe('paginated')
+    expect(eq).toHaveBeenCalledWith('organization_id', ORG)
   })
 })
 
 describe('resolveCatalogStorageStats', () => {
-  it('prefers RPC when available', async () => {
-    const db = {
-      rpc: vi.fn().mockResolvedValue({
-        data: { used_bytes: 42, asset_count: 7, zero_size_count: 1 },
-        error: null,
-      }),
-    } as unknown as Db
+  it('prefers RPC with organization id', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: { used_bytes: 42, asset_count: 7, zero_size_count: 1 },
+      error: null,
+    })
+    const db = { rpc } as unknown as Db
 
-    const stats = await resolveCatalogStorageStats(db)
+    const stats = await resolveCatalogStorageStats(db, ORG)
     expect(stats).toEqual({
       usedBytes: 42,
       assetCount: 7,
       zeroSizeCount: 1,
       source: 'rpc',
+    })
+    expect(rpc).toHaveBeenCalledWith('get_assets_storage_stats', {
+      p_organization_id: ORG,
     })
   })
 
@@ -112,22 +109,25 @@ describe('resolveCatalogStorageStats', () => {
     const from = vi.fn().mockReturnValue({
       select: vi.fn().mockImplementation((sel: string, opts?: { head?: boolean }) => {
         if (typeof sel === 'string' && sel.includes('sum')) {
-          return Promise.resolve({ data: null, error: { message: 'agg off' } })
+          return {
+            eq: vi.fn().mockResolvedValue({ data: null, error: { message: 'agg off' } }),
+          }
         }
         if (opts?.head) {
           return {
-            eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
+            eq: vi.fn().mockReturnThis(),
             then: undefined,
             count: 1,
             error: null,
           }
         }
         return {
+          eq: vi.fn().mockReturnThis(),
           order: vi.fn().mockReturnThis(),
           range,
-          eq: vi.fn().mockReturnThis(),
         }
       }),
+      eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockReturnThis(),
       range,
     })
@@ -138,7 +138,7 @@ describe('resolveCatalogStorageStats', () => {
     } as unknown as Db
 
     // When aggregate fails, paginated is used
-    const stats = await resolveCatalogStorageStats(db)
+    const stats = await resolveCatalogStorageStats(db, ORG)
     expect(stats.source).toBe('paginated')
     expect(stats.usedBytes).toBe(10)
   })

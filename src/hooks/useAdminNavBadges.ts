@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { getIncomingToLabelUnreadCount } from '@/lib/api/portalMessages'
 import { safeCount } from '@/lib/api/safeCount'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import type { Database } from '@/types/database'
 
 export type AdminBadgeKey =
@@ -16,7 +17,7 @@ export type AdminBadgeKey =
 
 export type AdminNavBadges = Record<AdminBadgeKey, number>
 
-const EMPTY_BADGES: AdminNavBadges = {
+export const EMPTY_ADMIN_NAV_BADGES: AdminNavBadges = {
   messages: 0,
   releaseSubmissions: 0,
   videoSubmissions: 0,
@@ -26,39 +27,55 @@ const EMPTY_BADGES: AdminNavBadges = {
 
 type NotificationRow = Database['public']['Tables']['notifications']['Row']
 
+/**
+ * Live admin nav badge counts (portal inbox, submissions, feedback, notifications).
+ *
+ * Supabase Realtime forbids adding `postgres_changes` after `subscribe()`. The browser
+ * client is a singleton, so:
+ * - Channel topics must be unique per hook instance (`useId`) when multiple trees mount.
+ * - Prefer a single mount via `AdminNavBadgesProvider` (admin layout) so sidebar + push
+ *   badge share one subscription set.
+ * - Keep `refresh` out of the subscribe effect deps (ref) so identity churn does not
+ *   re-subscribe onto a channel still leaving the client registry.
+ */
 export function useAdminNavBadges(userId: string | null, enabled: boolean) {
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
-  const [badges, setBadges] = useState<AdminNavBadges>(EMPTY_BADGES)
+  const instanceId = useId().replace(/:/g, '')
+  const [badges, setBadges] = useState<AdminNavBadges>(EMPTY_ADMIN_NAV_BADGES)
 
   const refresh = useCallback(async () => {
     if (!enabled) return
 
     const [portalUnread, releasePending, videoPending, fanPagePending, feedbackNew] =
       await Promise.all([
-        getIncomingToLabelUnreadCount(supabase).catch(() => 0),
+        getIncomingToLabelUnreadCount(supabase, getClientOrganizationId()).catch(() => 0),
         safeCount(
           supabase
             .from('release_submissions')
             .select('id', { count: 'exact', head: true })
-            .eq('status', 'received'),
+            .eq('status', 'received')
+            .eq('organization_id', getClientOrganizationId()),
         ),
         safeCount(
           supabase
             .from('video_submissions')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'received'),
+            .select('id, artists!inner(organization_id)', { count: 'exact', head: true })
+            .eq('status', 'received')
+            .eq('artists.organization_id', getClientOrganizationId()),
         ),
         safeCount(
           supabase
             .from('artist_landing_pages')
-            .select('id', { count: 'exact', head: true })
-            .eq('publish_status', 'pending_review'),
+            .select('id, artists!inner(organization_id)', { count: 'exact', head: true })
+            .eq('publish_status', 'pending_review')
+            .eq('artists.organization_id', getClientOrganizationId()),
         ),
         safeCount(
           supabase
             .from('portal_feedback')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'new'),
+            .select('id, artists!inner(organization_id)', { count: 'exact', head: true })
+            .eq('status', 'new')
+            .eq('artists.organization_id', getClientOrganizationId()),
         ),
       ])
 
@@ -71,6 +88,9 @@ export function useAdminNavBadges(userId: string | null, enabled: boolean) {
     })
   }, [enabled, supabase])
 
+  const refreshRef = useRef(refresh)
+  refreshRef.current = refresh
+
   useEffect(() => {
     void refresh()
   }, [refresh])
@@ -78,36 +98,42 @@ export function useAdminNavBadges(userId: string | null, enabled: boolean) {
   useEffect(() => {
     if (!enabled) return
 
+    const onChange = () => {
+      void refreshRef.current()
+    }
+
+    // Unique topics per instance: singleton client returns an already-subscribed
+    // channel when the topic collides (Strict Mode remount / dual consumers).
     const portalChannel = supabase
-      .channel('admin-nav-portal-messages')
+      .channel(`admin-nav-portal-messages-${instanceId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'portal_messages', filter: 'to_label=eq.true' },
-        () => { void refresh() },
+        onChange,
       )
       .subscribe()
 
     const submissionChannel = supabase
-      .channel('admin-nav-submissions')
+      .channel(`admin-nav-submissions-${instanceId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'release_submissions' },
-        () => { void refresh() },
+        onChange,
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'video_submissions' },
-        () => { void refresh() },
+        onChange,
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'artist_landing_pages' },
-        () => { void refresh() },
+        onChange,
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'portal_feedback' },
-        () => { void refresh() },
+        onChange,
       )
       .subscribe()
 
@@ -115,13 +141,13 @@ export function useAdminNavBadges(userId: string | null, enabled: boolean) {
       void supabase.removeChannel(portalChannel)
       void supabase.removeChannel(submissionChannel)
     }
-  }, [enabled, refresh, supabase])
+  }, [enabled, instanceId, supabase])
 
   useEffect(() => {
     if (!enabled || !userId) return
 
     const channel = supabase
-      .channel(`admin-nav-notifications-${userId}`)
+      .channel(`admin-nav-notifications-${userId}-${instanceId}`)
       .on(
         'postgres_changes',
         {
@@ -131,7 +157,7 @@ export function useAdminNavBadges(userId: string | null, enabled: boolean) {
           filter: `user_id=eq.${userId}`,
         },
         (_payload: RealtimePostgresInsertPayload<NotificationRow>) => {
-          void refresh()
+          void refreshRef.current()
         },
       )
       .subscribe()
@@ -139,7 +165,7 @@ export function useAdminNavBadges(userId: string | null, enabled: boolean) {
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [enabled, refresh, supabase, userId])
+  }, [enabled, instanceId, supabase, userId])
 
   return badges
 }

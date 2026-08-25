@@ -329,7 +329,7 @@ export function ArtistForm({ value, onChange, isLoading, mode = 'admin', artistI
   const bandsintownId = watch('bandsintownId')
   const bandsintownApiKey = watch('bandsintownApiKey')
 
-  // Auto-fill Bandsintown Artist ID with the artist name while user hasn't manually changed it
+  // Auto-fill Bandsintown artist name while the user hasn't manually changed it
   const lastAutoBandsintownId = useRef(name)
   useEffect(() => {
     if (mode === 'artist') return
@@ -1052,11 +1052,11 @@ export function ArtistForm({ value, onChange, isLoading, mode = 'admin', artistI
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="bandsintownId">Bandsintown Artist ID</Label>
+                <Label htmlFor="bandsintownId">Bandsintown Artist Name</Label>
                 <Input
                   id="bandsintownId"
                   {...register('bandsintownId')}
-                  placeholder="e.g. Artist Name or id:12345"
+                  placeholder="e.g. Artist Name"
                   disabled={isLoading}
                   autoComplete="off"
                 />

@@ -1,7 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   PencilSimple,
@@ -25,6 +25,7 @@ import {
   starMessage,
   markMessageRead,
 } from '@/lib/api/labelMessages'
+import { getClientOrganizationId } from '@/lib/organizations/clientOrganizationId'
 import {
   getIncomingToLabelMessages,
   markPortalMessageRead,
@@ -181,6 +182,7 @@ export function MessagesManager() {
 
   const { loading: authLoading, session } = useAuthContext()
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
+  const instanceId = useId().replace(/:/g, '')
   const searchStateRef = useRef<SearchState>(DEFAULT_SEARCH)
 
   // Core data
@@ -317,8 +319,11 @@ export function MessagesManager() {
           ? await searchLabelMessages(supabase, state.query, {
               artistId: state.artistId ?? undefined,
               unreadOnly: state.unreadOnly,
+              organizationId: getClientOrganizationId(),
             })
-          : await getAllLabelMessages(supabase)
+          : await getAllLabelMessages(supabase, {
+              organizationId: getClientOrganizationId(),
+            })
       setMessages(next)
       setRepliesByMessageId(await loadReplies(supabase, next))
     },
@@ -336,17 +341,20 @@ export function MessagesManager() {
         access_token: session.access_token,
         refresh_token: session.refresh_token,
       })
+      const organizationId = getClientOrganizationId()
       const [artistRes, folderRes, ruleRes] = await Promise.allSettled([
-        getArtists(supabase),
-        getFolders(supabase),
-        getRules(supabase),
+        getArtists(supabase, organizationId),
+        getFolders(supabase, organizationId),
+        getRules(supabase, organizationId),
       ])
       if (artistRes.status === 'fulfilled') {
         setArtists(artistRes.value.map((a) => ({ id: a.id, name: a.name })))
       }
       if (folderRes.status === 'fulfilled') setFolders(folderRes.value)
       if (ruleRes.status === 'fulfilled') setRules(ruleRes.value)
-      const fromArtists = await getIncomingToLabelMessages(supabase)
+      const fromArtists = await getIncomingToLabelMessages(supabase, {
+        organizationId: getClientOrganizationId(),
+      })
       setFromArtistMessages(fromArtists)
       await refreshMessages(searchStateRef.current)
     } catch (e) {
@@ -362,7 +370,7 @@ export function MessagesManager() {
   // Realtime subscriptions
   useEffect(() => {
     const msgCh = supabase
-      .channel('admin-label-messages')
+      .channel(`admin-label-messages-${instanceId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'label_messages' }, (payload: RealtimePostgresInsertPayload<MessageRow>) => {
         const next = rowToMessage(payload.new)
         const state = searchStateRef.current
@@ -373,7 +381,7 @@ export function MessagesManager() {
       })
       .subscribe()
     const replyCh = supabase
-      .channel('admin-artist-replies')
+      .channel(`admin-artist-replies-${instanceId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'artist_replies' }, (payload: RealtimePostgresInsertPayload<ReplyRow>) => {
         const next = rowToReply(payload.new)
         setRepliesByMessageId((cur) => {
@@ -389,7 +397,7 @@ export function MessagesManager() {
       })
       .subscribe()
     const portalCh = supabase
-      .channel('admin-portal-messages')
+      .channel(`admin-portal-messages-${instanceId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'portal_messages', filter: 'to_label=eq.true' }, (payload: RealtimePostgresInsertPayload<PortalMessageRow>) => {
         const next = rowToPortalMessage(payload.new)
         setFromArtistMessages((cur) => [next, ...cur.filter((m) => m.id !== next.id)])
@@ -402,7 +410,7 @@ export function MessagesManager() {
       void supabase.removeChannel(replyCh)
       void supabase.removeChannel(portalCh)
     }
-  }, [refreshMessages, supabase])
+  }, [refreshMessages, supabase, instanceId])
 
   // Load attachments when a message is selected
   useEffect(() => {
@@ -585,18 +593,18 @@ export function MessagesManager() {
 
   // Folder management
   const handleCreateFolder = useCallback(async (name: string) => {
-    const folder = await createFolder(supabase, name)
+    const folder = await createFolder(supabase, name, undefined, undefined, getClientOrganizationId())
     setFolders((cur) => [...cur, folder])
   }, [supabase])
 
   const handleDeleteFolder = useCallback(async (id: string) => {
-    await deleteFolder(supabase, id)
+    await deleteFolder(supabase, id, getClientOrganizationId())
     setFolders((cur) => cur.filter((f) => f.id !== id))
     if (selectedFolder === id) setSelectedFolder('inbox')
   }, [supabase, selectedFolder])
 
   const handleRenameFolder = useCallback(async (id: string, name: string) => {
-    const updated = await updateFolder(supabase, id, { name })
+    const updated = await updateFolder(supabase, id, { name }, getClientOrganizationId())
     setFolders((cur) => cur.map((f) => (f.id === id ? updated : f)))
   }, [supabase])
 
@@ -651,17 +659,17 @@ export function MessagesManager() {
 
   // Rule management
   const handleCreateRule = useCallback(async (rule: Omit<MessageRule, 'id' | 'createdAt'>) => {
-    const created = await createRule(supabase, rule)
+    const created = await createRule(supabase, rule, getClientOrganizationId())
     setRules((cur) => [...cur, created])
   }, [supabase])
 
   const handleToggleRule = useCallback(async (id: string, active: boolean) => {
-    const updated = await updateRule(supabase, id, { active })
+    const updated = await updateRule(supabase, id, { active }, getClientOrganizationId())
     setRules((cur) => cur.map((r) => (r.id === id ? updated : r)))
   }, [supabase])
 
   const handleDeleteRule = useCallback(async (id: string) => {
-    await deleteRule(supabase, id)
+    await deleteRule(supabase, id, getClientOrganizationId())
     setRules((cur) => cur.filter((r) => r.id !== id))
   }, [supabase])
 

@@ -1,13 +1,14 @@
 /**
  * src/lib/api/messageRules.ts
  *
- * CRUD helpers for message_rules.
+ * CRUD helpers for message_rules — scoped by organization_id.
  * Rules are evaluated on incoming messages to auto-move, star, or delete them.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { MessageRule, LabelMessage } from '@/types'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type RuleRow = Database['public']['Tables']['message_rules']['Row']
@@ -26,10 +27,14 @@ function rowToRule(row: RuleRow): MessageRule {
   }
 }
 
-export async function getRules(db: DbClient): Promise<MessageRule[]> {
+export async function getRules(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<MessageRule[]> {
   const { data, error } = await db
     .from('message_rules')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('created_at', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []).map(rowToRule)
@@ -38,6 +43,7 @@ export async function getRules(db: DbClient): Promise<MessageRule[]> {
 export async function createRule(
   db: DbClient,
   rule: Omit<MessageRule, 'id' | 'createdAt'>,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<MessageRule> {
   const { data, error } = await db
     .from('message_rules')
@@ -49,6 +55,7 @@ export async function createRule(
       action_type: rule.actionType,
       action_target: rule.actionTarget ?? null,
       active: rule.active,
+      organization_id: organizationId,
     })
     .select()
     .single()
@@ -60,6 +67,7 @@ export async function updateRule(
   db: DbClient,
   id: string,
   patch: Partial<Omit<MessageRule, 'id' | 'createdAt'>>,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<MessageRule> {
   const { data, error } = await db
     .from('message_rules')
@@ -73,14 +81,23 @@ export async function updateRule(
       ...(patch.active !== undefined && { active: patch.active }),
     })
     .eq('id', id)
+    .eq('organization_id', organizationId)
     .select()
     .single()
   if (error) throw new Error(error.message)
   return rowToRule(data)
 }
 
-export async function deleteRule(db: DbClient, id: string): Promise<void> {
-  const { error } = await db.from('message_rules').delete().eq('id', id)
+export async function deleteRule(
+  db: DbClient,
+  id: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<void> {
+  const { error } = await db
+    .from('message_rules')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', organizationId)
   if (error) throw new Error(error.message)
 }
 
@@ -93,22 +110,32 @@ export function evaluateRules(rules: MessageRule[], message: LabelMessage): Mess
     if (!rule.active) continue
     const fieldValue = (() => {
       switch (rule.conditionField) {
-        case 'subject':     return message.subject
-        case 'body':        return message.body
-        case 'artist_id':   return message.artistId
-        case 'sender_email':return message.senderEmail ?? ''
-        default:            return ''
+        case 'subject':
+          return message.subject
+        case 'body':
+          return message.body
+        case 'artist_id':
+          return message.artistId
+        case 'sender_email':
+          return message.senderEmail ?? ''
+        default:
+          return ''
       }
     })()
     const val = fieldValue.toLowerCase()
     const cond = rule.conditionValue.toLowerCase()
     const match = (() => {
       switch (rule.conditionOperator) {
-        case 'contains':    return val.includes(cond)
-        case 'equals':      return val === cond
-        case 'starts_with': return val.startsWith(cond)
-        case 'ends_with':   return val.endsWith(cond)
-        default:            return false
+        case 'contains':
+          return val.includes(cond)
+        case 'equals':
+          return val === cond
+        case 'starts_with':
+          return val.startsWith(cond)
+        case 'ends_with':
+          return val.endsWith(cond)
+        default:
+          return false
       }
     })()
     if (match) return rule
@@ -127,15 +154,30 @@ export type AppliedRuleResult = {
   }
 }
 
+async function resolveArtistOrganizationId(
+  db: DbClient,
+  artistId: string,
+): Promise<string> {
+  const { data, error } = await db
+    .from('artists')
+    .select('organization_id')
+    .eq('id', artistId)
+    .maybeSingle()
+  if (error || !data?.organization_id) return DEFAULT_ORGANIZATION_ID
+  return data.organization_id
+}
+
 /**
- * Server-side: load active rules, evaluate first match, apply to label_messages row.
+ * Server-side: load active rules for the artist's organization, evaluate first match.
  * Safe to call after insert; failures should be logged by caller, not fail send.
  */
 export async function applyMessageRulesOnInsert(
   db: DbClient,
   message: LabelMessage,
+  organizationId?: string,
 ): Promise<AppliedRuleResult | null> {
-  const rules = await getRules(db)
+  const orgId = organizationId ?? (await resolveArtistOrganizationId(db, message.artistId))
+  const rules = await getRules(db, orgId)
   const matched = evaluateRules(rules, message)
   if (!matched) return null
 
@@ -181,6 +223,7 @@ export async function applyPortalMessageRulesOnInsert(
     body: string
     toLabel: boolean
   },
+  organizationId?: string,
 ): Promise<AppliedRuleResult | null> {
   if (!message.toLabel) return null
 
@@ -193,7 +236,8 @@ export async function applyPortalMessageRulesOnInsert(
     sentAt: new Date().toISOString(),
   }
 
-  const rules = await getRules(db)
+  const orgId = organizationId ?? (await resolveArtistOrganizationId(db, message.fromArtistId))
+  const rules = await getRules(db, orgId)
   const matched = evaluateRules(rules, asLabel)
   if (!matched) return null
 

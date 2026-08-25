@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { JournalistDownload } from '@/types'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 type DbClient = SupabaseClient<Database>
 type DownloadRow = Database['public']['Tables']['journalist_downloads']['Row']
@@ -20,10 +21,15 @@ function rowToDownload(row: DownloadRow): JournalistDownload {
 export async function logDownload(
   db: DbClient,
   data: DownloadInsert,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<JournalistDownload> {
+  const payload: DownloadInsert = {
+    ...data,
+    organization_id: data.organization_id ?? organizationId,
+  }
   const { data: row, error } = await db
     .from('journalist_downloads')
-    .insert(data)
+    .insert(payload)
     .select()
     .single()
   if (error) throw new Error(error.message)
@@ -34,11 +40,13 @@ export async function logDownload(
 export async function getDownloadHistory(
   db: DbClient,
   journalistId: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<JournalistDownload[]> {
   const { data, error } = await db
     .from('journalist_downloads')
     .select('*')
     .eq('journalist_id', journalistId)
+    .eq('organization_id', organizationId)
     .order('downloaded_at', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []).map(rowToDownload)
@@ -83,6 +91,7 @@ export async function getDownloadsByArtistId(
   db: DbClient,
   artistId: string,
   limit = 100,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<JournalistDownload[]> {
   const { releaseIds, assetIds } = await collectArtistAssetAndReleaseIds(db, artistId)
   const orParts: string[] = []
@@ -93,6 +102,7 @@ export async function getDownloadsByArtistId(
   const { data, error } = await db
     .from('journalist_downloads')
     .select('*')
+    .eq('organization_id', organizationId)
     .or(orParts.join(','))
     .order('downloaded_at', { ascending: false })
     .limit(limit)
@@ -104,10 +114,12 @@ export async function getDownloadsByArtistId(
 export async function getAllJournalistDownloads(
   db: DbClient,
   limit = 2000,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<JournalistDownload[]> {
   const { data, error } = await db
     .from('journalist_downloads')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('downloaded_at', { ascending: false })
     .limit(limit)
 
@@ -118,8 +130,9 @@ export async function getAllJournalistDownloads(
 export async function getPressDownloadStatsByArtistId(
   db: DbClient,
   artistId: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<ArtistPressDownloadStats> {
-  const downloads = await getDownloadsByArtistId(db, artistId, 500)
+  const downloads = await getDownloadsByArtistId(db, artistId, 500, organizationId)
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString()
   const last30Days = downloads.filter((d) => d.downloadedAt >= thirtyDaysAgo).length
   const uniqueJournalists = new Set(downloads.map((d) => d.journalistId)).size

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ApiError, withErrorHandler, buildApiError } from './errors'
+import { InvalidStatementTransitionError } from '@/lib/sos/statementStatusTransitions'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getErrorMessage } from './clientErrors'
@@ -117,6 +118,18 @@ describe('withErrorHandler', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.ok).toBe(true)
+  })
+
+  it('maps InvalidStatementTransitionError to 422', async () => {
+    const handler = withErrorHandler(async () => {
+      throw new InvalidStatementTransitionError('draft', 'paid')
+    })
+    const res = await handler(makeRequest())
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.error).toContain('draft')
+    expect(body.error).toContain('paid')
+    expect(body.code).toBe('VALIDATION_ERROR')
   })
 
   it('catches ApiError and returns the correct status + message', async () => {

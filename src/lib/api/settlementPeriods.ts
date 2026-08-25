@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { logFinancialEvent } from '@/lib/api/financialAudit'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { monthToPeriodDate } from '@/lib/sos/lineItemsFromArtistData'
 
 type DbClient = SupabaseClient<Database>
@@ -10,6 +11,7 @@ export type SettlementPeriodStatus = SettlementPeriodRow['status']
 
 export interface SettlementPeriod {
   id: string
+  organizationId: string
   periodStart: string
   periodEnd: string
   label: string
@@ -26,6 +28,7 @@ export interface SettlementPeriod {
 function rowToPeriod(row: SettlementPeriodRow): SettlementPeriod {
   return {
     id: row.id,
+    organizationId: row.organization_id,
     periodStart: row.period_start,
     periodEnd: row.period_end,
     label: row.label,
@@ -62,10 +65,14 @@ export function normalizeSettlementPeriodBounds(
   }
 }
 
-export async function listSettlementPeriods(db: DbClient): Promise<SettlementPeriod[]> {
+export async function listSettlementPeriods(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<SettlementPeriod[]> {
   const { data, error } = await db
     .from('settlement_periods')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('period_start', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -75,8 +82,11 @@ export async function listSettlementPeriods(db: DbClient): Promise<SettlementPer
 export async function getSettlementPeriodById(
   db: DbClient,
   id: string,
+  organizationId?: string,
 ): Promise<SettlementPeriod | null> {
-  const { data, error } = await db.from('settlement_periods').select('*').eq('id', id).single()
+  let query = db.from('settlement_periods').select('*').eq('id', id)
+  if (organizationId) query = query.eq('organization_id', organizationId)
+  const { data, error } = await query.maybeSingle()
 
   if (error) {
     if (error.code === 'PGRST116') return null
@@ -86,27 +96,45 @@ export async function getSettlementPeriodById(
   return data ? rowToPeriod(data as SettlementPeriodRow) : null
 }
 
-export async function getOrCreateSettlementPeriod(
+export async function getSettlementPeriodByDates(
   db: DbClient,
   periodStart: string,
   periodEnd: string,
-): Promise<SettlementPeriod> {
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<SettlementPeriod | null> {
   const bounds = normalizeSettlementPeriodBounds(periodStart, periodEnd)
-
-  const { data: existing, error: findError } = await db
+  const { data, error } = await db
     .from('settlement_periods')
     .select('*')
+    .eq('organization_id', organizationId)
     .eq('period_start', bounds.periodStart)
     .eq('period_end', bounds.periodEnd)
     .maybeSingle()
 
-  if (findError) throw new Error(findError.message)
-  if (existing) return rowToPeriod(existing as SettlementPeriodRow)
+  if (error) throw new Error(error.message)
+  return data ? rowToPeriod(data as SettlementPeriodRow) : null
+}
+
+export async function getOrCreateSettlementPeriod(
+  db: DbClient,
+  periodStart: string,
+  periodEnd: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<SettlementPeriod> {
+  const bounds = normalizeSettlementPeriodBounds(periodStart, periodEnd)
+  const existing = await getSettlementPeriodByDates(
+    db,
+    bounds.periodStart,
+    bounds.periodEnd,
+    organizationId,
+  )
+  if (existing) return existing
 
   const label = buildPeriodLabel(bounds.periodStart, bounds.periodEnd)
   const { data, error } = await db
     .from('settlement_periods')
     .insert({
+      organization_id: organizationId,
       period_start: bounds.periodStart,
       period_end: bounds.periodEnd,
       label,
@@ -148,6 +176,7 @@ export async function lockSettlementPeriod(
     entityId: id,
     action: 'lock',
     actorId,
+    organizationId: existing.organizationId,
     beforeData: { status: existing.status },
     afterData: { status: 'locked', locked_at: now },
   })
@@ -190,6 +219,7 @@ export async function archiveSettlementPeriod(
     entityId: id,
     action: 'archive',
     actorId,
+    organizationId: existing.organizationId,
     beforeData: { status: existing.status },
     afterData: { status: 'archived', archived_at: now },
   })
@@ -218,12 +248,14 @@ export async function assertSettlementPeriodWritable(
   db: DbClient,
   periodStart: string,
   periodEnd: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<void> {
   const bounds = normalizeSettlementPeriodBounds(periodStart, periodEnd)
 
   const { data, error } = await db
     .from('settlement_periods')
     .select('status')
+    .eq('organization_id', organizationId)
     .eq('period_start', bounds.periodStart)
     .eq('period_end', bounds.periodEnd)
     .maybeSingle()

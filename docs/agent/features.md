@@ -42,7 +42,7 @@
 | Nav | Two dashboard items under `artist.analytics`: **Spotify Trends** (`/portal/spotify-trends`) and **Sales Analytics** (UI label; route `/portal/sos-analytics`). Legacy `/portal/analytics` redirects (listeners tab → Spotify Trends). |
 | Sources | Statement **sales streams** (SOS backend) vs public **Spotify presence** never mixed into one total or one menu |
 | Spotify Trends | Presence only (listeners, followers, track plays, dual-axis trends, disclaimer). Empty state when no presence data — avoid zero KPI grids. **Current UTC month** only appears after public scrape rows exist for that period (otherwise secondary sources / chart joins would show Spotify as 0). |
-| Sales Analytics | User-facing name for statement streams, territories, earnings, releases, revenue-mix, settlement, events, press, engagement, merch. Empty state when no statement data. Internal keys/routes may still say `sos_*`. |
+| Sales Analytics | User-facing name for statement streams, territories, earnings, releases, revenue-mix, settlement, events, press, engagement, merch. Empty state when no statement data. Internal keys/routes may still say `sos_*`. Territory/merch euro amounts are the artist share after the label cut — never show the split rate or the pre-split total. |
 | Disclaimer | Spotify page: high-visibility non-binding / liability notice (`PublicMetricsDisclaimer`) — public/third-party figures approximate & unreconciled; statements + settlement only for payouts. PDF includes same disclaimer. Never name scrape vendors in UI. |
 | Waterfall | Top tracks / album play totals dedupe by normalized track name (`publicSpotifyPresence.ts`) — max plays, no double-count |
 | Prefs | Separate localStorage keys: `portal-spotify-trends-view-v1`, `portal-sos-analytics-view-v1` |
@@ -53,7 +53,7 @@
 | Topic | Rule |
 |-------|------|
 | UI | Profile → **Integrations** tab — per active artist (multi-project switcher) |
-| Fields | `bandsintown_id` + `bandsintown_api_key` on `artists` (same as admin ArtistForm) |
+| Fields | UI: **Bandsintown Artist Name** (the name on Bandsintown). Stored in `artists.bandsintown_id`. Key in `artist_private_data` (admin ArtistForm dual-writes the same). |
 | API | `GET/PUT /api/portal/integrations/bandsintown?artistId=`; `POST …/sync` — membership write; key never returned in full (`hasApiKey` only) |
 | Sync | One-off concert upsert via `fetchBandsintownArtistEvents` (same as admin sync) |
 
@@ -155,7 +155,17 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 
 **Admin accounting (`/admin/accounting`):** Default **Guided** mode with **Assistant-first** chooser (`SosWizardModeChooser`). Assistant: Setup → Upload → Checks → Payouts → Publish. Quick: Upload → Payouts → Publish (experts). Step coach (`SosWizardStepCoach`) + `guidedContinueBlockedReason` explain why Continue is disabled. **Advanced** mode: all sub-tabs.
 
-**FX / ECB:** Spot + historical rates via `/api/exchange-rates` (Frankfurter). Processing is gated until rates are non-empty (`useSosCSVProcessor`). Sticky `CurrencyRatesBanner` for loading / live ECB / fallback + refresh. Missing currency throws (no silent €0).
+**Money (period vs opening):** `sales_statements.amount_eur` and processor `finalPayout` are **this period’s activity only**. Opening from `period_carry_forwards` / register `openingBalanceEur` is a separate line (`openingBalanceEur`) plus next-period ledger `carry_in`. `amountDueEur = finalPayout + opening`. Carry-forward uses ledger row presence (`resolveCarryStatementBalance`) and invoice `outstanding_amount_cents` (`unpaidInvoiceContributionCents`) — never `ledger || statement` and never recomputed VAT GROSS. Track assignments must sum to 100% (`ownerPercentagesSumTo100` / `splitRevenueAmongOwners`); incomplete splits stay on the original row and block the wizard. Statement-linked invoice payment does **not** post a second `payment` ledger row after `invoice_liability` (`resolvePaymentLedgerEntryType`); `recordInvoicePayment` fills `received_at` when still empty.
+
+**Excel export:** `ExcelExportDialog` picks sheets + columns (artist/period/period payout always stay; opening + amount due are optional summary columns). Named presets live in `SosAccountingSettings.excelExport` (workspace / `sos_rules_presets`). Generator: `src/lib/sos/export/excelStatement.ts` + `excelExportSettings.ts`. PDF section toggles stay PDF-only.
+
+**FX / ECB:** Spot + historical rates via `/api/exchange-rates` (Frankfurter). Processing is gated until rates are non-empty (`useSosCSVProcessor`). Sticky `CurrencyRatesBanner` for loading / live ECB / fallback + refresh. Historical fetch does **not** pre-fill missing months with `FALLBACK_EXCHANGE_RATES` — convert uses spot, then throws if still missing. Empty currency cell → EUR + wizard warning. Missing or ≤0 rate still throws (no silent €0).
+
+**Parser skips:** Bandcamp `payout`, empty lines, and no-artist 0 € rows go to `skipped[]` (counted in `rowsSkipped`, listed as non-blocking wizard warnings). “Too many columns” stays a parse error. Compilation summary revenue is EUR after FX (`buildFilteredCompilations` + `normalizeRevenueToEur`). Quoted embedded newlines are preserved via PapaParse records (not `split('\\n')`).
+
+**Dates:** `normalizeDateToMonth(s, source)` — unambiguous day/month always wins; when both parts ≤ 12, Believe/Printful = DD/MM and Bandcamp/Shopify/Darkmerch = MM/DD. Two-digit years are American only for Bandcamp.
+
+**Gold persist:** `row_count` stays the bronze original (do not overwrite with upsert length). Portal gold `revenueEur` is the artist share after the label split (channel-aware via `applyArtistShareToPortalMetrics`); Excel / SOS reporting stay on processor gross. Do not persist or display the split rate in the portal. No gold-vs-statement toast (those amounts are different layers). Reprocess accepts session `exchangeRates` / `historicalRates` / `carryForwardByArtist`.
 
 | Module | Role |
 |--------|------|
@@ -169,17 +179,21 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 | `useSosWorkspaceSync` | Period-keyed rules workspace auto-save |
 | `settlementReconciliation.ts` | Pure ledger invariant checks |
 | `trackAssignmentSplits.ts` | Multi-owner revenue splits in `data-processor.ts` |
-| `runPersistSosAnalytics.ts` | Client wrapper for portal analytics persist |
+| `runPersistSosAnalytics.ts` | Client wrapper → `POST /api/admin/sos/persist-analytics` (not a Server Action) |
 
-**7-step workflow:** review → draft upload → label approve → artist viewed → invoice created → received → paid.
+**7-step workflow:** review → draft upload → label approve → artist viewed → invoice created → received → paid. The UI stepper is derived KPIs (`statementWorkflow.ts`). **DAL enforces FROM→TO** via `STATEMENT_TRANSITIONS` in `statementStatusTransitions.ts` (`updateSalesStatementStatus` throws `InvalidStatementTransitionError` → HTTP 422). Invoice from `label_approved` (skip notified/viewed) stays allowed. Payment from invoice `sent` stays allowed (sets `received_at` if empty). No unlock / unpay in the app — reverse status only via support SQL.
+
+**Uniqueness:** one non-storno draft per artist+period (`sales_statements_one_draft_per_period`); one SOS invoice per statement (`artist_invoices_one_per_statement`). App lookup still 409s first; unique index catches races (`23505`).
+
+**Periods:** Archive does **not** require a prior lock (operators archive open periods on purpose). Archive is final.
 
 **Tables:** `settlement_periods`, `artist_settlement_ledger`, `period_carry_forwards`, `financial_audit_events`; extended `sales_statements`, `artist_invoices`.
 
 **DAL:** `settlementPeriods.ts`, `settlementLedger.ts`, `settlementRegister.ts`, `financialAudit.ts`; extended `salesStatements.ts`, `artistInvoices.ts`.
 
-**Admin APIs:** `GET /api/admin/settlements/register`, periods lock/archive, bulk-approve, correction, invoice received/payment.
+**Admin APIs:** `GET /api/admin/settlements/register`, `POST /api/admin/sos/persist-analytics`, periods lock/archive, bulk-approve, correction, invoice received/payment. Artist names match after collapsing whitespace (`FrozenPlasma` = `Frozen Plasma`). Split fees, expenses, manuals, and opening balances use the same collapsed key (`findByArtistName` / `lookupByArtistName`) so a workspace named **Frozen Plasma** still applies to Bandcamp `FrozenPlasma`. Code defaults (`DEFAULT_APP_DEFAULTS`) hold only label-wide rates (not compilation filters or per-artist splits). Workspace JSON import persists to the Default preset immediately, plus the current period workspace when a period is selected. Standalone SOS exports use `pdfExportSettings`; import maps that to `pdfSettings`.
 
-**Bronze CSV:** Never browser `fetch()` to presigned R2. Upload ≤45 MB via `…/upload`; 45–200 MB via `…/multipart/*`; download via `…/download`. Limits: `bronzeUploadLimits.ts`. UI: `ImportBatchesPanel`.
+**Bronze CSV:** Never browser `fetch()` to presigned R2. Upload ≤45 MB via `…/upload`; 45–200 MB via `…/multipart/*`; download via `…/download`. Limits: `bronzeUploadLimits.ts`. UI: `ImportBatchesPanel`. Confirm still checks SHA-256 of the R2 object. Active `file_hash` is unique (`distributor_import_batches_file_hash_active`); failed batches may reuse the hash. POST lookup + `23505` both return `{ duplicate: true }`.
 
 **Portal statement provenance (chain of custody):** `/portal/statements` shows a trust banner + per-statement “source proof” (distributor, period, SHA-256, batch id, archive time). Download via `GET /api/portal/statements/[id]/source-csv?artistId=` (membership + stream from R2, never browser→presigned). DAL: `getStatementProvenanceByStatementIds` / `toStatementSourceProvenance`. Statements map `batch_id`; RLS `distributor_import_batches: artist read linked` in `reset.sql`. Manual PDF-only statements show “no batch linked”.
 

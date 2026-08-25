@@ -109,6 +109,8 @@ const schema = z.object({
   videosPerPage: z.number().int().min(1).max(50).default(9),
   videosLinkToPage: z.boolean().default(false),
   excludeShortsFromPublic: z.boolean().default(false),
+  artistProfileVideoRows: z.number().int().min(1).max(12).default(2),
+  artistProfileNewsRows: z.number().int().min(1).max(12).default(2),
   homepageNewsCount: z.number().int().min(1).max(12).default(3),
   logoUrl: z.string().optional().default(''),
   faviconUrl: z.string().optional().default(''),
@@ -1031,6 +1033,38 @@ export function SiteSettingsManager({ value: settings, onChange: saveSettings, i
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   How many news posts are shown in the news preview section on the homepage (1–12). Default: 3.
+                </p>
+              </Field>
+
+              <Field id="artistProfileVideoRows" label="Artist profile video rows">
+                <Input
+                  id="artistProfileVideoRows"
+                  type="number"
+                  min={1}
+                  max={12}
+                  step={1}
+                  {...register('artistProfileVideoRows', { valueAsNumber: true })}
+                  disabled={isSubmitting}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Rows of video tiles on the regular artist page (/artists/[slug]) before &quot;Show all&quot;.
+                  Columns: 1 (mobile) / 2 (md) / 3 (xl). Default: 2.
+                </p>
+              </Field>
+
+              <Field id="artistProfileNewsRows" label="Artist profile news rows">
+                <Input
+                  id="artistProfileNewsRows"
+                  type="number"
+                  min={1}
+                  max={12}
+                  step={1}
+                  {...register('artistProfileNewsRows', { valueAsNumber: true })}
+                  disabled={isSubmitting}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Rows of news cards on the regular artist page before &quot;Show all&quot;.
+                  Columns: 1 (mobile) / 2 (md+). Default: 2.
                 </p>
               </Field>
 

@@ -99,6 +99,7 @@ function mockSupabaseClientOnline(): void {
           const countPromise = Promise.resolve(countResult)
           return {
             select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
             not: vi.fn().mockReturnThis(),
             then: countPromise.then.bind(countPromise),
             catch: countPromise.catch.bind(countPromise),

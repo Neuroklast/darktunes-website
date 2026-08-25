@@ -22,17 +22,19 @@ function makeArtistRevenue(overrides: Partial<ArtistRevenue> & Pick<ArtistRevenu
     releaseBreakdown: [],
     physicalReleasesRevenue: 0,
     digitalSplitPercentage: 100,
+    believeSplitPercentage: 100,
+    bandcampSplitPercentage: 100,
     physicalSplitPercentage: 100,
     darkmerchSplitPercentage: 100,
     ...overrides,
   }
 }
 
-vi.mock('@/lib/sos/persistSosAnalyticsAction', () => ({
-  persistSosAnalytics: vi.fn(async () => ({ success: true, merchOrdersUpserted: 2 })),
+vi.mock('@/lib/sos/runPersistSosAnalytics', () => ({
+  runPersistSosAnalytics: vi.fn(async () => ({ success: true, merchOrdersUpserted: 2 })),
 }))
 
-import { persistSosAnalytics } from '@/lib/sos/persistSosAnalyticsAction'
+import { runPersistSosAnalytics } from '@/lib/sos/runPersistSosAnalytics'
 
 describe('persistAnalyticsAfterStatementUpload', () => {
   it('passes filtered merch rows for the published artist', async () => {
@@ -76,7 +78,7 @@ describe('persistAnalyticsAfterStatementUpload', () => {
       bronzeBatchIds: [],
     })
 
-    expect(persistSosAnalytics).toHaveBeenCalledWith(
+    expect(runPersistSosAnalytics).toHaveBeenCalledWith(
       expect.objectContaining({
         merchOrderRows: [expect.objectContaining({ externalId: 'm1', artistName: 'Band A' })],
       }),
@@ -84,7 +86,7 @@ describe('persistAnalyticsAfterStatementUpload', () => {
   })
 
   it('skips persist when the artist has no territory metrics', async () => {
-    vi.mocked(persistSosAnalytics).mockClear()
+    vi.mocked(runPersistSosAnalytics).mockClear()
 
     await persistAnalyticsAfterStatementUpload({
       artistName: 'Unknown',
@@ -105,11 +107,11 @@ describe('persistAnalyticsAfterStatementUpload', () => {
       bronzeBatchIds: [],
     })
 
-    expect(persistSosAnalytics).not.toHaveBeenCalled()
+    expect(runPersistSosAnalytics).not.toHaveBeenCalled()
   })
 
   it('does not upsert period summary on draft upload', async () => {
-    vi.mocked(persistSosAnalytics).mockClear()
+    vi.mocked(runPersistSosAnalytics).mockClear()
 
     await persistAnalyticsAfterStatementUpload({
       artistName: 'Band A',
@@ -136,8 +138,11 @@ describe('persistAnalyticsAfterStatementUpload', () => {
       bronzeBatchIds: ['batch-1'],
     })
 
-    expect(persistSosAnalytics).toHaveBeenCalledWith(
-      expect.not.objectContaining({ periodSummary: expect.anything() }),
+    expect(runPersistSosAnalytics).toHaveBeenCalledWith(
+      expect.objectContaining({
+        includePeriodSummary: false,
+        revenues: [expect.objectContaining({ artist: 'Band A', finalAmount: 400 })],
+      }),
     )
   })
 })

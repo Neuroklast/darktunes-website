@@ -15,8 +15,9 @@ const LEGACY_APP_BUILD_MANIFEST_PATH = path.join(ROOT, '.next', 'app-build-manif
 const budgets = {
   'shared bundle (rootMainFiles)': 450 * 1024,
   'app/page route-specific JS': 550 * 1024,
-  // Raised after public artist DTO/security work increased client graph (~570 KB observed).
-  'app/artists/[slug]/page route-specific JS': 580 * 1024,
+  // Raised after public artist DTO/security work + configurable video/news preview rows
+  // (Show all control + media-query column math; ~586 KB observed in CI).
+  'app/artists/[slug]/page route-specific JS': 600 * 1024,
 }
 
 /** Normalise a file path by stripping any leading slash. */

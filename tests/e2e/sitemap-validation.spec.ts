@@ -7,7 +7,10 @@ function extractSitemapUrls(xml: string): string[] {
   return matches.map((match) => match[1]).filter((url): url is string => Boolean(url))
 }
 
+// 50 sequential SSR routes against a cold Next server — allow generous wall time.
 test('sitemap URLs return HTTP 200 (first 50)', async ({ request, baseURL }) => {
+  test.setTimeout(120_000)
+
   const response = await request.get('/sitemap.xml')
   expect(response.status()).toBe(200)
 
@@ -20,7 +23,7 @@ test('sitemap URLs return HTTP 200 (first 50)', async ({ request, baseURL }) => 
   for (const absoluteUrl of urls) {
     const url = new URL(absoluteUrl, origin)
     const route = `${url.pathname}${url.search}`
-    const routeResponse = await request.get(route)
+    const routeResponse = await request.get(route, { timeout: 30_000 })
     expect(routeResponse.status(), `Sitemap route must return 200: ${route}`).toBe(200)
   }
 })

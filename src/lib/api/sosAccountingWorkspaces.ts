@@ -1,7 +1,7 @@
 /**
  * DAL for sos_accounting_workspaces — server-persisted live accounting workspace
- * for a period. Stores rules config + attached bronze batch references.
- * Enables collaborative, anytime retrieval of the full SOS configuration.
+ * for a Sales Statement period. Stores rules config + attached bronze batch references.
+ * Scoped by organization_id (table name keeps legacy sos_* path).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -10,6 +10,7 @@ import {
   normalizeAccountingConfig,
   type SosAccountingSettings,
 } from '@/lib/sos/sosAccountingSettings'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { toDbRecord } from '@/lib/types/jsonColumns'
 
 type DbClient = SupabaseClient<Database>
@@ -34,6 +35,7 @@ export interface UpsertAccountingWorkspaceInput {
   config: AccountingWorkspaceConfig
   bronzeBatchIds?: string[]
   updatedBy?: string | null
+  organizationId?: string
 }
 
 function rowToWorkspace(row: Row): SosAccountingWorkspace {
@@ -53,10 +55,12 @@ export async function getWorkspaceForPeriod(
   db: DbClient,
   periodStart: string,
   periodEnd: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<SosAccountingWorkspace | null> {
   const { data, error } = await db
     .from('sos_accounting_workspaces')
     .select('*')
+    .eq('organization_id', organizationId)
     .eq('period_start', periodStart)
     .eq('period_end', periodEnd)
     .maybeSingle()
@@ -69,18 +73,20 @@ export async function upsertWorkspaceForPeriod(
   db: DbClient,
   input: UpsertAccountingWorkspaceInput,
 ): Promise<SosAccountingWorkspace> {
+  const organizationId = input.organizationId ?? DEFAULT_ORGANIZATION_ID
   const config = normalizeAccountingConfig(input.config)
   const { data, error } = await db
     .from('sos_accounting_workspaces')
     .upsert(
       {
+        organization_id: organizationId,
         period_start: input.periodStart,
         period_end: input.periodEnd,
         config: toDbRecord(config),
         bronze_batch_ids: input.bronzeBatchIds ?? [],
         updated_by: input.updatedBy ?? null,
       },
-      { onConflict: 'period_start,period_end' },
+      { onConflict: 'organization_id,period_start,period_end' },
     )
     .select()
     .single()
@@ -89,10 +95,14 @@ export async function upsertWorkspaceForPeriod(
   return rowToWorkspace(data as Row)
 }
 
-export async function listAccountingWorkspaces(db: DbClient): Promise<SosAccountingWorkspace[]> {
+export async function listAccountingWorkspaces(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<SosAccountingWorkspace[]> {
   const { data, error } = await db
     .from('sos_accounting_workspaces')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('updated_at', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -103,10 +113,12 @@ export async function deleteWorkspaceForPeriod(
   db: DbClient,
   periodStart: string,
   periodEnd: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
 ): Promise<boolean> {
   const { data, error } = await db
     .from('sos_accounting_workspaces')
     .delete()
+    .eq('organization_id', organizationId)
     .eq('period_start', periodStart)
     .eq('period_end', periodEnd)
     .select('id')

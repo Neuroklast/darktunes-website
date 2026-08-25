@@ -35,6 +35,11 @@
 - Push to `main` branch for automatic production deployment
 - Push to any branch for automatic preview deployment
 
+### App version vs deploys
+- Every `main` merge still deploys (CD). **SemVer tags** (`vX.Y.Z`) label product releases; they are not a Vercel deploy gate.
+- Current version: `package.json` → `"version"`. Ritual: [docs/RELEASING.md](docs/RELEASING.md) (`npm run release:check`, `npm run release:tag`).
+- Production identity in Admin → System Health uses `package.json` version + `VERCEL_GIT_COMMIT_SHA` (short). Optional override: `NEXT_PUBLIC_GIT_COMMIT`.
+
 ---
 
 ## 🗄️ Supabase Setup
@@ -224,12 +229,45 @@ Configure `mailerlite_api_key` and `mailerlite_group_id` in Admin → API Keys. 
 - [ ] Test admin login
 - [ ] Test artist portal login at `/portal`
 - [ ] Test portal billing profile save at `/portal/billing`
-- [ ] Test SOS statement approval in `/admin` and invoice creation from `/portal/statements`
+- [ ] Test Sales Statement approval in `/admin` and invoice creation from `/portal/statements`
+
+**SOS support (no product reverse):** There is no Unlock / Unarchive / Unpay in the admin UI. Period archive does not require a prior lock and is final. Illegal statement status jumps are rejected by the DAL. Reverse a status only with reviewed support SQL on the live DB after applying `supabase/reset.sql` (includes draft + invoice unique indexes).
 - [ ] Test file upload
 - [ ] Test artist "Sync Now" button (iTunes releases import)
 - [ ] Check sync_logs table for any errors
 - [ ] Test iTunes sync
 - [ ] Verify all sections load correctly
+
+---
+
+## Multi-tenant SaaS (organizations)
+
+See `docs/agent/multi-tenant.md` for product/architecture SSOT.
+
+### Schema apply (staging then prod)
+
+1. Backup the database.
+2. Run the full `supabase/reset.sql` in the Supabase SQL Editor (idempotent expands only; never use `supabase/migrations/`).
+3. Confirm multi-tenant helpers exist: `user_can_access_organization`, `user_can_access_artist`, `user_is_platform_admin`.
+4. Smoke: host `x-organization-id` resolves for apex → Org #0; pilot subdomain/custom domain after DNS below.
+
+### Custom domain DNS
+
+1. Admin → Organizations → select label → **Custom Domains** → Add domain.
+2. Customer publishes a **TXT** record with value `darktunes-verify=…` (shown in UI) on either:
+   - the apex hostname (`label.com`), or
+   - `_darktunes-verify.label.com`
+3. Click **Check DNS** (`POST /api/admin/custom-domains/verify`). Verification fails until the token is visible in public DNS.
+4. After status is `verified` / `active`, point site traffic with **CNAME** (or ALIAS/ANAME for apex) to the platform tenant hostname (e.g. `{slug}.{PLATFORM_ROOT_DOMAIN}` or the Vercel project domain).
+5. Add the custom hostname in **Vercel → Domains** so TLS is issued for the customer domain.
+6. Optional non-production only: `CUSTOM_DOMAIN_FORCE_VERIFY=1` skips the DNS check (never enable in production).
+
+### Stripe Billing (platform subscription)
+
+1. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (test keys first).
+2. Webhook endpoint: `https://<host>/api/stripe/webhook` (events: `checkout.session.completed`, subscription updated/deleted, `invoice.payment_failed`).
+3. Onboarding (`/onboarding`) creates org + Checkout; existing-org checkout requires membership (`assertBillingOrganizationAccess`).
+4. Replay of the same Stripe event id is a no-op (`stripe_webhook_events` dedupe).
 
 ---
 
@@ -290,9 +328,9 @@ Set these in **Supabase Dashboard → Project → Edge Functions → Secrets**:
 | `itunes`      | `POST /api/sync-api`   | Sync iTunes releases for all artists  |
 | `spotify`     | `POST /api/sync-api`   | Sync Spotify releases                 |
 | `discogs`     | `POST /api/sync-api`   | Sync Discogs releases                 |
-| `songkick`    | `POST /api/sync-api`   | Sync Songkick concert dates           |
-| `bandsintown` | `POST /api/sync-api`   | Sync Bandsintown concerts (per-artist key) |
-| `odesli`      | `POST /api/sync-api`   | Resolve Odesli smart links            |
+| `songkick`    | `POST /api/sync-api`   | Enqueue Songkick concert jobs + kick `/api/sync` |
+| `bandsintown` | `POST /api/sync-api`   | Enqueue Bandsintown concert jobs + kick `/api/sync` |
+| `odesli`      | `POST /api/sync-api`   | Enqueue Odesli smart-link job + kick `/api/sync` |
 
 #### Usage examples
 
@@ -318,10 +356,17 @@ Body:    { "type": "bandsintown" }
 ```
 
 > **Bandsintown sync note:** The `bandsintown` sync type iterates through every
-> artist in the database that has **both** `bandsintown_id` **and** `bandsintown_api_key`
-> (per-artist field) set. Artists missing either field are silently skipped.
-> A global `bandsintown_api_key` in Admin → API Keys is optional fallback when
-> per-artist `bandsintown_api_key` is unset. Artists without `bandsintown_id` are skipped.
+> artist that has `bandsintown_id` **and** a usable API key. That column holds the
+> **artist name as registered on Bandsintown** (UI label: Bandsintown Artist Name),
+> not a numeric artist id. Per-artist keys live in
+> `artist_private_data.bandsintown_api_key` (the public `artists` column is
+> nulled after dual-write). A global `bandsintown_api_key` in Admin → API Keys is
+> optional fallback. Artists without a name or any key are skipped.
+>
+> **Queue kick:** `type=spotify`, `odesli`, `songkick`, and `bandsintown` enqueue
+> `sync_queue` jobs and `/api/sync-api` immediately kicks `/api/sync`. YouTube
+> stays a separate channel route (`/api/sync-youtube`). `process-queue` every
+> 5 minutes remains the safety net if a kick or self-chain is missed.
 
 ---
 

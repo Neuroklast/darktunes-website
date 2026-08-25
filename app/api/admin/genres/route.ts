@@ -13,11 +13,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { withErrorHandler, ApiError } from '@/lib/errors'
-import { extractBearerToken, verifyAdminOrEditor } from '@/lib/adminAuth'
+import { requireAdminOrEditorFromRequest } from '@/lib/adminAuth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { listGenres, createGenre, deleteGenre } from '@/lib/api/genres'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 
 const createSchema = z.object({
   name: z.string().min(1).max(100),
@@ -29,23 +30,22 @@ export const GET = withErrorHandler(async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
-  const genres = await listGenres(supabase)
+  const organizationId = await getRequestOrganizationId()
+  const genres = await listGenres(supabase, organizationId)
   return NextResponse.json(genres)
 })
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdminOrEditor(token)
+  const { organizationId } = await requireAdminOrEditorFromRequest(req)
 
   const body = createSchema.parse(await req.json())
   const supabase = await createServerSupabaseClient()
-  const genre = await createGenre(supabase, body.name)
+  const genre = await createGenre(supabase, body.name, organizationId)
   return NextResponse.json(genre, { status: 201 })
 })
 
 export const DELETE = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  await verifyAdminOrEditor(token)
+  await requireAdminOrEditorFromRequest(req)
 
   const id = req.nextUrl.searchParams.get('id')
   if (!id) throw new ApiError(400, 'Missing genre id')

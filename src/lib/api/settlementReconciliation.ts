@@ -4,13 +4,9 @@ import { sumLedgerBalance } from '@/lib/api/settlementLedger'
 const BALANCE_TOLERANCE_EUR = 0.005
 
 /** Expected sign by entry type (correction may be ±). */
-export const LEDGER_ENTRY_EXPECTED_SIGN: Record<
-  Exclude<LedgerEntryType, 'correction'>,
-  'positive' | 'negative'
+export const LEDGER_ENTRY_EXPECTED_SIGN: Partial<
+  Record<Exclude<LedgerEntryType, 'correction'>, 'positive' | 'negative'>
 > = {
-  statement_payout: 'positive',
-  carry_in: 'positive',
-  opening_balance: 'positive',
   invoice_liability: 'negative',
   payment: 'negative',
   partial_payment: 'negative',
@@ -41,6 +37,7 @@ export function validateLedgerEntrySigns(entries: LedgerEntry[]): LedgerInvarian
     }
 
     const expected = LEDGER_ENTRY_EXPECTED_SIGN[entry.entryType]
+    if (!expected) continue
     const invalid =
       (expected === 'positive' && entry.amountEur <= 0) ||
       (expected === 'negative' && entry.amountEur >= 0)

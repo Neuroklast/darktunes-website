@@ -25,6 +25,7 @@ function makeMockDb(data: unknown = null, error: unknown = null): DbClient {
 }
 
 const row = {
+  organization_id: '00000000-0000-0000-0000-000000000000',
   id: 'dl-1',
   journalist_id: 'user-1',
   release_id: 'release-1',

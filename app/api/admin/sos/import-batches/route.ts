@@ -1,5 +1,5 @@
 /**
- * GET  /api/admin/sos/import-batches — list bronze import batches
+ * GET  /api/admin/sos/import-batches — list Sales Statement bronze import batches (host org)
  * POST /api/admin/sos/import-batches — register a bronze CSV import (upload via [id]/upload)
  */
 
@@ -11,6 +11,7 @@ import type { NextRequest } from 'next/server'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import {
   createImportBatch,
+  DuplicateImportBatchError,
   findImportBatchByFileHash,
   listImportBatches,
 } from '@/lib/api/distributorImportBatches'
@@ -18,16 +19,16 @@ import { assertSettlementPeriodWritable } from '@/lib/api/settlementPeriods'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  const batches = await listImportBatches(serviceSupabase, 100)
+  const batches = await listImportBatches(serviceSupabase, 100, organizationId)
   return NextResponse.json({ batches })
 })
 
 const MAX_REGISTRATION_BODY_BYTES = 16_384
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const { userId } = await requireAdminFromRequest(req)
+  const { userId, organizationId } = await requireAdminFromRequest(req)
   const user = { id: userId }
 
   const rawBody = await req.text()
@@ -63,8 +64,11 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
 
-  if (file_hash && /^[a-f0-9]{64}$/i.test(file_hash)) {
-    const existing = await findImportBatchByFileHash(serviceSupabase, file_hash)
+  const normalizedHash =
+    file_hash && /^[a-f0-9]{64}$/i.test(file_hash) ? file_hash.toLowerCase() : null
+
+  if (normalizedHash) {
+    const existing = await findImportBatchByFileHash(serviceSupabase, normalizedHash, organizationId)
     if (existing) {
       return NextResponse.json({ batch: existing, duplicate: true }, { status: 200 })
     }
@@ -73,18 +77,40 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   const batchId = randomUUID()
   const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_')
   const hashPrefix = file_hash?.slice(0, 12) ?? createHash('sha256').update(`${batchId}-${filename}`).digest('hex').slice(0, 12)
-  const r2Key = `sos-imports/${batchId}/${hashPrefix}_${safeName}`
+  const { buildTenantObjectKey } = await import('@/lib/organizations/r2Keys')
+  // Sales Statement bronze CSV archive (path prefix remains sos-imports for expand→migrate)
+  const r2Key = buildTenantObjectKey(
+    organizationId,
+    `sos-imports/${batchId}/${hashPrefix}_${safeName}`,
+  )
 
-  await assertSettlementPeriodWritable(serviceSupabase, period_start, period_end)
+  await assertSettlementPeriodWritable(
+    serviceSupabase,
+    period_start,
+    period_end,
+    organizationId,
+  )
 
-  const batch = await createImportBatch(serviceSupabase, {
-    periodStart: period_start,
-    periodEnd: period_end,
-    distributor,
-    r2Key,
-    rowCount: row_count ?? 0,
-    uploadedBy: user.id,
-  })
+  try {
+    const batch = await createImportBatch(serviceSupabase, {
+      periodStart: period_start,
+      periodEnd: period_end,
+      distributor,
+      r2Key,
+      fileHash: normalizedHash,
+      rowCount: row_count ?? 0,
+      uploadedBy: user.id,
+      organizationId,
+    })
 
-  return NextResponse.json({ batch, r2Key }, { status: 201 })
+    return NextResponse.json({ batch, r2Key }, { status: 201 })
+  } catch (err) {
+    if (err instanceof DuplicateImportBatchError && normalizedHash) {
+      const existing = await findImportBatchByFileHash(serviceSupabase, normalizedHash, organizationId)
+      if (existing) {
+        return NextResponse.json({ batch: existing, duplicate: true }, { status: 200 })
+      }
+    }
+    throw err
+  }
 })

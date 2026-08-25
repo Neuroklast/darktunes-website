@@ -2,10 +2,12 @@
  * src/lib/health/heartbeats.ts
  *
  * Persists cron heartbeat timestamps in site_settings (KV).
+ * Platform-wide (Org #0) — not per label tenant.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 
 export type HealthHeartbeatKey =
   | 'sync_execute'
@@ -45,6 +47,7 @@ export async function getHealthHeartbeats(
   const { data, error } = await db
     .from('site_settings')
     .select('value')
+    .eq('organization_id', DEFAULT_ORGANIZATION_ID)
     .eq('key', HEARTBEATS_SETTINGS_KEY)
     .maybeSingle()
 
@@ -63,8 +66,12 @@ export async function recordHealthHeartbeat(
       const existing = await getHealthHeartbeats(db)
       const updated: HealthHeartbeats = { ...existing, [key]: at }
       const { error } = await db.from('site_settings').upsert(
-        { key: HEARTBEATS_SETTINGS_KEY, value: JSON.stringify(updated) },
-        { onConflict: 'key' },
+        {
+          organization_id: DEFAULT_ORGANIZATION_ID,
+          key: HEARTBEATS_SETTINGS_KEY,
+          value: JSON.stringify(updated),
+        },
+        { onConflict: 'organization_id,key' },
       )
       if (error) {
         console.error(`[recordHealthHeartbeat] upsert failed for ${key}:`, error.message)

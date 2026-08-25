@@ -3,13 +3,14 @@
 import { useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 import { useAuthContext } from '@/contexts/AuthContext'
-import { useAdminNavBadges } from '@/hooks/useAdminNavBadges'
+import { useAdminNavBadgesContext } from '@/contexts/AdminNavBadgesContext'
 import { PushBootstrap } from './PushBootstrap'
 
 export function AdminPushBootstrap() {
   const t = useTranslations('admin.notifications')
   const { user } = useAuthContext()
-  const badges = useAdminNavBadges(user?.id ?? null, Boolean(user?.id))
+  // Shared realtime subscription via AdminNavBadgesProvider (see AdminClientLayout)
+  const badges = useAdminNavBadgesContext()
 
   const badgeCount = useMemo(
     () =>

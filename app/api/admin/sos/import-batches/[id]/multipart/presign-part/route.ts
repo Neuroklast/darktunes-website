@@ -19,7 +19,7 @@ function extractBatchIdFromPath(pathname: string): string | null {
 }
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
   const id = extractBatchIdFromPath(new URL(req.url).pathname)
   if (!id) throw new ApiError(400, 'Invalid multipart presign-part path')
 
@@ -36,7 +36,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  const batch = await getWritableImportBatch(serviceSupabase, id)
+  const batch = await getWritableImportBatch(serviceSupabase, id, organizationId)
   const uploadUrl = await generateBronzePresignedPartUrl(batch.r2Key, uploadId, partNumber)
 
   return NextResponse.json({ uploadUrl, partNumber })

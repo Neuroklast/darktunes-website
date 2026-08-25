@@ -7,13 +7,33 @@ const { getIncomingToLabelUnreadCount, safeCount } = vi.hoisted(() => ({
   safeCount: vi.fn(),
 }))
 
+/** Fluent chain that accepts any number of .eq()/.is() and is awaitable. */
+function chainableQuery(result: { count: number | null; error: unknown } = { count: 0, error: null }) {
+  const chain: {
+    eq: () => typeof chain
+    is: () => typeof chain
+    then: PromiseLike<typeof result>['then']
+  } = {
+    eq: () => chain,
+    is: () => chain,
+    then: (onfulfilled, onrejected) => Promise.resolve(result).then(onfulfilled, onrejected),
+  }
+  return chain
+}
+
 vi.mock('@/lib/api/portalMessages', () => ({ getIncomingToLabelUnreadCount }))
 vi.mock('@/lib/api/safeCount', () => ({ safeCount }))
+vi.mock('@/lib/organizations/clientOrganizationId', () => ({
+  getClientOrganizationId: () => '00000000-0000-0000-0000-000000000000',
+}))
 vi.mock('@/lib/supabase/client', () => ({
   createBrowserSupabaseClient: () => ({
-    from: () => ({ select: () => ({ eq: () => ({}) }) }),
+    from: () => ({ select: () => chainableQuery() }),
     channel: () => {
-      const ch: { on: () => typeof ch; subscribe: () => Record<string, never> } = { on: () => ch, subscribe: () => ({}) }
+      const ch: { on: () => typeof ch; subscribe: () => Record<string, never> } = {
+        on: () => ch,
+        subscribe: () => ({}),
+      }
       return ch
     },
     removeChannel: vi.fn(),

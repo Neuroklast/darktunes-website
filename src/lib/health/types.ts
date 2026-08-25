@@ -77,11 +77,19 @@ export interface HealthKpiSummary {
   avgSuccessRate24h: number | null
 }
 
+/** Product version + deploy identity (full health snapshot only). */
+export interface HealthAppIdentity {
+  version: string
+  commit: string | null
+}
+
 export interface HealthResponse {
   status: HealthOverallStatus
   statusLabel: string
   statusDetail: string
   healthScore: number
+  /** SemVer from package.json + optional git short SHA from deploy env. */
+  app: HealthAppIdentity
   database: DatabaseHealth
   apis: Record<string, ApiHealthStatus>
   syncQueue: SyncQueueHealth | null

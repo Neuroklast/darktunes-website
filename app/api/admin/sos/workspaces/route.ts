@@ -2,7 +2,7 @@
  * GET  /api/admin/sos/workspaces?periodStart=...&periodEnd=... — load workspace for period
  * POST /api/admin/sos/workspaces — upsert workspace (rules config + bronze batches) for a period
  *
- * Provides the enterprise shared state for accounting configuration.
+ * Sales Statement accounting workspace — shared config for a settlement period (host org).
  */
 
 import { requireAdminFromRequest } from '@/lib/adminAuth'
@@ -20,7 +20,7 @@ import { assertSettlementPeriodWritable } from '@/lib/api/settlementPeriods'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
 
   const periodStart = req.nextUrl.searchParams.get('periodStart')
   const periodEnd = req.nextUrl.searchParams.get('periodEnd')
@@ -30,14 +30,18 @@ export const GET = withErrorHandler(async (req: NextRequest): Promise<NextRespon
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  const workspace = await getWorkspaceForPeriod(serviceSupabase, periodStart, periodEnd)
+  const workspace = await getWorkspaceForPeriod(
+    serviceSupabase,
+    periodStart,
+    periodEnd,
+    organizationId,
+  )
 
   return NextResponse.json({ workspace })
 })
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const { userId } = await requireAdminFromRequest(req)
-  const user = { id: userId }
+  const { userId, organizationId } = await requireAdminFromRequest(req)
   const body = await req.json()
 
   const {
@@ -62,21 +66,27 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   const serviceSupabase = await createServiceRoleSupabaseClient()
 
   // Respect period locking when present
-  await assertSettlementPeriodWritable(serviceSupabase, period_start, period_end)
+  await assertSettlementPeriodWritable(
+    serviceSupabase,
+    period_start,
+    period_end,
+    organizationId,
+  )
 
   const workspace = await upsertWorkspaceForPeriod(serviceSupabase, {
     periodStart: period_start,
     periodEnd: period_end,
     config,
     bronzeBatchIds: bronze_batch_ids ?? [],
-    updatedBy: user.id,
+    updatedBy: userId,
+    organizationId,
   })
 
   return NextResponse.json({ workspace }, { status: 200 })
 })
 
 export const DELETE = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { organizationId } = await requireAdminFromRequest(req)
 
   const periodStart = req.nextUrl.searchParams.get('periodStart')
   const periodEnd = req.nextUrl.searchParams.get('periodEnd')
@@ -86,9 +96,19 @@ export const DELETE = withErrorHandler(async (req: NextRequest): Promise<NextRes
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient()
-  await assertSettlementPeriodWritable(serviceSupabase, periodStart, periodEnd)
+  await assertSettlementPeriodWritable(
+    serviceSupabase,
+    periodStart,
+    periodEnd,
+    organizationId,
+  )
 
-  const deleted = await deleteWorkspaceForPeriod(serviceSupabase, periodStart, periodEnd)
+  const deleted = await deleteWorkspaceForPeriod(
+    serviceSupabase,
+    periodStart,
+    periodEnd,
+    organizationId,
+  )
 
   return NextResponse.json({ deleted })
 })

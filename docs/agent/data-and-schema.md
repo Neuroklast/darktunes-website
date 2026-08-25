@@ -6,6 +6,8 @@ UI data originates from Supabase. After writes, invalidate ISR via the relevant 
 
 **Tenant brand:** `site_settings.label_name` + `label_short_name` (CMS). Code reads via `getBrandContext()` / `resolveBrandFromSettings()` in `src/lib/brand/`. Bootstrap when DB is empty: `TENANT_*` env vars → `SITE_SETTINGS_DEFAULTS` (neutral fallbacks only in TypeScript). No hardcoded tenant names in `app/` or `src/` — enforced by `npm run check:brand`.
 
+**Multi-tenant SaaS (organizations):** Label isolation uses `organization_id` (Org #0 = darkTunes). Host resolution, DAL scoping, cache tags, and Stripe are documented in [multi-tenant.md](multi-tenant.md). Program branch: `feat/multi-tenant-saas`. Staff JWT isolation: `user_can_access_organization(org_id)` on org-column tables; nested `user_can_access_artist(artist_id)` on artist-scoped finance/messages/metrics/EPK admin policies.
+
 `unstable_cache` callbacks must use a **cookie-free** anon client — never `createServerSupabaseClient()` (calls `cookies()`). See `AGENTS.md`.
 
 ## Data access layer (`src/lib/api/`)
@@ -20,7 +22,7 @@ Hooks in `src/hooks/` wrap DAL; short-circuit when `isSupabaseConfigured` is fal
 
 **Public vs admin:** `getPublicArtists` / `getPublicArtistBySlug` / `getPublicRelatedArtists` (`publicArtist.ts`) use **column whitelist only** — never secrets. Full `getArtists` / `getArtistById` merge `artist_private_data` for staff/portal. Releases/concerts still filter `is_visible`; releases also `is_promo = FALSE`. Admin hooks use unrestricted getters.
 
-**Private artist secrets:** Table `artist_private_data` (`email`, `vat_number`, `notes`, `bandsintown_api_key`, `storage_quota_bytes`, `is_eu_non_german`). DAL: `artistPrivateData.ts` + dual-write in `updateArtist`/`createArtist` and portal Bandsintown routes. Public EPK: `publicArtistEpk.ts` + service-role only (no anon RLS on `artist_epks`).
+**Private artist secrets:** Table `artist_private_data` (`email`, `vat_number`, `notes`, `bandsintown_api_key`, `storage_quota_bytes`, `is_eu_non_german`). DAL: `artistPrivateData.ts` + dual-write in `updateArtist`/`createArtist` and portal Bandsintown routes. Cron/`syncAll` and Health must read Bandsintown keys from this table (public `artists.bandsintown_api_key` is nulled). Public EPK: `publicArtistEpk.ts` + service-role only (no anon RLS on `artist_epks`).
 
 **Server clients:** `createServerSupabaseClient()` (RSC/handlers), `createBrowserSupabaseClient()` (client). **Deprecated:** `src/lib/supabase.ts`.
 
@@ -58,6 +60,11 @@ Bronze limits: SSOT `src/lib/sos/bronzeUploadLimits.ts` only.
 
 **Statement provenance:** `sales_statements.batch_id` → `distributor_import_batches` (`file_hash`, `distributor`, period, `r2_key`). Portal artists may SELECT linked batches (policy `distributor_import_batches: artist read linked`). Source CSV download is server-streamed only.
 
+**SOS uniqueness (partial indexes, live-DB `IF NOT EXISTS`):**
+- `sales_statements_one_draft_per_period` — `(artist_id, period_start, period_end)` where `status = 'draft'` and `document_type IS DISTINCT FROM 'storno'`
+- `artist_invoices_one_per_statement` — `(statement_id)` where `statement_id IS NOT NULL`
+- `distributor_import_batches_file_hash_active` — `(file_hash)` where `file_hash IS NOT NULL` and `status IS DISTINCT FROM 'failed'`
+
 ## Schema management
 
 ⛔ **No** `supabase/migrations/`. Only `supabase/reset.sql` + `src/types/database.ts`.
@@ -85,7 +92,7 @@ Apply: paste `reset.sql` into Supabase SQL Editor (idempotent on live DB).
 
 | Table | Persist path |
 |-------|--------------|
-| `artist_territory_metrics`, `streaming_stats` | Accounting → Save to Portal |
+| `artist_territory_metrics`, `streaming_stats` | Accounting → Save to Portal. Territory `revenue_eur` is the artist share (not processor gross). |
 | `sos_period_summaries` | Same (optional) |
 | `event_impact`, `promo_impact` | Recomputed on persist |
 | `merch_orders` | Worker → persist |

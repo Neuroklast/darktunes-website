@@ -21,10 +21,25 @@ vi.mock('@/lib/getUserRole', () => ({
   getUserRoleWithClient: (...args: unknown[]) => getUserRoleWithClient(...args),
 }))
 
+vi.mock('@/lib/organizations/requestContext', () => ({
+  getRequestOrganizationId: vi
+    .fn()
+    .mockResolvedValue('00000000-0000-0000-0000-000000000000'),
+}))
+
+vi.mock('@/lib/organizations/assertAdminOrganizationAccess', () => ({
+  assertAdminOrganizationAccess: vi.fn().mockResolvedValue(undefined),
+}))
+
 // Service-role path uses createClient from supabase-js
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
     auth: { getUser: authGetUser },
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })),
   }),
 }))
 
@@ -65,6 +80,7 @@ describe('requireAdminFromRequest', () => {
     const result = await requireAdminFromRequest(makeReq(null))
     expect(result.userId).toBe('admin-1')
     expect(result.role).toBe('admin')
+    expect(result.organizationId).toBe('00000000-0000-0000-0000-000000000000')
   })
 
   it('Bearer admin succeeds', async () => {

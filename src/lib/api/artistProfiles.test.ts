@@ -109,6 +109,7 @@ const mockProfileRow: ArtistProfileRow = {
 
 const mockArtistRow: ArtistRow = {
   id: 'artist-uuid',
+  organization_id: '00000000-0000-0000-0000-000000000000',
   name: 'C Z A R I N A',
   slug: 'czarina',
   bio: null,
@@ -296,29 +297,31 @@ describe('resolvePortalArtist', () => {
   })
 
   it('falls back to first membership when no artistId provided', async () => {
-    // Delegates to getArtistByUserId — Call 1: artist_members, Call 2: artists
+    // Call 1: artist_members list → array; Call 2: artists filtered by org
     const db = makeSequentialDb([
-      { data: { artist_id: 'artist-uuid' }, error: null },
-      { data: mockArtistRow, error: null },
+      { data: [{ artist_id: 'artist-uuid' }], error: null },
+      { data: [mockArtistRow], error: null },
     ])
     const result = await resolvePortalArtist(db, 'auth-user-uuid')
     expect(result?.id).toBe('artist-uuid')
   })
 
   it('returns null when user has no memberships and no artistId', async () => {
-    // Delegates to getArtistByUserId — no membership
-    const db = makeSequentialDb([{ data: null, error: null }])
+    // Empty membership list
+    const db = makeSequentialDb([{ data: [], error: null }])
     const result = await resolvePortalArtist(db, 'no-artist-user')
     expect(result).toBeNull()
   })
 
   it('returns null when artist row was deleted', async () => {
+    // Membership exists but artist query yields no row for this org → FORBIDDEN
     const db = makeSequentialDb([
       { data: { artist_id: 'artist-uuid' }, error: null },
-      { data: null, error: { message: 'not found', code: 'PGRST116' } },
+      { data: null, error: null },
     ])
-    const result = await resolvePortalArtist(db, 'auth-user-uuid', 'artist-uuid')
-    expect(result).toBeNull()
+    await expect(resolvePortalArtist(db, 'auth-user-uuid', 'artist-uuid')).rejects.toThrow(
+      'FORBIDDEN: artist not in this organization',
+    )
   })
 })
 

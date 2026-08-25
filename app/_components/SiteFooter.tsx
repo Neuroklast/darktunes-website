@@ -8,9 +8,11 @@
 import { Footer } from '@/components/Footer'
 import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
 import { SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 
 export async function SiteFooter() {
-  const settings = await getCachedSiteSettings().catch(() => null)
+  const orgId = await getRequestOrganizationId()
+  const settings = await getCachedSiteSettings(orgId).catch(() => null)
 
   return <Footer siteSettings={settings ?? SITE_SETTINGS_DEFAULTS} />
 }

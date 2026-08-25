@@ -3,18 +3,22 @@
  *
  * POST /api/admin/maintenance/clear-logs
  * Body: { table: 'app_logs' | 'sync_logs' | 'rbac_audit_log' | 'admin_audit_log' }
- * Auth: admin only
+ * Auth: admin only (host organization)
  * Returns: { deleted: number }
  *
- * Deletes all rows from the specified log table. Validates the table name
- * against an allowlist to prevent arbitrary table deletion.
+ * - sync_logs: cleared for artists belonging to the host organization.
+ * - app_logs / rbac_audit_log / admin_audit_log: platform-wide (no organization_id);
+ *   only allowed when the host is Org #0 (darkTunes) to avoid pilot labels wiping
+ *   shared platform logs.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorHandler, ApiError } from '@/lib/errors'
 import { logAdminAction } from '@/lib/adminAuditLog'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
+
 const ALLOWED_LOG_TABLES = [
   'app_logs',
   'sync_logs',
@@ -24,13 +28,18 @@ const ALLOWED_LOG_TABLES = [
 
 type LogTable = (typeof ALLOWED_LOG_TABLES)[number]
 
+const PLATFORM_WIDE_LOG_TABLES: ReadonlySet<LogTable> = new Set([
+  'app_logs',
+  'rbac_audit_log',
+  'admin_audit_log',
+])
+
 function isAllowedLogTable(value: unknown): value is LogTable {
   return ALLOWED_LOG_TABLES.includes(value as LogTable)
 }
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const actorId = await verifyAdmin(token)
+  const { userId: actorId, organizationId } = await requireAdminFromRequest(req)
 
   let table: unknown
   try {
@@ -44,26 +53,63 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
     throw new ApiError(400, 'Invalid table')
   }
 
+  if (PLATFORM_WIDE_LOG_TABLES.has(table) && organizationId !== DEFAULT_ORGANIZATION_ID) {
+    throw new ApiError(
+      403,
+      `${table} is platform-wide; clear only from the darkTunes (Org #0) host`,
+    )
+  }
+
   const db = await createServiceRoleSupabaseClient()
 
-  // Delete all rows. PostgREST requires at least one filter on DELETE;
-  // `not('id', 'is', null)` is equivalent to `WHERE id IS NOT NULL` which
-  // matches every row since `id` is declared NOT NULL in all log tables.
-  const { data, error } = await db
-    .from(table)
-    .delete()
-    .not('id', 'is', null)
-    .select('id')
+  let deleted = 0
 
-  if (error) throw new ApiError(500, `Failed to clear ${table}: ${error.message}`)
+  if (table === 'sync_logs') {
+    const { data: artists, error: artistsError } = await db
+      .from('artists')
+      .select('id')
+      .eq('organization_id', organizationId)
 
-  const deleted = (data ?? []).length
+    if (artistsError) {
+      throw new ApiError(500, `Failed to list artists for log clear: ${artistsError.message}`)
+    }
+
+    const artistIds = (artists ?? []).map((a) => a.id)
+    if (artistIds.length === 0) {
+      await logAdminAction(db, {
+        actorId,
+        action: 'cleared',
+        resource: table,
+        details: { deleted: 0, organizationId },
+      })
+      return NextResponse.json({ deleted: 0 })
+    }
+
+    const { data, error } = await db
+      .from('sync_logs')
+      .delete()
+      .in('artist_id', artistIds)
+      .select('id')
+
+    if (error) throw new ApiError(500, `Failed to clear ${table}: ${error.message}`)
+    deleted = (data ?? []).length
+  } else {
+    // Platform-wide tables (Org #0 host only — checked above).
+    const { data, error } = await db
+      .from(table)
+      .delete()
+      .not('id', 'is', null)
+      .select('id')
+
+    if (error) throw new ApiError(500, `Failed to clear ${table}: ${error.message}`)
+    deleted = (data ?? []).length
+  }
 
   await logAdminAction(db, {
     actorId,
     action: 'cleared',
     resource: table,
-    details: { deleted },
+    details: { deleted, organizationId },
   })
 
   return NextResponse.json({ deleted })

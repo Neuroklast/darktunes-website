@@ -22,6 +22,7 @@ import {
   getCachedPublicConcerts,
   getCachedPublicArtists,
 } from '@/lib/cache/publicQueries'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
 import type { SiteSettings } from '@/types'
 import {
@@ -47,29 +48,32 @@ export const metadata: Metadata = {
 // is sufficient — those components use optional chaining on every field.
 // ---------------------------------------------------------------------------
 
-const getCachedSiteSettings = unstable_cache(
-  async (): Promise<SiteSettings> => {
-    return getSiteSettings(createPublicSupabaseClient()).catch(
-      (): SiteSettings => SITE_SETTINGS_DEFAULTS,
-    )
-  },
-  ['site-settings'],
-  { revalidate: 60, tags: ['site-settings'] },
-)
+function getCachedHomeSiteSettings(organizationId: string): Promise<SiteSettings> {
+  return unstable_cache(
+    async (): Promise<SiteSettings> => {
+      return getSiteSettings(createPublicSupabaseClient(), organizationId).catch(
+        (): SiteSettings => SITE_SETTINGS_DEFAULTS,
+      )
+    },
+    ['site-settings', organizationId],
+    { revalidate: 60, tags: ['site-settings', `o:${organizationId}:site-settings`] },
+  )()
+}
 
 // ---------------------------------------------------------------------------
 // Page component
 // ---------------------------------------------------------------------------
 
 export default async function HomePage() {
+  const orgId = await getRequestOrganizationId()
   // Fetch all data in parallel on the server
   const [releases, news, videos, concerts, siteSettings, artists] = await Promise.all([
-    getCachedPublicReleases(),
-    getCachedPublicNews(),
-    getCachedPublicVideos(),
-    getCachedPublicConcerts(),
-    getCachedSiteSettings(),
-    getCachedPublicArtists(),
+    getCachedPublicReleases(orgId),
+    getCachedPublicNews(orgId),
+    getCachedPublicVideos({ organizationId: orgId }),
+    getCachedPublicConcerts(orgId),
+    getCachedHomeSiteSettings(orgId),
+    getCachedPublicArtists(orgId),
   ])
 
   return (

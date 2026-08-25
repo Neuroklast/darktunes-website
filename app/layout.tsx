@@ -7,10 +7,14 @@ import { SiteFooter } from './_components/SiteFooter'
 import { VisualEffectsOverlay } from '@/components/VisualEffectsOverlay'
 import { ThemeStyleInjector } from './_components/ThemeStyleInjector'
 import { ThemeEffectsClient } from './_components/ThemeEffectsClient'
+import { OrganizationBrandingInjector } from './_components/OrganizationBrandingInjector'
 import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
 import { SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
 import { resolveBrandFromSettings } from '@/lib/brand'
 import { buildRootLayoutMetadata } from '@/lib/seo/metadata'
+import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
+import { getOrganizationBranding } from '@/lib/api/organizationBranding'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages } from 'next-intl/server'
 import type { Locale } from '@/i18n/types'
@@ -23,8 +27,10 @@ const fontVariables: CSSProperties = {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  const organizationId = await getRequestOrganizationId().catch(() => null)
   const settings =
-    (await getCachedSiteSettings().catch(() => null)) ?? SITE_SETTINGS_DEFAULTS
+    (await getCachedSiteSettings(organizationId ?? undefined).catch(() => null))
+    ?? SITE_SETTINGS_DEFAULTS
   return buildRootLayoutMetadata(settings)
 }
 
@@ -49,11 +55,34 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = (await getLocale()) as Locale
   const messages = await getMessages()
-  const settings = await getCachedSiteSettings().catch(() => null)
+
+  let organizationId: string | null = null
+  let organizationBranding = null
+  try {
+    organizationId = await getRequestOrganizationId()
+  } catch {
+    organizationId = null
+  }
+
+  // Branding + CMS settings in parallel so a slow org branding lookup never
+  // serializes behind (or blocks) first paint of the public shell.
+  const [brandingResult, settings] = await Promise.all([
+    organizationId
+      ? getOrganizationBranding(createPublicSupabaseClient(), organizationId).catch(() => null)
+      : Promise.resolve(null),
+    getCachedSiteSettings(organizationId ?? undefined).catch(() => null),
+  ])
+  organizationBranding = brandingResult
   const { labelShortName } = resolveBrandFromSettings(settings ?? SITE_SETTINGS_DEFAULTS)
 
   return (
-    <html lang={locale} style={fontVariables} suppressHydrationWarning data-animation-preset={settings?.themeConfig?.animation?.preset ?? 'slide-up'}>
+    <html
+      lang={locale}
+      style={fontVariables}
+      suppressHydrationWarning
+      data-animation-preset={settings?.themeConfig?.animation?.preset ?? 'slide-up'}
+      data-organization-id={organizationId ?? undefined}
+    >
       <head>
         {/* PWA meta — prevents white flash and styles the status bar */}
         <meta name="mobile-web-app-capable" content="yes" />
@@ -63,6 +92,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="apple-touch-icon" href={settings?.faviconUrl || '/icons/icon-192.png'} />
         {/* Software platform identity — readable by crawlers and Wappalyzer */}
         <meta name="generator" content="Neuroklast & Seifried.dev" />
+        <OrganizationBrandingInjector branding={organizationBranding} />
         {/* Inject admin-configured color token overrides before first paint */}
         <ThemeStyleInjector
           themePrimary={settings?.themePrimary}

@@ -36,6 +36,7 @@ function makeMockDb(data: unknown = null, error: unknown = null): DbClient {
 
 const mockArtistRow: ArtistRow = {
   id: 'abc-123',
+  organization_id: '00000000-0000-0000-0000-000000000000',
   name: 'C Z A R I N A',
   slug: 'czarina',
   bio: 'Dark electronic pop',

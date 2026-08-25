@@ -53,6 +53,7 @@ export interface Database {
       }
       sos_rules_presets: {
         Row: {
+          organization_id: string
           id: string
           name: string
           config: Record<string, unknown>
@@ -60,6 +61,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           config: Record<string, unknown>
@@ -67,6 +69,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           config?: Record<string, unknown>
@@ -76,6 +79,7 @@ export interface Database {
       }
       sos_accounting_workspaces: {
         Row: {
+          organization_id: string
           id: string
           period_start: string
           period_end: string
@@ -86,6 +90,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           period_start: string
           period_end: string
@@ -96,6 +101,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           period_start?: string
           period_end?: string
@@ -108,6 +114,7 @@ export interface Database {
       }
       sos_period_summaries: {
         Row: {
+          organization_id: string
           id: string
           period_start: string
           period_end: string
@@ -120,6 +127,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           period_start: string
           period_end: string
@@ -132,6 +140,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           period_start?: string
           period_end?: string
@@ -146,6 +155,7 @@ export interface Database {
       }
       settlement_periods: {
         Row: {
+          organization_id: string
           id: string
           period_start: string
           period_end: string
@@ -160,6 +170,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           period_start: string
           period_end: string
@@ -174,6 +185,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           period_start?: string
           period_end?: string
@@ -296,6 +308,7 @@ export interface Database {
       }
       financial_audit_events: {
         Row: {
+          organization_id: string
           id: string
           entity_type: string
           entity_id: string
@@ -306,6 +319,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           entity_type: string
           entity_id: string
@@ -316,6 +330,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           entity_type?: string
           entity_id?: string
@@ -394,18 +409,21 @@ export interface Database {
       }
       genres: {
         Row: {
+          organization_id: string
           id: string
           name: string
           slug: string
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           slug: string
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           slug?: string
@@ -436,6 +454,7 @@ export interface Database {
       }
       sync_queue: {
         Row: {
+          organization_id: string
           id: string
           artist_id: string | null
           job_type: string
@@ -451,6 +470,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           artist_id?: string | null
           job_type?: string
@@ -466,6 +486,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           artist_id?: string | null
           job_type?: string
@@ -631,6 +652,7 @@ export interface Database {
       }
       artists: {
         Row: {
+          organization_id: string
           id: string
           name: string
           slug: string
@@ -681,6 +703,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           slug: string
@@ -731,6 +754,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           slug?: string
@@ -1083,6 +1107,7 @@ export interface Database {
       }
       epk_templates: {
         Row: {
+          organization_id: string
           id: string
           name: string
           description: string | null
@@ -1093,6 +1118,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           description?: string | null
@@ -1103,6 +1129,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           description?: string | null
@@ -1549,6 +1576,7 @@ export interface Database {
       }
       distributor_import_batches: {
         Row: {
+          organization_id: string
           id: string
           period_start: string
           period_end: string
@@ -1562,6 +1590,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           period_start: string
           period_end: string
@@ -1575,6 +1604,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           period_start?: string
           period_end?: string
@@ -1660,18 +1690,21 @@ export interface Database {
       }
       apify_usage_months: {
         Row: {
+          organization_id: string
           year_month: string
           urls_charged: number
           budget: number
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           year_month: string
           urls_charged?: number
           budget?: number
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           year_month?: string
           urls_charged?: number
           budget?: number
@@ -1948,6 +1981,7 @@ export interface Database {
       }
       releases: {
         Row: {
+          organization_id: string
           id: string
           title: string
           artist_id: string | null
@@ -1988,6 +2022,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           title: string
           artist_id?: string | null
@@ -2028,6 +2063,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           title?: string
           artist_id?: string | null
@@ -2071,6 +2107,7 @@ export interface Database {
       }
       concerts: {
         Row: {
+          organization_id: string
           id: string
           artist_id: string | null
           event_name: string
@@ -2096,6 +2133,7 @@ export interface Database {
           news_post_id: string | null
         }
         Insert: {
+          organization_id?: string
           id?: string
           artist_id?: string | null
           event_name: string
@@ -2121,6 +2159,7 @@ export interface Database {
           news_post_id?: string | null
         }
         Update: {
+          organization_id?: string
           id?: string
           artist_id?: string | null
           event_name?: string
@@ -2712,6 +2751,7 @@ export interface Database {
       }
       news_posts: {
         Row: {
+          organization_id: string
           id: string
           title: string
           slug: string
@@ -2741,6 +2781,7 @@ export interface Database {
           published_at_timezone: string | null
         }
         Insert: {
+          organization_id?: string
           id?: string
           title: string
           slug: string
@@ -2770,6 +2811,7 @@ export interface Database {
           hero_secondary_btn_href?: string | null
         }
         Update: {
+          organization_id?: string
           id?: string
           title?: string
           slug?: string
@@ -2868,6 +2910,7 @@ export interface Database {
       }
       videos: {
         Row: {
+          organization_id: string
           id: string
           title: string
           artist_id: string | null
@@ -2880,6 +2923,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           title: string
           artist_id?: string | null
@@ -2892,6 +2936,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           title?: string
           artist_id?: string | null
@@ -2915,6 +2960,7 @@ export interface Database {
       }
       assets: {
         Row: {
+          organization_id: string
           id: string
           filename: string
           original_filename: string
@@ -2938,6 +2984,7 @@ export interface Database {
           downloadable_for_press: boolean
         }
         Insert: {
+          organization_id?: string
           id?: string
           filename: string
           original_filename: string
@@ -2961,6 +3008,7 @@ export interface Database {
           downloadable_for_press?: boolean
         }
         Update: {
+          organization_id?: string
           id?: string
           filename?: string
           original_filename?: string
@@ -3002,6 +3050,7 @@ export interface Database {
       }
       asset_folders: {
         Row: {
+          organization_id: string
           id: string
           name: string
           parent_id: string | null
@@ -3011,6 +3060,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           parent_id?: string | null
@@ -3020,6 +3070,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           parent_id?: string | null
@@ -3105,16 +3156,19 @@ export interface Database {
       }
       site_settings: {
         Row: {
+          organization_id: string
           key: string
           value: string
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           key: string
           value: string
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           key?: string
           value?: string
           updated_at?: string
@@ -3270,6 +3324,7 @@ export interface Database {
       }
       promo_tracks: {
         Row: {
+          organization_id: string
           id: string
           title: string
           artist_name: string
@@ -3287,6 +3342,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           title: string
           artist_name: string
@@ -3304,6 +3360,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           title?: string
           artist_name?: string
@@ -3332,6 +3389,7 @@ export interface Database {
       }
       journalist_applications: {
         Row: {
+          organization_id: string
           id: string
           user_id: string | null
           email: string
@@ -3346,6 +3404,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           user_id?: string | null
           email: string
@@ -3360,6 +3419,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           user_id?: string | null
           email?: string
@@ -3377,6 +3437,7 @@ export interface Database {
       }
       portal_feature_flags: {
         Row: {
+          organization_id: string
           id: string
           label: string
           enabled: boolean
@@ -3384,6 +3445,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id: string
           label: string
           enabled?: boolean
@@ -3391,6 +3453,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           label?: string
           enabled?: boolean
@@ -3401,6 +3464,7 @@ export interface Database {
       }
       message_templates: {
         Row: {
+          organization_id: string
           id: string
           name: string
           subject: string
@@ -3408,6 +3472,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           subject?: string
@@ -3415,6 +3480,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           subject?: string
@@ -3455,6 +3521,7 @@ export interface Database {
       }
       message_folders: {
         Row: {
+          organization_id: string
           id: string
           name: string
           icon: string | null
@@ -3462,6 +3529,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           icon?: string | null
@@ -3469,6 +3537,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           icon?: string | null
@@ -3479,6 +3548,7 @@ export interface Database {
       }
       message_rules: {
         Row: {
+          organization_id: string
           id: string
           name: string
           condition_field: string
@@ -3490,6 +3560,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           name: string
           condition_field: string
@@ -3501,6 +3572,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           name?: string
           condition_field?: string
@@ -3777,6 +3849,7 @@ export interface Database {
       }
       journalist_downloads: {
         Row: {
+          organization_id: string
           id: string
           journalist_id: string
           release_id: string | null
@@ -3785,6 +3858,7 @@ export interface Database {
           downloaded_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           journalist_id: string
           release_id?: string | null
@@ -3793,6 +3867,7 @@ export interface Database {
           downloaded_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           journalist_id?: string
           release_id?: string | null
@@ -3804,6 +3879,7 @@ export interface Database {
       }
       accreditation_requests: {
         Row: {
+          organization_id: string
           id: string
           journalist_id: string
           event_name: string
@@ -3816,6 +3892,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           journalist_id: string
           event_name: string
@@ -3828,6 +3905,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           journalist_id?: string
           event_name?: string
@@ -4296,6 +4374,7 @@ export interface Database {
       }
       release_submissions: {
         Row: {
+          organization_id: string
           id: string
           artist_id: string
           status: 'received' | 'reviewed' | 'accepted' | 'rejected'
@@ -4322,6 +4401,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          organization_id?: string
           id?: string
           artist_id: string
           status?: 'received' | 'reviewed' | 'accepted' | 'rejected'
@@ -4348,6 +4428,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          organization_id?: string
           id?: string
           artist_id?: string
           status?: 'received' | 'reviewed' | 'accepted' | 'rejected'
@@ -4647,6 +4728,7 @@ export interface Database {
       portal_faq_categories: {
         Row: {
           id: string
+          organization_id: string
           slug: string
           title_en: string
           title_de: string | null
@@ -4657,6 +4739,7 @@ export interface Database {
         }
         Insert: {
           id?: string
+          organization_id?: string
           slug: string
           title_en: string
           title_de?: string | null
@@ -4667,6 +4750,7 @@ export interface Database {
         }
         Update: {
           id?: string
+          organization_id?: string
           slug?: string
           title_en?: string
           title_de?: string | null
@@ -4675,11 +4759,20 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "portal_faq_categories_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       portal_faq_items: {
         Row: {
           id: string
+          organization_id: string
           category_id: string
           slug: string
           question_en: string
@@ -4695,6 +4788,7 @@ export interface Database {
         }
         Insert: {
           id?: string
+          organization_id?: string
           category_id: string
           slug: string
           question_en: string
@@ -4710,6 +4804,7 @@ export interface Database {
         }
         Update: {
           id?: string
+          organization_id?: string
           category_id?: string
           slug?: string
           question_en?: string
@@ -4729,6 +4824,13 @@ export interface Database {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "portal_faq_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_faq_items_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           }
         ]
@@ -5109,11 +5211,516 @@ export interface Database {
           }
         ]
       }
+      organizations: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          status: Database['public']['Enums']['organization_status']
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          status?: Database['public']['Enums']['organization_status']
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          status?: Database['public']['Enums']['organization_status']
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      organization_users: {
+        Row: {
+          organization_id: string
+          user_id: string
+          role: Database['public']['Enums']['organization_user_role']
+          created_at: string
+        }
+        Insert: {
+          organization_id: string
+          user_id: string
+          role?: Database['public']['Enums']['organization_user_role']
+          created_at?: string
+        }
+        Update: {
+          organization_id?: string
+          user_id?: string
+          role?: Database['public']['Enums']['organization_user_role']
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_users_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'organization_users_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organization_branding: {
+        Row: {
+          organization_id: string
+          logo_url: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          font_family: string | null
+          favicon_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          organization_id: string
+          logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          font_family?: string | null
+          favicon_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          organization_id?: string
+          logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          font_family?: string | null
+          favicon_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_branding_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: true
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organization_api_keys: {
+        Row: {
+          id: string
+          organization_id: string
+          name: string
+          key_prefix: string
+          key_hash: string
+          scopes: string[]
+          revoked_at: string | null
+          created_at: string
+          last_used_at: string | null
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          name: string
+          key_prefix: string
+          key_hash: string
+          scopes?: string[]
+          revoked_at?: string | null
+          created_at?: string
+          last_used_at?: string | null
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          name?: string
+          key_prefix?: string
+          key_hash?: string
+          scopes?: string[]
+          revoked_at?: string | null
+          created_at?: string
+          last_used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_api_keys_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organization_webhook_endpoints: {
+        Row: {
+          id: string
+          organization_id: string
+          url: string
+          secret: string
+          events: string[]
+          enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          url: string
+          secret: string
+          events?: string[]
+          enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          url?: string
+          secret?: string
+          events?: string[]
+          enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_webhook_endpoints_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organization_webhook_deliveries: {
+        Row: {
+          id: string
+          endpoint_id: string
+          event_type: string
+          payload: Json
+          status: string
+          response_status: number | null
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          endpoint_id: string
+          event_type: string
+          payload: Json
+          status?: string
+          response_status?: number | null
+          error_message?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          endpoint_id?: string
+          event_type?: string
+          payload?: Json
+          status?: string
+          response_status?: number | null
+          error_message?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_webhook_deliveries_endpoint_id_fkey'
+            columns: ['endpoint_id']
+            isOneToOne: false
+            referencedRelation: 'organization_webhook_endpoints'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          id: string
+          slug: string
+          name: string
+          price_monthly_cents: number
+          price_yearly_cents: number
+          stripe_price_monthly_id: string | null
+          stripe_price_yearly_id: string | null
+          is_active: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          slug: string
+          name: string
+          price_monthly_cents?: number
+          price_yearly_cents?: number
+          stripe_price_monthly_id?: string | null
+          stripe_price_yearly_id?: string | null
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          slug?: string
+          name?: string
+          price_monthly_cents?: number
+          price_yearly_cents?: number
+          stripe_price_monthly_id?: string | null
+          stripe_price_yearly_id?: string | null
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      plan_features: {
+        Row: {
+          plan_id: string
+          feature_key: string
+          value: string
+        }
+        Insert: {
+          plan_id: string
+          feature_key: string
+          value?: string
+        }
+        Update: {
+          plan_id?: string
+          feature_key?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'plan_features_plan_id_fkey'
+            columns: ['plan_id']
+            isOneToOne: false
+            referencedRelation: 'plans'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          id: string
+          organization_id: string
+          plan_id: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          status: Database['public']['Enums']['subscription_status']
+          billing_interval: string
+          current_period_end: string | null
+          cancel_at_period_end: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          plan_id: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          status?: Database['public']['Enums']['subscription_status']
+          billing_interval?: string
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          plan_id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          status?: Database['public']['Enums']['subscription_status']
+          billing_interval?: string
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'subscriptions_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: true
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'subscriptions_plan_id_fkey'
+            columns: ['plan_id']
+            isOneToOne: false
+            referencedRelation: 'plans'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organization_features: {
+        Row: {
+          organization_id: string
+          feature_key: string
+          enabled: boolean
+        }
+        Insert: {
+          organization_id: string
+          feature_key: string
+          enabled?: boolean
+        }
+        Update: {
+          organization_id?: string
+          feature_key?: string
+          enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_features_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      custom_domains: {
+        Row: {
+          id: string
+          organization_id: string
+          domain: string
+          status: Database['public']['Enums']['custom_domain_status']
+          verification_token: string
+          verified_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          domain: string
+          status?: Database['public']['Enums']['custom_domain_status']
+          verification_token: string
+          verified_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          domain?: string
+          status?: Database['public']['Enums']['custom_domain_status']
+          verification_token?: string
+          verified_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'custom_domains_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organization_audit_log: {
+        Row: {
+          id: string
+          organization_id: string
+          user_id: string | null
+          action: string
+          target_type: string | null
+          target_id: string | null
+          metadata: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          user_id?: string | null
+          action: string
+          target_type?: string | null
+          target_id?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          user_id?: string | null
+          action?: string
+          target_type?: string | null
+          target_id?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'organization_audit_log_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      stripe_webhook_events: {
+        Row: {
+          id: string
+          type: string
+          processed_at: string
+          payload: Json
+        }
+        Insert: {
+          id: string
+          type: string
+          processed_at?: string
+          payload?: Json
+        }
+        Update: {
+          id?: string
+          type?: string
+          processed_at?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
+      platform_admins: {
+        Row: {
+          user_id: string
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: {
+      user_belongs_to_organization: {
+        Args: { org_id: string }
+        Returns: boolean
+      }
       get_assets_storage_stats: {
-        Args: Record<string, never>
+        Args: { p_organization_id?: string | null }
         /** JSON object: used_bytes, asset_count, zero_size_count */
         Returns: {
           used_bytes: number
@@ -5123,6 +5730,10 @@ export interface Database {
       }
     }
     Enums: {
+      organization_status: 'active' | 'suspended' | 'pending'
+      organization_user_role: 'owner' | 'admin' | 'finance' | 'marketing' | 'artist_manager' | 'member'
+      subscription_status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'paused'
+      custom_domain_status: 'pending' | 'verified' | 'active' | 'failed'
       sync_status: 'success' | 'partial' | 'error'
       sync_api_source: 'itunes' | 'spotify' | 'discogs' | 'songkick' | 'odesli' | 'all'
       submission_status: 'received' | 'reviewed' | 'accepted' | 'rejected'

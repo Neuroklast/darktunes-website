@@ -25,6 +25,7 @@ import { unstable_cache } from 'next/cache'
 import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
 import { getReleaseById, getPublicReleases } from '@/lib/api/releases'
 import { getArtistById } from '@/lib/api/artists'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
 
 import { ReleaseDetailContent } from './_components/ReleaseDetailContent'
 import { buildMusicAlbumSchema, serializeJsonLd } from '@/lib/seo/jsonld'
@@ -89,6 +90,7 @@ export const dynamicParams = true
  */
 export async function generateStaticParams() {
   const client = createPublicSupabaseClient()
+  // Build-time SSG uses Org #0; other orgs render via dynamicParams.
   const releases = await getPublicReleases(client).catch((error) => {
     console.error('generateStaticParams(/releases/[id]) failed:', error)
     return []
@@ -97,6 +99,8 @@ export async function generateStaticParams() {
 }
 
 export default async function ReleaseDetailPage({ params }: Props) {
+  // Bind request org early so host isolation runs for this route tree.
+  await getRequestOrganizationId()
   const { id } = await params
   const release = await makeGetRelease(id)().catch(() => null)
   if (!release) notFound()

@@ -9,7 +9,7 @@
  *  Tab B — "Statement History": read-only view of uploaded PDFs (StatementsManager).
  */
 
-import { lazy, Suspense, useState, useMemo, useCallback, useEffect } from 'react'
+import { lazy, Suspense, useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { monthToPeriodDate } from '@/lib/sos/lineItemsFromArtistData'
@@ -22,6 +22,7 @@ import { useCSVProcessor } from '@/hooks/useSosCSVProcessor'
 import { useExports } from '@/hooks/useSosExports'
 import { useFileManager } from '@/hooks/useSosFileManager'
 import { mapArtistsToLabelArtists } from '@/lib/sos/artistBridge'
+import { normalizeArtistNameKey } from '@/lib/sos/artistNameKey'
 import { listBillingProfiles, type ArtistBillingProfile } from '@/lib/api/artistBillingProfiles'
 import type {
   LabelInfo, PdfExportSettings, AppDefaults,
@@ -31,9 +32,15 @@ import type {
 } from '@/lib/sos/types'
 import { DEFAULT_PDF_EXPORT_SETTINGS, DEFAULT_APP_DEFAULTS, DEFAULT_EMAIL_CONFIG, DEFAULT_LABEL_INFO } from '@/lib/sos/defaults'
 import {
-  DEFAULT_SOS_ACCOUNTING_SETTINGS,
+  normalizeAccountingConfig,
   type SosAccountingSettings,
 } from '@/lib/sos/sosAccountingSettings'
+import {
+  DEFAULT_EXCEL_EXPORT_STATE,
+  type ExcelExportSettings,
+  type ExcelExportState,
+} from '@/lib/sos/excelExportSettings'
+import { ExcelExportDialog } from '@/components/admin/sos/ExcelExportDialog'
 import type { CsvImportProfile } from '@/lib/sos/ingest/types'
 import {
   ASSISTANT_WIZARD_STEP_IDS,
@@ -133,6 +140,11 @@ function SosGeneratorPanel() {
 
   const [labelBranding, setLabelBranding] = useState<Partial<LabelInfo>>(DEFAULT_LABEL_INFO)
   const [pdfSettings, setPdfSettings] = useState<PdfExportSettings>(DEFAULT_PDF_EXPORT_SETTINGS)
+  const [excelExport, setExcelExport] = useState<ExcelExportState>(DEFAULT_EXCEL_EXPORT_STATE)
+  const [excelDialogOpen, setExcelDialogOpen] = useState(false)
+  const [excelDialogTarget, setExcelDialogTarget] = useState<
+    { kind: 'one'; artist: string } | { kind: 'all' } | { kind: 'selected'; artists: string[] } | null
+  >(null)
   const [csvImportProfilesCustom, setCsvImportProfilesCustom] = useState<CsvImportProfile[]>([])
   const {
     profiles: csvImportProfiles,
@@ -237,6 +249,7 @@ function SosGeneratorPanel() {
       labelInfo: labelBranding,
       pdfSettings,
       csvImportProfiles: csvImportProfilesCustom,
+      excelExport,
     }),
     [
       artistMappings,
@@ -252,6 +265,7 @@ function SosGeneratorPanel() {
       labelBranding,
       pdfSettings,
       csvImportProfilesCustom,
+      excelExport,
     ],
   )
 
@@ -269,6 +283,7 @@ function SosGeneratorPanel() {
     setLabelBranding(bundle.labelInfo ?? DEFAULT_LABEL_INFO)
     setPdfSettings(bundle.pdfSettings ?? DEFAULT_PDF_EXPORT_SETTINGS)
     setCsvImportProfilesCustom(bundle.csvImportProfiles ?? [])
+    setExcelExport(bundle.excelExport ?? DEFAULT_EXCEL_EXPORT_STATE)
   }, [])
 
   const handleSubTabKeyDown = useCallback(
@@ -364,14 +379,20 @@ function SosGeneratorPanel() {
     setTrackRevenueAssignments(prev => prev.filter(a => a.id !== id))
   }, [])
 
+  const persistImportedSettingsRef = useRef<
+    ((next: SosAccountingSettings) => Promise<boolean>) | null
+  >(null)
+
   const handleWorkspaceImport = useCallback((bundle: Partial<SosAccountingSettings>) => {
-    applySettings({
-      ...DEFAULT_SOS_ACCOUNTING_SETTINGS,
+    const next = normalizeAccountingConfig({
       ...settingsBundle,
       ...bundle,
       labelInfo: { ...settingsBundle.labelInfo, ...bundle.labelInfo },
       pdfSettings: { ...settingsBundle.pdfSettings, ...bundle.pdfSettings },
+      excelExport: bundle.excelExport ?? settingsBundle.excelExport,
     })
+    applySettings(next)
+    void persistImportedSettingsRef.current?.(next)
   }, [applySettings, settingsBundle])
 
   const handlePresetLoad = useCallback((preset: SosAccountingSettings) => {
@@ -430,6 +451,8 @@ function SosGeneratorPanel() {
     exchangeRatesLoading,
     exchangeRatesReady,
     exchangeRatesSource,
+    exchangeRates,
+    historicalRates,
     refreshExchangeRates,
   } = useCSVProcessor(
     believeManager.files,
@@ -490,7 +513,7 @@ function SosGeneratorPanel() {
         const map: Record<string, number> = {}
         for (const row of json.rows ?? []) {
           if (row.openingBalanceEur != null && row.openingBalanceEur !== 0) {
-            map[row.artistName.toLowerCase()] = row.openingBalanceEur
+            map[normalizeArtistNameKey(row.artistName)] = row.openingBalanceEur
           }
         }
         if (!cancelled) setCarryForwardByArtist(map)
@@ -561,6 +584,27 @@ function SosGeneratorPanel() {
         hasShopifyFile: shopifyManager.files.length > 0,
         hasPrintfulFile: printfulManager.files.length > 0,
         hasDarkmerchFile: darkmerchManager.files.length > 0,
+        trackRevenueAssignments,
+        skippedRowCount: [
+          ...believeManager.files,
+          ...bandcampManager.files,
+          ...shopifyManager.files,
+          ...printfulManager.files,
+          ...darkmerchManager.files,
+        ].reduce((sum, file) => sum + (file.rowsSkipped ?? 0), 0),
+        skipReasons: [...new Set(
+          [
+            ...believeManager.files,
+            ...bandcampManager.files,
+            ...shopifyManager.files,
+            ...printfulManager.files,
+            ...darkmerchManager.files,
+          ].flatMap((file) => file.skipReasons ?? []),
+        )],
+        emptyCurrencyRowCount: [
+          ...believeManager.files,
+          ...bandcampManager.files,
+        ].reduce((sum, file) => sum + (file.emptyCurrencyRows ?? 0), 0),
       },
       {
         validationMissingPeriodTitle: t.validationMissingPeriodTitle,
@@ -590,6 +634,13 @@ function SosGeneratorPanel() {
         validationRosterNoPortalTitle: t.validationRosterNoPortalTitle,
         validationRosterNoPortalDesc: t.validationRosterNoPortalDesc,
         validationRosterNoPortalAction: t.validationRosterNoPortalAction,
+        validationTrackSplitTitle: t.validationTrackSplitTitle,
+        validationTrackSplitDesc: t.validationTrackSplitDesc,
+        validationTrackSplitAction: t.validationTrackSplitAction,
+        validationParseSkipsTitle: t.validationParseSkipsTitle,
+        validationParseSkipsDesc: t.validationParseSkipsDesc,
+        validationEmptyCurrencyTitle: t.validationEmptyCurrencyTitle,
+        validationEmptyCurrencyDesc: t.validationEmptyCurrencyDesc,
       },
     )
   }, [
@@ -600,11 +651,12 @@ function SosGeneratorPanel() {
     manualPeriodEnd,
     detectedPeriodStart,
     detectedPeriodEnd,
-    believeManager.files.length,
-    bandcampManager.files.length,
-    shopifyManager.files.length,
-    printfulManager.files.length,
-    darkmerchManager.files.length,
+    trackRevenueAssignments,
+    believeManager.files,
+    bandcampManager.files,
+    shopifyManager.files,
+    printfulManager.files,
+    darkmerchManager.files,
     t,
   ])
 
@@ -683,6 +735,43 @@ function SosGeneratorPanel() {
       exportPersistContext,
     )
 
+  const openExcelDialog = useCallback((
+    target: { kind: 'one'; artist: string } | { kind: 'all' } | { kind: 'selected'; artists: string[] },
+  ) => {
+    setExcelDialogTarget(target)
+    setExcelDialogOpen(true)
+  }, [])
+
+  const handleExcelDialogConfirm = useCallback((settings: ExcelExportSettings) => {
+    const next = { ...excelExport, settings }
+    setExcelExport(next)
+    setExcelDialogOpen(false)
+    const target = excelDialogTarget
+    setExcelDialogTarget(null)
+    if (!target) return
+    if (target.kind === 'one') {
+      void handleDownloadExcel(target.artist, settings)
+      return
+    }
+    if (target.kind === 'all') {
+      void handleDownloadAll(settings)
+      return
+    }
+    void handleDownloadSelected(target.artists, settings)
+  }, [excelExport, excelDialogTarget, handleDownloadAll, handleDownloadExcel, handleDownloadSelected])
+
+  const requestExcelForArtist = useCallback((artist: string) => {
+    openExcelDialog({ kind: 'one', artist })
+  }, [openExcelDialog])
+
+  const requestExcelAll = useCallback(() => {
+    openExcelDialog({ kind: 'all' })
+  }, [openExcelDialog])
+
+  const requestExcelSelected = useCallback((artists: string[]) => {
+    openExcelDialog({ kind: 'selected', artists })
+  }, [openExcelDialog])
+
   const currentPeriodKey = useMemo(
     () =>
       detectedPeriodStart
@@ -705,6 +794,7 @@ function SosGeneratorPanel() {
     setReloadConfirmOpen,
     loadDefaultPreset,
     saveCurrentWorkspace,
+    persistImportedSettings,
   } = useSosWorkspaceSync({
     currentPeriodKey,
     settings: settingsBundle,
@@ -712,6 +802,7 @@ function SosGeneratorPanel() {
     bronzeBatchIds,
     disabled: isProcessing,
   })
+  persistImportedSettingsRef.current = persistImportedSettings
 
   const confirmWorkspaceDelete = useCallback(async () => {
     if (!currentPeriodKey) return
@@ -831,9 +922,9 @@ function SosGeneratorPanel() {
     <ReportingPanel
       revenues={revenues}
       onDownloadPDF={handleDownloadPDF}
-      onDownloadExcel={handleDownloadExcel}
-      onDownloadAll={handleDownloadAll}
-      onDownloadSelected={handleDownloadSelected}
+      onDownloadExcel={requestExcelForArtist}
+      onDownloadAll={requestExcelAll}
+      onDownloadSelected={requestExcelSelected}
       labelArtists={labelArtists}
       labelInfo={labelInfo}
       appDefaults={appDefaults}
@@ -921,6 +1012,19 @@ function SosGeneratorPanel() {
     </Alert>
   ) : null
 
+  const excelExportDialog = (
+    <ExcelExportDialog
+      open={excelDialogOpen}
+      onOpenChange={(open) => {
+        setExcelDialogOpen(open)
+        if (!open) setExcelDialogTarget(null)
+      }}
+      state={excelExport}
+      onStateChange={setExcelExport}
+      onConfirm={handleExcelDialogConfirm}
+    />
+  )
+
   if (viewMode === 'guided') {
     if (wizardMode == null) {
       return (
@@ -999,6 +1103,7 @@ function SosGeneratorPanel() {
             blockedReviewNoData: t.blockedReviewNoData,
           }}
         />
+        {excelExportDialog}
       </div>
     )
   }
@@ -1071,6 +1176,7 @@ function SosGeneratorPanel() {
                 labelInfo={labelBranding}
                 pdfSettings={pdfSettings}
                 csvImportProfiles={csvImportProfilesCustom}
+                excelExport={excelExport}
                 onLoad={handlePresetLoad}
               />
             </div>
@@ -1125,6 +1231,7 @@ function SosGeneratorPanel() {
                 labelInfo={labelBranding}
                 pdfSettings={pdfSettings}
                 csvImportProfiles={csvImportProfilesCustom}
+                excelExport={excelExport}
                 onImport={handleWorkspaceImport}
               />
             </div>
@@ -1191,9 +1298,9 @@ function SosGeneratorPanel() {
             <ReportingPanel
               revenues={revenues}
               onDownloadPDF={handleDownloadPDF}
-              onDownloadExcel={handleDownloadExcel}
-              onDownloadAll={handleDownloadAll}
-              onDownloadSelected={handleDownloadSelected}
+              onDownloadExcel={requestExcelForArtist}
+              onDownloadAll={requestExcelAll}
+              onDownloadSelected={requestExcelSelected}
               labelArtists={labelArtists}
               labelInfo={labelInfo}
               appDefaults={appDefaults}
@@ -1311,7 +1418,13 @@ function SosGeneratorPanel() {
                 step2={t.playbookStep2}
                 step3={t.playbookStep3}
               />
-              <ImportBatchesPanel labelArtists={labelArtists} onLoadBatch={loadBronzeBatch} />
+              <ImportBatchesPanel
+                labelArtists={labelArtists}
+                onLoadBatch={loadBronzeBatch}
+                exchangeRates={exchangeRates}
+                historicalRates={historicalRates ?? undefined}
+                carryForwardByArtist={carryForwardByArtist}
+              />
               <ExternalMetricsSyncPanel />
               <ApifySpotifySyncPanel />
               {hasData ? (
@@ -1468,6 +1581,7 @@ function SosGeneratorPanel() {
         loading={workspaceDeleting}
         onConfirm={confirmWorkspaceDelete}
       />
+      {excelExportDialog}
     </div>
   )
 }

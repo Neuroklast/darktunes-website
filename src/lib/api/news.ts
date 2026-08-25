@@ -3,6 +3,7 @@ import type { Database } from '@/types/database'
 import type { NewsPost } from '@/types'
 import { parseJunctionRows } from '@/lib/types/jsonColumns'
 import { stripEmojis, stripEmojisFromHtml } from '@/lib/stripEmojis'
+import { DEFAULT_ORGANIZATION_ID } from '@/lib/organizations/constants'
 import { PUBLIC_QUERY_LIMITS } from './queryLimits'
 import { sanitizeNewsWrite } from '@/lib/sanitizeTextContent'
 
@@ -88,10 +89,14 @@ async function attachNewsArtists(db: DbClient, posts: NewsPost[]): Promise<NewsP
   }))
 }
 
-export async function getNewsPosts(db: DbClient): Promise<NewsPost[]> {
+export async function getNewsPosts(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<NewsPost[]> {
   const { data, error } = await db
     .from('news_posts')
     .select('*')
+    .eq('organization_id', organizationId)
     .order('published_at', { ascending: false })
   if (error) throw new Error(error.message)
   const posts = (data ?? []).map(rowToNewsPost)
@@ -118,11 +123,15 @@ export async function publishScheduledNewsPosts(db: DbClient): Promise<number> {
   return data?.length ?? 0
 }
 
-export async function getPublicNewsPosts(db: DbClient): Promise<NewsPost[]> {
+export async function getPublicNewsPosts(
+  db: DbClient,
+  organizationId: string = '00000000-0000-0000-0000-000000000000',
+): Promise<NewsPost[]> {
   const now = new Date().toISOString()
   const { data, error } = await db
     .from('news_posts')
     .select('*')
+    .eq('organization_id', organizationId)
     .in('status', ['published', 'scheduled'])
     .eq('is_press_only', false)
     .lte('published_at', now)
@@ -189,11 +198,15 @@ export async function getPublicNewsPostsByArtistId(db: DbClient, artistId: strin
   return attachNewsArtists(db, legacyPosts)
 }
 
-export async function getPressOnlyNewsPosts(db: DbClient): Promise<NewsPost[]> {
+export async function getPressOnlyNewsPosts(
+  db: DbClient,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<NewsPost[]> {
   const now = new Date().toISOString()
   const { data, error } = await db
     .from('news_posts')
     .select('*')
+    .eq('organization_id', organizationId)
     .eq('is_press_only', true)
     .in('status', ['published', 'scheduled'])
     .lte('published_at', now)
@@ -204,17 +217,22 @@ export async function getPressOnlyNewsPosts(db: DbClient): Promise<NewsPost[]> {
   return (data ?? []).map(rowToNewsPost)
 }
 
-export async function getPressReleaseBySlug(db: DbClient, slug: string): Promise<NewsPost | null> {
+export async function getPressReleaseBySlug(
+  db: DbClient,
+  slug: string,
+  organizationId: string = DEFAULT_ORGANIZATION_ID,
+): Promise<NewsPost | null> {
   const now = new Date().toISOString()
   const { data, error } = await db
     .from('news_posts')
     .select('*')
+    .eq('organization_id', organizationId)
     .eq('slug', slug)
     .eq('is_press_only', true)
     .in('status', ['published', 'scheduled'])
     .lte('published_at', now)
     .or(`embargo_until.is.null,embargo_until.lte.${now}`)
-    .single()
+    .maybeSingle()
   if (error) {
     if (error.code === 'PGRST116') return null
     throw new Error(error.message)
@@ -264,7 +282,11 @@ export async function getNewsPostById(db: DbClient, id: string): Promise<NewsPos
 }
 
 export async function createNewsPost(db: DbClient, newsData: NewsInsert): Promise<NewsPost> {
-  const { data, error } = await db.from('news_posts').insert(sanitizeNewsWrite(newsData)).select().single()
+  const payload = sanitizeNewsWrite({
+    ...newsData,
+    organization_id: newsData.organization_id ?? DEFAULT_ORGANIZATION_ID,
+  })
+  const { data, error } = await db.from('news_posts').insert(payload).select().single()
   if (error) throw new Error(error.message)
   if (!data) throw new Error('No data returned from createNewsPost')
   return rowToNewsPost(data)

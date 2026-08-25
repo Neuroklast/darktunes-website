@@ -11,8 +11,9 @@
  * Runs a targeted sync for a single API source (itunes, spotify, discogs,
  * songkick, bandsintown, odesli, or youtube).
  *
- * For youtube, this delegates to the same logic as /api/sync-youtube.
- * For all other sources, it calls syncAll with the onlyApi filter.
+ * For youtube, this delegates to the same logic as /api/sync-youtube (always separate).
+ * Queue sources (spotify, odesli, songkick, bandsintown) enqueue + kick /api/sync.
+ * Remaining sources call syncAll with the onlyApi filter.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -21,7 +22,13 @@ import type { Database } from '@/types/database'
 import { withErrorHandler, ApiError, buildApiError } from '@/lib/errors'
 import { extractBearerToken, verifySyncTrigger } from '@/lib/adminAuth'
 import { isValidCronSecret } from '@/lib/cronAuth'
-import { enqueueOdesliSyncJob, enqueueSpotifySyncJobs } from '@/lib/api/syncQueue'
+import {
+  enqueueBandsintownSyncJobs,
+  enqueueOdesliSyncJob,
+  enqueueSongkickSyncJobs,
+  enqueueSpotifySyncJobs,
+} from '@/lib/api/syncQueue'
+import { kickSyncExecutorAfterEnqueue } from '@/lib/sync/queueExecutor'
 import { syncAll } from '@/lib/sync/syncAll'
 import { createR2Client, uploadUrlToR2 } from '@/lib/r2Utils'
 import { fetchYouTubeChannelVideos, isYouTubeShort } from '@/lib/api/youtubeApi'
@@ -181,25 +188,45 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     }
   }
 
+  async function enqueueAndKick(
+    queued: number,
+    message: string,
+    logLabel: string,
+  ): Promise<NextResponse> {
+    try {
+      await kickSyncExecutorAfterEnqueue({
+        queued,
+        requestUrl: request.url,
+        authorizationHeader: authHeader,
+      })
+    } catch (kickErr) {
+      console.error(`[sync-api] executor kick after ${logLabel} enqueue failed:`, kickErr)
+    }
+    return NextResponse.json({ accepted: true, queued, message })
+  }
+
   if (apiSource === 'spotify') {
     const queued = await enqueueSpotifySyncJobs(db)
-    return NextResponse.json({
-      accepted: true,
-      queued,
-      message: `${queued} Spotify sync job(s) enqueued.`,
-    })
+    return enqueueAndKick(queued, `${queued} Spotify sync job(s) enqueued.`, 'Spotify')
   }
 
   if (apiSource === 'odesli') {
     const queued = await enqueueOdesliSyncJob(db)
-    return NextResponse.json({
-      accepted: true,
+    return enqueueAndKick(
       queued,
-      message:
-        queued > 0
-          ? 'Odesli sync job enqueued.'
-          : 'Odesli sync already pending or running.',
-    })
+      queued > 0 ? 'Odesli sync job enqueued.' : 'Odesli sync already pending or running.',
+      'Odesli',
+    )
+  }
+
+  if (apiSource === 'songkick') {
+    const queued = await enqueueSongkickSyncJobs(db)
+    return enqueueAndKick(queued, `${queued} Songkick sync job(s) enqueued.`, 'Songkick')
+  }
+
+  if (apiSource === 'bandsintown') {
+    const queued = await enqueueBandsintownSyncJobs(db)
+    return enqueueAndKick(queued, `${queued} Bandsintown sync job(s) enqueued.`, 'Bandsintown')
   }
 
   const uploadFn: (imageUrl: string, keyPrefix: string) => Promise<string> =

@@ -36,6 +36,7 @@ describe('epkTemplates', () => {
   it('lists published templates', async () => {
     const mock = createMockDb([
       {
+        organization_id: '00000000-0000-0000-0000-000000000000',
         id: 'tpl-1',
         name: 'Classic Press Kit',
         description: 'Label default',
@@ -51,5 +52,9 @@ describe('epkTemplates', () => {
     expect(templates).toHaveLength(1)
     expect(templates[0].name).toBe('Classic Press Kit')
     expect(templates[0].isPublished).toBe(true)
+    expect(mock.builder.eq).toHaveBeenCalledWith(
+      'organization_id',
+      '00000000-0000-0000-0000-000000000000',
+    )
   })
 })

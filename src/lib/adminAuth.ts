@@ -27,6 +27,8 @@ import { getUserRoleWithClient } from '@/lib/getUserRole'
 import { resolveEffectiveAccess, hasPermissionKey } from '@/lib/rbac/resolveAccess'
 import { hasSyncTriggerAccess } from '@/lib/rbac/guards'
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { getRequestOrganizationId } from '@/lib/organizations/requestContext'
+import { assertAdminOrganizationAccess } from '@/lib/organizations/assertAdminOrganizationAccess'
 
 /** Granular permission keys from the role_permissions table. */
 export type RolePermissionKey =
@@ -156,6 +158,8 @@ export async function verifyPermission(
 export interface AdminRequestAuth {
   userId: string
   role: UserRole
+  /** Host-bound organization for this request (multi-tenant). */
+  organizationId: string
 }
 
 /**
@@ -180,7 +184,9 @@ export async function verifyAdminRequest(
       const client = createServiceRoleClient()
       const role = await getUserRoleWithClient(client, userId)
       if (!role) throw new ApiError(403, 'Forbidden')
-      return { userId, role }
+      const organizationId = await getRequestOrganizationId(client)
+      await assertAdminOrganizationAccess(client, userId, organizationId)
+      return { userId, role, organizationId }
     } catch (err) {
       // Only fall through for auth failures (401). 403 stays hard (wrong role).
       if (!(err instanceof ApiError) || err.status !== 401) throw err
@@ -204,7 +210,11 @@ export async function verifyAdminRequest(
     throw new ApiError(403, 'Forbidden')
   }
 
-  return { userId: user.id, role }
+  const serviceClient = createServiceRoleClient()
+  const organizationId = await getRequestOrganizationId(serviceClient)
+  await assertAdminOrganizationAccess(serviceClient, user.id, organizationId)
+
+  return { userId: user.id, role, organizationId }
 }
 
 /** Admin-only. Prefer for user management, SOS accounting, feature flags. */
@@ -225,9 +235,15 @@ export async function requireAdminOrEditorFromRequest(
 export async function requireAdminWithServiceClient(req: NextRequest): Promise<{
   userId: string
   role: UserRole
+  organizationId: string
   serviceClient: Awaited<ReturnType<typeof createServiceRoleSupabaseClient>>
 }> {
   const auth = await requireAdminFromRequest(req)
   const serviceClient = await createServiceRoleSupabaseClient()
-  return { userId: auth.userId, role: auth.role, serviceClient }
+  return {
+    userId: auth.userId,
+    role: auth.role,
+    organizationId: auth.organizationId,
+    serviceClient,
+  }
 }

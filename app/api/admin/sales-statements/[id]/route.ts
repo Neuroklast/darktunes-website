@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
+import { requireAdminFromRequest } from '@/lib/adminAuth'
 import { logFinancialEvent } from '@/lib/api/financialAudit'
 import {
   deleteSalesStatementDraft,
-  getSalesStatementById,
+  getSalesStatementByIdForOrganization,
   StatementNotDeletableError,
 } from '@/lib/api/salesStatements'
 import { assertStatementPeriodWritable } from '@/lib/api/settlementPeriods'
 import { deleteStatementPdfFromR2 } from '@/lib/portal/statementPdfStorage'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+
 export const DELETE = withErrorHandler(async (req: NextRequest) => {
-  const token = extractBearerToken(req.headers.get('authorization'))
-  const userId = await verifyAdmin(token)
+  const { userId, organizationId } = await requireAdminFromRequest(req)
 
   const id = req.nextUrl.pathname.split('/').pop()
   if (!id) throw new ApiError(400, 'Missing statement id')
@@ -20,7 +20,7 @@ export const DELETE = withErrorHandler(async (req: NextRequest) => {
   const supabase = await createServerSupabaseClient()
   await assertStatementPeriodWritable(supabase, id)
 
-  const existing = await getSalesStatementById(supabase, id)
+  const existing = await getSalesStatementByIdForOrganization(supabase, id, organizationId)
   if (!existing) throw new ApiError(404, 'Statement not found')
 
   try {
@@ -32,6 +32,7 @@ export const DELETE = withErrorHandler(async (req: NextRequest) => {
       entityId: id,
       action: 'draft_deleted',
       actorId: userId,
+      organizationId,
       beforeData: {
         artistId: deleted.artistId,
         period: deleted.period,

@@ -19,9 +19,15 @@ Defined in `app/globals.css` `@theme {}`. `tailwind.config.js` is IDE-only — r
 
 Single `LenisProvider` in `Providers.tsx`. No second instance; no CSS `scroll-behavior: smooth`. Import `useLenis` from `LenisProvider.tsx`.
 
+**Public feel (desktop):** `LENIS_OPTIONS` — **lerp only** (`0.08`), `smoothWheel: true`, `autoRaf: true`, `wheelMultiplier: 0.9`, `syncTouch: false`. Do **not** set `duration`/`easing` on the instance: Lenis then eases each wheel notch as a timed tween (steppy on Windows). Anchor `scrollTo` passes `LENIS_ANCHOR_SCROLL` (duration 1.15). Import `lenis/dist/lenis.css` in `globals.css`.
+
 **Dashboard routes:** `LenisProvider` does **not mount** Lenis on `/admin/*`, `/portal/*`, or `/editor` (`src/lib/scroll/dashboardRoutes.ts`) so wheel events reach native scroll inside dashboard shells.
 
 **Touch:** Lenis always uses `syncTouch: false` so phones keep native touch scroll (syncTouch caused rubber-band ghosting with VFX GPU layers). Wheel/trackpad still get smooth Lenis on desktop. Do **not** mount/unmount Lenis from media queries — remounting the tree detaches focused nodes and flakes keyboard e2e.
+
+**Scroll VFX budget:** `ScrollFxController` sets `html[data-scrolling="1"]` while Lenis has velocity. CSS pauses CRT pulse, hides grain, drops chromatic/`will-change` on overlays and `.glow-card` during scroll so expensive GPU layers do not fight Lenis. Do **not** paper over jank with blanket `data-lenis-prevent` on carousels/sections.
+
+**Carousels (Swiper coverflow, related-artist strips):** Vertical wheel stays on Lenis. No `data-lenis-prevent` on the wrapper. Use `touch-action: pan-y` (or pan-x pan-y for horizontal strips) and optional axis-aware `onWheel` for horizontal slide changes only.
 
 **Dashboard scroll shell:** Admin and portal layouts use `ScrollableAppShell` (`src/components/layout/ScrollableAppShell.tsx`). Contract: outer `h-dvh overflow-hidden` → inner `flex-1 min-h-0 overflow-y-auto` with `data-lenis-prevent`. List routes set `lockScroll` so only `AdminListShell` scrolls internally.
 
@@ -68,6 +74,17 @@ Public images via `getOptimizedImageUrl` / `getSquareThumbnail` (`imageUtils.ts`
 
 **Enterprise contract (mandatory):** `npm run check:i18n` — en/de parity, static key existence, zero hardcoded `toast.*`/`confirm` in portal/admin, admin/editor must load `portal` bundle, residual UI hardcodes only via shrinkable baseline (`scripts/i18n-hardcode-baseline.json`). See [i18n-audit-notes.md](./i18n-audit-notes.md).
 
+## Artist profile preview rows (`/artists/[slug]`)
+
+Videos and news on the **regular** artist page (not Personal/Fan page) show a CMS-configured number of **grid rows** before an in-place Show all control.
+
+| Setting keys | Defaults | Visible count |
+|--------------|----------|---------------|
+| `artist_profile_video_rows` / `artistProfileVideoRows` | 2 | rows × cols (1 / md 2 / xl 3) |
+| `artist_profile_news_rows` / `artistProfileNewsRows` | 2 | rows × cols (1 / md 2) |
+
+Helpers: `src/lib/artistProfilePreview.ts`. Admin fields: Site Settings next to homepage pagination. RSC passes clamped values from `getCachedSiteSettings()`.
+
 ## Responsive layout
 
 Mobile-first; fluid widths (`w-full`, `max-w-*`); no hardcoded structural pixels. Skeletons match loaded layout (zero CLS). `truncate` / `break-words` for overflow.
@@ -97,6 +114,7 @@ Legal row must `flex-wrap` with `min-h-[44px]` touch targets. Never `overflow-x-
 | Spacing | 8px grid: `p-2`–`p-12`; default body `p-6` |
 | z-index | Stacking contract below (do not invent ad-hoc layers) |
 | Dismiss | Close button (44px), ESC, backdrop click via `onOpenChange` |
+| SOS Excel export | `ExcelExportDialog` — body `max-h-[70vh] overflow-y-auto` + `data-lenis-prevent`; column presets on workspace, not localStorage |
 | Motion | Spring `{ stiffness: 400, damping: 40 }`; duration 0 when reduced motion |
 
 ### Overlay stacking contract
@@ -119,8 +137,9 @@ CI: `npm run check:overlay` (`scripts/check-overlay-stack-contract.mjs`).
 `shouldPreventLenis` (`src/lib/scroll/lenisPrevent.ts`):
 
 1. Explicit `data-lenis-prevent` / scroll-area viewport → yield to native.
-2. Else: ancestors that **actually** overflow (computed `overflow` + `scrollWidth/Height` vs client size).
+2. Else: ancestors that **actually overflow vertically** only (`overflow-y` + `scrollHeight > clientHeight`). Horizontal-only overflow must not block document Lenis.
 3. Never gate only on class substrings (`overflow-x-auto` in a Tailwind string) — homepage Videos used that pattern and dead-zoned vertical scroll on desktop.
+4. `data-lenis-prevent` = “this is a nested vertical scrollport”, not “this widget is expensive”.
 
 **Mailbox UX:** Thread detail uses `MessageChatThread` (chat bubbles). Live arrivals can play `playNewMessageSound()`; users toggle via `MessageSoundToggle` (`localStorage` key `dt-message-sound-enabled`).
 
@@ -129,6 +148,8 @@ CI: `npm run check:overlay` (`scripts/check-overlay-stack-contract.mjs`).
 `VisualEffectsOverlay` in `NavHidingWrapper` — public routes only. Props from CMS `site_settings`. Raw, dark, industrial — no neon. `ThemeEffectsClient` cleans `data-fx-*` on unmount.
 
 **Mobile / coarse pointer:** `vfx-mobile-lite` — static vignette only; no CRT scanline animation, chromatic aberration, or permanent `will-change` (scroll ghosting). `ScrollReveal` clears `will-change` after intro animation.
+
+**While scrolling (desktop):** `html[data-scrolling="1"]` dimms/pauses grain, CRT animation, chromatic, and colour wash; `.glow-card` drops `will-change` (see `ScrollFxController` in `LenisProvider`).
 
 ## Color theme admin
 
@@ -153,6 +174,8 @@ Shared primitives in `src/components/notifications/` (`NotificationBellTrigger`,
 **Read semantics:** Opening the popover does **not** mark items read. A click marks the item read in the DB, then navigates. Header button runs bulk read (`markAllEditorNotificationsRead` / `markAllPortalMessagesRead`). Badge counts always reconcile from the DB after mutations — never hard-set to zero when more unread rows may exist.
 
 **Admin:** `DashboardNotificationBell` + unified `notifications` table via `src/lib/api/editorNotifications.ts` / `src/lib/api/notifications.ts`. Realtime on `notifications` filtered by `user_id`.
+
+**Admin nav badges (sidebar counts + push badge):** Single owner `AdminNavBadgesProvider` in `AdminClientLayout` → `useAdminNavBadges` once. Consumers (`AdminSidebarNav`, `AdminPushBootstrap`) read `useAdminNavBadgesContext()` — never mount the subscription hook twice against the singleton browser Supabase client. Realtime rules: all `.on('postgres_changes', …)` **before** `.subscribe()`; unique channel topics per instance (`useId`); keep refresh callbacks in a **ref** so effect re-runs do not re-attach listeners after subscribe. Same dual-mount class of bug hit `EditorNotificationBell` / `DashboardNotificationBell` historically.
 
 **Portal:** `PortalNotificationBell` + composite feed (`portalNotifications`): messages, interviews, statements, plus durable platform rows (`kind: platform`, e.g. fan-page decisions). Badge field `alerts` counts unread platform rows. `PortalNotificationProvider` refreshes on messages, interviews, statements, and `notifications`.
 
