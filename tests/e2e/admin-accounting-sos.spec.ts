@@ -19,7 +19,13 @@ test.describe('Admin SOS drafts + statements', () => {
 
     await page.getByRole('tab', { name: /statement history|statement-historie|historique/i }).click()
     await waitForPageSettled(page)
-    await expect(page.getByRole('heading', { name: /statement history|historie|historique/i })).toBeVisible()
+    // StatementsManager renders just the empty-state message (no heading) when
+    // there are zero statements yet — a fresh e2e-seeded org has none. Accept
+    // either the populated heading or the empty-state text as proof the tab
+    // mounted real content rather than the error boundary.
+    const heading = page.getByRole('heading', { name: /statement history|historie|historique/i })
+    const emptyState = page.getByText(/no statements uploaded yet|noch keine statements hochgeladen|aucun relevé uploadé/i)
+    await expect(heading.or(emptyState)).toBeVisible()
     await expectNoErrorBoundary(page)
   })
 

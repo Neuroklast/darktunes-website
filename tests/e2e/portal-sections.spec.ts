@@ -105,7 +105,14 @@ test.describe('Portal sections — every route renders for a linked artist', () 
       // Stay under the requested section (allow query strings e.g. ?artistId=).
       await expect(page).toHaveURL(new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 
-      await expect(page.getByRole('navigation', { name: 'Artist portal navigation' })).toBeAttached()
+      // On mobile the persistent sidebar is CSS-hidden (or, for portal, unmounted
+      // inside a closed Sheet drawer) until the hamburger is opened — getByRole
+      // excludes hidden/unmounted elements from the accessibility tree, so accept
+      // either the nav itself (desktop) or its mobile trigger as proof the portal
+      // shell rendered rather than an error/login bounce.
+      const nav = page.getByRole('navigation', { name: 'Artist portal navigation' })
+      const mobileTrigger = page.getByRole('button', { name: 'Open portal navigation' })
+      await expect(nav.or(mobileTrigger)).toBeAttached()
       await expect(page.getByRole('heading').first()).toBeVisible()
       await expectNoErrorBoundary(page)
     })

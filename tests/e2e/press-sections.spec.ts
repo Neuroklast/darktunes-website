@@ -96,9 +96,14 @@ test.describe('Press dashboard — every section renders for a journalist', () =
       // Staying put proves hasPressDashboardAccess() accepted this account.
       await expect(page).toHaveURL(new RegExp(`${path}$`))
 
-      await expect(
-        page.getByRole('navigation', { name: 'Press dashboard navigation' }),
-      ).toBeAttached()
+      // PressNav's <nav> is CSS-hidden (not unmounted) on mobile until the
+      // toggle is opened — getByRole excludes CSS-hidden elements from the
+      // accessibility tree regardless of toBeAttached vs toBeVisible, so accept
+      // either the nav (desktop) or its mobile toggle button as proof the press
+      // dashboard shell rendered.
+      const nav = page.getByRole('navigation', { name: 'Press dashboard navigation' })
+      const mobileToggle = page.getByRole('button', { name: 'Toggle press navigation' })
+      await expect(nav.or(mobileToggle)).toBeAttached()
       await expect(page.getByRole('heading').first()).toBeVisible()
       await expectNoErrorBoundary(page)
       await expectNoUnresolvedTranslationKeys(page)

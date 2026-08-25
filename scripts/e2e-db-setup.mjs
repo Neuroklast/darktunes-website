@@ -28,6 +28,15 @@
  *   5. Bootstrap 3 fixture auth users (admin/artist/journalist) via the
  *      GoTrue admin API and promote their public.users.role
  *   6. Write .env.e2e.local with everything Playwright needs
+ *   7. Delete .next/cache/fetch-cache — several public pages wrap their
+ *      Supabase reads in Next's `unstable_cache` (see
+ *      src/lib/cache/publicQueries.ts) with a 1-hour revalidate. That cache
+ *      is a plain on-disk directory that survives both `next build` and
+ *      `next start` restarts, so a result cached against a *previous*
+ *      database's contents (e.g. an artists list that happened to be empty
+ *      right after a prior reset) keeps being served for up to an hour after
+ *      this reset seeds fresh fixtures — deleting it here is what makes a
+ *      reset actually visible to the next `npm run build && npm start`.
  *
  * Why apply reset.sql via `psql` and TWICE:
  * reset.sql has a handful of early statements (e.g. the deprecated
@@ -48,7 +57,7 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FIXTURE_USERS, ensureFixtureUsers, readStatus } from './e2e-db-lib.mjs'
@@ -103,6 +112,12 @@ function applySqlFileViaPsql(dbUrl, relativePath) {
 }
 
 async function main() {
+  // Must happen before the app is ever built/started against the freshly
+  // reset DB below — see the "Delete .next/cache/fetch-cache" step in the
+  // file header comment.
+  rmSync(join(root, '.next/cache/fetch-cache'), { recursive: true, force: true })
+  log('Cleared .next/cache/fetch-cache')
+
   log('Starting local Supabase stack (first run pulls Docker images — can take several minutes)...')
   run('npx', ['--yes', 'supabase', 'start'])
 

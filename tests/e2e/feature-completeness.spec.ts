@@ -55,9 +55,21 @@ test.describe('Feature completeness', () => {
 
     await page.goto(`/artists/${artists[0].slug}`, { waitUntil: 'domcontentloaded' })
 
-    await expect(page.getByText(/full bio|bio|biografie/i).first()).toBeVisible()
-    await expect(page.getByText(/releases|veröffentlichungen/i).first()).toBeVisible()
-    await expect(page.getByText(/concerts|konzerte|shows/i).first()).toBeVisible()
+    // Scope to #main-content (the skip-link target; this page has no <main>
+    // landmark): the site header's "RELEASES" nav link also matches the releases
+    // regex and sits earlier in the DOM than the page content, so an unscoped
+    // .first() grabs it instead of the artist page's own section. On mobile that
+    // header link is CSS-hidden (replaced by the hamburger menu), so the mismatch
+    // only broke there — on desktop it happened to be visible too, masking the
+    // wrong-element pick. The releases section itself is headed "Discography"
+    // (src/i18n/messages/en/artistDetail.json), not "Releases" — broaden the
+    // regex to match the real heading now that the header decoy is excluded.
+    const content = page.locator('#main-content')
+    await expect(content.getByText(/full bio|bio|biografie/i).first()).toBeVisible()
+    await expect(
+      content.getByText(/releases|discography|diskografie|veröffentlichungen/i).first(),
+    ).toBeVisible()
+    await expect(content.getByText(/concerts|konzerte|shows/i).first()).toBeVisible()
   })
 
   test('admin overview shows content stats and quick-access sections for admin role', async ({ page }) => {
@@ -74,7 +86,7 @@ test.describe('Feature completeness', () => {
     }
   })
 
-  test('admin sidebar links are visible for admin role', async ({ page }) => {
+  test('admin sidebar links are visible for admin role', async ({ page, isMobile }) => {
     await loginAsAdmin(page)
     // Force English so assertions match admin.nav en strings (default locale is de).
     const origin = new URL(page.url()).origin
@@ -82,6 +94,13 @@ test.describe('Feature completeness', () => {
       { name: 'NEXT_LOCALE', value: 'en', url: origin },
     ])
     await page.reload({ waitUntil: 'domcontentloaded' })
+
+    // AdminSidebarNav's persistent sidebar is CSS-hidden below md; on mobile the
+    // same <nav> only becomes visible inside the Sheet drawer once the hamburger
+    // is opened.
+    if (isMobile) {
+      await page.getByRole('button', { name: 'Open admin navigation' }).click()
+    }
 
     const nav = page.getByRole('navigation', { name: 'Admin sections' })
     for (const linkLabel of ADMIN_SIDEBAR_LINKS) {
