@@ -1,6 +1,7 @@
 # Pre-Release QA Checklist
 
 ## Functional Tests
+
 - [ ] Validate all public routes load successfully (`/`, `/about`, `/artists`, `/releases`, `/news`, `/contact`, `/press`, `/offline`)
 - [ ] Crawl internal links and confirm no broken links / 404 pages
 - [ ] Validate dynamic routes for artist and release detail pages
@@ -32,6 +33,7 @@
 - [ ] Drag conversation onto a custom folder (or Trash) files/deletes the whole thread
 
 ## Security
+
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)
 - [ ] Validate protected API endpoints reject missing/invalid authentication
 - [ ] Confirm editor JWT cannot call finance APIs (`/api/admin/sales-statements/*`, `/api/admin/settlements/*`, `/api/admin/invoices/*`, `/api/admin/sos/*`) — expect 403
@@ -47,6 +49,7 @@
 - [ ] Run vulnerability scan (`npm audit --production --audit-level=high`)
 
 ## Portal product feedback
+
 - [ ] `/portal/feedback` loads form without requiring a manual artist pick; shows “Sending as {artist}”
 - [ ] Single-artist account: submit works even if URL has no `artistId` (server resolve)
 - [ ] Multi-artist: switcher changes active band; feedback submits for currently selected artist
@@ -57,11 +60,13 @@
 - [ ] Apply `portal_feedback` from `supabase/reset.sql` on live DB
 
 ## Portal interviews
+
 - [ ] `/portal/interviews`: accept/reject + reply save works with `?artistId=`
 - [ ] Delete interview request → confirm → removed from list; badge/count drops when it was pending
 - [ ] Non-member / missing `artistId` cannot DELETE another artist's request
 
 ## Portal analytics split + Bandsintown
+
 - [ ] Sidebar Dashboard shows **Spotify Trends** and **Sales Analytics** (flag `artist.analytics`)
 - [ ] `/portal/spotify-trends` shows empty state when no presence data (not a wall of zeros)
 - [ ] `/portal/sos-analytics` shows empty state when no SOS statements; tabs exclude Spotify presence
@@ -71,6 +76,7 @@
 - [ ] Sync concerts from Integrations updates tour list when credentials valid
 
 ## Portal release submission
+
 - [ ] `/portal/releases/new` stepped wizard; `?step=` updates; progress + Back/Continue work
 - [ ] Cover: public Drive JPEG 3000×3000 verifies; private/wrong size/format show clear errors
 - [ ] Cover token allows submit without re-download fail; double-click Submit does not create two rows
@@ -81,6 +87,7 @@
 - [ ] Admin wizard group maps to artist step; apply `submission_form_drafts` from reset.sql
 
 ## Settlements / invoices
+
 - [ ] Approve draft statement once → single `statement_payout`; second approve fails
 - [ ] Create correction → original still visible to artist; approve correction → original superseded, ledger delta only
 - [ ] Statement-linked invoice + full payment → open balance / carry-forward ~ 0 (no double negative)
@@ -103,6 +110,7 @@
 - [ ] Save Excel preset → reopen dialog → preset still selected and columns match (workspace / rules preset)
 
 ## Accounting wizard (DAU path)
+
 - [ ] `/admin/accounting` Statement History tab and `/admin/statements` render without `Something went wrong`
 - [ ] Guided Publish / Drafts step (`?guidedStep=settle`) does not crash; failed draft create shows a toast
 - [ ] `/admin/accounting` shows Assistant as recommended; 5-step “what happens next” list
@@ -114,6 +122,7 @@
 - [ ] Expense date = calendar picker; period = month picker; track owner % = percent field
 
 ## Portal / admin DAU assistants (1–5)
+
 - [ ] `/portal/billing` assistant: legal → tax (3 statuses) → optional IBAN → invoice-ready / SEPA status
 - [ ] `/portal/billing` with a **complete** profile opens the form directly (no mode chooser / setup guide); incomplete still starts assistant; `?mode=assistant` re-opens guide
 - [ ] Statement CTA opens `/portal/invoices?statement=` assistant; quick-send shows confirm dialog
@@ -123,6 +132,7 @@
 - [ ] `/admin/release-submissions` assistant: queue → checklist → decision → optional draft
 
 ## Legal / billing compliance (DE/EU)
+
 - [ ] Public `/impressum` shows company, representative, VAT-ID when set in Admin → Legal
 - [ ] Public `/datenschutz` includes Artist Portal / 10-year retention section (default or CMS)
 - [ ] Public `/agb` renders CMS or default templates with label placeholders filled
@@ -137,12 +147,14 @@
 - [ ] Admin Legal: AGB editors + version + label billing street/city fields save and revalidate
 
 ## Corporate Identity
+
 - [ ] Validate only approved CI colors are hardcoded in components
 - [ ] Validate primary/secondary/background colors in rendered UI
 - [ ] Verify icon usage is consistent with brand guidelines
 - [ ] Verify typography and font hierarchy are consistent
 
 ## Accessibility (WCAG 2.1 AA)
+
 - [ ] Verify keyboard-only navigation for header and main journeys
 - [ ] Verify visible focus state for interactive elements
 - [ ] Verify mobile touch targets meet 44×44 minimum (Consent banner, PWA dismiss, Videos pagination, Contact submit, header menu)
@@ -151,6 +163,7 @@
 - [ ] Run automated accessibility checks and manual spot checks
 
 ## Security (public data / roles)
+
 - [ ] Anon Supabase: `artists` select does not return `bandsintown_api_key` / email secrets after reset.sql apply
 - [ ] Anon: `artist_epks` select denied or empty for `epk_password_hash`
 - [ ] Anon: `videos` with `is_visible=false` returns no rows
@@ -161,18 +174,21 @@
 - [ ] Admin → System Health marks Bandsintown configured when any private per-artist key exists
 
 ## Responsive Design
+
 - [ ] Validate mobile navigation behavior and menu access
 - [ ] Validate key layouts on desktop/tablet/mobile breakpoints
 - [ ] Verify touch interactions and scrolling remain functional
 - [ ] Verify no horizontal overflow issues
 
 ## Performance
+
 - [ ] Verify homepage LCP remains below budget threshold
 - [ ] Verify shared root bundle remains under configured budget
 - [ ] Run Lighthouse CI assertions
 - [ ] Validate performance tests in CI (`npm run perf:test`)
 
 ## Database & Sync
+
 - [ ] Validate schema parity with `supabase/reset.sql`
 - [ ] Validate artist/release/news sync jobs and cron triggers
 - [ ] Validate RLS and role permissions for new tables/features
@@ -194,17 +210,20 @@
 - [ ] `vercel.json` has no `crons` key
 
 ## Documentation
+
 - [ ] README reflects current setup and QA commands
 - [ ] DEPLOYMENT guide is up to date
 - [ ] AGENTS.md conventions remain aligned with implementation
 
 ## Test Execution
+
 - [ ] Run unit tests (`npm run test`)
 - [ ] Run E2E tests (`npm run test:e2e`)
 - [ ] Run performance tests (`npm run perf:test`)
 - [ ] Review visual regression outputs when relevant
 
 ## GDPR & Consent
+
 - [ ] Cookie consent banner appears on first visit
 - [ ] Spotify and YouTube iframes are blocked until consent is given
 - [ ] Accepting consent loads embedded players
@@ -213,6 +232,7 @@
 - [ ] Admin/portal/press routes are excluded from page-event tracking
 
 ## Internationalisation (i18n)
+
 - [ ] Flag language switcher in public header shows current language; choosing DE/EN/FR persists via NEXT_LOCALE cookie
 - [ ] Same flag switcher works in admin sidebar, portal sidebar, and press dashboard
 - [ ] **Admin sidebar labels update on language switch:** e.g. EN “Artists” / “Sign Out” → DE “Künstler” / “Abmelden” → FR “Artistes” / “Déconnexion” after reload (no leftover English menu)
@@ -223,11 +243,13 @@
 - [ ] Locale-specific legal pages (/impressum, /datenschutz, /agb) reflect correct language (Impressum labels DE/EN/FR; CMS body DE/EN with FR→EN fallback)
 
 ## Overlay stack (modals)
+
 - [ ] In Admin → Releases → New/Edit, Release Date calendar opens **above** the dialog (usable click targets)
 - [ ] Select / dropdown menus inside dialogs are clickable (not hidden under overlay)
 - [ ] Tooltips on controls inside dialogs remain visible
 
 ## PWA
+
 - [ ] /manifest.webmanifest is accessible and valid
 - [ ] Service worker registers without errors (DevTools → Application → Service Workers)
 - [ ] Offline page /offline is served when network is unavailable
@@ -242,6 +264,7 @@
 - [ ] Without VAPID env keys, app still works (in-app + email only; no enable errors loop)
 
 ## Newsletter DOI Flow
+
 - [ ] Subscribe form submits → success message shown (no error)
 - [ ] Pending row created in newsletter_subscribers table with status='pending'
 - [ ] DOI email arrives within 2 minutes (check Resend dashboard)
@@ -249,6 +272,7 @@
 - [ ] Re-submitting same email shows silent success (anti-enumeration)
 
 ## Artist Portal
+
 - [ ] Artist user can log in at /portal
 - [ ] PortalAccessGate shown for unlinked users (role=user)
 - [ ] Profile edit saves bio, photo uploads to R2
@@ -260,11 +284,13 @@
 - [ ] Overview intelligence panel shows insights with working deep links
 
 ## Messaging (chat + notifications)
+
 - [ ] Admin → Messages: open a conversation → reply box under the thread; send appears in chat without leaving the page
 - [ ] Artist portal → reply to label message → staff get in-app notification / bell
 - [ ] Admin compose or inline reply → artist gets portal message badge / toast / `label_message` notification when offline then returns
 
 ## Personal Artist Page
+
 - [ ] `/portal/fan-page` accessible when `artist.fan_page` flag is enabled; UI labels say **Personal Artist Page**
 - [ ] Editor saves sections, title, bio content
 - [ ] Publish flow: draft → pending_review (or direct publish when `landing_publish_trusted` is set)
@@ -275,6 +301,7 @@
 - [ ] If some assets have `size_bytes = 0`, bar shows “size unknown” warning (not silent undercount only)
 
 ## TRACK Tour Planner
+
 - [ ] `/portal/tour-planner` accessible when `artist.tour_planner` flag is enabled; shows disabled message otherwise
 - [ ] Create a tour; add stops; drag-reorder stops
 - [ ] Stop detail: per-diems, rooming, hotel geocode, merch count-in/out/sold
@@ -284,6 +311,7 @@
 - [ ] Admin read-only view at `/admin/tour-planner` loads for admin role
 
 ## Analytics & SOS Persist
+
 - [ ] Accounting → Save to Portal persists territory metrics after CSV processing without crashing the page (no Server Components digest toast, no full `error.tsx`)
 - [ ] Settlement Center: **Ready for draft** / Create drafts uploads the PDF and does not take down the page; **Save to Portal** above the register stays mounted
 - [ ] Bandcamp `FrozenPlasma` and roster `Frozen Plasma` settle as one artist after import
@@ -293,11 +321,13 @@
 - [ ] Website engagement appears after accepting cookies on public artist pages
 
 ## ISR & Loading
+
 - [ ] `/releases/[id]` and `/news/[slug]` pre-render at build time (`generateStaticParams`)
 - [ ] Navigating to `/artists`, `/events`, `/news/[slug]`, `/fan/[slug]` shows loading skeleton before content
 - [ ] Admin sub-pages (`/admin/features`, `/admin/settings`, etc.) show skeleton during navigation
 
 ## Journalist Dashboard
+
 - [ ] /press/login accessible, /press/dashboard/* redirects to login when unauthenticated
 - [ ] Role=journalist can access dashboard, role=user cannot
 - [ ] Promo track stream URL expires after 5 minutes
@@ -307,15 +337,18 @@
 - [ ] `/admin/features` shows Global site toggles + Portal module flags sections
 
 ## Schema Parity
+
 - [ ] Every column in supabase/reset.sql exists in src/types/database.ts
 - [ ] Every table in database.ts has a corresponding CREATE TABLE in reset.sql
 
 ## Security
+
 - [ ] Open DevTools Network tab — confirm SUPABASE_SERVICE_ROLE_KEY is never in any response
 - [ ] /admin redirects to /admin/login for unauthenticated requests
 - [ ] /portal/* redirects to /portal/login for unauthenticated requests
 - [ ] /promo-pool/* requires journalist or admin role
 
 ## Edge Function
+
 - [ ] Supabase Edge Function 'newsletter-confirm' is deployed and active
 - [ ] Edge Function appears in Supabase Dashboard → Edge Functions

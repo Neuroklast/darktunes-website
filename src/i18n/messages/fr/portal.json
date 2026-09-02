@@ -2186,6 +2186,7 @@
   "billing_tax_small_business": "Franchise en base (§ 19 UStG)",
   "billing_tax_reverse_charge": "Autoliquidation (international)",
   "billing_tax_status_hint": "Contrôle la présentation de la TVA sur les factures générées (§ 14 UStG).",
+  "billing_reverse_charge_hint": "En cas d'autoliquidation, votre propre numéro de taxe/TVA est facultatif — le numéro de TVA du destinataire (label) est indiqué sur la facture.",
   "onboarding_step_terms": "Conditions",
   "onboarding_terms_title": "Conditions d’utilisation et de règlement",
   "onboarding_terms_body": "Veuillez lire et accepter les conditions du portail artiste avant de continuer.",

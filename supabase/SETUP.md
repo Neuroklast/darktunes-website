@@ -28,6 +28,7 @@ PostgreSQL 15+ revoked default CREATE privileges on the `public` schema. The Sup
 ## Idempotency
 
 `reset.sql` is fully idempotent — you can run it multiple times safely:
+
 - Tables use `CREATE TABLE IF NOT EXISTS`
 - Columns use `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
 - Types use `DO $$ ... EXCEPTION WHEN duplicate_object`

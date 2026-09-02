@@ -41,7 +41,7 @@ non-key column B, which in turn depends on the primary key PK:
 PK → B → A   ← FORBIDDEN (A should live in the table whose PK is B)
 ```
 
-#### Resolved violations (historical — do not reintroduce):
+#### Resolved violations (historical — do not reintroduce)
 
 | Column removed | Table | Reason |
 |---|---|---|

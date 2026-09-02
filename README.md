@@ -97,6 +97,7 @@ npm run dev
 - **Bundle budget enforcement**: `scripts/check-bundle-budget.js` + `.github/workflows/performance-budget.yml`
 
 ---
+
 ## ✅ Quality Assurance
 
 ### Local QA commands
@@ -115,6 +116,7 @@ PRs use `.github/pull_request_template.md` (docs checklist is conditional — se
 ### QA CI pipeline
 
 The dedicated QA workflow (`.github/workflows/qa.yml`) runs five jobs:
+
 - `lint-and-unit-tests` — ESLint + Vitest
 - `e2e-tests` — Playwright route/security/feature checks
 - `security-audit` — npm audit (high severity gate)
@@ -134,7 +136,6 @@ The dedicated QA workflow (`.github/workflows/qa.yml`) runs five jobs:
 - Verify RLS is enabled for sensitive Supabase tables
 
 ---
-
 
 ## 🔑 Environment Variables
 
@@ -199,6 +200,7 @@ Types are defined in `src/types/database.ts`.
 **Always keep both in sync** — see the schema change checklist in [docs/agent/data-and-schema.md](./docs/agent/data-and-schema.md).
 
 To apply the schema (fresh or existing database):
+
 1. Open the **Supabase SQL Editor** in the dashboard.
 2. Paste the contents of `supabase/reset.sql` and click **Run**.
 
@@ -429,6 +431,5 @@ scripts/
 ## 📄 License
 
 Proprietary — All Rights Reserved. See [LICENSE](./LICENSE).
-
 
 - Press portal: public label press landing, artist EPK pages, embargo-aware press releases, dashboard profile/contact tools, upgraded press kit downloads, and promo-track preview/download flows.
