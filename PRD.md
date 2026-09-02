@@ -40,6 +40,7 @@ A modern alternative music label platform that combines:
 ## 3. Essential capabilities
 
 ### 3.1 Public website
+
 - Hero (featured content), releases, artists roster, news, videos, concerts/events, Spotify multi-player section, newsletter (DOI), legal (`/impressum`, `/datenschutz`, `/agb`).
 - ISR + `generateStaticParams` on key detail routes; loading skeletons for CLS.
 - i18n EN/DE (dictionary + Accept-Language / switcher).
@@ -47,6 +48,7 @@ A modern alternative music label platform that combines:
 - Consent-gated page analytics (`page_events`).
 
 ### 3.2 Artist portal (`/portal`)
+
 | Module | Purpose | Notes |
 |--------|---------|--------|
 | Dashboard / intelligence | Overview KPIs, shortcuts | Feature-flag aware nav |
@@ -68,6 +70,7 @@ A modern alternative music label platform that combines:
 **Tenancy:** `?artistId=` + `resolvePortalArtist` / `artist_members`. Never trust body-only artist ids for authz.
 
 ### 3.3 Admin (`/admin`)
+
 - CMS: artists, releases, news, videos, events, genres, assets (R2 explorer), colors, settings, features, portal FAQ.
 - Queues: release submissions, video submissions, fan page reviews, **artist feedback**, accreditations.
 - Finance: accounting (guided SOS + Abrechnungszentrale + bronze CSV), statements, settlements, invoices.
@@ -77,11 +80,13 @@ A modern alternative music label platform that combines:
 - Analytics: Label Intelligence hub.
 
 ### 3.4 Press & promo
+
 - Journalist apply → accreditation → dashboard (press kit, promo pool, interviews, profile).
 - Press-only news excluded from public feeds.
 - Secure downloads via server/presigned patterns (never long-lived public secrets).
 
 ### 3.5 Platform services
+
 - Sync queue: iTunes, Spotify, Discogs, Odesli, YouTube, Songkick/Bandsintown; Apify public play scrapes (budgeted).
 - R2 object keys SSOT (see `docs/agent/data-and-schema.md`).
 - Errors: `withErrorHandler` + `ApiError` on route handlers.

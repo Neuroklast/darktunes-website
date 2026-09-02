@@ -11,10 +11,12 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 ## [Unreleased]
 
 ### Added
+
 - **SOS Excel column presets:** Statement of Sales Excel export opens a dialog to pick sheets/columns and save named team presets on the accounting workspace.
 - **Artist profile preview rows:** Admin → Settings can set how many **grid rows** of videos and news show on `/artists/[slug]` before an in-place **Show all** control (defaults: 2 rows each). Responsive columns match the existing grids (videos 1/2/3, news 1/2). Personal/Fan page unchanged.
 
 ### Fixed
+
 - **Sync queue no longer stays at 1 running:** Odesli jobs that hit unresolvable or permanently failed URLs (artist profiles, 404/405/422) now write a fallback `smart_url` and stop rescheduling the same page. A full batch with zero progress no longer sets `hasMoreWork`. Cover art already on the label CDN is not re-downloaded every Spotify/iTunes/Discogs pass. Self-chain kicks time out instead of waiting on a child `waitUntil`.
 - **SOS artist splits after FrozenPlasma match:** Grouping still collapses `FrozenPlasma` / `Frozen Plasma`, but split fees, expenses, manuals, and opening balances now look up with the same key. Workspace Believe 80% / Bandcamp 50% applies again instead of the 50% default.
 - **SOS default rates:** New workspaces start with Raphael’s label settings (digital 50%, physical 15%, Believe/Bandcamp 50%, physical 65%, Darkmerch 100%). Compilation filters and per-artist splits are not seeded. Importing a workspace JSON writes the Default preset (and the open period, if any) so it does not need to be uploaded again.
@@ -32,6 +34,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Accounting drafts crash / silent errors:** `app/error.tsx` now reports render crashes to `/api/log-error`; chunk-load reload happens at most once per error. Statement history join, invalid period dates, and draft-create failures no longer take down the admin app. Settlement register reads an existing period (no write-on-GET) and loads ledger balances in one query.
 
 ### Changed
+
 - **Portal Sales Analytics shows artist-net revenue:** Save to Portal writes territory/merch gold after the label share. Artists never see the pre-split total or the split rate. Excel / SOS reporting stay on the full breakdown.
 - **Save to Portal no longer toasts “Gold totals differ”:** that compared pre-split gold to post-split statements and used warehouse jargon testers could not act on.
 - **Bandsintown artist field:** Admin Artist form and portal Integrations label the lookup as **Bandsintown Artist Name** (the name on Bandsintown), not Artist ID. The API still stores it in `artists.bandsintown_id`.
@@ -44,6 +47,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 ## [1.6.0] — 2026-08-11
 
 ### Added
+
 - **SemVer release process:** App version in `package.json` (no longer `0.0.0`); annotated git tags; `scripts/release.mjs` (`npm run release:check` / `release` / `release:tag`); full ritual in `docs/RELEASING.md`. Historical tags `v1.0.0`–`v1.5.0` label past product waves.
 - **App identity in health:** Full health snapshot includes `app.version` + `app.commit` (`src/lib/appVersion.ts`); Admin → System Health shows `vX.Y.Z · sha`.
 - **PWA Web Push + app icon badge (portal + admin):** One-tap **Enable** banner. Subscriptions in `push_subscriptions`; per-event `notification_preferences.push`; `emitNotification` sends Web Push via VAPID/`web-push` when configured. Service worker handles `push` / `notificationclick` and Badging API.
@@ -51,6 +55,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Portal unified calendar:** Always available for artists. Month grid shows **releases + live events** with kind toggle, ownership filter, and search. Event detail dialog; cached concerts via `getCachedCalendarConcerts`.
 
 ### Fixed
+
 - **Admin realtime crash:** Single `AdminNavBadgesProvider` owns the postgres_changes subscription; consumers use context (fixes double-subscribe with push bootstrap).
 - **E2E suite PR (#496):** Local Supabase stack; Chrome-only matrix on PRs; centralized `/login`; portal section specs for split analytics routes.
 - **Portal release calendar load time:** Slim nested select + `getCachedCalendarReleases` instead of heavy `select(*)` batches.
@@ -64,6 +69,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Message reply notifications:** Label→artist and artist→staff emits for mailbox replies.
 
 ### Changed
+
 - **Public Lenis feel:** Buttery document scroll; coverflow/related strips no longer blanket `data-lenis-prevent`.
 - **Scroll VFX budget:** `html[data-scrolling]` pauses CRT/grain/chromatic and drops permanent `will-change` on glow cards.
 - **Spotify embed overlay:** Wheel uses Lenis virtual scroll (`lenis.scroll + delta`).
@@ -76,6 +82,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 ## [1.5.0] — 2026-08-07
 
 ### Security
+
 - **Debt cleanup (overlay / over-fetch / brand UA):** Portaled HoverCard, ContextMenu, Tooltip at `z-[10000]` with CI `check:overlay`; Drawer aligned to Dialog stack; auth/role/file-explorer selects column-whitelisted; outbound User-Agents via `src/lib/brand/userAgent.ts`; residual risks in `SECURITY.md` / debt inventory.
 - **Public artist DTOs:** Column whitelist only (`PUBLIC_ARTIST_COLUMNS`); no secrets/PII in public payloads.
 - **`artist_private_data` table:** Secrets/PII dual-written; RLS staff/member only; cleared from `artists` after backfill.
@@ -83,10 +90,12 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Public EPK:** Service-role server path only (`getPublicArtistEpkByArtistId`).
 
 ### Added
+
 - **French locale (`fr`):** Flag switcher; full `src/i18n/messages/fr/*`; Accept-Language + cookie detection.
 - **Mailbox as conversations:** Portal + admin thread grouping (`Re:`/`Aw:`/`Fwd:`); chat timeline; sort; drag to folders; optional chime.
 
 ### Changed
+
 - **Sync executor continuous drain:** Self-chains across Vercel duration slices; owner-token lease; stuck-job recovery; rate-limited artists cool down while others drain.
 - **Admin System Health — no infra ops UI:** Product-facing Force Sync / API Keys only; hosting/cron remains in `DEPLOYMENT.md`.
 - **Personal Artist Page rename:** User-facing “Fan Page” → **Personal Artist Page** (routes/keys unchanged).
@@ -97,6 +106,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Locale UX:** Flag switcher on public/admin/portal/press; PWA install re-openable; legal i18n DE/EN/FR; higher-res logo proxy.
 
 ### Fixed
+
 - **Homepage scroll over Videos:** Lenis prevent only for real nested scrollports.
 - **Date/month pickers in modals:** Popover/DropdownMenu `z-[10000]` above Dialog.
 - **Admin/editor chrome language:** Sidebar/tabs via `admin.nav` / `pwa`; exact path matching for active nav.
@@ -109,7 +119,9 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 ## [1.4.0] — 2026-07-29
 
 ### Added
+
 #### Product & compliance
+
 - **Portal analytics split:** **Spotify Trends** + **SOS Analytics** (legacy `/portal/analytics` redirects); empty states when source has no data.
 - **Portal Bandsintown credentials:** Profile → Integrations; concert sync.
 - **Artist portal product feedback:** `/portal/feedback` + admin inbox `/admin/feedback` (`portal_feedback`).
@@ -119,6 +131,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Public metrics disclaimer** on portal analytics / PDF (Spotify presence vs SOS settlement truth).
 
 #### Portal & admin product
+
 - **Portal analytics hub polish:** Dual-axis Spotify presence, donuts, period presets, series prefs, PDF/CSV, assistant.
 - **Apify Spotify public play counts:** Admin dry-run/sync; monthly URL cap; never writes SOS gold.
 - **Sync control plane (Guided / Advanced):** Health checklist, live `sync_queue`, cancel/retry APIs.
@@ -137,12 +150,14 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **ISR + loading skeletons + metadata** for cold public/admin routes.
 
 ### Fixed
+
 - Portal notification bell read state (`message_receipts`); feedback always uses active artist.
 - Waterfall top-track dedupe; Apify Force Sync route; Advanced sync jobs 500; Accounting FX race/field UX.
 - Portal hometown 500; admin overview server-side counts; SW admin nav preload; ESLint cleanups.
 - ArtistsManager create-only dialog; ColorThemeManager deps; SECURITY.md upload limits.
 
 ### Changed
+
 - GitHub Actions speed (parallel jobs, caches, PR E2E Chrome-only).
 - API SOTA contract verifies; portal membership write helpers; admin dual-auth; upload SSOT limits; rate limits.
 - Invite pipeline hardening; assets storage/assign; mailbox i18n + compose draft; settlements/invoice/sync reliability.
@@ -150,29 +165,35 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - News press-only excluded from public; finance APIs admin-only; theme CSS XSS sanitization.
 
 ### Performance
+
 - Image path cleanup: Next optimizer / CDN; `sizes` on fill images; `priority` on LCP heroes.
 
 ### Refactored
+
 - Centralized `createPublicSupabaseClient`; press detail `React.cache()`; dead-code cleanup (legacy UI, workers, orphaned maintenance chain).
 
 ## [1.3.0] — 2026-07-11
 
 ### Added
+
 - **Messaging foundations** and shared inbox groundwork toward M0–M2 (lists, receipts path, compose surfaces).
 - **Invite pipeline** early iterations (link validity, resend, stronger password policy).
 - **Portal release/video submission** schema-driven forms and admin review surfaces (mid-summer wave).
 - **Admin accounting / system** product surfaces and maintenance APIs continued expansion.
 
 ### Changed
+
 - CI and API contract tooling expansion (schema-column / API-contract verifies).
 - Portal mailbox i18n and compose draft URL prefill behavior.
 
 ### Fixed
+
 - Editor link dialog / list inline fixes; submission form schema seed columns; editor notification channel duplicates.
 
 ## [1.2.0] — 2026-07-01
 
 ### Added
+
 - **Portal enterprise product platform:** document vault, calendar, interviews, onboarding, help FAQ foundations.
 - **Release-type submission forms:** schema-driven fields + type rules (`submission_form_schema`, track count rules).
 - **Admin release & video submissions** review queues.
@@ -180,21 +201,25 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **ISR + loading skeletons** for previously cold routes.
 
 ### Changed
+
 - Sync reliability improvements (R2 retries, executor lease, Odesli throttle patterns).
 - Settlements/invoice idempotency and finance access hardening groundwork.
 
 ## [1.1.0] — 2026-06-06
 
 ### Added
+
 - **Statement of Sales Email Notifications**: Artists receive an automatic email via Resend when a new statement is uploaded. Email includes period, optional amount, and link to `/portal/statements` for secure download.
 - **Admin Statements Manager**: New read-only tab in Admin dashboard to monitor all uploaded statements across all artists.
 
 ### Changed
+
 - `sendStatementNotification()` is called after every successful `sales_statements` insert (non-blocking).
 
 ## [1.0.0] — 2026-05-15
 
 ### Added
+
 - **Initial darkTunes platform:** Public label site (hero, artists, releases, news, videos, tour, Spotify), admin CMS, artist portal foundations, Supabase auth/RBAC, Cloudflare R2 media, Vercel deploy, iTunes/Odesli-oriented catalog sync, CRT/Lenis public aesthetic.
 
 [Unreleased]: https://github.com/Neuroklast/darktunes-website/compare/v1.6.0...HEAD

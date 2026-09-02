@@ -105,5 +105,4 @@ limiter (per serverless instance). Pair public routes with a Vercel WAF for defe
 | `/api/admin/sos/import-batches/[id]/multipart/part` | 21 MB per chunk (20 MB + overhead) |
 | Bronze CSV total (multipart) | 200 MB (`src/lib/sos/bronzeUploadLimits.ts`) |
 
-
 - Press inquiries from authenticated journalists are stored as internal app log entries; promo track previews/downloads continue to use short-lived signed R2 URLs and journalist download logging.
