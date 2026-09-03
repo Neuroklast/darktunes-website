@@ -6,7 +6,7 @@ import type { RevenueMixSlice } from '@/lib/analytics/revenueMix'
 import { portalKey } from '@/i18n/portalKey'
 
 const CATEGORY_COLORS: Record<RevenueMixSlice['category'], string> = {
-  digital: 'hsl(var(--primary))',
+  digital: 'var(--primary)',
   direct: 'hsl(142 76% 36%)',
   physical: 'hsl(38 92% 50%)',
   merch: 'hsl(0 72% 51%)',
@@ -59,8 +59,8 @@ export function RevenueMixChartInner({ slices, totalRevenue }: RevenueMixChartIn
             <Tooltip
               formatter={(value) => formatEur(Number(value ?? 0))}
               contentStyle={{
-                backgroundColor: 'hsl(var(--popover))',
-                border: '1px solid hsl(var(--border))',
+                backgroundColor: 'var(--popover)',
+                border: '1px solid var(--border)',
                 borderRadius: '6px',
                 fontSize: 12,
               }}

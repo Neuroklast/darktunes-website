@@ -34,8 +34,8 @@ import {
 import type { PresenceSeriesVisibility } from '@/lib/analytics/viewPreferences'
 
 const TOOLTIP_STYLE = {
-  backgroundColor: 'hsl(var(--popover))',
-  border: '1px solid hsl(var(--border))',
+  backgroundColor: 'var(--popover)',
+  border: '1px solid var(--border)',
   borderRadius: '8px',
   fontSize: 12,
   padding: '10px 14px',
@@ -43,7 +43,7 @@ const TOOLTIP_STYLE = {
 }
 
 const TOOLTIP_LABEL_STYLE = {
-  color: 'hsl(var(--foreground))',
+  color: 'var(--foreground)',
   fontWeight: 600,
   marginBottom: 6,
 }
@@ -267,12 +267,12 @@ export function SpotifyPresencePanelInner({
                       </linearGradient>
                     ))}
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.6} vertical={false} />
-                  <XAxis dataKey="period" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} stroke="hsl(var(--border))" tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.6} vertical={false} />
+                  <XAxis dataKey="period" tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} stroke="var(--border)" tickLine={false} axisLine={{ stroke: 'var(--border)' }} />
                   {chartMode === 'index' || !dualAxis ? (
                     <YAxis
                       yAxisId="single"
-                      tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                      tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
                       tickFormatter={chartMode === 'index' ? (v) => `${v}` : fmtNum}
                       width={52}
                       tickLine={false}
@@ -282,7 +282,7 @@ export function SpotifyPresencePanelInner({
                     <>
                       <YAxis
                         yAxisId="audience"
-                        tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                        tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
                         tickFormatter={fmtNum}
                         width={52}
                         tickLine={false}
@@ -291,13 +291,13 @@ export function SpotifyPresencePanelInner({
                           value: t('analytics_presence_axis_audience'),
                           angle: -90,
                           position: 'insideLeft',
-                          style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' },
+                          style: { fontSize: 10, fill: 'var(--muted-foreground)' },
                         }}
                       />
                       <YAxis
                         yAxisId="plays"
                         orientation="right"
-                        tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                        tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
                         tickFormatter={fmtNum}
                         width={56}
                         tickLine={false}
@@ -306,7 +306,7 @@ export function SpotifyPresencePanelInner({
                           value: t('analytics_presence_axis_plays'),
                           angle: 90,
                           position: 'insideRight',
-                          style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' },
+                          style: { fontSize: 10, fill: 'var(--muted-foreground)' },
                         }}
                       />
                     </>
@@ -348,7 +348,7 @@ export function SpotifyPresencePanelInner({
                         innerRadius={58}
                         outerRadius={92}
                         paddingAngle={2}
-                        stroke="hsl(var(--card))"
+                        stroke="var(--card)"
                         strokeWidth={2}
                       >
                         {topPieData.map((_, i) => (
@@ -385,7 +385,7 @@ export function SpotifyPresencePanelInner({
                         innerRadius={58}
                         outerRadius={92}
                         paddingAngle={2}
-                        stroke="hsl(var(--card))"
+                        stroke="var(--card)"
                         strokeWidth={2}
                       >
                         {releasePieData.map((_, i) => (
@@ -422,13 +422,13 @@ export function SpotifyPresencePanelInner({
                       <stop offset="100%" stopColor={PRESENCE_SERIES_COLORS.albumTrackPlays} stopOpacity={0.9} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fmtNum} tickLine={false} axisLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.5} horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickFormatter={fmtNum} tickLine={false} axisLine={false} />
                   <YAxis
                     type="category"
                     dataKey="name"
                     width={120}
-                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                     tickLine={false}
                     axisLine={false}
                   />
@@ -443,7 +443,7 @@ export function SpotifyPresencePanelInner({
                       dataKey="plays"
                       position="right"
                       formatter={(value) => fmtNum(Number(value))}
-                      style={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                      style={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                     />
                   </Bar>
                 </BarChart>
