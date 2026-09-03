@@ -360,7 +360,7 @@ function buildTrend(
   const fMap = new Map(followers.map((p) => [p.period, p.value]))
   const tMap = new Map(topTracksPlays.map((p) => [p.period, p.value]))
   const aMap = new Map(albumTrackPlays.map((p) => [p.period, p.value]))
-  return [...periods]
+  const rows: PublicSpotifyTrendPoint[] = [...periods]
     .sort()
     .map((period) => ({
       period,
@@ -369,6 +369,45 @@ function buildTrend(
       topTracksPlays: tMap.get(period) ?? 0,
       albumTrackPlays: aMap.get(period) ?? 0,
     }))
+  return carryForwardTrend(rows)
+}
+
+/**
+ * Forward-fill a monotonic time series so an exactly-zero point (usually a
+ * period where the scrape captured no value for that metric rather than a real
+ * drop) inherits the previous non-zero value. Leading zeros are preserved.
+ */
+function carryForwardSeries(points: PeriodPoint[]): PeriodPoint[] {
+  let prev = 0
+  return points.map((p) => {
+    if (p.value > 0) {
+      prev = p.value
+      return p
+    }
+    return prev > 0 ? { ...p, value: prev } : p
+  })
+}
+
+const TREND_KEYS = [
+  'listeners',
+  'followers',
+  'topTracksPlays',
+  'albumTrackPlays',
+] as const
+
+/** Forward-fill each series in the joined trend rows (handles join gaps to 0). */
+function carryForwardTrend(rows: PublicSpotifyTrendPoint[]): PublicSpotifyTrendPoint[] {
+  for (const key of TREND_KEYS) {
+    let prev = 0
+    for (const row of rows) {
+      if (row[key] > 0) {
+        prev = row[key]
+      } else if (prev > 0) {
+        row[key] = prev
+      }
+    }
+  }
+  return rows
 }
 
 function pearson(xs: number[], ys: number[]): number | null {
@@ -574,10 +613,16 @@ export function buildPublicSpotifyPresenceModel(input: {
     now,
   })
 
-  const listeners = seriesFor(listenerMetrics, PUBLIC_SPOTIFY_SOURCE, 'listeners')
-  const followers = seriesFor(listenerMetrics, PUBLIC_SPOTIFY_SOURCE, 'followers')
-  const topTracksPlaysSeries = seriesFor(listenerMetrics, PUBLIC_SPOTIFY_SOURCE, 'plays')
-  const albumTrackPlays = aggregateTrackPlaysByPeriod(trackSnapshots)
+  const listeners = carryForwardSeries(
+    seriesFor(listenerMetrics, PUBLIC_SPOTIFY_SOURCE, 'listeners'),
+  )
+  const followers = carryForwardSeries(
+    seriesFor(listenerMetrics, PUBLIC_SPOTIFY_SOURCE, 'followers'),
+  )
+  const topTracksPlaysSeries = carryForwardSeries(
+    seriesFor(listenerMetrics, PUBLIC_SPOTIFY_SOURCE, 'plays'),
+  )
+  const albumTrackPlays = carryForwardSeries(aggregateTrackPlaysByPeriod(trackSnapshots))
   const latestSnapPeriod = resolveLatestSnapshotPeriod(trackSnapshots)
   const topTracks = topTracksForPeriod(trackSnapshots, latestSnapPeriod, releaseTitles)
   const byRelease = playsByReleaseForPeriod(trackSnapshots, latestSnapPeriod, releaseTitles)

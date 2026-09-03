@@ -399,6 +399,12 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 **Mailbox replies without thread_id:** Sending `Re: subject` as a new row floods the inbox. Group client-side by normalized subject + participants (`src/lib/messaging/threads.ts`); load sent+received for the open conversation so the chat is complete. Thread-level star/delete/move/DnD must touch every message id in the group, not only the root.
 
+### 2026-09-03 — Spotify presence chart text invisible + zero-month dips
+
+**`hsl(var(--token))` is invalid when the token stores hex/oklch:** Recharts axis/`LabelList` fills, grid strokes, donut borders and tooltip styles used `hsl(var(--muted-foreground))` / `hsl(var(--border))` / `hsl(var(--popover))` — but those theme tokens hold hex (`#383838`, `#292929`) or `oklch(...)` values, so `hsl(var(...))` is an **invalid color** and browsers fall back to black, which vanishes on the dark charts. Reference the token **directly** (`var(--muted-foreground)`, like Tailwind's `@theme` mapping) or use a literal — never wrap a token in a `hsl()` whose components it does not hold.
+
+**A metric join gap must not render as a fabricated 0:** Forward-fill (carry the previous non-zero value) each presence series so an incomplete scrape, or a metric missing for one month (`fMap.get(period) ?? 0`), doesn't dip the trend line or the listener/follower KPIs to `0`. Only drop a whole period when *no* public Spotify data exists for it (a no-sync month) — not when one individual metric is absent.
+
 ---
 
-*Last updated: 2026-08-07*
+*Last updated: 2026-09-03*

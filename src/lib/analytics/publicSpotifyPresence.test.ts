@@ -247,6 +247,46 @@ describe('buildPublicSpotifyPresenceModel', () => {
     expect(model.trend.at(-1)?.listeners).toBe(1100)
   })
 
+  it('carries forward a metric gap so the trend never dips to 0', () => {
+    // Followers were scraped in 2026-06 but the 2026-07 scrape only captured
+    // listeners. The joined trend point for 2026-07 must reuse 2026-06 instead
+    // of showing a fabricated 0.
+    const model = buildPublicSpotifyPresenceModel({
+      listenerMetrics: [
+        metric({ metricType: 'listeners', period: '2026-06', value: 1000 }),
+        metric({ metricType: 'listeners', period: '2026-07', value: 1100 }),
+        metric({ metricType: 'followers', period: '2026-06', value: 400 }),
+      ],
+      trackSnapshots: [
+        snap({ spotifyTrackId: 't1', playCount: 500, period: '2026-07' }),
+      ],
+      now: new Date('2026-08-01T12:00:00.000Z'),
+    })
+
+    const june = model.trend.find((p) => p.period === '2026-06')
+    const july = model.trend.find((p) => p.period === '2026-07')
+    expect(june?.followers).toBe(400)
+    expect(july?.followers).toBe(400)
+  })
+
+  it('carries forward a stored zero value to the previous non-zero value', () => {
+    const model = buildPublicSpotifyPresenceModel({
+      listenerMetrics: [
+        metric({ metricType: 'listeners', period: '2026-06', value: 1000 }),
+        metric({ metricType: 'followers', period: '2026-06', value: 400 }),
+        metric({ metricType: 'followers', period: '2026-07', value: 0 }),
+      ],
+      trackSnapshots: [
+        snap({ spotifyTrackId: 't1', playCount: 500, period: '2026-07' }),
+      ],
+      now: new Date('2026-08-01T12:00:00.000Z'),
+    })
+
+    const july = model.trend.find((p) => p.period === '2026-07')
+    expect(july?.followers).toBe(400)
+    expect(model.kpis.latestFollowers).toBe(400)
+  })
+
   it('returns empty-ish model when no public data', () => {
     const model = buildPublicSpotifyPresenceModel({
       listenerMetrics: [],
