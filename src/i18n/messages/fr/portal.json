@@ -1460,6 +1460,7 @@
   "billing_iban": "IBAN",
   "billing_bic": "BIC",
   "billing_paypal": "E-mail PayPal",
+  "billing_reverse_charge_hint": "En autoliquidation (reverse charge), votre propre numéro de TVA est facultatif — le n° de TVA du destinataire (label) figure sur la facture.",
   "billing_save": "Enregistrer le profil de facturation",
   "billing_complete": "Profil de facturation complet",
   "billing_incomplete": "Profil de facturation incomplet",
