@@ -7,6 +7,9 @@
 - [ ] Artist profile (`/artists/[slug]`): with more videos/news than preview, only configured **rows** show (default 2); **Show all** expands in place; **Show less** collapses. Personal/Fan page unchanged.
 - [ ] Admin → Settings: **Artist profile video rows** / **news rows** (1–12) save and affect the regular artist page after site-settings revalidation
 - [ ] Homepage hero: featured release with long `promoText` shows teaser + ellipsis (not site-wide hero description); full promo on release detail; empty promo uses site `heroDescription` only
+- [ ] `Portal → Spotify Trends` loads with **no React hydration error** (`#418` / `#418`-style console error) even when saved chart preferences differ from defaults
+- [ ] `Portal → Spotify Trends` / `Portal → Analytics → Spotify presence`: a month with no Spotify sync (Last.fm data only) does **not** show the listeners/followers/plays series dipping to `0` — the month is omitted from the trend. Real-zero synced months still render.
+- [ ] `Portal → Spotify presence`: charts render crisp (no pixelated donut scaling), muted palette (no neon/rainbow), `role="img"`/`aria-label` present; KPI cards show uppercase titles + large values; tables have roomier padding and hover states on desktop and mobile
 - [ ] Validate newsletter submission flow and confirmation message
 - [ ] Validate media and upload features from admin/portal areas
 - [ ] Admin → Releases → New Release: **Release Date** calendar opens above the modal, day selectable, form can save with today’s date

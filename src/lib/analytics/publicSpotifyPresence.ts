@@ -71,7 +71,11 @@ export interface PublicSpotifyPresenceModel {
   topTracks: TopTrackRow[]
   byRelease: ReleasePlayRow[]
   insights: AnalyticsInsight[]
-  /** Secondary non-Spotify listener sources for optional chart series */
+  /**
+   * Secondary non-Spotify listener sources for optional chart series.
+   * Only periods that also had a Spotify scrape are included — a month with no
+   * Spotify sync is omitted entirely rather than shown as a fabricated zero.
+   */
   secondaryListeners: {
     lastfm: PeriodPoint[]
     soundcharts: PeriodPoint[]
@@ -104,11 +108,32 @@ export function hasPublicSpotifyDataForPeriod(
 }
 
 /**
- * Drop metrics / snapshots for the current UTC month when no public Spotify
- * scrape data exists yet. Prevents Last.fm/Soundcharts (or partial joins)
- * from materializing a current-month chart point with Spotify series at 0.
+ * All periods that have any public Spotify scrape data (an `apify` listener
+ * metric row OR a track play snapshot row). A period that is absent here had
+ * no Spotify sync that month, so it must not surface as a fabricated zero.
  */
-export function excludeIncompleteCurrentPeriodInput(input: {
+export function spotifyPeriodsWithData(
+  listenerMetrics: ArtistListenerMetric[],
+  trackSnapshots: SpotifyTrackPlaySnapshot[],
+): Set<string> {
+  const periods = new Set<string>()
+  for (const m of listenerMetrics) {
+    if (m.source === PUBLIC_SPOTIFY_SOURCE) periods.add(m.period)
+  }
+  for (const s of trackSnapshots) {
+    periods.add(s.period)
+  }
+  return periods
+}
+
+/**
+ * Drop metrics / snapshots for ANY period that has no public Spotify scrape
+ * data. Previously gated only the in-progress calendar month; now a past
+ * no-sync month (e.g. a month where the label scrape never ran) is excluded
+ * too. Prevents Last.fm/Soundcharts (or partial joins) from materializing a
+ * chart point with Spotify series at 0.
+ */
+export function excludeNoSyncPeriods(input: {
   listenerMetrics: ArtistListenerMetric[]
   trackSnapshots: SpotifyTrackPlaySnapshot[]
   now?: Date
@@ -124,17 +149,10 @@ export function excludeIncompleteCurrentPeriodInput(input: {
     input.trackSnapshots,
     currentPeriod,
   )
-  if (currentPeriodHasPublicData) {
-    return {
-      listenerMetrics: input.listenerMetrics,
-      trackSnapshots: input.trackSnapshots,
-      currentPeriod,
-      currentPeriodHasPublicData,
-    }
-  }
+  const withData = spotifyPeriodsWithData(input.listenerMetrics, input.trackSnapshots)
   return {
-    listenerMetrics: input.listenerMetrics.filter((m) => m.period !== currentPeriod),
-    trackSnapshots: input.trackSnapshots.filter((s) => s.period !== currentPeriod),
+    listenerMetrics: input.listenerMetrics.filter((m) => withData.has(m.period)),
+    trackSnapshots: input.trackSnapshots.filter((s) => withData.has(s.period)),
     currentPeriod,
     currentPeriodHasPublicData,
   }
@@ -542,14 +560,15 @@ export function buildPublicSpotifyPresenceModel(input: {
     now,
   } = input
 
-  // Hide the in-progress calendar month until public Spotify scrape data exists.
-  // Otherwise secondary sources (or chart joins) surface Spotify series as 0/null.
+  // Hide any period that had no Spotify sync until public Spotify scrape data
+  // exists for it. Otherwise secondary sources (or chart joins) surface Spotify
+  // series as 0/null — including past months where the label scrape never ran.
   const {
     listenerMetrics,
     trackSnapshots,
     currentPeriod,
     currentPeriodHasPublicData,
-  } = excludeIncompleteCurrentPeriodInput({
+  } = excludeNoSyncPeriods({
     listenerMetrics: input.listenerMetrics,
     trackSnapshots: input.trackSnapshots,
     now,

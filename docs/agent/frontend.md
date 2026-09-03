@@ -165,6 +165,14 @@ Typography tokens in `themeConfig.ts`; `--font-serif` wired in `ThemeStyleInject
 
 Always `cn()` from `@/lib/utils` — never template literal class merging.
 
+## Portal analytics charts (recharts)
+
+- Load all Recharts components via `next/dynamic(..., { ssr: false })` (separate `*Inner.tsx` file) so ~90 KB gz never enters the initial bundle and no SSR/hydration friction arises. Pull data via props only (IoC).
+- Series/donut colours come from `src/lib/analytics/presenceChartUtils.ts` (`PRESENCE_SERIES_COLORS`, `PRESENCE_DONUT_PALETTE`) — a curated muted set tuned for the dark theme. Never inline ad-hoc `oklch(...)` neon in a chart file.
+- Enterprise look = muted `stroke-border` grid, `hsl(var(--popover))` tooltip, gradient area underlay (`hsl(var(--primary)/0.15)` style), uppercase `tracking-widest` muted card titles with large `font-bold font-mono` values (see `EarningsChartInner.tsx`).
+- Charts must be accessible: `role="img"` + `aria-label` on the chart region and an `sr-only` data table.
+- No `aspect-video` squish on presence charts — give `ResponsiveContainer` an explicit px height; `overflow`/scroll is handled per the Lenis contract.
+
 ## Notification bells (admin + portal)
 
 Shared primitives in `src/components/notifications/` (`NotificationBellTrigger`, `NotificationPanel`, `NotificationListItem`). Relative timestamps via `src/lib/formatRelativeTime.ts`.
