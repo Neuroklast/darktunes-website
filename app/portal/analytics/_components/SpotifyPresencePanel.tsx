@@ -18,6 +18,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Users, UserPlus, PlayCircle, Disc } from '@phosphor-icons/react'
 import {
   horizontalScrollClass,
 } from '@/components/ui/scroll-panel'
@@ -107,7 +108,7 @@ export function SpotifyPresencePanel({
   const { kpis } = model
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <h2 className="text-xl font-semibold">{t('analytics_presence_heading')}</h2>
@@ -129,21 +130,22 @@ export function SpotifyPresencePanel({
         </p>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-card border-border min-w-0">
-          <CardHeader className="pb-1 px-4 pt-4">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
+          <CardHeader className="px-5 pb-2 pt-5">
+            <CardTitle className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              <Users size={14} aria-hidden="true" />
               {t('analytics_presence_kpi_listeners')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="text-xl sm:text-2xl font-bold tabular-nums">
+          <CardContent className="px-5 pb-5">
+            <p className="text-3xl font-bold tabular-nums">
               {kpis.latestListeners !== null ? fmtNum(kpis.latestListeners) : '—'}
             </p>
             {kpis.listenersMomPct !== null && (
               <p
                 className={cn(
-                  'text-xs mt-1.5 tabular-nums',
+                  'mt-1.5 text-xs tabular-nums',
                   kpis.listenersMomPct >= 0 ? 'text-green-500' : 'text-red-400',
                 )}
               >
@@ -153,19 +155,20 @@ export function SpotifyPresencePanel({
           </CardContent>
         </Card>
         <Card className="bg-card border-border min-w-0">
-          <CardHeader className="pb-1 px-4 pt-4">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
+          <CardHeader className="px-5 pb-2 pt-5">
+            <CardTitle className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              <UserPlus size={14} aria-hidden="true" />
               {t('analytics_presence_kpi_followers')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="text-xl sm:text-2xl font-bold tabular-nums">
+          <CardContent className="px-5 pb-5">
+            <p className="text-3xl font-bold tabular-nums">
               {kpis.latestFollowers !== null ? fmtNum(kpis.latestFollowers) : '—'}
             </p>
             {kpis.followersMomPct !== null && (
               <p
                 className={cn(
-                  'text-xs mt-1.5 tabular-nums',
+                  'mt-1.5 text-xs tabular-nums',
                   kpis.followersMomPct >= 0 ? 'text-green-500' : 'text-red-400',
                 )}
               >
@@ -175,18 +178,19 @@ export function SpotifyPresencePanel({
           </CardContent>
         </Card>
         <Card className="bg-card border-border min-w-0">
-          <CardHeader className="pb-1 px-4 pt-4">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
+          <CardHeader className="px-5 pb-2 pt-5">
+            <CardTitle className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              <PlayCircle size={14} aria-hidden="true" />
               {t('analytics_presence_kpi_track_plays')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="text-xl sm:text-2xl font-bold tabular-nums">
+          <CardContent className="px-5 pb-5">
+            <p className="text-3xl font-bold tabular-nums">
               {kpis.latestPublicTrackPlays !== null
                 ? fmtNum(kpis.latestPublicTrackPlays)
                 : '—'}
             </p>
-            <p className="text-xs text-muted-foreground mt-1.5">
+            <p className="mt-1.5 text-xs text-muted-foreground">
               {kpis.trackCountLatest > 0
                 ? t('analytics_presence_kpi_tracks_count', { count: kpis.trackCountLatest })
                 : t('analytics_presence_kpi_tracks_none')}
@@ -194,15 +198,16 @@ export function SpotifyPresencePanel({
           </CardContent>
         </Card>
         <Card className="bg-card border-border min-w-0">
-          <CardHeader className="pb-1 px-4 pt-4">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
+          <CardHeader className="px-5 pb-2 pt-5">
+            <CardTitle className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              <Disc size={14} aria-hidden="true" />
               {t('analytics_presence_kpi_releases')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <p className="text-xl sm:text-2xl font-bold tabular-nums">{kpis.releaseCountLatest || '—'}</p>
+          <CardContent className="px-5 pb-5">
+            <p className="text-3xl font-bold tabular-nums">{kpis.releaseCountLatest || '—'}</p>
             {kpis.latestPeriod && (
-              <p className="text-xs text-muted-foreground mt-1.5">
+              <p className="mt-1.5 text-xs text-muted-foreground">
                 {t('analytics_presence_period', { period: kpis.latestPeriod })}
               </p>
             )}
@@ -211,16 +216,16 @@ export function SpotifyPresencePanel({
       </div>
 
       {model.insights.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold">{t('analytics_presence_insights_heading')}</h3>
-          <ul className="space-y-2">
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold">{t('analytics_presence_insights_heading')}</h3>
+          <ul className="space-y-3">
             {model.insights.map((insight) => (
               <li
                 key={insight.id}
-                className="rounded-md border border-border bg-muted/20 px-3 py-2.5 text-sm"
+                className="rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm"
               >
-                <p className="font-medium">{t(portalKey(insight.titleKey))}</p>
-                <p className="text-muted-foreground text-xs mt-0.5">
+                <p className="font-semibold">{t(portalKey(insight.titleKey))}</p>
+                <p className="text-muted-foreground text-sm mt-0.5">
                   {t(portalKey(insight.bodyKey), insight.values)}
                 </p>
               </li>
@@ -236,37 +241,37 @@ export function SpotifyPresencePanel({
       />
 
       {model.topTracks.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold">{t('analytics_presence_top_tracks_heading')}</h3>
-          <div className={cn(horizontalScrollClass, 'rounded-md border border-border')}>
-            <table className="w-full text-sm min-w-[480px]">
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold">{t('analytics_presence_top_tracks_heading')}</h3>
+          <div className={cn(horizontalScrollClass, 'rounded-lg border border-border')}>
+            <table className="w-full text-sm min-w-[520px]">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left">
-                  <th className="px-3 py-2.5 font-medium" scope="col">
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground" scope="col">
                     #
                   </th>
-                  <th className="px-3 py-2.5 font-medium" scope="col">
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground" scope="col">
                     {t('analytics_presence_col_track')}
                   </th>
-                  <th className="px-3 py-2.5 font-medium" scope="col">
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground" scope="col">
                     {t('analytics_presence_col_release')}
                   </th>
-                  <th className="px-3 py-2.5 font-medium text-right" scope="col">
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right" scope="col">
                     {t('analytics_presence_col_plays')}
                   </th>
-                  <th className="px-3 py-2.5 font-medium text-right" scope="col">
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right" scope="col">
                     {t('analytics_presence_col_share')}
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {model.topTracks.map((row, idx) => (
-                  <tr key={row.spotifyTrackId} className="border-b border-border/60">
-                    <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{idx + 1}</td>
-                    <td className="px-3 py-2.5 font-medium">{row.trackName ?? row.spotifyTrackId}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground">{row.releaseTitle ?? '—'}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{fmtNum(row.playCount)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{row.sharePct}%</td>
+                  <tr key={row.spotifyTrackId} className="border-b border-border/60 hover:bg-muted/20">
+                    <td className="px-4 py-3 tabular-nums text-muted-foreground">{idx + 1}</td>
+                    <td className="px-4 py-3 font-medium">{row.trackName ?? row.spotifyTrackId}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{row.releaseTitle ?? '—'}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{fmtNum(row.playCount)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{row.sharePct}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -276,22 +281,22 @@ export function SpotifyPresencePanel({
       )}
 
       {model.byRelease.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold">{t('analytics_presence_by_release_heading')}</h3>
-          <div className={cn(horizontalScrollClass, 'rounded-md border border-border')}>
-            <table className="w-full text-sm min-w-[400px]">
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold">{t('analytics_presence_by_release_heading')}</h3>
+          <div className={cn(horizontalScrollClass, 'rounded-lg border border-border')}>
+            <table className="w-full text-sm min-w-[440px]">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left">
-                  <th className="px-3 py-2.5 font-medium" scope="col">
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground" scope="col">
                     {t('analytics_presence_col_release')}
                   </th>
-                  <th className="px-3 py-2.5 font-medium text-right" scope="col">
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right" scope="col">
                     {t('analytics_presence_col_tracks')}
                   </th>
-                  <th className="px-3 py-2.5 font-medium text-right" scope="col">
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right" scope="col">
                     {t('analytics_presence_col_plays')}
                   </th>
-                  <th className="px-3 py-2.5 font-medium text-right" scope="col">
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right" scope="col">
                     {t('analytics_presence_col_share')}
                   </th>
                 </tr>
@@ -300,14 +305,14 @@ export function SpotifyPresencePanel({
                 {model.byRelease.map((row) => (
                   <tr
                     key={row.releaseId ?? 'none'}
-                    className="border-b border-border/60"
+                    className="border-b border-border/60 hover:bg-muted/20"
                   >
-                    <td className="px-3 py-2.5 font-medium">
+                    <td className="px-4 py-3 font-medium">
                       {row.releaseTitle ?? t('analytics_presence_unknown_release')}
                     </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{row.trackCount}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{fmtNum(row.playCount)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{row.sharePct}%</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{row.trackCount}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{fmtNum(row.playCount)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{row.sharePct}%</td>
                   </tr>
                 ))}
               </tbody>

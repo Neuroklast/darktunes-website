@@ -34,6 +34,7 @@ import {
   type AnalyticsTabId,
 } from '@/lib/analytics/constants'
 import {
+  getDefaultViewPreferences,
   loadViewPreferences,
   saveViewPreferences,
   PORTAL_ANALYTICS_VIEW_STORAGE_KEY,
@@ -288,8 +289,12 @@ export function AnalyticsToolbar({
 export function usePortalAnalyticsPreferences(
   storageKey: string = PORTAL_ANALYTICS_VIEW_STORAGE_KEY,
 ): [AnalyticsViewPreferences, (next: AnalyticsViewPreferences) => void] {
-  const [prefs, setPrefs] = useState<AnalyticsViewPreferences>(() =>
-    loadViewPreferences(storageKey),
+  // Hydration-safe: never read localStorage during the initial render — the
+  // server and first client render must produce identical markup or React
+  // throws a hydration mismatch (#418). Defaults are applied, then the stored
+  // preferences are loaded after mount (mirrors the useMediaQuery pattern).
+  const [prefs, setPrefs] = useState<AnalyticsViewPreferences>(
+    getDefaultViewPreferences,
   )
 
   useEffect(() => {

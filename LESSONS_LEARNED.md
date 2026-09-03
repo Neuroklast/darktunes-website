@@ -93,6 +93,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Locale switcher in header *and* sidebar footer | One chrome control per surface; dedicated Settings card may still host one |
 | SW NetworkFirst cache for dashboard HTML | Locale/cookie-dependent shells (`/admin`, `/portal`, …) must be NetworkOnly or language switches serve stale HTML |
 | Locale switch works but admin menu stays English | Hard reload only helps if labels use `useTranslations` — never hardcode sidebar strings; full `admin.nav` tree in en/de/fr |
+| `useState(() => loadFromLocalStorage())` in a Client Component | Server renders defaults, client hydration reads `localStorage` → differing HTML → React error **#418**. Hydration must be identical: init with defaults, load stored values in `useEffect` (like `useMediaQuery`). e.g. `usePortalAnalyticsPreferences` |
 
 ## CI & TypeScript
 

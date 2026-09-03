@@ -5,23 +5,26 @@ import { useTranslations } from 'next-intl'
 import {
   ComposedChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   BarChart,
   Bar,
   PieChart,
   Pie,
   Cell,
+  LabelList,
 } from 'recharts'
 import { Card } from '@/components/ui/card'
 import type { SpotifyPresencePanelInnerProps } from './SpotifyPresencePanel'
 import {
   AUDIENCE_SERIES,
   PLAYS_SERIES,
+  PRESENCE_DONUT_PALETTE,
+  PRESENCE_SERIES_COLORS,
   seriesHasData,
   toIndexChartData,
   type PresenceChartMode,
@@ -33,29 +36,24 @@ import type { PresenceSeriesVisibility } from '@/lib/analytics/viewPreferences'
 const TOOLTIP_STYLE = {
   backgroundColor: 'hsl(var(--popover))',
   border: '1px solid hsl(var(--border))',
-  borderRadius: '6px',
+  borderRadius: '8px',
   fontSize: 12,
+  padding: '10px 14px',
+  boxShadow: '0 6px 16px rgb(0 0 0 / 0.35)',
 }
 
-const SERIES_COLORS: Record<PresenceSeriesKey, string> = {
-  listeners: 'oklch(0.72 0.19 145)',
-  followers: 'oklch(0.65 0.18 250)',
-  albumTrackPlays: 'oklch(0.70 0.15 40)',
-  topTracksPlays: 'oklch(0.75 0.12 80)',
-  lastfm: 'oklch(0.65 0.28 295)',
-  soundcharts: 'oklch(0.60 0.25 300)',
+const TOOLTIP_LABEL_STYLE = {
+  color: 'hsl(var(--foreground))',
+  fontWeight: 600,
+  marginBottom: 6,
 }
 
-const PIE_COLORS = [
-  'oklch(0.72 0.19 145)',
-  'oklch(0.65 0.18 250)',
-  'oklch(0.70 0.15 40)',
-  'oklch(0.65 0.28 295)',
-  'oklch(0.60 0.22 20)',
-  'oklch(0.68 0.14 200)',
-  'oklch(0.55 0.16 320)',
-  'oklch(0.75 0.10 100)',
-]
+const TOOLTIP_ITEM_STYLE = {
+  padding: '2px 0',
+}
+
+/** Audience series that get a soft gradient area underlay in absolute mode. */
+const AREA_SERIES: PresenceSeriesKey[] = ['listeners', 'followers']
 
 function fmtNum(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -66,6 +64,23 @@ function fmtNum(n: number): string {
 export interface SpotifyPresenceChartsProps extends SpotifyPresencePanelInnerProps {
   chartMode?: PresenceChartMode
   seriesVisibility?: PresenceSeriesVisibility
+}
+
+function SeriesLegend({ series, labelFor }: { series: PresenceSeriesKey[]; labelFor: (k: PresenceSeriesKey) => string }) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-3">
+      {series.map((key) => (
+        <span key={key} className="flex items-center gap-1.5 text-xs">
+          <span
+            className="h-2.5 w-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: PRESENCE_SERIES_COLORS[key] }}
+            aria-hidden="true"
+          />
+          <span className="text-muted-foreground">{labelFor(key)}</span>
+        </span>
+      ))}
+    </div>
+  )
 }
 
 export function SpotifyPresencePanelInner({
@@ -88,30 +103,17 @@ export function SpotifyPresencePanelInner({
   const chartDataRaw: PresenceChartRow[] = useMemo(() => {
     const lastfmMap = new Map(secondaryListeners.lastfm.map((p) => [p.period, p.value]))
     const scMap = new Map(secondaryListeners.soundcharts.map((p) => [p.period, p.value]))
-    const rows: PresenceChartRow[] = trend.map((row) => ({
-      period: row.period,
-      listeners: row.listeners,
-      followers: row.followers,
-      albumTrackPlays: row.albumTrackPlays,
-      topTracksPlays: row.topTracksPlays,
-      lastfm: lastfmMap.get(row.period) ?? 0,
-      soundcharts: scMap.get(row.period) ?? 0,
-    }))
-    for (const p of secondaryListeners.lastfm) {
-      if (!rows.some((r) => r.period === p.period)) {
-        rows.push({
-          period: p.period,
-          listeners: 0,
-          followers: 0,
-          albumTrackPlays: 0,
-          topTracksPlays: 0,
-          lastfm: p.value,
-          soundcharts: scMap.get(p.period) ?? 0,
-        })
-      }
-    }
-    rows.sort((a, b) => a.period.localeCompare(b.period))
-    return rows
+    return trend
+      .map((row) => ({
+        period: row.period,
+        listeners: row.listeners,
+        followers: row.followers,
+        albumTrackPlays: row.albumTrackPlays,
+        topTracksPlays: row.topTracksPlays,
+        lastfm: lastfmMap.get(row.period) ?? 0,
+        soundcharts: scMap.get(row.period) ?? 0,
+      }))
+      .sort((a, b) => a.period.localeCompare(b.period))
   }, [trend, secondaryListeners])
 
   const activeSeries = (Object.keys(seriesOn) as PresenceSeriesKey[]).filter(
@@ -159,25 +161,92 @@ export function SpotifyPresencePanelInner({
   }))
 
   const topPieData = topTracks.slice(0, 8).map((row) => ({
-    name: (row.trackName ?? row.spotifyTrackId).slice(0, 20),
+    name: (row.trackName ?? row.spotifyTrackId).slice(0, 24),
     value: row.playCount,
     pct: row.sharePct,
   }))
 
   const releasePieData = byRelease.slice(0, 8).map((row) => ({
-    name: (row.releaseTitle ?? t('analytics_presence_unknown_release')).slice(0, 20),
+    name: (row.releaseTitle ?? t('analytics_presence_unknown_release')).slice(0, 24),
     value: row.playCount,
     pct: row.sharePct,
   }))
 
   const hasTrend = activeSeries.length > 0 && chartData.length > 0
 
+  const renderTrendSeries = () =>
+    activeSeries.map((key) => {
+      const color = PRESENCE_SERIES_COLORS[key]
+      const dashed = key === 'lastfm' || key === 'soundcharts'
+      const isArea = AREA_SERIES.includes(key) && chartMode === 'absolute'
+      if (isArea) {
+        return (
+          <Area
+            key={key}
+            type="monotone"
+            dataKey={key}
+            name={seriesLabel(key)}
+            yAxisId={yAxisIdFor(key)}
+            stroke={color}
+            fill={`url(#presence-grad-${key})`}
+            strokeWidth={2}
+            fillOpacity={1}
+            dot={false}
+            connectNulls
+          />
+        )
+      }
+      return (
+        <Line
+          key={key}
+          type="monotone"
+          dataKey={key}
+          name={seriesLabel(key)}
+          yAxisId={yAxisIdFor(key)}
+          stroke={color}
+          strokeWidth={2}
+          strokeDasharray={dashed ? '4 4' : undefined}
+          dot={false}
+          connectNulls
+        />
+      )
+    })
+
+  const donutCenter = (top?: { name: string; pct: number }) =>
+    top ? (
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+        <span className="text-2xl font-bold tabular-nums">{top.pct}%</span>
+        <span className="mt-0.5 w-full truncate text-xs text-muted-foreground">{top.name}</span>
+      </div>
+    ) : null
+
+  const donutLegend = (data: { name: string; value: number; pct: number }[]) =>
+    data.length > 0 ? (
+      <ul className="mt-4 space-y-2 text-xs">
+        {data.map((d, i) => (
+          <li key={d.name} className="flex items-center justify-between gap-3">
+            <span className="flex min-w-0 items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: PRESENCE_DONUT_PALETTE[i % PRESENCE_DONUT_PALETTE.length] }}
+                aria-hidden="true"
+              />
+              <span className="truncate">{d.name}</span>
+            </span>
+            <span className="shrink-0 tabular-nums text-muted-foreground">
+              {fmtNum(d.value)} · {d.pct}%
+            </span>
+          </li>
+        ))}
+      </ul>
+    ) : null
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {hasTrend && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="text-sm font-semibold">{t('analytics_presence_trend_heading')}</h3>
+            <h3 className="text-base font-semibold">{t('analytics_presence_trend_heading')}</h3>
             <p className="text-xs text-muted-foreground">
               {chartMode === 'index'
                 ? t('analytics_presence_chart_mode_index_hint')
@@ -186,77 +255,77 @@ export function SpotifyPresencePanelInner({
                   : t('analytics_presence_chart_mode_single_hint')}
             </p>
           </div>
-          <Card className="bg-card border-border p-4 sm:p-5">
-            <ResponsiveContainer width="100%" height={320}>
-              <ComposedChart data={chartData} margin={{ top: 8, right: 16, left: 4, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-                {chartMode === 'index' || !dualAxis ? (
-                  <YAxis
-                    yAxisId="single"
-                    tick={{ fontSize: 11 }}
-                    tickFormatter={chartMode === 'index' ? (v) => `${v}` : fmtNum}
-                    width={48}
-                  />
-                ) : (
-                  <>
+          <Card className="bg-card border-border p-4 sm:p-6">
+            <div role="img" aria-label={t('analytics_presence_trend_heading')}>
+              <ResponsiveContainer width="100%" height={360}>
+                <ComposedChart data={chartData} margin={{ top: 8, right: 16, left: 4, bottom: 0 }}>
+                  <defs>
+                    {AREA_SERIES.filter((k) => activeSeries.includes(k)).map((k) => (
+                      <linearGradient key={k} id={`presence-grad-${k}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={PRESENCE_SERIES_COLORS[k]} stopOpacity={0.32} />
+                        <stop offset="95%" stopColor={PRESENCE_SERIES_COLORS[k]} stopOpacity={0.02} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.6} vertical={false} />
+                  <XAxis dataKey="period" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} stroke="hsl(var(--border))" tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                  {chartMode === 'index' || !dualAxis ? (
                     <YAxis
-                      yAxisId="audience"
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={fmtNum}
-                      width={48}
-                      label={{
-                        value: t('analytics_presence_axis_audience'),
-                        angle: -90,
-                        position: 'insideLeft',
-                        style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' },
-                      }}
-                    />
-                    <YAxis
-                      yAxisId="plays"
-                      orientation="right"
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={fmtNum}
+                      yAxisId="single"
+                      tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                      tickFormatter={chartMode === 'index' ? (v) => `${v}` : fmtNum}
                       width={52}
-                      label={{
-                        value: t('analytics_presence_axis_plays'),
-                        angle: 90,
-                        position: 'insideRight',
-                        style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' },
-                      }}
+                      tickLine={false}
+                      axisLine={false}
                     />
-                  </>
-                )}
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE}
-                  formatter={(v, name) => {
-                    const num = Number(v ?? 0)
-                    if (chartMode === 'index') {
-                      return [`${num}`, name ?? '']
-                    }
-                    return [fmtNum(num), name ?? '']
-                  }}
-                />
-                <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
-                {activeSeries.map((key) => {
-                  const dashed = key === 'lastfm' || key === 'soundcharts'
-                  return (
-                    <Line
-                      key={key}
-                      type="monotone"
-                      dataKey={key}
-                      name={seriesLabel(key)}
-                      yAxisId={yAxisIdFor(key)}
-                      stroke={SERIES_COLORS[key]}
-                      strokeWidth={2}
-                      strokeDasharray={dashed ? '4 4' : undefined}
-                      dot={false}
-                      connectNulls
-                    />
-                  )
-                })}
-              </ComposedChart>
-            </ResponsiveContainer>
+                  ) : (
+                    <>
+                      <YAxis
+                        yAxisId="audience"
+                        tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                        tickFormatter={fmtNum}
+                        width={52}
+                        tickLine={false}
+                        axisLine={false}
+                        label={{
+                          value: t('analytics_presence_axis_audience'),
+                          angle: -90,
+                          position: 'insideLeft',
+                          style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' },
+                        }}
+                      />
+                      <YAxis
+                        yAxisId="plays"
+                        orientation="right"
+                        tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                        tickFormatter={fmtNum}
+                        width={56}
+                        tickLine={false}
+                        axisLine={false}
+                        label={{
+                          value: t('analytics_presence_axis_plays'),
+                          angle: 90,
+                          position: 'insideRight',
+                          style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' },
+                        }}
+                      />
+                    </>
+                  )}
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE}
+                    labelStyle={TOOLTIP_LABEL_STYLE}
+                    itemStyle={TOOLTIP_ITEM_STYLE}
+                    formatter={(v, name) => {
+                      const num = Number(v ?? 0)
+                      if (chartMode === 'index') return [`${num}`, name ?? '']
+                      return [fmtNum(num), name ?? '']
+                    }}
+                  />
+                  {renderTrendSeries()}
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <SeriesLegend series={activeSeries} labelFor={seriesLabel} />
           </Card>
         </div>
       )}
@@ -264,74 +333,76 @@ export function SpotifyPresencePanelInner({
       {(topPieData.length > 0 || releasePieData.length > 0) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {topPieData.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">{t('analytics_presence_share_tracks_heading')}</h3>
-              <Card className="bg-card border-border p-4 sm:p-5">
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie
-                      data={topPieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={52}
-                      outerRadius={88}
-                      paddingAngle={2}
-                    >
-                      {topPieData.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      formatter={(v, name, item) => {
-                        const pct = (item?.payload as { pct?: number } | undefined)?.pct
-                        return [
-                          `${fmtNum(Number(v ?? 0))}${pct != null ? ` (${pct}%)` : ''}`,
-                          name ?? '',
-                        ]
-                      }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                  </PieChart>
-                </ResponsiveContainer>
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold">{t('analytics_presence_share_tracks_heading')}</h3>
+              <Card className="bg-card border-border p-4 sm:p-6">
+                <div className="relative h-64" role="img" aria-label={t('analytics_presence_share_tracks_heading')}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={topPieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={58}
+                        outerRadius={92}
+                        paddingAngle={2}
+                        stroke="hsl(var(--card))"
+                        strokeWidth={2}
+                      >
+                        {topPieData.map((_, i) => (
+                          <Cell key={i} fill={PRESENCE_DONUT_PALETTE[i % PRESENCE_DONUT_PALETTE.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={TOOLTIP_STYLE}
+                        labelStyle={TOOLTIP_LABEL_STYLE}
+                        itemStyle={TOOLTIP_ITEM_STYLE}
+                        formatter={(v, name) => [`${fmtNum(Number(v ?? 0))}`, name ?? '']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {donutCenter(topPieData[0])}
+                </div>
+                {donutLegend(topPieData)}
               </Card>
             </div>
           )}
           {releasePieData.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">{t('analytics_presence_share_releases_heading')}</h3>
-              <Card className="bg-card border-border p-4 sm:p-5">
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie
-                      data={releasePieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={52}
-                      outerRadius={88}
-                      paddingAngle={2}
-                    >
-                      {releasePieData.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[(i + 3) % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      formatter={(v, name, item) => {
-                        const pct = (item?.payload as { pct?: number } | undefined)?.pct
-                        return [
-                          `${fmtNum(Number(v ?? 0))}${pct != null ? ` (${pct}%)` : ''}`,
-                          name ?? '',
-                        ]
-                      }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                  </PieChart>
-                </ResponsiveContainer>
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold">{t('analytics_presence_share_releases_heading')}</h3>
+              <Card className="bg-card border-border p-4 sm:p-6">
+                <div className="relative h-64" role="img" aria-label={t('analytics_presence_share_releases_heading')}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={releasePieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={58}
+                        outerRadius={92}
+                        paddingAngle={2}
+                        stroke="hsl(var(--card))"
+                        strokeWidth={2}
+                      >
+                        {releasePieData.map((_, i) => (
+                          <Cell key={i} fill={PRESENCE_DONUT_PALETTE[(i + 3) % PRESENCE_DONUT_PALETTE.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={TOOLTIP_STYLE}
+                        labelStyle={TOOLTIP_LABEL_STYLE}
+                        itemStyle={TOOLTIP_ITEM_STYLE}
+                        formatter={(v, name) => [`${fmtNum(Number(v ?? 0))}`, name ?? '']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {donutCenter(releasePieData[0])}
+                </div>
+                {donutLegend(releasePieData)}
               </Card>
             </div>
           )}
@@ -339,35 +410,62 @@ export function SpotifyPresencePanelInner({
       )}
 
       {topBarData.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold">{t('analytics_presence_top_tracks_chart_heading')}</h3>
-          <Card className="bg-card border-border p-4 sm:p-5">
-            <ResponsiveContainer width="100%" height={Math.max(220, topBarData.length * 28)}>
-              <BarChart
-                data={topBarData}
-                layout="vertical"
-                margin={{ top: 4, right: 20, left: 8, bottom: 4 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={fmtNum} />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  width={110}
-                  tick={{ fontSize: 10 }}
-                />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE}
-                  formatter={(v) => [fmtNum(Number(v ?? 0)), t('analytics_presence_col_plays')]}
-                />
-                <Bar
-                  dataKey="plays"
-                  fill="oklch(0.72 0.19 145)"
-                  radius={[0, 4, 4, 0]}
-                  name={t('analytics_presence_col_plays')}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold">{t('analytics_presence_top_tracks_chart_heading')}</h3>
+          <Card className="bg-card border-border p-4 sm:p-6">
+            <div role="img" aria-label={t('analytics_presence_top_tracks_chart_heading')}>
+              <ResponsiveContainer width="100%" height={Math.max(260, topBarData.length * 34)}>
+                <BarChart data={topBarData} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="presence-track-bar" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor={PRESENCE_SERIES_COLORS.albumTrackPlays} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={PRESENCE_SERIES_COLORS.albumTrackPlays} stopOpacity={0.9} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fmtNum} tickLine={false} axisLine={false} />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={120}
+                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE}
+                    labelStyle={TOOLTIP_LABEL_STYLE}
+                    itemStyle={TOOLTIP_ITEM_STYLE}
+                    formatter={(v) => [fmtNum(Number(v ?? 0)), t('analytics_presence_col_plays')]}
+                  />
+                  <Bar dataKey="plays" fill="url(#presence-track-bar)" radius={[0, 6, 6, 0]} name={t('analytics_presence_col_plays')}>
+                    <LabelList
+                      dataKey="plays"
+                      position="right"
+                      formatter={(value) => fmtNum(Number(value))}
+                      style={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <table className="sr-only">
+              <caption>{t('analytics_presence_top_tracks_chart_heading')}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{t('analytics_presence_col_track')}</th>
+                  <th scope="col">{t('analytics_presence_col_plays')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topBarData.map((row) => (
+                  <tr key={row.name}>
+                    <td>{row.name}</td>
+                    <td>{row.plays.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </Card>
         </div>
       )}

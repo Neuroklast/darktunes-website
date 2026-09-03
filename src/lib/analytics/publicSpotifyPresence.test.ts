@@ -205,6 +205,28 @@ describe('buildPublicSpotifyPresenceModel', () => {
     expect(model.trend.some((p) => p.period === '2026-08')).toBe(false)
   })
 
+  it('excludes a past month with no Spotify sync (even when Last.fm has data)', () => {
+    const model = buildPublicSpotifyPresenceModel({
+      listenerMetrics: [
+        metric({ metricType: 'listeners', period: '2026-06', value: 1000 }),
+        metric({ metricType: 'listeners', period: '2026-07', value: 1200 }),
+        // 2026-08 has Last.fm data only — no Apify scrape ran → must be dropped
+        metric({ source: 'lastfm', metricType: 'listeners', period: '2026-08', value: 1800 }),
+        metric({ source: 'lastfm', metricType: 'listeners', period: '2026-07', value: 200 }),
+      ],
+      trackSnapshots: [
+        snap({ spotifyTrackId: 't1', playCount: 1000, period: '2026-07' }),
+      ],
+      now: new Date('2026-09-03T12:00:00.000Z'),
+    })
+
+    expect(model.currentPeriod).toBe('2026-09')
+    expect(model.trend.map((p) => p.period)).toEqual(['2026-06', '2026-07'])
+    expect(model.secondaryListeners.lastfm.map((p) => p.period)).toEqual(['2026-07'])
+    expect(model.trend.some((p) => p.period === '2026-08')).toBe(false)
+    expect(model.secondaryListeners.lastfm.some((p) => p.period === '2026-08')).toBe(false)
+  })
+
   it('includes the current month after public Spotify data is present', () => {
     const model = buildPublicSpotifyPresenceModel({
       listenerMetrics: [

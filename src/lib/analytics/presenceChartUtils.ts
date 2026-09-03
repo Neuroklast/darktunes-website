@@ -22,6 +22,35 @@ export const PRESENCE_SERIES_KEYS: PresenceSeriesKey[] = [
   'soundcharts',
 ]
 
+/**
+ * Curated, muted series palette tuned for the dark (#101010 / #292929) theme.
+ * Anchored on the CI primary/violet family; moderate chroma (no neon) and
+ * enough lightness to stay legible against near-black surfaces.
+ */
+export const PRESENCE_SERIES_COLORS: Record<PresenceSeriesKey, string> = {
+  listeners: 'oklch(0.74 0.16 280)',
+  followers: 'oklch(0.66 0.13 292)',
+  albumTrackPlays: 'oklch(0.72 0.13 158)',
+  topTracksPlays: 'oklch(0.70 0.11 198)',
+  lastfm: 'oklch(0.74 0.12 42)',
+  soundcharts: 'oklch(0.68 0.10 327)',
+}
+
+/**
+ * Coherent muted ramp for the donut charts (share by track / by release).
+ * Reuses the same hue families as the series so the whole panel stays calm.
+ */
+export const PRESENCE_DONUT_PALETTE: string[] = [
+  'oklch(0.74 0.16 280)',
+  'oklch(0.72 0.13 158)',
+  'oklch(0.74 0.12 42)',
+  'oklch(0.68 0.10 327)',
+  'oklch(0.70 0.11 198)',
+  'oklch(0.66 0.13 292)',
+  'oklch(0.72 0.12 205)',
+  'oklch(0.64 0.10 300)',
+]
+
 /** Audience-scale series (left Y-axis in absolute mode). */
 export const AUDIENCE_SERIES: PresenceSeriesKey[] = [
   'listeners',
