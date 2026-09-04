@@ -5,7 +5,7 @@ Stack: Next.js 15 App Router, React 19, Tailwind v4 (PostCSS), Framer Motion, Le
 ## CI colors (exact hex)
 
 | Token | Hex | Use |
-|-------|-----|-----|
+| ------- | ----- | ----- |
 | primary / accent / ring | `#493687` | CTAs, active nav, focus |
 | secondary | `#7e1e37` | Secondary buttons, promo |
 | background | `#101010` | Page background |
@@ -36,7 +36,7 @@ Single `LenisProvider` in `Providers.tsx`. No second instance; no CSS `scroll-be
 **Horizontal table scroll:** Use `horizontalScrollClass` from `scroll-panel.tsx` (`overflow-x-auto overflow-y-clip overscroll-x-contain`) on wide tables. Never pair bare `overflow-x-auto` with `overscroll-contain` — that creates a scrollport with no vertical overflow and blocks wheel chaining to the parent pane.
 
 | Do | Don't |
-|----|-------|
+| ---- | ------- |
 | `AdminPageShell layout="list"` + `AdminListShell` on CRUD lists | Put `min-h-screen` on admin/portal content pages |
 | `AdminPageShell fill` for full-bleed tools (e.g. `/admin/assets` file explorer) | Ad-hoc root `overflow-y-auto` on list managers |
 | `horizontalScrollClass` on wide table wrappers (`Table`, `AdminDataTable`) | `overflow-x-auto overscroll-contain` without `overflow-y-clip` on nested wrappers |
@@ -108,7 +108,7 @@ Legal row must `flex-wrap` with `min-h-[44px]` touch targets. Never `overflow-x-
 ## Modals (mandatory)
 
 | Rule | Pattern |
-|------|---------|
+| ------ | --------- |
 | Width | `max-w-[calc(100%-2rem)] sm:max-w-lg md:max-w-xl lg:max-w-2xl` |
 | Height | Body `overflow-y-auto max-h-[70vh]` (forms); `max-h-[92vh]` (media) |
 | Spacing | 8px grid: `p-2`–`p-12`; default body `p-6` |
@@ -122,7 +122,7 @@ Legal row must `flex-wrap` with `min-h-[44px]` touch targets. Never `overflow-x-
 Portaled pickers/menus must sit **above** Dialog/Sheet or they open “invisibly” behind the modal backdrop (user sees “click does nothing”).
 
 | Layer | z-index | Components |
-|-------|---------|------------|
+| ------- | --------- | ------------ |
 | Dialog/Sheet overlay | `z-[9998]` | `dialog.tsx`, `alert-dialog.tsx`, `sheet.tsx` |
 | Dialog/Sheet content | `z-[9999]` | same |
 | Portaled pickers & menus | `z-[10000]` | `select`, `popover` (DateField/MonthField), `dropdown-menu`, `hover-card`, `context-menu`, `tooltip` |

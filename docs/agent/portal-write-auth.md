@@ -19,7 +19,7 @@ Service-role-after-membership is a **pragmatic fix** for production RLS drift an
 ## When service role is correct forever
 
 | Use case | Why |
-|----------|-----|
+| ---------- | ----- |
 | `label_messages` welcome insert | Artists have **SELECT only** — no artist INSERT policy |
 | `editor_notifications` to admin/editor | Artists must not write arbitrary notifications |
 | System jobs / cron / admin ops | No end-user session |
@@ -32,7 +32,7 @@ Do **not** migrate these back to the user client without new RLS policies.
 If production matches `reset.sql`, member policies already allow portal users via `artist_members`:
 
 | Table | Member write policies (SSOT: `reset.sql`) |
-|-------|-------------------------------------------|
+| ------- | ------------------------------------------- |
 | `artists` | `artists: own artist update` (UPDATE) |
 | `artist_epks` | insert + update via `artist_members` |
 | `artist_landing_pages` | insert + update via `artist_members` |
@@ -152,7 +152,7 @@ Do not invent a second auth system — reuse `authenticatePortalBearer` + `resol
 ## QA matrix (before flipping each group)
 
 | Actor | Action | Expect |
-|-------|--------|--------|
+| ------- | -------- | -------- |
 | Primary portal user (`artist_members` + often `artists.user_id`) | Save profile (hometown) | 200, row updated |
 | Band member (`artist_members` only) | Save profile | 200, row updated |
 | Unrelated authenticated user | Save with foreign `artist_id` | 403 |
@@ -167,7 +167,7 @@ This repo’s SSOT is **`supabase/reset.sql`** (no `supabase/migrations/`). Appl
 ## Status
 
 | Phase | Status |
-|-------|--------|
+| ------- | -------- |
 | 0 Keep service-role fix shipped | Done |
 | 1 Prod RLS verify | **Todo** — run `scripts/verify-portal-rls.sql` |
 | 2 Dual-path canary | **Done** (flag off by default; enable in staging/prod when ready) |

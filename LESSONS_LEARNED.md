@@ -7,7 +7,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Database & schema
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | Files in `supabase/migrations/` | ⛔ Forbidden. Only `supabase/reset.sql` + `src/types/database.ts` |
 | Helpers after tables that use them | Order: extensions → enums → **functions** → tables → RLS → backfills |
 | CREATE-only columns on evolved tables (`artists`, …) | Live DBs no-op `CREATE TABLE IF NOT EXISTS` — every non-structural column needs `ADD COLUMN IF NOT EXISTS` (`verify:schema-columns`) |
@@ -18,7 +18,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## UI stacking & overlays
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | Dialog at `z-[9999]` but Popover/Dropdown at default `z-50` | Portaled pickers/menus must use `z-[10000]` (same as Select) or calendars/menus open *behind* the modal and look dead |
 | Raising only Select after a modal z-index bump | Audit **all** portaled overlays (Popover, DropdownMenu, HoverCard, …) in the same change |
 | Replacing `type="date"` with Popover DateField without checking modal hosts | Forms in Dialog (Releases, Videos, Expenses, …) depend on Popover stacking |
@@ -26,7 +26,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Lenis / public scroll
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | Permanent `data-lenis-prevent` on a desktop grid that is only a mobile horizontal strip | Prevent only real nested scrollports; desktop page scroll must keep Lenis |
 | Blanket `data-lenis-prevent` on Swiper/coverflow because of jank | Jank ≠ prevent. Vertical stays on Lenis; axis-route horizontal; reduce VFX via `html[data-scrolling]` |
 | Treating horizontal-only overflow as a Lenis prevent target | Metrics fallback is **vertical only** — horizontal strips must not dead-zone page scroll |
@@ -38,7 +38,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Mobile multi-column editors
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | `ResizablePanelGroup` + `className="hidden lg:flex"` | Library sets **inline** `display:flex` → CSS `hidden` loses. **Conditional mount** with `useIsLg()` only |
 | Desktop toolbar `flex-wrap` of 20+ controls on phone | Compact primary row + overflow menu; segment control for panels |
 | Fixed 3-column mailbox (`w-52` + `w-72` + chat) on phones | Messenger pattern: list **or** full-screen thread below `md`; folders in a sheet |
@@ -46,7 +46,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Supabase Realtime (browser)
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | Two components each call `.channel('fixed-name').on(…).subscribe()` on `createBrowserClient` | Singleton client returns the **already subscribed** channel → `.on` after `subscribe` throws. **One owner** (context provider) or unique topics per instance (`useId`) |
 | Putting the refresh `useCallback` in the subscribe effect deps | Callback identity churn re-runs the effect; cleanup `removeChannel` is async → re-attach races. Keep handlers in a **ref**; deps only `enabled` / ids / client |
 | Assuming channel name alone is enough when two consumers need the same data | Prefer **lift subscription** (`AdminNavBadgesProvider`) over two unique topics that double-hit the same tables |
@@ -69,7 +69,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Web Push / PWA
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | Expect users to configure VAPID or endpoints | Deployer sets env once; UI is one-tap **Enable** only |
 | Upsert `push_subscriptions` with user JWT when `endpoint` is globally unique | Another account on the same browser hits RLS on UPDATE — use **service role** after auth for subscribe reassignment |
 | Rely on push alone without in-app | Always keep `emitNotification` DB path; push is fire-and-forget best-effort |
@@ -78,7 +78,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Next.js & RSC
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | DOM libraries in Server Components | `"use client"` leaf; pass props from RSC |
 | `createServerSupabaseClient()` in `unstable_cache` | Cookie-free anon client only (see `AGENTS.md`) |
 | Async routes without `loading.tsx` | Skeleton must match loaded layout (zero CLS) |
@@ -98,7 +98,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## CI & TypeScript
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | PR without full check sequence | `npm run ci` (or `ci:contracts` → `ci:typecheck` → `ci:tests`) — all green |
 | Lockfile not updated after dep change | Run `npm install`; commit `package-lock.json` |
 | `as any` / `@ts-ignore` / `eslint-disable` to silence CI | Fix root cause |
@@ -110,7 +110,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Lenis & scroll
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | `overflow-y-auto` in admin/portal without `data-lenis-prevent` | Lenis blocks wheel scroll otherwise |
 | Second `LenisProvider` or CSS `scroll-behavior: smooth` | Single root provider only |
 | `getComputedStyle` inside scroll handlers | Cache layout reads in refs |
@@ -118,7 +118,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Images & media
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | Bare `<img>` | `next/image`; wsrv URLs via `getOptimizedImageUrl` / `getSquareThumbnail` |
 | Raw R2 URL on `<Image>` without wsrv | Vercel `/_next/image` → Hobby limit → HTTP 402; use `imageUtils` + `unoptimized` |
 | Double-proxy wsrv.nl URLs | Proxy only raw origin URLs |
@@ -131,7 +131,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Security
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | Unsanitised `dangerouslySetInnerHTML` | `sanitizeHtml()` / DOMPurify on client |
 | URL checks via `includes()` | Parse hostname or `startsWith` on origin |
 | PII in `app_logs` | UUIDs only; no emails/names |
@@ -142,7 +142,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Accessibility & i18n
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | Icon links without `aria-label` | WCAG AA is a pre-merge gate |
 | Dialogs without `aria-labelledby` | + `useReducedMotion`, `aria-pressed` on toggles, 44px targets |
 | Hardcoded English strings | `en.json` + `de.json`; RSC passes dict as props |
@@ -151,7 +151,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Portal tenancy
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | Client pages that only read `?artistId=` with no server fallback | RSC `resolvePortalArtist` + always append resolved id in nav (`activeArtistId ?? activeArtist.id`) |
 | One mega-dashboard mixing unrelated data sources | Separate nav items when sources differ (e.g. Spotify public vs SOS statements) |
 | Returning stored secrets to portal clients | Mask secrets (`hasApiKey`); empty input keeps existing key |
@@ -160,7 +160,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## State & UI
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | Admin form state derived from parent list on render | Local `react-hook-form` state; sync on save |
 | `documentElement.style` for theme preview | Declarative `<style>` tag + `useReducer` (`ColorThemeManager`) |
 | Fixed `max-w-lg` modals | Viewport-relative breakpoints — see `docs/agent/frontend.md` |
@@ -169,7 +169,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## CSP & performance
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | New external domain without CSP update | SSOT: `src/lib/security/contentSecurityPolicy.ts` |
 | Heavy libs in initial bundle | `React.lazy()` / `next/dynamic`; verify with `npm run analyze` |
 | Bundle checks by chunk filename | Use `app-build-manifest.json` route paths |
@@ -178,7 +178,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Auth & RLS
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | `get_my_role()` on `profiles` RLS | Direct `auth.uid() = id` on profiles table |
 | Anon client for admin bypass ops | Service-role in route handlers / Server Actions |
 | Column type change without dropping policies | `DROP POLICY IF EXISTS` before `ALTER COLUMN` |
@@ -218,7 +218,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ## Documentation
 
 | Anti-pattern | Rule |
-|--------------|------|
+| -------------- | ------ |
 | Feature shipped without doc update | End-of-session review: `README`, `DEPLOYMENT`, `ADMIN`, `INTEGRATION-SUMMARY`, `docs/agent/*`, `CHANGELOG`, `QA_CHECKLIST` |
 | Living docs orphaned after doc debloat | Keep `CHANGELOG`, `LESSONS_LEARNED`, `QA_CHECKLIST` in `workflow.md` docs-review table and `AGENTS.md` |
 | Size limits from memory | Derive from source constants (e.g. upload route `MAX_*_BYTES`) |

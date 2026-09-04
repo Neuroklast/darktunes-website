@@ -3,16 +3,20 @@
 ## 🚀 Vercel Deployment
 
 ### Prerequisites
-1. A Vercel account (https://vercel.com)
+
+1. A Vercel account (<https://vercel.com>)
 2. Vercel CLI installed: `npm i -g vercel`
 
 ### Steps to Deploy
+
 1. **Connect to Vercel**
+
    ```bash
    vercel login
    ```
 
 2. **Link Project** (first time only)
+
    ```bash
    vercel link
    ```
@@ -23,6 +27,7 @@
    - Add all variables from `.env.example`
 
 4. **Deploy**
+
    ```bash
    # Preview deployment
    vercel
@@ -32,10 +37,12 @@
    ```
 
 ### Automatic Deployments
+
 - Push to `main` branch for automatic production deployment
 - Push to any branch for automatic preview deployment
 
 ### App version vs deploys
+
 - Every `main` merge still deploys (CD). **SemVer tags** (`vX.Y.Z`) label product releases; they are not a Vercel deploy gate.
 - Current version: `package.json` → `"version"`. Ritual: [docs/RELEASING.md](docs/RELEASING.md) (`npm run release:check`, `npm run release:tag`).
 - Production identity in Admin → System Health uses `package.json` version + `VERCEL_GIT_COMMIT_SHA` (short). Optional override: `NEXT_PUBLIC_GIT_COMMIT`.
@@ -45,7 +52,8 @@
 ## 🗄️ Supabase Setup
 
 ### 1. Create Supabase Project
-1. Go to https://supabase.com
+
+1. Go to <https://supabase.com>
 2. Create a new project
 3. Note your project URL and anon key
 
@@ -69,19 +77,23 @@ indexes, triggers, RLS policies, and default seed data.
 > You can run the entire script on an already-live database without losing data.
 
 #### Step A — Register the user
+
 Sign up through your app's login page or via the Supabase Dashboard:
 **Authentication → Users → Invite user**.
 
 #### Step B — Verify the profile row exists
+
 ```sql
 SELECT id, email, role
 FROM public.profiles
 WHERE email = 'your-email@example.com';
 ```
+
 You should see exactly one row. If not, re-run the full schema script above —
 the backfill `INSERT … ON CONFLICT DO NOTHING` at the bottom will add it.
 
 #### Step C — Promote to admin
+
 ```sql
 UPDATE public.profiles
 SET role = 'admin'
@@ -91,6 +103,7 @@ WHERE id = (
   LIMIT 1
 );
 ```
+
 > ⚠️ Replace `your-email@example.com` with the actual address.
 > `UPDATE 0 rows` means the profile row is still missing — re-run Step B first.
 
@@ -103,12 +116,14 @@ WHERE id = (
 Enable **bucket versioning** on the production R2 bucket (or at least for prefixes `invoices/` and `statements/`). The app stores a stable key `invoices/{artistId}/{invoiceId}.pdf` and refuses to overwrite `pdf_url` / `pdf_sha256` once set. Versioning provides an extra recovery trail if objects are replaced outside the app.
 
 ### 1. Create R2 Bucket
+
 1. Go to Cloudflare Dashboard
 2. Navigate to R2 Object Storage
 3. Create a new bucket: `darktunes-assets`
 4. Enable public access if needed
 
 ### 2. Get API Credentials
+
 1. Go to R2 > Manage R2 API Tokens
 2. Create API token with read/write permissions
 3. Note your Account ID, Access Key ID, and Secret Access Key
@@ -140,6 +155,7 @@ Most uploads are handled server-side at Next.js Route Handlers (`app/api/upload/
 **SOS bronze CSV limits** (see `src/lib/sos/bronzeUploadLimits.ts`): single upload ≤ 45 MB; multipart chunked upload up to 200 MB (20 MB per chunk).
 
 The Route Handler:
+
 1. Verifies the Bearer token and requires an `admin` or `editor` role
 2. Parses multipart `FormData` on the server (including optional `folderId` / `artistId` metadata)
 3. Computes a SHA-256 hash and short-circuits duplicate uploads to the existing asset record
@@ -153,15 +169,18 @@ The Route Handler:
 Set these in your Vercel project settings (Dashboard → Project → Settings → Environment Variables):
 
 ### Supabase (client-side — `NEXT_PUBLIC_` prefix, browser-safe)
+
 - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL *(required at build time for Next.js)*
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anon/public key *(required at build time for Next.js)*
 
 ### Supabase (server-side — never exposed to browser)
+
 - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service-role key *(server-side only)*
   - Found at: Supabase Dashboard → Project Settings → API → `service_role` key
   - Used by: `app/api/upload/route.ts` (Next.js Route Handler) to verify Bearer auth tokens before accepting R2 uploads
 
 ### Cloudflare R2 (server-side — Next.js Route Handlers only)
+
 - `CLOUDFLARE_R2_ACCOUNT_ID`: Your Cloudflare account ID
 - `CLOUDFLARE_R2_ACCESS_KEY_ID`: R2 API token access key ID
 - `CLOUDFLARE_R2_SECRET_ACCESS_KEY`: R2 API token secret access key
@@ -169,6 +188,7 @@ Set these in your Vercel project settings (Dashboard → Project → Settings �
 - `CLOUDFLARE_R2_PUBLIC_URL`: R2 public CDN base URL (e.g. `https://cdn.darktunes.com`)
 
 ### API Credentials Encryption (required)
+
 - `API_CREDENTIALS_ENCRYPTION_KEY`: 64-character hex string (32 bytes). Generate with `openssl rand -hex 32`. Encrypts external integration keys before they are stored in Supabase `api_credentials`. **Never** store this key in Supabase or commit it to git.
 
 External integration API keys (Spotify, Discogs, Resend, YouTube, MailerLite, etc.) are **not** Vercel env vars anymore. Configure them in **Admin → API Keys** (`/admin/api-keys`). Values are encrypted with AES-256-GCM and persisted in `api_credentials` (admin-only RLS). iTunes and Odesli sync work without keys.
@@ -176,15 +196,18 @@ External integration API keys (Spotify, Discogs, Resend, YouTube, MailerLite, et
 **Migrating from env vars:** After deploying, log in as admin → API Keys → **Import from environment variables** (one-time). Then remove the legacy `SPOTIFY_*`, `DISCOGS_*`, `RESEND_*`, etc. from Vercel.
 
 ### Contact Form (optional — email delivery)
+
 - `CONTACT_EMAIL`: The email address that receives contact form submissions from `POST /api/contact`. Defaults to `info@darktunes.com` if not set. Use a monitored inbox.
 
 ### Cron & infra secrets (optional — remain in Vercel env)
+
 - `CRON_SECRET`: Shared secret for cron and external trigger calls. Accepted by `/api/sync`, `/api/sync/queue`, `/api/sync-youtube`, and `/api/sync-api`. Also required by the `trigger-sync` Supabase Edge Function (see below).
 - `NEXT_PUBLIC_SITE_URL`: Public site URL without trailing slash (e.g. `https://darktunes.com`).
 - `LABEL_NOTIFICATION_EMAIL`: Label inbox for portal submission and health-alert emails. Leave blank to disable.
 - `HEALTH_ALERT_WEBHOOK_URL`: Configure in Admin → API Keys (encrypted in DB), not env.
 
 ### Web Push / PWA notifications (optional — one-time deploy setup)
+
 Artists and admins only tap **Enable** in the portal/admin UI. Operators set VAPID keys once:
 
 ```bash
@@ -198,16 +221,20 @@ npx web-push generate-vapid-keys
 After setting keys on Vercel, re-run **`supabase/reset.sql`** (or at least the `push_subscriptions` + `notification_preferences.push` sections) so the table and `push` preference column exist. Without keys, in-app + email still work; push is a silent no-op.
 
 ### Newsletter Double Opt-In
+
 - **Next.js routes** (contact form, portal notifications): Resend credentials from Admin → API Keys.
 - **Supabase Edge Function** `newsletter-confirm`: still uses Supabase Edge Function secrets (see below) until migrated.
 
 ### Newsletter — MailerLite sync (optional)
+
 Configure `mailerlite_api_key` and `mailerlite_group_id` in Admin → API Keys. Called from `GET /api/newsletter/verify` after DOI confirmation.
 
 ### ISR Webhook Revalidation (optional — Supabase-triggered cache busting)
+
 - `REVALIDATE_SECRET`: A random, high-entropy ****** checked by `POST /api/revalidate`. Required when you configure Supabase webhooks to call this endpoint after DB writes so the ISR cache is busted automatically. Generate with `openssl rand -hex 32`. Share this value with the Supabase webhook configuration (Authorization header value).
 
 ### Supabase Read Replica (optional — Supabase Pro plan)
+
 - `SUPABASE_REPLICA_URL`: Connection URL for a Supabase read replica (configure via Supabase Dashboard → Database → Replicas). When set, heavy analytics queries (portal analytics charts, admin health/logs dashboard, SOS CSV exports) are routed here to reduce load on the primary DB. Falls back silently to the primary DB when unset — safe for development and Starter plan deployments.
 - `SUPABASE_REPLICA_ANON_KEY`: Anon key for the read replica. Must be set alongside `SUPABASE_REPLICA_URL`.
 
@@ -232,6 +259,7 @@ Configure `mailerlite_api_key` and `mailerlite_group_id` in Admin → API Keys. 
 - [ ] Test SOS statement approval in `/admin` and invoice creation from `/portal/statements`
 
 **SOS support (no product reverse):** There is no Unlock / Unarchive / Unpay in the admin UI. Period archive does not require a prior lock and is final. Illegal statement status jumps are rejected by the DAL. Reverse a status only with reviewed support SQL on the live DB after applying `supabase/reset.sql` (includes draft + invoice unique indexes).
+
 - [ ] Test file upload
 - [ ] Test artist "Sync Now" button (iTunes releases import)
 - [ ] Check sync_logs table for any errors
@@ -266,6 +294,7 @@ These secrets power the Deno runtime inside Supabase Edge Functions. They are
 does NOT make them available to Edge Functions.
 
 Set these in **Supabase Dashboard → Project → Edge Functions → Secrets**:
+
 - `RESEND_API_KEY` — Resend API key (can match Admin → API Keys value)
 - `RESEND_FROM_EMAIL` — verified sender address
 - `NEXT_PUBLIC_SITE_URL` — your production URL (e.g. `https://darktunes.com`)
@@ -285,6 +314,7 @@ supabase functions deploy trigger-sync --project-ref <your-project-ref>
 ```
 
 Set these in **Supabase Dashboard → Project → Edge Functions → Secrets**:
+
 - `SITE_URL` — your production Next.js URL (e.g. `https://darktunes.com`)
 - `CRON_SECRET` — same value as your Vercel `CRON_SECRET` env var
 
@@ -304,6 +334,7 @@ Set these in **Supabase Dashboard → Project → Edge Functions → Secrets**:
 #### Usage examples
 
 **Manual HTTP call:**
+
 ```bash
 curl -X POST \
   'https://<project>.supabase.co/functions/v1/trigger-sync?type=bandsintown' \
@@ -311,12 +342,14 @@ curl -X POST \
 ```
 
 **Supabase Cron (Dashboard → Database → Cron Jobs):**
+
 ```
 Path:     /trigger-sync?type=all
 Schedule: 0 3 * * *   # daily at 03:00 UTC
 ```
 
 **Supabase Database Webhook (triggers after specific DB events):**
+
 ```
 URL:     https://<project>.supabase.co/functions/v1/trigger-sync
 Method:  POST
@@ -353,7 +386,7 @@ Body:    { "type": "bandsintown" }
 Sync is scheduled via **Supabase Cron** calling the `trigger-sync` Edge Function (not Vercel Cron). After deployment, configure in Supabase Dashboard → **Integrations → Cron** (or Database → Cron Jobs):
 
 | Schedule | `trigger-sync` type | Action |
-|----------|---------------------|--------|
+| ---------- | --------------------- | -------- |
 | `0 3 * * *` | `all` | Enqueue full artist sync |
 | `*/5 * * * *` | `process-queue` | Process `sync_queue` jobs |
 | `0 6 * * *` | `youtube` | YouTube channel sync |
@@ -374,14 +407,17 @@ If a sync fails: Admin → **System** → Error Log → filter by `api_source`.
 ## 🛠️ Maintenance
 
 ### Database Backups
+
 Supabase provides automatic daily backups. Additional backups can be configured in project settings.
 
 ### Monitoring
+
 - Check Vercel Analytics for performance metrics
 - Monitor Supabase dashboard for database health
 - Review R2 usage in Cloudflare dashboard
 
 ### Updates
+
 ```bash
 # Update dependencies
 npm update
@@ -389,7 +425,6 @@ npm update
 # Deploy updates
 vercel --prod
 ```
-
 
 - No additional environment variables are required for the press portal expansion; existing Supabase/R2/Resend variables continue to power press logins, secure asset delivery, and optional email workflows.
 
@@ -406,7 +441,7 @@ app continues to work normally** — submissions are logged locally in
 ### Environment variables (Vercel)
 
 | Variable | Required | Description |
-|----------|----------|-------------|
+| ---------- | ---------- | ------------- |
 | `ZAMMAD_URL` | Yes (to send) | Base URL of your Zammad instance, e.g. `https://support.example.com` |
 | `ZAMMAD_API_TOKEN` | Yes (to send) | Agent API token (`Authorization: Token token=…`) |
 | `ZAMMAD_GROUP` | No | Target group name (default: `Support`) |

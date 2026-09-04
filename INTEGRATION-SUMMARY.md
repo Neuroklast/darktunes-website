@@ -10,7 +10,7 @@ Living product-status snapshot. Architecture and agent rules: `AGENTS.md` + `doc
 ## Public website
 
 | Area | Status |
-|------|--------|
+| ------ | -------- |
 | Home (hero, releases, artists, videos, news, tour, player) | ✅ RSC + ISR 60s, WCAG AA |
 | Artist / release / news detail pages | ✅ ISR + `generateStaticParams` |
 | i18n (EN/DE) | ✅ Dictionary prop injection |
@@ -21,7 +21,7 @@ Living product-status snapshot. Architecture and agent rules: `AGENTS.md` + `doc
 ## Admin (`/admin`)
 
 | Area | Status |
-|------|--------|
+| ------ | -------- |
 | CMS (artists, releases, news, videos, assets, events) | ✅ |
 | Messages, promo log, submissions, artist feedback, accreditations | ✅ |
 | Users, roles, feature flags, API keys | ✅ |
@@ -33,7 +33,7 @@ Living product-status snapshot. Architecture and agent rules: `AGENTS.md` + `doc
 ## Artist portal (`/portal`)
 
 | Area | Status |
-|------|--------|
+| ------ | -------- |
 | Profile, EPK (legacy + canvas builder), onboarding | ✅ |
 | Analytics (11 tabs + intelligence) | ✅ |
 | Statements, billing, invoices | ✅ SOS-linked + free PDF generator |
@@ -46,7 +46,7 @@ Living product-status snapshot. Architecture and agent rules: `AGENTS.md` + `doc
 ## Press & journalist
 
 | Area | Status |
-|------|--------|
+| ------ | -------- |
 | Public press + artist EPK pages | ✅ |
 | Journalist dashboard + promo pool | ✅ Dual-gate auth |
 | Applications + accreditation | ✅ DB trigger on approve |
@@ -55,7 +55,7 @@ Living product-status snapshot. Architecture and agent rules: `AGENTS.md` + `doc
 ## Platform services
 
 | Area | Key paths |
-|------|-----------|
+| ------ | ----------- |
 | DAL | `src/lib/api/*` — `SupabaseClient` first arg |
 | Sync | `src/lib/sync/` — iTunes, Spotify, Discogs, Songkick, Bandsintown, Odesli; `sync_queue` + cron |
 | Upload | `app/api/upload` (admin), portal upload routes |
@@ -70,7 +70,7 @@ Living product-status snapshot. Architecture and agent rules: `AGENTS.md` + `doc
 ## Entry-point files
 
 | File | Purpose |
-|------|---------|
+| ------ | --------- |
 | `PRD.md` | Product requirements (surfaces, modules, NFRs) |
 | `README.md` | Quick start, scripts, env overview |
 | `DEPLOYMENT.md` | Vercel, Supabase, R2 setup |

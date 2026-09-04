@@ -24,7 +24,7 @@ A modern alternative music label platform that combines:
 ## 2. Surfaces & primary users
 
 | Surface | Route prefix | Primary users | Auth |
-|---------|--------------|---------------|------|
+| --------- | -------------- | --------------- | ------ |
 | Public site | `/`, `/artists`, `/releases`, `/news`, … | Fans, industry, SEO | None (consent for tracking) |
 | Central login | `/login` | All roles | Supabase Auth |
 | Artist portal | `/portal/*` | Artists / band members | Session + `artist_members` tenancy |
@@ -40,6 +40,7 @@ A modern alternative music label platform that combines:
 ## 3. Essential capabilities
 
 ### 3.1 Public website
+
 - Hero (featured content), releases, artists roster, news, videos, concerts/events, Spotify multi-player section, newsletter (DOI), legal (`/impressum`, `/datenschutz`, `/agb`).
 - ISR + `generateStaticParams` on key detail routes; loading skeletons for CLS.
 - i18n EN/DE (dictionary + Accept-Language / switcher).
@@ -47,8 +48,9 @@ A modern alternative music label platform that combines:
 - Consent-gated page analytics (`page_events`).
 
 ### 3.2 Artist portal (`/portal`)
+
 | Module | Purpose | Notes |
-|--------|---------|--------|
+| -------- | --------- | -------- |
 | Dashboard / intelligence | Overview KPIs, shortcuts | Feature-flag aware nav |
 | Profile | Roster bio, photos, links | Membership-scoped writes |
 | Analytics | 11 tabs + Spotify presence | SOS streams ≠ public presence; disclaimer required |
@@ -68,6 +70,7 @@ A modern alternative music label platform that combines:
 **Tenancy:** `?artistId=` + `resolvePortalArtist` / `artist_members`. Never trust body-only artist ids for authz.
 
 ### 3.3 Admin (`/admin`)
+
 - CMS: artists, releases, news, videos, events, genres, assets (R2 explorer), colors, settings, features, portal FAQ.
 - Queues: release submissions, video submissions, fan page reviews, **artist feedback**, accreditations.
 - Finance: accounting (guided SOS + Abrechnungszentrale + bronze CSV), statements, settlements, invoices.
@@ -77,11 +80,13 @@ A modern alternative music label platform that combines:
 - Analytics: Label Intelligence hub.
 
 ### 3.4 Press & promo
+
 - Journalist apply → accreditation → dashboard (press kit, promo pool, interviews, profile).
 - Press-only news excluded from public feeds.
 - Secure downloads via server/presigned patterns (never long-lived public secrets).
 
 ### 3.5 Platform services
+
 - Sync queue: iTunes, Spotify, Discogs, Odesli, YouTube, Songkick/Bandsintown; Apify public play scrapes (budgeted).
 - R2 object keys SSOT (see `docs/agent/data-and-schema.md`).
 - Errors: `withErrorHandler` + `ApiError` on route handlers.
@@ -92,7 +97,7 @@ A modern alternative music label platform that combines:
 ## 4. Non-functional requirements
 
 | Area | Requirement |
-|------|-------------|
+| ------ | ------------- |
 | A11y | WCAG 2.1 AA on public UI; 44px targets; focus visible |
 | Scroll | Public = Lenis; dashboards = native shell (`docs/agent` scroll tree) |
 | Security | RLS on sensitive tables; admin dual-auth; portal membership gates; no service-role in browser |
@@ -135,7 +140,7 @@ Admin/portal use denser dashboard chrome (`ScrollableAppShell`), not public Leni
 ## 8. Edge cases
 
 | Case | Behavior |
-|------|----------|
+| ------ | ---------- |
 | Empty roster/content | Placeholders / hide empty sections |
 | Multi-artist user | Artist switcher; all data scoped to active `artistId` |
 | Offline portal | Limited routes (tour-planner, help, dashboard) via offline flags |
@@ -148,7 +153,7 @@ Admin/portal use denser dashboard chrome (`ScrollableAppShell`), not public Leni
 ## 9. Traceability
 
 | Requirement area | Implementation anchors |
-|------------------|------------------------|
+| ------------------ | ------------------------ |
 | Portal modules | `app/portal/*`, `docs/agent/features.md` |
 | Admin CMS | `app/admin/*`, `ADMIN.md` |
 | Schema / DAL | `supabase/reset.sql`, `src/lib/api/*` |
