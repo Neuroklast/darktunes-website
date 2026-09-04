@@ -3,7 +3,7 @@
 ## Supported Versions
 
 | Version | Supported |
-|---|---|
+| --- | --- |
 | `main` branch | ✅ |
 | Older branches | ❌ |
 
@@ -54,7 +54,7 @@ We will respond within 72 hours and coordinate a fix before any public disclosur
 ## Known residual risks
 
 | Risk | Why it remains | Mitigation / follow-up |
-|------|----------------|------------------------|
+| ------ | ---------------- | ------------------------ |
 | CSP `unsafe-inline` (script + style) | Theme CSS inject + embed stack | Documented in `contentSecurityPolicy.ts`; nonce migration is a dedicated project |
 | In-memory IP rate limits | Serverless multi-instance | Prefer Upstash for distributed routes; Vercel WAF in production |
 | Capability share URLs (tour/EPK) | Token = secret in the URL | Treat as credentials; rotate/revoke in product; rate-limit share endpoints |
@@ -76,7 +76,7 @@ The following public endpoints are protected by an in-memory sliding-window
 IP rate limiter (`src/lib/ipRateLimit.ts`) in addition to other guards:
 
 | Route | Limit | Window | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `/api/contact` | 5 requests | 10 minutes | + honeypot field |
 | `/api/journalist-applications` | 3 requests | 30 minutes | POST only |
 | `/api/page-events` | 120 requests | 10 minutes | Consent-gated analytics only; service-role insert |
@@ -95,7 +95,7 @@ limiter (per serverless instance). Pair public routes with a Vercel WAF for defe
 ## Upload Size Limits (enforced in Route Handlers)
 
 | Route | Max Size |
-|---|---|
+| --- | --- |
 | `/api/upload` (admin assets) | 50 MB |
 | `/api/portal/upload-photo` | 5 MB |
 | `/api/portal/upload-release-cover` | 5 MB |
@@ -104,6 +104,5 @@ limiter (per serverless instance). Pair public routes with a Vercel WAF for defe
 | `/api/admin/sos/import-batches/[id]/upload` | 45 MB (single server proxy) |
 | `/api/admin/sos/import-batches/[id]/multipart/part` | 21 MB per chunk (20 MB + overhead) |
 | Bronze CSV total (multipart) | 200 MB (`src/lib/sos/bronzeUploadLimits.ts`) |
-
 
 - Press inquiries from authenticated journalists are stored as internal app log entries; promo track previews/downloads continue to use short-lived signed R2 URLs and journalist download logging.

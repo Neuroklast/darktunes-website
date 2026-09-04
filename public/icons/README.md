@@ -8,7 +8,7 @@ To regenerate icons from the official darkTunes logo, use
 ## Required files
 
 | File | Size | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `icon-192.png` | 192×192 px | Standard app icon, solid `#101010` background |
 | `icon-512.png` | 512×512 px | Standard app icon (high-res), solid `#101010` background |
 | `icon-192-maskable.png` | 192×192 px | Maskable — ≥10 % safe-zone padding, `#101010` background |

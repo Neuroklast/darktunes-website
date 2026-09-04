@@ -22,7 +22,7 @@ Also covered by Vitest: `src/i18n/i18n-contract.test.ts`.
 ## Conventions
 
 | Surface | Namespace |
-|---------|-----------|
+| --------- | ----------- |
 | Portal copy | `useTranslations('portal')` |
 | Admin copy | `useTranslations('admin')` / nested (`admin.events`) |
 | Shared toast API | Admin: `useTranslations('admin.toast')` → `tToast('key')` |
@@ -40,7 +40,7 @@ Shared components that use `portal.*` must only mount on routes whose `ROUTE_BUN
 ## Tooling helpers
 
 | Script | Purpose |
-|--------|---------|
+| -------- | --------- |
 | `scripts/check-i18n-contract.mjs` | CI contract |
 | `scripts/audit-i18n-keys.mjs` | static key scan |
 | `scripts/list-hardcoded-toasts.mjs` | list toast/confirm literals |

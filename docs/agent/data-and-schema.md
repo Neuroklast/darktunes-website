@@ -41,7 +41,7 @@ Entity-level (combine with list tag): `artist-${slug}`, `release-${id}`, `news-$
 Store key in DB `r2_key` column for cleanup via `deleteObjectFromR2`.
 
 | Prefix | Use |
-|--------|-----|
+| -------- | ----- |
 | `artists/{artistId}/` | Artist images |
 | `releases/{releaseId}/` | Cover art |
 | `profile-photos/{artistId}/` | Portal photos |
@@ -59,6 +59,7 @@ Bronze limits: SSOT `src/lib/sos/bronzeUploadLimits.ts` only.
 **Statement provenance:** `sales_statements.batch_id` → `distributor_import_batches` (`file_hash`, `distributor`, period, `r2_key`). Portal artists may SELECT linked batches (policy `distributor_import_batches: artist read linked`). Source CSV download is server-streamed only.
 
 **SOS uniqueness (partial indexes, live-DB `IF NOT EXISTS`):**
+
 - `sales_statements_one_draft_per_period` — `(artist_id, period_start, period_end)` where `status = 'draft'` and `document_type IS DISTINCT FROM 'storno'`
 - `artist_invoices_one_per_statement` — `(statement_id)` where `statement_id IS NOT NULL`
 - `distributor_import_batches_file_hash_active` — `(file_hash)` where `file_hash IS NOT NULL` and `status IS DISTINCT FROM 'failed'`
@@ -89,7 +90,7 @@ Apply: paste `reset.sql` into Supabase SQL Editor (idempotent on live DB).
 ## Analytics gold layer
 
 | Table | Persist path |
-|-------|--------------|
+| ------- | -------------- |
 | `artist_territory_metrics`, `streaming_stats` | Accounting → Save to Portal. Territory `revenue_eur` is the artist share (not processor gross). |
 | `sos_period_summaries` | Same (optional) |
 | `event_impact`, `promo_impact` | Recomputed on persist |
