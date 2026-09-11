@@ -9,6 +9,7 @@ Access the admin panel at `/admin`. Authentication is enforced at the edge by **
 Access the artist portal at `/portal`. Artists sign in with their own Supabase Auth account. The same Edge Middleware enforces auth: unauthenticated requests are redirected to `/portal/login`.
 
 Portal features:
+
 - **EPK Profile Editor** (`/portal/profile`) — artists edit bio, genres, social links, press quote, and upload a profile photo. The photo upload goes server-side via `/api/portal/upload-photo` (no CORS issues).
 - **EPK PDF Export** (`/portal/profile`) — artists can generate a print-ready EPK via `@react-pdf/renderer` (see `EPKPdfDocument.tsx` + `epkPdfRenderer.tsx`) so the downloaded PDF mirrors the configured profile content, layout, and links.
 - **Enterprise Analytics** (`/portal/analytics`) — artists view streaming stats, listener trends, territory revenue, release performance, revenue mix, concert/promo impact, EPK & press downloads, settlement ledger (when `artist.statements` is enabled), website engagement (`page_events`, consent-gated), and merch orders (`merch_orders` from SOS persist). Overview dashboard shows actionable intelligence cards with deep links. Feature-flag: `artist.analytics`.
@@ -23,11 +24,13 @@ Portal features:
 - **Feature-flag gating** — portal modules are controlled by `portal_feature_flags` (artist.* keys) and hidden/blocked when disabled.
 
 To link an artist to a portal user, use the **Users** tab in the Admin Dashboard:
+
 1. Open `/admin` and go to the **Users** tab (admin-only).
 2. Find the user row and click the **Link Band** icon (🔗).
 3. Select the artist from the dropdown and confirm.
 
 Alternatively, you can still run SQL directly:
+
 ```sql
 UPDATE public.artists
 SET user_id = (SELECT id FROM auth.users WHERE email = 'artist@email.com')
@@ -67,6 +70,7 @@ WHERE slug = 'artist-slug';
 ### 1. Configure Supabase
 
 Follow the instructions in `DEPLOYMENT.md` to:
+
 - Create a Supabase project
 - Set up the database schema
 - Configure environment variables
@@ -88,6 +92,7 @@ Navigate to `/admin`. If not authenticated, you will be redirected to `/admin/lo
 ## Usage
 
 ### Artists
+
 - Add new artists with their bio, genres, social links, and **external API IDs** (Spotify, Discogs, Songkick)
 - Update artist information
 - Mark artists as featured
@@ -97,12 +102,14 @@ Navigate to `/admin`. If not authenticated, you will be redirected to `/admin/lo
 - Delete artists (cascades to their releases)
 
 ### Releases
+
 - Manually add releases or sync from iTunes API
 - Edit release metadata (title, date, type, cover art)
 - Add streaming links (Spotify, Apple Music, YouTube)
 - Feature releases on the homepage
 
 ### News
+
 - Create news posts with markdown support
 - Add featured images
 - Schedule or publish immediately
@@ -111,18 +118,21 @@ Navigate to `/admin`. If not authenticated, you will be redirected to `/admin/lo
 - Optionally associate a news post with a specific **artist** — that post then appears on the artist's public profile page in addition to the main news feed
 
 ### Journalist Dashboard
+
 - Login at `/press/login`
 - Protected dashboard at `/press/dashboard/*` for roles `journalist` and `admin`
 - Feature-flagged modules: Promo Pool, Press Kit, Press Releases, Accreditation, Download History
 - Downloads are tracked in `journalist_downloads`
 
 ### Videos
+
 - Add music videos by YouTube ID
 - Organize video gallery
 - Set thumbnails and metadata
 - Trigger `POST /api/sync-youtube` to import the latest label-channel videos; synced rows are auto-linked to visible artists via title matching (`videos.artist_id`) and default to `is_visible=true`, so public sections and artist profile pages render them immediately.
 
 ### Assets
+
 - Upload images and media files to Cloudflare R2 through the secure Next.js Route Handler `app/api/upload/route.ts` — credentials never reach the browser
 - Organize files into nested folders (`asset_folders`) and optionally assign assets to an artist
 - Search globally, switch between grid/list views, multi-select files, and bulk-delete from the explorer
@@ -134,7 +144,9 @@ Navigate to `/admin`. If not authenticated, you will be redirected to `/admin/lo
 - Artist portal uploads can flag assets as "suggest for press kit review" (`press_suggested`) — admins see these in the explorer for curation
 
 ### Site Settings
+
 Manage all global site content from the **Settings** tab — no code changes needed:
+
 - **Global**: Label name, tagline, contact email, privacy policy URL, terms URL
 - **Social Links**: Instagram, YouTube, Spotify profile URLs (leave blank to hide the icon)
 - **Homepage**: Spotify playlist URI and multi-playlist entries (label + URI) for instant tab-based player swaps on the homepage
@@ -151,7 +163,7 @@ The permission system is database-backed via the `role_permissions` table in Pos
 ### Available Permissions
 
 | Permission | Controls |
-|---|---|
+| --- | --- |
 | `can_publish_news` | Creating new news posts (INSERT) |
 | `can_edit_news` | Editing existing news posts (UPDATE) |
 | `can_manage_artists` | Creating and editing artist profiles |
@@ -162,7 +174,7 @@ The permission system is database-backed via the `role_permissions` table in Pos
 ### Default Role Permissions
 
 | Role | publish news | edit news | manage artists | manage releases | manage videos | view admin |
-|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- |
 | **admin** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **editor** | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ |
 | **journalist** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -194,13 +206,13 @@ The admin panel is an integrated part of the Next.js App Router — it lives at 
 
 Admin pages are always dynamically rendered (`force-dynamic`) so auth cookies are always checked server-side on every request.
 
-
 - Press Portal tab: review journalist applications, curate press kits via `PressKitBuilder`, manage promo tracks with genre/BPM/key/NDA metadata, review accreditations, and monitor portal analytics.
 
 ## Press Portal (Admin)
 
 The Press Portal admin features are in the Admin Dashboard under the **Press** tab
 (admin-only). This tab provides:
+
 - **Press Kit Builder**: Curate `press_kit_items` per artist or label-wide — uploads and press metadata (category, caption, alt text, approval) happen in the **Assets** tab (Asset Explorer), not in a separate media library
 - **Promo Tracks**: Manage promo audio with metadata (genre, BPM, key, NDA required flag)
 - **Journalist Applications**: Review and approve/reject journalist accreditation requests
@@ -211,6 +223,7 @@ The Press Portal admin features are in the Admin Dashboard under the **Press** t
 `StatementsManager` is a read-only table in `/admin/accounting` (Statement History tab) listing all `sales_statements` rows across all artists. Admins and editors can verify which royalty PDFs have been uploaded.
 
 The **SOS Generator** tab in the same Accounting page lets admins upload royalty PDFs directly from the admin panel. The upload flow runs as a `"use server"` Next.js Server Action (`app/portal/statements/_actions/uploadStatement.ts`) that:
+
 1. Verifies the caller's admin/editor session via cookie-based Supabase auth.
 2. Generates a presigned R2 PUT URL and uploads the PDF from the browser directly to R2.
 3. Inserts the `sales_statements` row with the service-role client to bypass RLS.
@@ -223,6 +236,7 @@ The **SOS Generator** tab in the same Accounting page lets admins upload royalty
 Label admins do **not** configure hosting, R2, Vercel, Supabase Cron, Edge Functions, or secrets from the dashboard. That stays in operator docs (`DEPLOYMENT.md`).
 
 From **Admin → System → Health** the label admin can:
+
 1. See product health (APIs, queue KPIs, plain-language issues) without infra setup copy
 2. Run **Force Sync All** / **Sync YouTube** when credentials exist under API Keys
 3. Use **Advanced** for live `sync_queue` jobs — cancel pending/running (cooperative), retry failed/cancelled
@@ -246,7 +260,7 @@ The **Color Theme** page (**Admin → Color Theme**) lets you override the darkT
 Colors are stored in `site_settings` (`theme_primary`, `theme_secondary`, `theme_background`, `theme_card`, `theme_border`, `theme_foreground`). At render time, `ThemeStyleInjector` (a React Server Component in `app/layout.tsx`) reads these values and emits an inline `<style>` block that overrides the following CSS custom properties **server-side** (no FOUC):
 
 | CSS custom property | Default | Controls |
-|---|---|---|
+| --- | --- | --- |
 | `--primary` / `--accent` / `--ring` | `#493687` | Primary CTAs, active nav, focus rings |
 | `--secondary` | `#7e1e37` | Secondary buttons, hover effects, promo badges |
 | `--background` | `#101010` | Global page background |
@@ -275,6 +289,7 @@ Colors are stored in `site_settings` (`theme_primary`, `theme_secondary`, `theme
 ## Manual ISR Cache Invalidation
 
 If a public page shows stale data after an admin save:
+
 - Admin → Settings → any save triggers automatic revalidation of site-settings cache
 - To manually bust artist/release caches: use the "Force Sync All" button in Admin → Health tab
 - Or call: `POST /api/revalidate` with `Authorization: ******

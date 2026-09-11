@@ -29,7 +29,7 @@ Built with **Next.js 15 (App Router)**, React, Supabase, Cloudflare R2, and Tail
 ## 🛠 Tech Stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | UI framework | Next.js 15 (App Router) + React 19 + TypeScript |
 | Styling | Tailwind CSS v4 (PostCSS) |
 | Animations | Framer Motion, Lenis |
@@ -64,7 +64,7 @@ npm run dev
 ## 📜 Available Scripts
 
 | Script | Description |
-|---|---|
+| --- | --- |
 | `npm run dev` | Start Next.js development server (port 3000) |
 | `npm run build` | Production build (`next build`) |
 | `npm run preview` | Preview the production build locally (`next start`) |
@@ -97,6 +97,7 @@ npm run dev
 - **Bundle budget enforcement**: `scripts/check-bundle-budget.js` + `.github/workflows/performance-budget.yml`
 
 ---
+
 ## ✅ Quality Assurance
 
 ### Local QA commands
@@ -115,6 +116,7 @@ PRs use `.github/pull_request_template.md` (docs checklist is conditional — se
 ### QA CI pipeline
 
 The dedicated QA workflow (`.github/workflows/qa.yml`) runs five jobs:
+
 - `lint-and-unit-tests` — ESLint + Vitest
 - `e2e-tests` — Playwright route/security/feature checks
 - `security-audit` — npm audit (high severity gate)
@@ -135,7 +137,6 @@ The dedicated QA workflow (`.github/workflows/qa.yml`) runs five jobs:
 
 ---
 
-
 ## 🔑 Environment Variables
 
 Copy `.env.example` to `.env.local` and fill in your values.
@@ -143,14 +144,14 @@ Copy `.env.example` to `.env.local` and fill in your values.
 ### Client-side (`NEXT_PUBLIC_` prefix — exposed to the browser)
 
 | Variable | Description |
-|---|---|
+| --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous/public key |
 
 ### Server-side (Next.js Route Handlers / Edge Middleware only — never in the browser)
 
 | Variable | Description |
-|---|---|
+| --- | --- |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key — used by `/api/upload` to verify auth tokens |
 | `CLOUDFLARE_R2_ACCOUNT_ID` | Cloudflare account ID |
 | `CLOUDFLARE_R2_ACCESS_KEY_ID` | R2 API access key ID |
@@ -167,7 +168,7 @@ Copy `.env.example` to `.env.local` and fill in your values.
 External integration keys (Spotify, Discogs, Resend, YouTube, MailerLite, etc.) are configured in **Admin → API Keys**, not env vars. See `SECURITY.md` and `DEPLOYMENT.md`.
 
 | Variable | Description |
-|---|---|
+| --- | --- |
 | `CRON_SECRET` | Optional secret for Vercel cron / `trigger-sync` (Bearer token) |
 | `CONTACT_EMAIL` | Contact form recipient (defaults to `info@darktunes.com`) |
 | `LABEL_NOTIFICATION_EMAIL` | Label inbox for portal submissions and health alerts |
@@ -175,14 +176,14 @@ External integration keys (Spotify, Discogs, Resend, YouTube, MailerLite, etc.) 
 ### Supabase Read Replica (optional — Supabase Pro plan)
 
 | Variable | Description |
-|---|---|
+| --- | --- |
 | `SUPABASE_REPLICA_URL` | Supabase read-replica URL (Pro plan). Routes heavy analytics/reporting queries away from the primary DB. Falls back to primary when unset. |
 | `SUPABASE_REPLICA_ANON_KEY` | Anon key for the read replica. |
 
 ### Playwright E2E (optional — authenticated tests skip when unset)
 
 | Variable | Description |
-|---|---|
+| --- | --- |
 | `E2E_ADMIN_EMAIL` | Admin account email for authenticated admin E2E tests |
 | `E2E_ADMIN_PASSWORD` | Admin account password |
 | `E2E_JOURNALIST_EMAIL` | Journalist account email (optional; admin also works for press dashboard tests) |
@@ -199,6 +200,7 @@ Types are defined in `src/types/database.ts`.
 **Always keep both in sync** — see the schema change checklist in [docs/agent/data-and-schema.md](./docs/agent/data-and-schema.md).
 
 To apply the schema (fresh or existing database):
+
 1. Open the **Supabase SQL Editor** in the dashboard.
 2. Paste the contents of `supabase/reset.sql` and click **Run**.
 
@@ -209,7 +211,7 @@ The script is safe to re-run at any time — it never deletes existing data.
 ## ♿ Accessibility & Quality
 
 | Requirement | Status | Implementation |
-|---|---|---|
+| --- | --- | --- |
 | **WCAG 2.1 AA** | ✅ | Skip-to-main link, `lang` attribute, ARIA labels/roles on all interactive elements, decorative images `alt=""` + `aria-hidden`, 44 × 44 px touch targets, visible focus rings |
 | **Reduced Motion** | ✅ | `useReducedMotion()` (Framer Motion) in every animated component; transitions and stagger animations are disabled when the OS preference is set |
 | **Artist Navigation** | ✅ | All artist cards navigate to `/artists/[slug]` via Next.js `<Link>`. No modal used for artist navigation |
@@ -416,7 +418,7 @@ scripts/
 ## 🎨 Brand Colors
 
 | Token | Hex | Usage |
-|---|---|---|
+| --- | --- | --- |
 | `--primary` | `#493687` | Violet – CTAs, active nav, focus rings |
 | `--secondary` | `#7e1e37` | Pink – hover, promo badges |
 | `--background` | `#101010` | Near-black page background |
@@ -429,6 +431,5 @@ scripts/
 ## 📄 License
 
 Proprietary — All Rights Reserved. See [LICENSE](./LICENSE).
-
 
 - Press portal: public label press landing, artist EPK pages, embargo-aware press releases, dashboard profile/contact tools, upgraded press kit downloads, and promo-track preview/download flows.

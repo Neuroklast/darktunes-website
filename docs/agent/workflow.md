@@ -7,7 +7,7 @@ Rules for AI agent runs on this project. Session start + mandatory CI live in `A
 Same gate surface as `.github/workflows/ci.yml`, runnable in three phases:
 
 | Script | What runs |
-|--------|-----------|
+| -------- | ----------- |
 | `npm run ci:contracts` | lint, scroll/overlay/**mobile-layout**/brand/i18n contracts, portal-rls, schema-columns (incl. **no** `supabase/migrations/*.sql`), api-contracts |
 | `npm run ci:typecheck` | `tsc --noEmit` |
 | `npm run ci:tests` | vitest + production build |
@@ -35,7 +35,7 @@ Agents **must always** update documentation and relevant markdown files at the e
 Review and update stale sections in:
 
 | Area | Files |
-|------|-------|
+| ------ | ------- |
 | Agent spec | `AGENTS.md`, `docs/agent/*.md` |
 | Onboarding | `README.md`, `DEPLOYMENT.md`, `.env.example`, `scripts/vercel-install.sh` |
 | Product state | `PRD.md`, `INTEGRATION-SUMMARY.md`, `ADMIN.md`, `SECURITY.md` |
@@ -48,7 +48,7 @@ Mandatory even when the task did not start as a docs task. New public APIs, comp
 Update when applicable — pure typo/doc-only sessions with no product change may skip CHANGELOG/QA.
 
 | File | When to update |
-|------|----------------|
+| ------ | ---------------- |
 | `CHANGELOG.md` | User-facing features, API/route changes, security fixes, or breaking changes → add bullets under `[Unreleased]`. Skip internal refactors with no observable change. **Do not leave product waves forever under Unreleased** — cut a SemVer section when releasing (see [RELEASING.md](../RELEASING.md)). |
 | `LESSONS_LEARNED.md` | Session uncovered a recurring anti-pattern, non-obvious failure mode, or process gap → append a dated entry under `## Session additions`. Promote to rule tables only after the pattern recurs. Skip one-off typos. |
 | `QA_CHECKLIST.md` | New/changed user flows, auth guards, consent/i18n/PWA behavior, or E2E-covered features → add or adjust checklist items. Skip internal refactors that don't change testable behavior. |
@@ -58,7 +58,7 @@ Update when applicable — pure typo/doc-only sessions with no product change ma
 Product version is SemVer in `package.json` (not `0.0.0`). Annotated tags `vX.Y.Z` + CHANGELOG sections label releases; Vercel still deploys every `main` merge.
 
 | Command | Purpose |
-|---------|---------|
+| --------- | --------- |
 | `npm run release:check` | package version has `## [X.Y.Z]` in CHANGELOG; no local tag yet |
 | `npm run release -- bump patch\|minor\|major` | bump package + lockfile |
 | `npm run release:tag` | create annotated `vX.Y.Z` |

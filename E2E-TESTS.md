@@ -52,6 +52,7 @@ Additionally: `reset.sql` has a few early statements (the deprecated `press` →
 - [x] `playwright.config.ts` — loads `.env.e2e.local` via `dotenv` so both the Playwright runner and the Next.js `webServer` see local-stack credentials (pulled forward from Phase 2 to allow end-to-end validation)
 
 ### Verification (2026-07-24)
+
 ```
 psql: 107 tables in public schema, 261 RLS policies, get_my_role() present
 public.users roles: e2e-admin@darktunes.test=admin, e2e-artist@darktunes.test=artist, e2e-journalist@darktunes.test=journalist
@@ -61,15 +62,19 @@ npm run db:e2e:start re-run: fully idempotent (no errors, "already exists" for f
 ```
 
 ### Known issue — not caused by this work (resolved for this session)
+
 Local Playwright runs default to `http://localhost:3000`, which was being reclaimed by an unrelated project (`/home/simon/Projects/FinTrack`) on this machine. User stopped it manually. Worth remembering if it recurs: `reuseExistingServer: !process.env.CI` will silently reuse whatever's already on port 3000 rather than building darktunes, which produces very confusing failures (unrelated 404s, a form that looks permanently disabled).
 
 ### Live Playwright run against the local stack (2026-07-24)
+
 Ran `tests/e2e/portal.spec.ts` against the real local Supabase stack end-to-end:
+
 - ✅ `unauthenticated users are redirected to /login`
 - ✅ `upload-asset API rejects unauthenticated requests` (401)
 - ❌ `authenticated portal overview renders when credentials are configured` — form fills correctly with the `e2e-artist` fixture credentials, "Sign In" is clicked, but the page never navigates to `/portal` within 15s and no visible error appears.
 
 ### Root cause found and fixed (2026-07-24, later same day)
+
 The failure above was three independent local-stack-only bugs stacked on top of each other, found by tracing a Playwright trace's console/network logs and adding temporary proxy-side debug logging (reverted after diagnosis):
 
 1. **CSP blocked the browser from ever reaching the local Supabase stack.** `connect-src` in `src/lib/security/contentSecurityPolicy.ts` only allowed `https://*.supabase.co`, so `signInWithPassword` failed client-side with a silently-caught `TypeError: Failed to fetch` (CSP violation) — no request ever left the browser. Fixed: `buildContentSecurityPolicy()` now appends the configured `NEXT_PUBLIC_SUPABASE_URL` origin (+ its `ws(s)` equivalent) to `connect-src` **only when that URL's hostname is a loopback address** (`localhost`/`127.0.0.1`/`::1`) — real production Supabase URLs are always hosted, never loopback, so prod CSP is unaffected regardless of misconfiguration.
@@ -80,15 +85,19 @@ The failure above was three independent local-stack-only bugs stacked on top of 
 All three `portal.spec.ts` tests pass now, verified against both an incrementally-updated stack and a full `npm run db:e2e:reset` (clean-slate Docker stack + fresh schema/grants/fixtures) to make sure the setup-script changes aren't order-dependent.
 
 Also fixed while regression-testing the above (pre-existing bugs unrelated to the root cause, but blocking other specs from proving anything):
+
 - `tests/e2e/rls-validation.spec.ts` was fundamentally unable to pass — it queried `pg_catalog.pg_tables` through the JS `supabase-js` client, but PostgREST only ever exposes the `public`/`graphql_public` schemas (`PGRST106: Invalid schema`). Rewritten to use a direct Postgres connection (new `SUPABASE_DB_URL`, written to `.env.e2e.local` by `scripts/e2e-db-setup.mjs`) via the `pg` package instead. Also dropped a stale table name (`artist_profiles`, which doesn't exist — the actual EPK table is `artist_epks`) in favor of `artist_billing_profiles`, and needed the same Node-20-has-no-native-WebSocket `ws` transport workaround already used in `scripts/e2e-db-lib.mjs`.
 - `tests/helpers/supabase.ts`'s `createTestSupabaseClient()` had the same missing `ws` transport workaround (silently would have failed the same way for any spec exercising it under Node 20). A bare `transport: ws` broke `next build`'s whole-project type-check in a way Playwright's transpile-only test run never surfaced (a pre-existing `@types/ws`/`WebSocketLikeConstructor` structural mismatch throws off this call's schema-name generic inference) — fixed by casting through `@supabase/realtime-js`'s own `WebSocketLikeConstructor` type instead of a bare/`any` cast.
 - `tests/e2e/tour-planner.spec.ts` had two stale assertions: a Playwright strict-mode violation (`getByRole('heading', { name: 'Tour Planner' })` matched both an `h1` and an `h2` on the admin page — scoped to `level: 1`), and the artist-facing page's heading was renamed from "Tour Planner" to "Tour Production" without updating the test.
 
 Not chased further (separate, narrower issues, flagged for their respective phases):
+
 - `tests/e2e/press-kit.spec.ts` — 3 journalist-dashboard tests fail with `net::ERR_ABORTED` navigating to `/press/dashboard/press-kit`. Distinct from the above; needs its own investigation under Phase 8.
 
 ### `tests/e2e/feature-completeness.spec.ts` — 3 stale assertions fixed (2026-07-24)
+
 Found while re-verifying the fixes above (this spec's suite-level regression run first surfaced a red herring: local Playwright defaults to `http://localhost:3000`, which a completely unrelated project — `/home/simon/Projects/FinTrack` — had reclaimed again, exactly as previously documented; `reuseExistingServer: !CI` silently reused it, producing 15 false failures across every spec until the FinTrack process was stopped). Once isolated to the real darktunes server:
+
 - **"homepage key sections are visible"** expected a `section#artists` on the public homepage — that section doesn't exist in `app/_components/HomePageContent.tsx` (only `releases`/`videos`/`concerts`/`news`/`newsletter`). Removed the stale assertion.
 - **"admin dashboard tabs are visible for admin role"** expected Radix `tab` roles at `/admin` (`AdminDashboard.tsx`'s `TAB_DEFS`) — but `/admin` now renders `AdminOverview` (stat cards + quick-access section links); the old tabbed dashboard survives only at `/editor` for the `editor` role (`AdminDashboardWrapper`). Rewrote the test to check `AdminOverview`'s actual "Content statistics" stat cards and "Admin sections" quick-links instead of nonexistent tabs.
 - **"admin sidebar links are visible for admin role"**: `'Tour Planner'` → `'Tour Production'` (same rename as the tour-planner fix above) and `'Label Intelligence'` → `'Analytics'` (that one sidebar entry uses a `labelDictKey` i18n override — `admin.json`'s `labelIntelligence` key renders as "Analytics", matching the rename ANALYIZE_RESULT.md already recommended and the codebase had already partially applied).
@@ -151,6 +160,7 @@ both `playwright.config.ts`'s `webServer.env` and `qa.yml`'s job-level `env:`.
 No further change was needed; verified both are still present.
 
 ### Local-only footgun, hit again while verifying the above
+
 `reuseExistingServer: !process.env.CI` means a **stale `next-server` left on
 port 3000 is silently reused instead of rebuilding**. One survived a previous
 Playwright run and made a whole verification pass test pre-fix code — the
@@ -230,6 +240,7 @@ heading, no error boundary. Verified: 21/21 green.
 - [x] Public: `/press` landing and `/press/apply` reachable without a session
 
 ### Root cause of the long-standing `net::ERR_ABORTED` on `/press/dashboard/press-kit`
+
 Flagged in Phase 1 as "needs its own investigation under Phase 8". It was never
 a routing or access problem: `tests/helpers/auth.ts`'s
 `loginForPressDashboard()` signed in via `/login?returnTo=/press/dashboard/press-kit`

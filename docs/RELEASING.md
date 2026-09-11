@@ -5,7 +5,7 @@ darkTunes deploys continuously from `main` (Vercel). **Git tags + `package.json`
 ## Source of truth
 
 | Item | Authority |
-|------|-----------|
+| ------ | ----------- |
 | Current product version | `package.json` → `"version"` (mirrored in lockfile root) |
 | Historical releases | Annotated git tags `vX.Y.Z` + `CHANGELOG.md` sections |
 | Deploy identity | Commit SHA (`VERCEL_GIT_COMMIT_SHA` / `GITHUB_SHA`) |
@@ -16,7 +16,7 @@ Do **not** confuse with domain versions (`portal_terms_version`, EPK document sc
 ## When to bump
 
 | Bump | Use for |
-|------|---------|
+| ------ | --------- |
 | **MAJOR** (`X.0.0`) | Breaking product/API for staff or artists; forced re-auth; incompatible schema requiring coordinated downtime/reset semantics |
 | **MINOR** (`x.Y.0`) | User-facing features, new routes/surfaces, new integrations |
 | **PATCH** (`x.y.Z`) | Bugfixes, a11y, performance, safe dependency updates, product-visible docs fixes |
@@ -66,7 +66,7 @@ Still merge and deploy anytime; cut a version when you want a labeled release (e
 ## Scripts
 
 | Command | Purpose |
-|---------|---------|
+| --------- | --------- |
 | `npm run release:check` | package version has a CHANGELOG section; local tag not already present |
 | `npm run release -- bump <major\|minor\|patch>` | bump package + lockfile; prints next steps |
 | `npm run release:tag` | annotated `v$version` (refuse dirty tree unless `--allow-dirty`) |

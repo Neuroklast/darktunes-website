@@ -40,7 +40,7 @@ Default to RSC. Add `"use client"` only for event handlers, browser APIs, hooks,
 ## CQRS
 
 | Context | Pattern |
-|---------|---------|
+| --------- | --------- |
 | Public reads | RSC + `unstable_cache` |
 | Portal writes | Route Handlers under `app/api/portal/**` — `withPortalMembershipWrite` + `portalMemberWrite` (Bearer preferred; cookie dual-auth fallback) |
 | Admin writes | Route Handlers under `app/api/admin/**` — `requireAdminFromRequest` / `requireAdminWithServiceClient` (Bearer or cookie) |
@@ -58,7 +58,7 @@ Admin bronze CSV: never browser presigned R2 — use `/api/admin/sos/import-batc
 ## Naming & structure
 
 | Kind | Convention |
-|------|------------|
+| ------ | ------------ |
 | Components | `PascalCase.tsx` |
 | Hooks | `useCamelCase.ts` |
 | DAL | `camelCase.ts`, `verbNoun` functions |
@@ -87,7 +87,7 @@ No global state library. Server state → RSC/ISR. Shared UI → `Providers.tsx`
 Messages are split into per-route bundles in `src/i18n/loadMessages.ts`.  `request.ts` calls `resolveBundle(pathname)` to load only the namespaces the current route tree needs.
 
 | Bundle prefix | Namespaces loaded |
-|---|---|
+| --- | --- |
 | `/portal` | `portal`, `portalHelp`, `errors`, `pwa` |
 | `/admin` | `admin`, `adminSubmissions`, `errors`, `pwa` |
 | `/press` | `press`, `pressLanding`, `pressLogin`, `apply`, `pressContact`, `pressDashboard`, `pressReleases`, `pressKit`, `pressProfile`, `promoPool`, `errors`, `pwa` |

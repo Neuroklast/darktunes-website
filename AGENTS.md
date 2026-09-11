@@ -83,7 +83,7 @@ E2E tests (`tests/e2e/*.spec.ts`, Playwright) are part of the deliverable, not a
 Read the relevant file before working in that area:
 
 | Topic | File |
-|-------|------|
+| ------- | ------ |
 | CI loop, docs maintenance, multi-agent | [workflow.md](docs/agent/workflow.md) |
 | RSC/client, IoC, CQRS, naming, caching | [architecture.md](docs/agent/architecture.md) |
 | DAL, SSOT, ISR tags, R2 keys, DB schema | [data-and-schema.md](docs/agent/data-and-schema.md) |

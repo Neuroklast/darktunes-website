@@ -3,7 +3,7 @@
 ## Artist Portal (`/portal/*`)
 
 | Topic | Rule |
-|-------|------|
+| ------- | ------ |
 | Auth | Edge middleware + Supabase session; membership via `hasPortalArtistMembership()` (`artist_members`), not JWT metadata |
 | Tenancy | `resolvePortalArtist(db, userId, artistId)` with `?artistId=`; `getArtistByUserId()` deprecated for portal |
 | IoC | RSC pages fetch data; `"use client"` leaves receive props — no direct `fetch`/Supabase in leaves |
@@ -15,6 +15,7 @@
 **Billing & invoices:** `artist_billing_profiles` at `/portal/billing`. `tax_status` (`standard` | `small_business` | `reverse_charge`) drives §14 UStG PDF tax lines. `isBillingProfileComplete()` required before PDF generation. `InlineBillingProfileStep` gates: `/portal/invoices` (`InvoiceForm`, `FreeInvoiceGenerator`), `/portal/analytics` (Earnings), `/portal/statements` (quick invoice). SOS-linked flow: `/portal/invoices?statement={id}` → `artist_invoice_number` + `sales_statements.status = 'invoiced'`. Label recipient party from `site_settings` via `resolveLabelBillingParty()` (never hardcode). Issued PDFs are write-once (`pdf_sha256`, stable R2 key `invoices/{artistId}/{invoiceId}.pdf`). Billing profile changes log to `financial_audit_events` (IBAN masked).
 
 **VIES / IBAN / FX (compliance helpers):**
+
 - **EU VAT (VIES):** `checkVatWithVies()` → Commission REST API on billing save; reverse-charge requires live valid VIES at save **and** invoice create. Snapshot: `vat_vies_*` columns.
 - **IBAN:** local only — `src/lib/sos/iban-validator.ts` (ISO 7064). Enforced on `POST /api/portal/billing-profile`. **Never** call third-party IBAN APIs (DSGVO).
 - **ECB FX:** Frankfurter already powers SOS (`/api/exchange-rates`). Non-EUR invoices fetch `getEcbRateForCurrency()` and store `fx_rate` / `fx_rate_date` / `fx_rate_source` + PDF footnote.
@@ -26,7 +27,7 @@
 ### Portal product feedback (`/portal/feedback`)
 
 | Topic | Rule |
-|-------|------|
+| ------- | ------ |
 | Purpose | Product feedback about portal/site — **not** Zammad tech support (`/admin/support`) |
 | Form | Category (`bug` \| `feature` \| `ux` \| `general` \| `praise`), optional 1–5 rating, optional subject, required message (≥20 chars) |
 | Artist | Always the **active portal artist** (RSC `resolvePortalArtist` + `?artistId=`); multi-artist switcher changes sender. No separate “select artist” dropdown. Nav always appends resolved `artistId`. |
@@ -38,7 +39,7 @@
 ### Portal analytics (split dashboards)
 
 | Topic | Rule |
-|-------|------|
+| ------- | ------ |
 | Nav | Two dashboard items under `artist.analytics`: **Spotify Trends** (`/portal/spotify-trends`) and **Sales Analytics** (UI label; route `/portal/sos-analytics`). Legacy `/portal/analytics` redirects (listeners tab → Spotify Trends). |
 | Sources | Statement **sales streams** (SOS backend) vs public **Spotify presence** never mixed into one total or one menu |
 | Spotify Trends | Presence only (listeners, followers, track plays, dual-axis trends, disclaimer). Empty state when no presence data — avoid zero KPI grids. **Any month with no Spotify scrape** (not just the current UTC month) is excluded until public scrape rows exist for that period — otherwise secondary sources / chart joins would show Spotify as 0. `excludeNoSyncPeriods` in `publicSpotifyPresence.ts` drops every period lacking `apify` data. |
@@ -51,7 +52,7 @@
 ### Portal Bandsintown credentials
 
 | Topic | Rule |
-|-------|------|
+| ------- | ------ |
 | UI | Profile → **Integrations** tab — per active artist (multi-project switcher) |
 | Fields | UI: **Bandsintown Artist Name** (the name on Bandsintown). Stored in `artists.bandsintown_id`. Key in `artist_private_data` (admin ArtistForm dual-writes the same). |
 | API | `GET/PUT /api/portal/integrations/bandsintown?artistId=`; `POST …/sync` — membership write; key never returned in full (`hasApiKey` only) |
@@ -60,7 +61,7 @@
 ### Portal notification bell
 
 | Topic | Rule |
-|-------|------|
+| ------- | ------ |
 | Badge total | messages + interviews + statements + platform alerts (`getPortalBadgeCounts`) |
 | Message unread | **Per-user** `message_receipts` when `userId` known — not only legacy `label_messages.read` / `portal_messages.read_at` |
 | Mark one | `markPortalNotificationItemRead` → legacy flag + receipt |
@@ -73,7 +74,7 @@
 ### Messaging (M0 hardening)
 
 | Topic | Rule |
-|-------|------|
+| ------- | ------ |
 | List limits | DAL uses `MessageListOptions` + caps in `src/lib/messaging/constants.ts` (default 50, max 100) |
 | Per-user read | `message_receipts` via `upsertMessageReceipt` / `upsertMessageReceipts`; pass `userId` into mark-read / badge counts / bell feed |
 | Rules | `applyMessageRulesOnInsert` / `applyPortalMessageRulesOnInsert` after send (server-side) |
@@ -91,7 +92,7 @@
 ### Portal calendar (`/portal/calendar`)
 
 | Topic | Rule |
-|-------|------|
+| ------- | ------ |
 | Availability | **Always on** for signed-in portal artists (sidebar not gated by `artist.calendar`; page has no disable gate) |
 | Data | Releases: `getAllVisibleReleasesForCalendar` (slim nested select). Events: `getAllVisibleConcertsForCalendar` (past + future, nested artists / featured) |
 | Cache | `getCachedCalendarReleases` (`releases` tag) + `getCachedCalendarConcerts` (`concerts` tag) via cookie-free client |
@@ -104,7 +105,7 @@
 Enterprise tour production module (ported from artist-tour-planner). **Distinct from** `/portal/events` + `concerts` — public events and Bandsintown/Songkick sync stay there; tour planner is optional production planning with a bridge via `tour_stops.concert_id`.
 
 | Topic | Rule |
-|-------|------|
+| ------- | ------ |
 | Flag | `artist.tour_planner` in `portal_feature_flags` (seed `supabase/reset.sql`) |
 | Route | `/portal/tour-planner?artistId=` — gated in RSC + sidebar |
 | Data | Parallel tables: `tours`, `tour_stops`, `tour_contacts`, `tour_tasks`, `tour_crew_members`, `tour_merch_items`, `tour_merch_settlements` |
@@ -122,7 +123,7 @@ Enterprise tour production module (ported from artist-tour-planner). **Distinct 
 **Portal API surface (representative):**
 
 | Path | Methods |
-|------|---------|
+| ------ | --------- |
 | `tours`, `tours/[id]` | GET/POST, PATCH/DELETE (archive, duplicate) |
 | `stops`, `stops/[id]` | GET/POST (create, reorder), PATCH/DELETE |
 | `stops/import-concert` | POST |
@@ -144,8 +145,9 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 **Shared guided kit:** `src/components/guided/` (`GuidedModeChooser`, `GuidedStepShell`, `GuidedStepCoach`) + `src/lib/guided/guidedSteps.ts`. Used by portal billing/invoice/EPK/fan-page assistants and admin release review.
 
 **Portal DAU assistants:**
+
 | Flow | Entry | Steps |
-|------|--------|--------|
+| ------ | -------- | -------- |
 | Billing | `/portal/billing` | Legal → Tax → Payout (SEPA) → Done. **Skip chooser/assistant when `isBillingProfileComplete`** — open advanced form; `?mode=assistant` or incomplete profile still forces guide. |
 | Invoice from Statement | `/portal/invoices?statement=` (CTA from Statements/Analytics) | Confirm → Billing if needed → Send |
 | EPK first share | `/portal/epk-builder` mode chooser | Template → PDF/Share → Done |
@@ -168,7 +170,7 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 **Gold persist:** `row_count` stays the bronze original (do not overwrite with upsert length). Portal gold `revenueEur` is the artist share after the label split (channel-aware via `applyArtistShareToPortalMetrics`); Excel / SOS reporting stay on processor gross. Do not persist or display the split rate in the portal. No gold-vs-statement toast (those amounts are different layers). Reprocess accepts session `exchangeRates` / `historicalRates` / `carryForwardByArtist`.
 
 | Module | Role |
-|--------|------|
+| -------- | ------ |
 | `AccountingGuidedWizard` + `SosWizardStepCoach` | DAU step UI, progress, blocked reasons |
 | `CurrencyRatesBanner` | Sticky FX status + refresh |
 | `SettlementCenterPanel` | Shell: overview, toolbar, register, dialogs |
@@ -206,7 +208,7 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 `/portal/releases/new` — **guided wizard** over schema-driven fields from `submission_form_schema` + per-type rules.
 
 | Piece | Location |
-|-------|----------|
+| ------- | ---------- |
 | Field schema | `submission_form_schema` (`field_scope`: `release` \| `track`; `field_group` drives wizard steps; optional `type_rules` JSONB per release type) |
 | Track count rules | `submission_release_type_rules` (`fixed_1` for single; `user_specified` + min/max for album/ep/compilation) |
 | Wizard steps | `src/lib/submissions/wizardSteps.ts` — type → groups (`metadata` / `distribution` / `rights` / custom) → tracks → review |
@@ -235,7 +237,7 @@ Artists are guided step-by-step; only fields visible/required for the selected t
 ## Portal help (`/portal/help`)
 
 | Topic | Rule |
-|-------|------|
+| ------- | ------ |
 | **Admin FAQ (top block)** | `/admin/portal-faq` — `portal_faq_categories` + `portal_faq_items`; EN required, DE optional; TipTap HTML answers; ISR tag `portal-faq` |
 | Structure | `src/lib/portal/helpManifest.ts` — categories, topics, section types, glossary IDs (static help below FAQ) |
 | i18n | `portalHelp` namespace — UI chrome in `src/i18n/messages/{en,de}/portalHelp.json`; FAQ copy lives in DB |
@@ -259,7 +261,7 @@ User-facing name: **Personal Artist Page** (legacy code paths still use `fan-pag
 Distinct from EPK (press/PDF) and the fixed `/artists/[slug]` profile. One customizable fan landing page per artist.
 
 | Topic | Rule |
-|-------|------|
+| ------- | ------ |
 | Flag | `artist.fan_page` in `portal_feature_flags` |
 | Storage | `artist_landing_pages` (1:1 `artist_id`, JSON `LandingPageDocumentV1`) |
 | Editor | Section-based builder (`@dnd-kit`), TipTap bio blocks, shared image crop from EPK |
@@ -319,7 +321,7 @@ Serwist (`app/sw.ts`). SW excludes `/api/*` from typical app caches. Dashboard *
 ### Web Push + app icon badge
 
 | Piece | Location |
-|-------|----------|
+| ------- | ---------- |
 | SW push / click | `app/sw.ts` — `showNotification`, open URL, optional `setAppBadge` from payload |
 | Subscribe APIs | `/api/push/*` (auth cookie; any logged-in user) |
 | Send path | `emitNotification` → `sendPushForNotification` (service role list + `web-push`) |

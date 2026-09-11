@@ -5,7 +5,7 @@
 **SSOT:** `src/lib/rbac/` — registry, `resolveEffectiveAccess`, guards, route registry.
 
 | Layer | Module |
-|-------|--------|
+| ------- | -------- |
 | Edge routes | `proxy.ts` → `resolveEffectiveAccess` + capability guards |
 | API Bearer | `src/lib/adminAuth.ts` → `verifyAdmin`, `verifyAdminOrEditor`, `verifyPermission`, `verifySyncTrigger` |
 | Admin pages (defense-in-depth) | `requirePageCapability('admin.panel.full')` from `src/lib/rbac/requireAdminPage.ts` |
@@ -107,7 +107,7 @@ Client: `bronzeUpload.ts`. Multipart: `bronzeMultipartUpload.ts`. Limits: `bronz
 **Emit only via** `emitNotification()` from `src/lib/notifications` (service role). Unified table: `public.notifications` (RLS: own read/update; insert service-role only). Legacy `editor_notifications` is not written by new code.
 
 | Event type | Audience | Typical emitter |
-|------------|----------|-----------------|
+| ------------ | ---------- | ----------------- |
 | `artist_release_submission` | staff | `POST /api/portal/submit-release` |
 | `artist_video_submission` | staff | `POST /api/portal/submit-video` |
 | `landing_page_review` | staff | `POST /api/portal/fan-page/publish` (submit_review) |
@@ -140,7 +140,7 @@ Health: `GET /api/health` defaults to **lite** (DB liveness); full dashboard sna
 ## Portal billing compliance
 
 | Topic | Implementation |
-|-------|----------------|
+| ------- | ---------------- |
 | Tax status | `artist_billing_profiles.tax_status` → PDF VAT lines (§19 / reverse charge) |
 | VIES | `src/lib/legal/viesVat.ts` → EC REST; required for reverse charge on save + invoice create |
 | IBAN | Local only `src/lib/sos/iban-validator.ts` on billing POST |
@@ -195,7 +195,7 @@ Users tab: `users.ts` DAL + `/api/admin/users/*` (admin only). Feature flags: `s
 In-process IP limits for unauthenticated public endpoints:
 
 | Route | Limit |
-|-------|-------|
+| ------- | ------- |
 | `/api/contact` | 5 / 10 min |
 | `/api/auth/forgot-password` | 3 / 10 min |
 | `/api/journalist-applications` | 3 / 30 min |
@@ -206,7 +206,7 @@ In-process IP limits for unauthenticated public endpoints:
 Prefer **distributed** limits (Upstash when configured, else in-process) keyed by `userId:ip`. SSOT for upload size/MIME and portal rate numbers: `src/lib/uploads/portalUploadLimits.ts`.
 
 | Area | Default |
-|------|---------|
+| ------ | --------- |
 | Portal file uploads (photo, rider, asset, cover, documents, fonts, tour tech) | 40 / 10 min |
 | Message send | 30 / 10 min |
 | EPK export | 10 / 10 min |
@@ -240,7 +240,7 @@ Route handlers must import size limits from `portalUploadLimits` — no local `M
 Wired into `npm run ci` → phase `ci:contracts`:
 
 | Script | Purpose |
-|--------|---------|
+| -------- | --------- |
 | `verify:portal-rls` | Expected portal RLS policy names ⊆ `reset.sql` |
 | `verify:schema-columns` | No `supabase/migrations/*.sql`; critical tables: CREATE columns have matching `ADD COLUMN IF NOT EXISTS` (prevents hometown-class drift) |
 | `verify:api-contracts` | Every route uses `withErrorHandler`; portal mutations / admin routes have recognized auth helpers |

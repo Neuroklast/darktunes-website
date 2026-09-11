@@ -20,7 +20,7 @@
 ### GitHub Actions CI layout (speed)
 
 | Workflow | PR | main / other | Notes |
-|----------|----|--------------|--------|
+| ---------- | ---- | -------------- | -------- |
 | `ci.yml` | always | always | Parallel jobs: lint+contracts+tsc · unit · build. Concurrency cancel-in-progress. Next + ESLint caches. |
 | `qa.yml` | Full E2E matrix (Chrome + Mobile Safari + Mobile Chrome), docs paths ignored | Full E2E matrix (same) | No duplicate lint/unit/security. `/e2e` PR comment (`e2e-comment.yml`) runs the same matrix on demand. |
 | `security.yml` | only lockfile/package changes | same + weekly schedule | Sole npm audit owner |
@@ -42,7 +42,7 @@
 Baseline after Phase 0 foundation (main @ 14da8b1):
 
 | Metric | Count |
-|--------|------:|
+| -------- | ------: |
 | Vitest files (`**/*.{test,spec}.{ts,tsx}`) | 307 |
 | Vitest tests | 1812 |
 | Playwright E2E specs (`tests/e2e/`) | 12 |
@@ -52,7 +52,7 @@ Baseline after Phase 0 foundation (main @ 14da8b1):
 ### Module matrix (target: co-located test per module >100 lines)
 
 | Module | Status | Next phase |
-|--------|--------|------------|
+| -------- | -------- | ------------ |
 | `src/lib/sos/data-processor/` | **Done** (split + pipeline tests) | Phase 1.2 `export-utils` |
 | `src/lib/sos/export/` | **Done** (shared + PDF/Excel/ZIP split) | — |
 | `src/lib/api/settlementRegister.ts` | **Done** (register + carry-forward tests) | — |
