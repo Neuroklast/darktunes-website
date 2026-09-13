@@ -157,6 +157,8 @@
     "excelSheetPlatforms": "Plattformen",
     "excelSheetCountries": "Länder",
     "excelSheetMonthly": "Monate",
+    "excelSheetRaw": "Rohdaten",
+    "excelSheetRawHint": "Original-Zeilen Believe, Bandcamp und Darkmerch dieser Band. Believe-Marge-Spalten fehlen.",
     "excelHideCompilations": "Sampler im Release-Blatt ausblenden",
     "excelColBelieveRevenue": "Believe-Umsatz",
     "excelColBandcampRevenue": "Bandcamp-Umsatz",

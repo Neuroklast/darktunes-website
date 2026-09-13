@@ -245,4 +245,46 @@ describe('useCSVProcessor', () => {
     expect(result.current.revenues[0]?.artist).toBe('Artist A')
     expect(result.current.revenues[0]?.finalAmount).toBe(6)
   })
+
+  it('requestRawRows resolves the worker’s artist-scoped Believe sheet', async () => {
+    const { result } = renderHook(() => useCSVProcessor([], [], makeConfig()))
+
+    await waitFor(() => {
+      expect(workerInstances).toHaveLength(1)
+    })
+
+    const worker = workerInstances[0]
+    let sheetsPromise: Promise<unknown> | undefined
+    await act(async () => {
+      sheetsPromise = result.current.requestRawRows('Reaper')
+    })
+
+    const posted = worker?.postMessage.mock.calls.find(
+      (c) => (c[0] as { type?: string })?.type === 'raw-rows',
+    )?.[0] as { type: string; artist: string; requestId: string } | undefined
+    expect(posted?.artist).toBe('Reaper')
+    expect(posted?.requestId).toBeTruthy()
+
+    const rawSheet = {
+      source: 'believe' as const,
+      sheetName: 'Believe',
+      headers: ['Artist Name', 'Net Revenue'],
+      rows: [['Reaper', '0.85']],
+    }
+
+    let sheets: unknown
+    await act(async () => {
+      worker?.onmessage?.({
+        data: {
+          type: 'raw-rows',
+          artist: 'Reaper',
+          requestId: posted?.requestId,
+          sheets: [rawSheet],
+        },
+      } as MessageEvent)
+      sheets = await sheetsPromise
+    })
+
+    expect(sheets).toEqual([rawSheet])
+  })
 })

@@ -13,6 +13,7 @@ import {
   type ExcelExportSettings,
   type ExcelExportSettingsPatch,
 } from '../excelExportSettings'
+import type { ArtistRawSourceSheet } from './rawSourceRows'
 import { DEFAULT_PDF_SETTINGS, isCompilationRelease } from './shared'
 
 type ExcelGenerateSettings = ExcelExportSettingsPatch | Partial<PdfExportSettings>
@@ -46,9 +47,18 @@ export async function generateExcel(
   periodEnd?: string,
   compilationFilters: CompilationFilter[] = [],
   settings?: ExcelGenerateSettings,
+  rawSheets: ArtistRawSourceSheet[] = [],
 ): Promise<Blob> {
   try {
-    return await buildExcel(artistData, labelInfo, periodStart, periodEnd, compilationFilters, settings)
+    return await buildExcel(
+      artistData,
+      labelInfo,
+      periodStart,
+      periodEnd,
+      compilationFilters,
+      settings,
+      rawSheets,
+    )
   } catch (err) {
     throw new Error(
       `Excel generation failed for "${artistData.artist}": ${err instanceof Error ? err.message : String(err)}`,
@@ -155,6 +165,7 @@ async function buildExcel(
   periodEnd?: string,
   compilationFilters: CompilationFilter[] = [],
   settings?: ExcelGenerateSettings,
+  rawSheets: ArtistRawSourceSheet[] = [],
 ): Promise<Blob> {
   const excelSettings = resolveExcelGenerateSettings(settings)
   const ExcelJS = (await import('exceljs')).default
@@ -250,6 +261,26 @@ async function buildExcel(
     monthSheet.addRow(monthlyCols.map((col) => col.header))
     for (const month of artistData.monthlyBreakdown) {
       monthSheet.addRow(monthlyCols.map((col) => col.value(month)))
+    }
+  }
+
+  if (isExcelSheetEnabled(excelSettings, 'raw')) {
+    for (const sourceSheet of rawSheets) {
+      if (sourceSheet.headers.length === 0) continue
+      const worksheet = workbook.addWorksheet(sourceSheet.sheetName)
+      worksheet.columns = sourceSheet.headers.map((header) => ({
+        width: Math.min(36, Math.max(14, header.length + 4)),
+      }))
+      worksheet.addRow(sourceSheet.headers)
+      worksheet.getRow(1).font = { bold: true }
+      for (const row of sourceSheet.rows) {
+        worksheet.addRow(row)
+      }
+      worksheet.views = [{ state: 'frozen', ySplit: 1 }]
+      worksheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: sourceSheet.headers.length },
+      }
     }
   }
 

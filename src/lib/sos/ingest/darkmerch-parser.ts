@@ -65,7 +65,8 @@ export function parseDarkmerchCSV(content: string): DarkmerchParseResult {
   // ── Detect header and column indices ───────────────────────────────────────
   const headerLine = lines[0] ?? ''
   const delimiter = headerLine.includes(';') ? ';' : ','
-  const headers = headerLine.split(delimiter).map(h => h.trim().toUpperCase())
+  const originalHeaders = headerLine.split(delimiter).map(h => h.trim())
+  const headers = originalHeaders.map(h => h.toUpperCase())
 
   const colDate = findColByAliases(headers, DATE_ALIASES)
   const colBand = findColByAliases(headers, BAND_ALIASES)
@@ -102,8 +103,9 @@ export function parseDarkmerchCSV(content: string): DarkmerchParseResult {
     const netRevenue = parseFloat(revenueStr.replace(',', '.'))
     if (isNaN(netRevenue) || netRevenue === 0) continue
 
+    const sourceId = crypto.randomUUID()
     transactions.push({
-      id: crypto.randomUUID(),
+      id: sourceId,
       source: 'darkmerch',
       sales_month: '',
       platform: 'DARKMERCH',
@@ -123,6 +125,9 @@ export function parseDarkmerchCSV(content: string): DarkmerchParseResult {
       net_revenue: netRevenue,
       currency: 'EUR',
       is_physical: true,
+      source_row_id: sourceId,
+      source_headers: originalHeaders,
+      source_values: originalHeaders.map((_, col) => cols[col] ?? ''),
     })
   }
 

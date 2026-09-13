@@ -114,7 +114,7 @@ Legal row must `flex-wrap` with `min-h-[44px]` touch targets. Never `overflow-x-
 | Spacing | 8px grid: `p-2`–`p-12`; default body `p-6` |
 | z-index | Stacking contract below (do not invent ad-hoc layers) |
 | Dismiss | Close button (44px), ESC, backdrop click via `onOpenChange` |
-| SOS Excel export | `ExcelExportDialog` — body `max-h-[70vh] overflow-y-auto` + `data-lenis-prevent`; column presets on workspace, not localStorage |
+| SOS Excel export | `ExcelExportDialog` — body `max-h-[70vh] overflow-y-auto` + `data-lenis-prevent`; column presets on workspace, not localStorage; Raw is a sheet-only toggle (no column picker) |
 | Motion | Spring `{ stiffness: 400, damping: 40 }`; duration 0 when reduced motion |
 
 ### Overlay stacking contract

@@ -65,4 +65,17 @@ describe('parseCSVContentStreaming skips', () => {
     expect(result.transactions[0]?.release_title).toContain('Deluxe')
     expect(result.transactions[0]?.net_revenue).toBe(12.5)
   })
+
+  it('keeps original Believe cell strings on the transaction', async () => {
+    const csv = [
+      'Artist,Release,Net Revenue,Currency,Sales Month',
+      'Neuroklast,Album,12.5,EUR,2024-03',
+    ].join('\n')
+
+    const result = await parseCSVContentStreaming(csv, 'believe')
+    const tx = result.transactions[0]
+    expect(tx?.source_row_id).toBeTruthy()
+    expect(tx?.source_headers).toEqual(['Artist', 'Release', 'Net Revenue', 'Currency', 'Sales Month'])
+    expect(tx?.source_values).toEqual(['Neuroklast', 'Album', '12.5', 'EUR', '2024-03'])
+  })
 })

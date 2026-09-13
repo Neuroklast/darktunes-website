@@ -46,6 +46,11 @@ import {
 } from '../lib/sos/data-processor'
 import type { TerritoryMetricRow } from '../lib/sos/data-processor'
 import { buildMerchOrderRows, type MerchOrderRow } from '../lib/sos/merchOrderRows'
+import {
+  buildArtistRawSheets,
+  lookupArtistRawSheets,
+  type ArtistRawSourceSheet,
+} from '../lib/sos/export/rawSourceRows'
 import { buildArtistCollabTree } from '../lib/sos/grouping'
 import type { SalesTransaction } from '../lib/sos/ingest/csv-parser'
 import { extractFeaturedArtistsDetailed } from '../lib/sos/ingest/csv-parser'
@@ -148,17 +153,22 @@ export type WorkerRequest =
   | { type: 'remove-file'; fileId: string }
   | { type: 'process'; config: WorkerProcessConfig }
   | { type: 'reset' }
+  | { type: 'raw-rows'; artist: string; requestId: string }
 
 export type WorkerResponse =
   | { type: 'parse-progress'; fileId: string; percentage: number }
   | { type: 'parse-done'; fileId: string; rowsParsed: number; rowsSkipped: number; uniqueArtistsCount: number }
   | { type: 'result'; data: WorkerResult }
   | { type: 'error'; message: string; fileId?: string }
+  | { type: 'raw-rows'; artist: string; requestId: string; sheets: ArtistRawSourceSheet[] }
 
 // ── Internal worker state ──────────────────────────────────────────────────────
 
 /** Parsed transactions for believe / bandcamp files, keyed by file ID. */
 const fileTransactions = new Map<string, SalesTransaction[]>()
+
+/** Artist-keyed original report sheets from the last successful `process`. */
+let lastArtistRawSheets = new Map<string, ArtistRawSourceSheet[]>()
 
 /**
  * Raw Shopify order groups, keyed by file ID.
@@ -247,6 +257,7 @@ function runProcess(config: WorkerProcessConfig): void {
     const allTransactions = getAllTransactions()
 
     if (allTransactions.length === 0) {
+      lastArtistRawSheets = new Map()
       post({
         type: 'result',
         data: {
@@ -310,6 +321,8 @@ function runProcess(config: WorkerProcessConfig): void {
     const collabTree: ArtistCollabNode[] = buildArtistCollabTree(collabTransactions, config.artistMappings)
 
     const uniqueArtists = artistData.map(d => d.artist).sort()
+
+    lastArtistRawSheets = buildArtistRawSheets(artistData)
 
     // Strip raw transactions (which must never reach the main thread) by
     // destructuring them out and spreading the remaining safe fields.
@@ -445,6 +458,17 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
       fileTransactions.clear()
       shopifyRawOrdersMap.clear()
       printfulRawCostsMap.clear()
+      lastArtistRawSheets = new Map()
+      break
+    }
+
+    case 'raw-rows': {
+      post({
+        type: 'raw-rows',
+        artist: msg.artist,
+        requestId: msg.requestId,
+        sheets: lookupArtistRawSheets(lastArtistRawSheets, msg.artist),
+      })
       break
     }
   }

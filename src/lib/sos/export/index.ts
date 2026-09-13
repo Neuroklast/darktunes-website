@@ -1,4 +1,5 @@
 export { formatCurrency, DEFAULT_PDF_SETTINGS, isCompilationRelease } from './shared'
 export { generatePDF } from './pdfStatement'
 export { generateExcel } from './excelStatement'
+export type { ArtistRawSourceSheet } from './rawSourceRows'
 export { downloadBlob, generateZipOfAllStatements } from './zipBundle'

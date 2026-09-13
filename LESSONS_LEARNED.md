@@ -228,6 +228,11 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-09-13 — Statement Excel raw rows must stay in the worker
+
+- **Finding:** `SafeProcessedArtistData` drops `transactions` so the main thread never holds the full CSV. A 1:1 Believe dump for legal transparency therefore cannot be rebuilt from summary sheets. Original header/value strings have to ride on the transaction inside the worker, then `requestRawRows(artist)` returns only that artist at export time.
+- **Rule:** Include every uploaded original report (Believe, Bandcamp, Darkmerch), artist-filtered. Strip Believe margin columns (`Gross revenue`, `Client share rate`) only — never Bandcamp/Darkmerch columns. Do not post original rows for every artist in the process result.
+
 ### 2026-08-17 — Odesli `hasMoreWork` can park one job forever
 
 - **Finding:** Global Odesli jobs query `smart_url IS NULL`. Artist-profile URLs and skippable 404/405/422 left that column null, so the same first 40 rows were reclaimed every run. `batch.length >= limit` set `hasMoreWork` even with zero progress → Sync Queue stayed at **1 running** after releases/videos had already succeeded.

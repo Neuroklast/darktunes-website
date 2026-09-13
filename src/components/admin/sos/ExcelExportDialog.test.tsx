@@ -26,6 +26,7 @@ describe('ExcelExportDialog', () => {
       />,
     )
 
+    expect(screen.getByText('Raw data')).toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('UPC / EAN'))
     expect(onStateChange).toHaveBeenCalled()
     const nextState = onStateChange.mock.calls.at(-1)?.[0]

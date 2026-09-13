@@ -151,4 +151,53 @@ describe('generateExcel column filters', () => {
     expect(titles).toContain('Nightfall')
     expect(titles).not.toContain('Sampler Hits')
   })
+
+  it('adds Believe (margin stripped) and Bandcamp original sheets', async () => {
+    const blob = await generateExcel(
+      makeArtist(),
+      label,
+      '2026-01',
+      '2026-03',
+      [],
+      DEFAULT_EXCEL_EXPORT_SETTINGS,
+      [
+        {
+          source: 'believe',
+          sheetName: 'Believe',
+          headers: ['Sales Month', 'Artist Name', 'Net Revenue'],
+          rows: [['01/01/2026', 'Neuroklast', '0.019']],
+        },
+        {
+          source: 'bandcamp',
+          sheetName: 'Bandcamp',
+          headers: ['date', 'artist', 'net amount'],
+          rows: [['01/01/2026', 'Neuroklast', '10']],
+        },
+      ],
+    )
+    const believe = await sheetRows(blob, 'Believe')
+    expect(believe[0]).toEqual(['Sales Month', 'Artist Name', 'Net Revenue'])
+    expect(believe[1]?.[1]).toBe('Neuroklast')
+    expect(believe.flat().join(' ')).not.toMatch(/gross revenue|client share/i)
+    const bandcamp = await sheetRows(blob, 'Bandcamp')
+    expect(bandcamp[0]).toEqual(['date', 'artist', 'net amount'])
+    expect(bandcamp[1]).toEqual(['01/01/2026', 'Neuroklast', '10'])
+  })
+
+  it('omits source raw sheets when Raw data is toggled off', async () => {
+    const blob = await generateExcel(
+      makeArtist(),
+      label,
+      '2026-01',
+      '2026-03',
+      [],
+      normalizeExcelExportSettings({ sheets: { raw: false } }),
+      [
+        { source: 'believe', sheetName: 'Believe', headers: ['Net Revenue'], rows: [['1']] },
+        { source: 'bandcamp', sheetName: 'Bandcamp', headers: ['net amount'], rows: [['2']] },
+      ],
+    )
+    expect(await sheetRows(blob, 'Believe')).toEqual([])
+    expect(await sheetRows(blob, 'Bandcamp')).toEqual([])
+  })
 })

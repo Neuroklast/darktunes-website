@@ -11,6 +11,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 ## [Unreleased]
 
 ### Added
+- **SOS Excel raw source sheets:** Each Statement of Sales workbook includes original-report tabs for this artist (`Believe`, `Bandcamp`, `Darkmerch` when those files were uploaded). Believe omits distributor margin columns (gross revenue / client share); Bandcamp and Darkmerch keep every original column. Other bands’ rows are not included.
 - **SOS Excel column presets:** Statement of Sales Excel export opens a dialog to pick sheets/columns and save named team presets on the accounting workspace.
 - **Artist profile preview rows:** Admin → Settings can set how many **grid rows** of videos and news show on `/artists/[slug]` before an in-place **Show all** control (defaults: 2 rows each). Responsive columns match the existing grids (videos 1/2/3, news 1/2). Personal/Fan page unchanged.
 

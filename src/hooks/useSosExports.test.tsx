@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { generateExcel } from '@/lib/sos/export-utils'
 import { useExports } from './useSosExports'
 import type { LabelArtist, LabelInfo, SafeProcessedArtistData } from '@/lib/sos/types'
 
@@ -233,5 +234,52 @@ describe('useSosExports.buildCorrectionPdfBase64', () => {
     })
 
     expect(pdfBase64).toBeNull()
+  })
+})
+
+describe('useSosExports.handleDownloadExcel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('passes artist raw sheets into Excel generation', async () => {
+    const mockGenerateExcel = vi.mocked(generateExcel)
+    mockGenerateExcel.mockResolvedValue(new Blob(['xlsx']))
+    const requestRawRows = vi.fn().mockResolvedValue([
+      { source: 'believe', sheetName: 'Believe', headers: ['Net Revenue'], rows: [['1']] },
+    ])
+
+    const { result } = renderHook(() =>
+      useExports(
+        [makeProcessedArtist('Artist One')],
+        labelInfo,
+        '2026-03',
+        '2026-03',
+        {},
+        {},
+        [],
+        {},
+        [],
+        false,
+        undefined,
+        requestRawRows,
+      ),
+    )
+
+    await act(async () => {
+      await result.current.handleDownloadExcel('Artist One')
+    })
+
+    expect(requestRawRows).toHaveBeenCalledWith('Artist One')
+    expect(mockGenerateExcel).toHaveBeenCalledWith(
+      expect.objectContaining({ artist: 'Artist One' }),
+      labelInfo,
+      '2026-03',
+      '2026-03',
+      [],
+      {},
+      [{ source: 'believe', sheetName: 'Believe', headers: ['Net Revenue'], rows: [['1']] }],
+    )
+    expect(mockDownloadBlob).toHaveBeenCalledOnce()
   })
 })

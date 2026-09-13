@@ -23,6 +23,15 @@ describe('normalizeExcelExportSettings', () => {
     expect(settings.columns['releases.title']).toBe(true)
     expect(settings.columns['releases.upcEan']).toBe(false)
     expect(settings.hideCompilationsInStatement).toBe(true)
+    expect(settings.sheets.raw).toBe(true)
+  })
+
+  it('enables the Raw sheet from the sheet flag with no column picker', () => {
+    expect(isExcelSheetEnabled(DEFAULT_EXCEL_EXPORT_SETTINGS, 'raw')).toBe(true)
+    expect(
+      isExcelSheetEnabled(normalizeExcelExportSettings({ sheets: { raw: false } }), 'raw'),
+    ).toBe(false)
+    expect(enabledColumnsForSheet(DEFAULT_EXCEL_EXPORT_SETTINGS, 'raw')).toEqual([])
   })
 
   it('treats empty input as the current Excel default', () => {

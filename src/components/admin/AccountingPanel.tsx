@@ -448,6 +448,7 @@ function SosGeneratorPanel() {
     releaseTitlesByArtistIncFeaturing,
     territoryMetrics,
     merchOrderRows,
+    requestRawRows,
     exchangeRatesLoading,
     exchangeRatesReady,
     exchangeRatesSource,
@@ -733,6 +734,7 @@ function SosGeneratorPanel() {
       compilationFilters,
       false,
       exportPersistContext,
+      requestRawRows,
     )
 
   const openExcelDialog = useCallback((

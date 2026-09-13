@@ -1,4 +1,5 @@
 import type { ExcelExportSettingsPatch } from '../excelExportSettings'
+import type { ArtistRawSourceSheet } from './rawSourceRows'
 import type {
   AppDefaults,
   CompilationFilter,
@@ -41,6 +42,7 @@ export async function generateZipOfAllStatements(
   emailConfig?: Partial<EmailConfig>,
   compilationFilters: CompilationFilter[] = [],
   excelSettings?: ExcelExportSettingsPatch,
+  getRawSheets?: (artist: string) => Promise<ArtistRawSourceSheet[]>,
 ): Promise<Blob> {
   const JSZip = (await import('jszip')).default
   const zip = new JSZip()
@@ -79,6 +81,7 @@ export async function generateZipOfAllStatements(
     }
 
     if (format === 'excel' || format === 'both') {
+      const rawSheets = getRawSheets ? await getRawSheets(artistData.artist) : []
       const excelBlob = await generateExcel(
         artistData,
         labelInfo,
@@ -86,6 +89,7 @@ export async function generateZipOfAllStatements(
         periodEnd,
         compilationFilters,
         excelSettings ?? pdfSettings,
+        rawSheets,
       )
       zip.file(`${safeArtistName}_statement.xlsx`, excelBlob)
     }

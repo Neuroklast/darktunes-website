@@ -13,6 +13,7 @@ import {
 import { createSafeFilename } from '@/lib/sos/utils'
 import { isValidArtistId, isValidPeriod } from '@/lib/sos/validation'
 import type { ExcelExportSettingsPatch } from '@/lib/sos/excelExportSettings'
+import type { ArtistRawSourceSheet } from '@/lib/sos/export/rawSourceRows'
 import { uploadStatement } from '../../app/portal/statements/_actions/uploadStatement'
 import {
   buildLineItemsFromArtistData,
@@ -109,6 +110,7 @@ export function useExports(
   compilationFilters: CompilationFilter[] = [],
   autoUploadToPortal = false,
   persistContext?: SosExportPersistContext,
+  requestRawRows?: (artist: string) => Promise<ArtistRawSourceSheet[]>,
 ) {
   const t = useMergedAccountingLabels(exportFallback)
 
@@ -238,13 +240,15 @@ export function useExports(
       }
 
       try {
+        const rawSheets = requestRawRows ? await requestRawRows(artist) : []
         const blob = await generateExcel(
           artistData,
           labelInfo,
           periodStart || undefined,
           periodEnd || undefined,
           compilationFilters,
-          excelSettings ?? pdfSettings
+          excelSettings ?? pdfSettings,
+          rawSheets,
         )
         downloadBlob(blob, `${createSafeFilename(artist)}_statement.xlsx`)
         toast.success(interpolate(t.exportExcelDownloaded, { artist }))
@@ -254,7 +258,7 @@ export function useExports(
         console.error('Excel export error:', err)
       }
     },
-    [processedData, labelInfo, periodStart, periodEnd, compilationFilters, pdfSettings, t]
+    [processedData, labelInfo, periodStart, periodEnd, compilationFilters, pdfSettings, requestRawRows, t]
   )
 
   /**
@@ -290,6 +294,7 @@ export function useExports(
         emailConfig,
         compilationFilters,
         excelSettings,
+        requestRawRows,
       )
       downloadBlob(blob, 'artist_statements.zip')
       toast.success(`All ${total} statements downloaded`, { id: toastId })
@@ -298,7 +303,7 @@ export function useExports(
       toast.error(t.exportZipFailed, { id: toastId, description: message })
       console.error('ZIP export error:', err)
     }
-  }, [processedData, labelInfo, periodStart, periodEnd, pdfSettings, emailOptions, labelArtists, appDefaults, emailConfig, compilationFilters, t])
+  }, [processedData, labelInfo, periodStart, periodEnd, pdfSettings, emailOptions, labelArtists, appDefaults, emailConfig, compilationFilters, requestRawRows, t])
 
   /**
    * Queued batch export for a specific subset of artists — same async queue
@@ -340,6 +345,7 @@ export function useExports(
         emailConfig,
         compilationFilters,
         excelSettings,
+        requestRawRows,
       )
       downloadBlob(blob, 'selected_artist_statements.zip')
       toast.success(`${total} selected statement${total !== 1 ? 's' : ''} downloaded`, { id: toastId })
@@ -348,7 +354,7 @@ export function useExports(
       toast.error(t.exportZipFailed, { id: toastId, description: message })
       console.error('ZIP export error:', err)
     }
-  }, [processedData, labelInfo, periodStart, periodEnd, pdfSettings, emailOptions, labelArtists, appDefaults, emailConfig, compilationFilters, t])
+  }, [processedData, labelInfo, periodStart, periodEnd, pdfSettings, emailOptions, labelArtists, appDefaults, emailConfig, compilationFilters, requestRawRows, t])
 
   const handlePublishToPortal = useCallback(
     async (artist: string) => {

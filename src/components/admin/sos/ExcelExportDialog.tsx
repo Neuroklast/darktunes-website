@@ -56,6 +56,9 @@ const EXCEL_DIALOG_FALLBACK = {
   excelSheetPlatforms: 'Platforms',
   excelSheetCountries: 'Countries',
   excelSheetMonthly: 'Monthly',
+  excelSheetRaw: 'Raw data',
+  excelSheetRawHint:
+    'Original Believe, Bandcamp, and Darkmerch rows for this artist. Believe margin columns are omitted.',
   excelHideCompilations: 'Hide compilations in the release sheet',
   excelColBelieveRevenue: 'Believe revenue',
   excelColBandcampRevenue: 'Bandcamp revenue',
@@ -120,6 +123,7 @@ const SHEET_LABEL_KEYS: Record<ExcelSheetId, keyof typeof EXCEL_DIALOG_FALLBACK>
   platforms: 'excelSheetPlatforms',
   countries: 'excelSheetCountries',
   monthly: 'excelSheetMonthly',
+  raw: 'excelSheetRaw',
 }
 
 export interface ExcelExportDialogProps {
@@ -279,6 +283,7 @@ export function ExcelExportDialog({
 
           {EXCEL_COLUMN_GROUPS.map((group) => {
             const enabledCount = group.columns.filter((column) => settings.columns[column]).length
+            const sheetOnly = group.columns.length === 0
             return (
               <section key={group.sheet} className="space-y-2 rounded-lg border border-border/60 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -289,44 +294,54 @@ export function ExcelExportDialog({
                     />
                     {t[SHEET_LABEL_KEYS[group.sheet]]}
                   </label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs"
-                      onClick={() => setGroup(group.sheet, true)}
-                    >
-                      {t.excelExportSelectAll}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs"
-                      onClick={() => setGroup(group.sheet, false)}
-                    >
-                      {t.excelExportSelectNone}
-                    </Button>
-                  </div>
+                  {!sheetOnly && (
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => setGroup(group.sheet, true)}
+                      >
+                        {t.excelExportSelectAll}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => setGroup(group.sheet, false)}
+                      >
+                        {t.excelExportSelectNone}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                <ul className="grid gap-1.5 sm:grid-cols-2">
-                  {group.columns.map((column) => (
-                    <li key={column}>
-                      <label className="flex items-center gap-2 text-sm">
-                        <Checkbox
-                          checked={settings.columns[column]}
-                          disabled={!settings.sheets[group.sheet]}
-                          onCheckedChange={(checked) => toggleColumn(column, checked === true)}
-                        />
-                        {t[COLUMN_LABEL_KEYS[column]]}
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-[11px] text-muted-foreground tabular-nums">
-                  {enabledCount}/{group.columns.length}
-                </p>
+                {sheetOnly ? (
+                  group.sheet === 'raw' ? (
+                    <p className="text-xs text-muted-foreground">{t.excelSheetRawHint}</p>
+                  ) : null
+                ) : (
+                  <>
+                    <ul className="grid gap-1.5 sm:grid-cols-2">
+                      {group.columns.map((column) => (
+                        <li key={column}>
+                          <label className="flex items-center gap-2 text-sm">
+                            <Checkbox
+                              checked={settings.columns[column]}
+                              disabled={!settings.sheets[group.sheet]}
+                              onCheckedChange={(checked) => toggleColumn(column, checked === true)}
+                            />
+                            {t[COLUMN_LABEL_KEYS[column]]}
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[11px] text-muted-foreground tabular-nums">
+                      {enabledCount}/{group.columns.length}
+                    </p>
+                  </>
+                )}
               </section>
             )
           })}

@@ -32,6 +32,7 @@ import type {
   IgnoredEntry,
   TrackRevenueAssignment,
 } from '@/lib/sos/types'
+import type { ArtistRawSourceSheet } from '@/lib/sos/export/rawSourceRows'
 import type { WorkerRequest, WorkerResponse, WorkerProcessConfig, WorkerResult } from '@/workers/sos-csv-processor.worker'
 
 interface CSVProcessorConfig {
@@ -118,6 +119,10 @@ export function useCSVProcessor(
   const latestConfigRef = useRef<WorkerProcessConfig | null>(null)
   /** The alias key that was in effect the last time files were synced with the worker. */
   const prevAliasKeyRef = useRef<string | undefined>(undefined)
+  /** In-flight `raw-rows` requests, keyed by requestId. */
+  const pendingRawRowsRef = useRef(
+    new Map<string, { resolve: (sheets: ArtistRawSourceSheet[]) => void }>(),
+  )
   /** Latest file arrays — updated every render so the file-sync effect reads current data. */
   const believeFilesRef = useRef(believeFiles)
   believeFilesRef.current = believeFiles
@@ -373,6 +378,15 @@ export function useCSVProcessor(
           setIsProcessing(false)
           break
         }
+
+        case 'raw-rows': {
+          const pending = pendingRawRowsRef.current.get(msg.requestId)
+          if (pending) {
+            pendingRawRowsRef.current.delete(msg.requestId)
+            pending.resolve(msg.sheets)
+          }
+          break
+        }
       }
     }
 
@@ -386,11 +400,14 @@ export function useCSVProcessor(
     }
 
     const knownFileIds = knownFileIdsRef.current
+    const pendingRawRows = pendingRawRowsRef.current
     return () => {
       worker.terminate()
       workerRef.current = null
       knownFileIds.clear()
       pendingParsesRef.current = 0
+      for (const pending of pendingRawRows.values()) pending.resolve([])
+      pendingRawRows.clear()
     }
   }, [])
 
@@ -515,6 +532,16 @@ export function useCSVProcessor(
 
   const exchangeRatesReady = Object.keys(exchangeRates).length > 0
 
+  const requestRawRows = useCallback((artist: string): Promise<ArtistRawSourceSheet[]> => {
+    const worker = workerRef.current
+    if (!worker) return Promise.resolve([])
+    const requestId = crypto.randomUUID()
+    return new Promise((resolve) => {
+      pendingRawRowsRef.current.set(requestId, { resolve })
+      worker.postMessage({ type: 'raw-rows', artist, requestId } satisfies WorkerRequest)
+    })
+  }, [])
+
   return {
     isProcessing,
     exchangeRatesLoading,
@@ -536,6 +563,7 @@ export function useCSVProcessor(
     releaseTitlesByArtistIncFeaturing: workerResult.releaseTitlesByArtistIncFeaturing,
     territoryMetrics: workerResult.territoryMetrics,
     merchOrderRows: workerResult.merchOrderRows,
+    requestRawRows,
   }
 }
 

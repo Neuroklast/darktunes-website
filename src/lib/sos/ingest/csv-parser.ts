@@ -25,6 +25,15 @@ export interface SalesTransaction {
    * Only meaningful when `is_physical` is `false`.
    */
   is_download?: boolean
+  /**
+   * Worker-only original CSV identity. Shared across track-assignment clones
+   * so the Excel Raw sheet can print the distributor line once.
+   */
+  source_row_id?: string
+  /** Worker-only original header row for this file. */
+  source_headers?: string[]
+  /** Worker-only original cell strings, aligned to `source_headers`. */
+  source_values?: string[]
 }
 
 export interface ParsedCSVData {

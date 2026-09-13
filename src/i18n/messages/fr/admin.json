@@ -157,6 +157,8 @@
     "excelSheetPlatforms": "Plateformes",
     "excelSheetCountries": "Pays",
     "excelSheetMonthly": "Mensuel",
+    "excelSheetRaw": "Données brutes",
+    "excelSheetRawHint": "Lignes Believe, Bandcamp et Darkmerch originales de cet artiste. Les colonnes de marge Believe sont omises.",
     "excelHideCompilations": "Masquer les compilations dans la feuille des sorties",
     "excelColBelieveRevenue": "Revenu Believe",
     "excelColBandcampRevenue": "Revenu Bandcamp",

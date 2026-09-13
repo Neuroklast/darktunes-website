@@ -204,8 +204,10 @@ function processChunk(
       // Bandcamp CSVs have no dedicated platform column; default to "Bandcamp".
       const platform = (mappedData.platform ?? '').trim() || (source === 'bandcamp' ? 'Bandcamp' : '')
 
+      const sourceId = `${parseTag}-${startIndex + i}`
+      const sourceValues = headers.map((_, col) => values[col] ?? '')
       transactions.push({
-        id: `${parseTag}-${startIndex + i}`,
+        id: sourceId,
         source,
         sales_month: salesMonth,
         platform,
@@ -222,6 +224,9 @@ function processChunk(
         currency,
         is_physical: isPhysical,
         ...(isDownload !== undefined ? { is_download: isDownload } : {}),
+        source_row_id: sourceId,
+        source_headers: headers,
+        source_values: sourceValues,
       })
     } catch (err) {
       errors.push({

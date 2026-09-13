@@ -4,6 +4,7 @@ export const EXCEL_SHEET_IDS = [
   'platforms',
   'countries',
   'monthly',
+  'raw',
 ] as const
 
 export type ExcelSheetId = (typeof EXCEL_SHEET_IDS)[number]
@@ -68,6 +69,7 @@ export const DEFAULT_EXCEL_EXPORT_SETTINGS: ExcelExportSettings = {
     platforms: true,
     countries: true,
     monthly: true,
+    raw: true,
   },
   columns: Object.fromEntries(EXCEL_COLUMN_IDS.map((id) => [id, true])) as Record<
     ExcelColumnId,
@@ -127,6 +129,10 @@ export const EXCEL_COLUMN_GROUPS: Array<{
   {
     sheet: 'monthly',
     columns: ['monthly.month', 'monthly.revenue'],
+  },
+  {
+    sheet: 'raw',
+    columns: [],
   },
 ]
 
@@ -202,6 +208,7 @@ export function isExcelSheetEnabled(
   if (!settings.sheets[sheet]) return false
   const group = EXCEL_COLUMN_GROUPS.find((item) => item.sheet === sheet)
   if (!group) return false
+  if (group.columns.length === 0) return true
   return group.columns.some((column) => settings.columns[column])
 }
 
