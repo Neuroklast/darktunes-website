@@ -1,5 +1,4 @@
 import type { ExcelExportSettingsPatch } from '../excelExportSettings'
-import type { ArtistRawSourceSheet } from './rawSourceRows'
 import type {
   AppDefaults,
   CompilationFilter,
@@ -42,7 +41,10 @@ export async function generateZipOfAllStatements(
   emailConfig?: Partial<EmailConfig>,
   compilationFilters: CompilationFilter[] = [],
   excelSettings?: ExcelExportSettingsPatch,
-  getRawSheets?: (artist: string) => Promise<ArtistRawSourceSheet[]>,
+  buildExcelBlob?: (
+    artist: string,
+    artistData: SafeProcessedArtistData,
+  ) => Promise<Blob | null | undefined>,
 ): Promise<Blob> {
   const JSZip = (await import('jszip')).default
   const zip = new JSZip()
@@ -81,17 +83,28 @@ export async function generateZipOfAllStatements(
     }
 
     if (format === 'excel' || format === 'both') {
-      const rawSheets = getRawSheets ? await getRawSheets(artistData.artist) : []
-      const excelBlob = await generateExcel(
-        artistData,
-        labelInfo,
-        periodStart,
-        periodEnd,
-        compilationFilters,
-        excelSettings ?? pdfSettings,
-        rawSheets,
-      )
-      zip.file(`${safeArtistName}_statement.xlsx`, excelBlob)
+      if (buildExcelBlob) {
+        const workerBlob = await buildExcelBlob(artistData.artist, artistData)
+        if (workerBlob) {
+          zip.file(`${safeArtistName}_statement.xlsx`, workerBlob)
+        } else {
+          zip.file(
+            `${safeArtistName}_EXCEL_NOT_INCLUDED.txt`,
+            'Original-report Excel could not be generated. No spreadsheet was added, so an incomplete statement cannot be sent by mistake.',
+          )
+        }
+      } else {
+        const excelBlob = await generateExcel(
+          artistData,
+          labelInfo,
+          periodStart,
+          periodEnd,
+          compilationFilters,
+          excelSettings ?? pdfSettings,
+          [],
+        )
+        zip.file(`${safeArtistName}_statement_summary-only.xlsx`, excelBlob)
+      }
     }
 
     if (artistInfo?.email && labelInfo.emailTemplate && pdfBlob && appDefaults && emailConfig) {

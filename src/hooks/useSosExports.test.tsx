@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateExcel } from '@/lib/sos/export-utils'
+import { normalizeExcelExportSettings } from '@/lib/sos/excelExportSettings'
 import { useExports } from './useSosExports'
 import type { LabelArtist, LabelInfo, SafeProcessedArtistData } from '@/lib/sos/types'
 
@@ -32,6 +33,7 @@ vi.mock('sonner', () => ({
     error: mockToastError,
     loading: vi.fn(),
     info: vi.fn(),
+    warning: vi.fn(),
   },
 }))
 
@@ -242,12 +244,10 @@ describe('useSosExports.handleDownloadExcel', () => {
     vi.clearAllMocks()
   })
 
-  it('passes artist raw sheets into Excel generation', async () => {
+  it('downloads the worker-built workbook when Raw is on', async () => {
     const mockGenerateExcel = vi.mocked(generateExcel)
-    mockGenerateExcel.mockResolvedValue(new Blob(['xlsx']))
-    const requestRawRows = vi.fn().mockResolvedValue([
-      { source: 'believe', sheetName: 'Believe', headers: ['Net Revenue'], rows: [['1']] },
-    ])
+    const workerBlob = new Blob(['worker-xlsx'])
+    const requestExcelBlob = vi.fn().mockResolvedValue(workerBlob)
 
     const { result } = renderHook(() =>
       useExports(
@@ -262,7 +262,7 @@ describe('useSosExports.handleDownloadExcel', () => {
         [],
         false,
         undefined,
-        requestRawRows,
+        requestExcelBlob,
       ),
     )
 
@@ -270,16 +270,82 @@ describe('useSosExports.handleDownloadExcel', () => {
       await result.current.handleDownloadExcel('Artist One')
     })
 
-    expect(requestRawRows).toHaveBeenCalledWith('Artist One')
-    expect(mockGenerateExcel).toHaveBeenCalledWith(
+    expect(requestExcelBlob).toHaveBeenCalledWith(
       expect.objectContaining({ artist: 'Artist One' }),
-      labelInfo,
-      '2026-03',
-      '2026-03',
-      [],
-      {},
-      [{ source: 'believe', sheetName: 'Believe', headers: ['Net Revenue'], rows: [['1']] }],
     )
-    expect(mockDownloadBlob).toHaveBeenCalledOnce()
+    expect(mockGenerateExcel).not.toHaveBeenCalled()
+    expect(mockDownloadBlob).toHaveBeenCalledWith(
+      workerBlob,
+      expect.stringMatching(/Artist_One_statement\.xlsx$/),
+    )
+  })
+
+  it('does not ask the worker when the Raw sheet is off', async () => {
+    const mockGenerateExcel = vi.mocked(generateExcel)
+    mockGenerateExcel.mockResolvedValue(new Blob(['xlsx']))
+    const requestExcelBlob = vi.fn().mockResolvedValue(new Blob(['worker']))
+
+    const { result } = renderHook(() =>
+      useExports(
+        [makeProcessedArtist('Artist One')],
+        labelInfo,
+        '2026-03',
+        '2026-03',
+        {},
+        {},
+        [],
+        {},
+        [],
+        false,
+        undefined,
+        requestExcelBlob,
+      ),
+    )
+
+    await act(async () => {
+      await result.current.handleDownloadExcel(
+        'Artist One',
+        normalizeExcelExportSettings({ sheets: { raw: false } }),
+      )
+    })
+
+    expect(requestExcelBlob).not.toHaveBeenCalled()
+    expect(mockGenerateExcel).toHaveBeenCalled()
+    expect(mockDownloadBlob).toHaveBeenCalledWith(
+      expect.any(Blob),
+      expect.stringMatching(/summary-only\.xlsx$/),
+    )
+  })
+
+  it('does not download a file when original-report tabs cannot be built', async () => {
+    const mockGenerateExcel = vi.mocked(generateExcel)
+    mockGenerateExcel.mockResolvedValue(new Blob(['xlsx']))
+    const requestExcelBlob = vi.fn().mockResolvedValue(null)
+
+    const { result } = renderHook(() =>
+      useExports(
+        [makeProcessedArtist('Artist One')],
+        labelInfo,
+        '2026-03',
+        '2026-03',
+        {},
+        {},
+        [],
+        {},
+        [],
+        false,
+        undefined,
+        requestExcelBlob,
+      ),
+    )
+
+    await act(async () => {
+      await result.current.handleDownloadExcel('Artist One')
+    })
+
+    expect(requestExcelBlob).toHaveBeenCalled()
+    expect(mockGenerateExcel).not.toHaveBeenCalled()
+    expect(mockDownloadBlob).not.toHaveBeenCalled()
+    expect(mockToastError).toHaveBeenCalled()
   })
 })

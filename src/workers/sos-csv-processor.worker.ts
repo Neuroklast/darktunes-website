@@ -13,6 +13,8 @@
  *   process      Reconcile e-commerce buffers, run processTransactionsWithCompilations
  *                + buildArtistTree + buildArtistCollabTree on all transactions,
  *                then post the aggregated result WITHOUT any raw transaction arrays.
+ *   build-excel  Build one artist xlsx in the worker (raw sheets stay here; only
+ *                the ArrayBuffer is transferred back). For huge Believe files.
  *   reset        Clear all stored data (e.g. when column aliases change).
  *
  * E-Commerce staging (Schritt 2)
@@ -46,16 +48,22 @@ import {
 } from '../lib/sos/data-processor'
 import type { TerritoryMetricRow } from '../lib/sos/data-processor'
 import { buildMerchOrderRows, type MerchOrderRow } from '../lib/sos/merchOrderRows'
+import { buildArtistRawSheets, missingOriginalReportSources } from '../lib/sos/export/rawSourceRows'
 import {
-  buildArtistRawSheets,
-  lookupArtistRawSheets,
-  type ArtistRawSourceSheet,
-} from '../lib/sos/export/rawSourceRows'
+  isExcelSheetEnabled,
+  normalizeExcelExportSettings,
+  type ExcelExportSettingsPatch,
+} from '../lib/sos/excelExportSettings'
+import { generateExcel } from '../lib/sos/export/excelStatement'
+import { normalizeArtistNameKey } from '../lib/sos/artistNameKey'
+import type { ProcessedArtistData } from '../lib/sos/data-processor'
 import { buildArtistCollabTree } from '../lib/sos/grouping'
 import type { SalesTransaction } from '../lib/sos/ingest/csv-parser'
 import { extractFeaturedArtistsDetailed } from '../lib/sos/ingest/csv-parser'
 import type {
   SafeProcessedArtistData,
+  LabelInfo,
+  PdfExportSettings,
   ArtistTreeNode,
   ArtistCollabNode,
   FilteredCompilation,
@@ -153,22 +161,35 @@ export type WorkerRequest =
   | { type: 'remove-file'; fileId: string }
   | { type: 'process'; config: WorkerProcessConfig }
   | { type: 'reset' }
-  | { type: 'raw-rows'; artist: string; requestId: string }
+  | {
+      type: 'build-excel'
+      requestId: string
+      artist: string
+      artistData: SafeProcessedArtistData
+      labelInfo: LabelInfo
+      periodStart?: string
+      periodEnd?: string
+      compilationFilters: CompilationFilter[]
+      settings?: ExcelExportSettingsPatch | Partial<PdfExportSettings>
+    }
+
+export type SosExcelBuildArgs = Omit<Extract<WorkerRequest, { type: 'build-excel' }>, 'type' | 'requestId'>
 
 export type WorkerResponse =
   | { type: 'parse-progress'; fileId: string; percentage: number }
   | { type: 'parse-done'; fileId: string; rowsParsed: number; rowsSkipped: number; uniqueArtistsCount: number }
   | { type: 'result'; data: WorkerResult }
   | { type: 'error'; message: string; fileId?: string }
-  | { type: 'raw-rows'; artist: string; requestId: string; sheets: ArtistRawSourceSheet[] }
+  | { type: 'excel-done'; requestId: string; buffer: ArrayBuffer }
+  | { type: 'excel-error'; requestId: string; message: string }
 
 // ── Internal worker state ──────────────────────────────────────────────────────
 
 /** Parsed transactions for believe / bandcamp files, keyed by file ID. */
 const fileTransactions = new Map<string, SalesTransaction[]>()
 
-/** Artist-keyed original report sheets from the last successful `process`. */
-let lastArtistRawSheets = new Map<string, ArtistRawSourceSheet[]>()
+/** Last process result including transactions — worker-only, never posted. */
+let lastProcessedArtistData: ProcessedArtistData[] = []
 
 /**
  * Raw Shopify order groups, keyed by file ID.
@@ -184,8 +205,8 @@ const printfulRawCostsMap = new Map<string, PrintfulRawCost[]>()
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function post(msg: WorkerResponse): void {
-  self.postMessage(msg)
+function post(msg: WorkerResponse, transfer: Transferable[] = []): void {
+  ;(self as unknown as Worker).postMessage(msg, transfer)
 }
 
 /**
@@ -257,7 +278,7 @@ function runProcess(config: WorkerProcessConfig): void {
     const allTransactions = getAllTransactions()
 
     if (allTransactions.length === 0) {
-      lastArtistRawSheets = new Map()
+      lastProcessedArtistData = []
       post({
         type: 'result',
         data: {
@@ -322,7 +343,7 @@ function runProcess(config: WorkerProcessConfig): void {
 
     const uniqueArtists = artistData.map(d => d.artist).sort()
 
-    lastArtistRawSheets = buildArtistRawSheets(artistData)
+    lastProcessedArtistData = artistData
 
     // Strip raw transactions (which must never reach the main thread) by
     // destructuring them out and spreading the remaining safe fields.
@@ -458,17 +479,53 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
       fileTransactions.clear()
       shopifyRawOrdersMap.clear()
       printfulRawCostsMap.clear()
-      lastArtistRawSheets = new Map()
+      lastProcessedArtistData = []
       break
     }
 
-    case 'raw-rows': {
-      post({
-        type: 'raw-rows',
-        artist: msg.artist,
-        requestId: msg.requestId,
-        sheets: lookupArtistRawSheets(lastArtistRawSheets, msg.artist),
-      })
+    case 'build-excel': {
+      try {
+        const match = lastProcessedArtistData.find(
+          (row) => normalizeArtistNameKey(row.artist) === normalizeArtistNameKey(msg.artist),
+        )
+        const sheets = match
+          ? (buildArtistRawSheets([match]).get(normalizeArtistNameKey(match.artist)) ?? [])
+          : []
+        const excelSettings = normalizeExcelExportSettings(
+          msg.settings && ('sheets' in msg.settings || 'columns' in msg.settings)
+            ? msg.settings
+            : {},
+        )
+        if (isExcelSheetEnabled(excelSettings, 'raw')) {
+          const missing = missingOriginalReportSources(msg.artistData, sheets)
+          if (missing.length > 0) {
+            post({
+              type: 'excel-error',
+              requestId: msg.requestId,
+              message: `Missing original-report tabs: ${missing.join(', ')}`,
+            })
+            break
+          }
+        }
+        const blob = await generateExcel(
+          msg.artistData,
+          msg.labelInfo,
+          msg.periodStart,
+          msg.periodEnd,
+          msg.compilationFilters,
+          msg.settings,
+          sheets,
+        )
+        const buffer = await blob.arrayBuffer()
+        post({ type: 'excel-done', requestId: msg.requestId, buffer }, [buffer])
+      } catch (err) {
+        console.error('[sos-worker] build-excel failed:', err)
+        post({
+          type: 'excel-error',
+          requestId: msg.requestId,
+          message: err instanceof Error ? err.message : 'Excel generation failed',
+        })
+      }
       break
     }
   }

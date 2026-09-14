@@ -58,7 +58,7 @@ const EXCEL_DIALOG_FALLBACK = {
   excelSheetMonthly: 'Monthly',
   excelSheetRaw: 'Raw data',
   excelSheetRawHint:
-    'Original Believe, Bandcamp, and Darkmerch rows for this artist. Believe margin columns are omitted.',
+    'Required for a complete statement: original Believe, Bandcamp, and Darkmerch rows for this artist only. Believe commission columns are omitted. Turning this off downloads a summary-only file.',
   excelHideCompilations: 'Hide compilations in the release sheet',
   excelColBelieveRevenue: 'Believe revenue',
   excelColBandcampRevenue: 'Bandcamp revenue',

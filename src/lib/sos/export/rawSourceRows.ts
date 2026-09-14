@@ -1,7 +1,22 @@
 import { normalizeArtistNameKey } from '../artistNameKey'
 import type { SalesTransaction } from '../ingest/csv-parser'
 
-/** Official Believe headers that reveal distributor commission. Strip only on Believe. */
+/**
+ * Believe headers that reveal distributor commission / deal terms.
+ * Matched after normalizeHeader; never strip Net Revenue.
+ */
+export const BELIEVE_RAW_DENIED_HEADER_PATTERNS: readonly RegExp[] = [
+  /gross\s*rev/,
+  /bruttoumsatz/,
+  /client\s*share/,
+  /kundenanteil/,
+  /kundenquote/,
+  /believe\s*(share|commission|margin|fee)/,
+  /distributor\s*(share|commission|margin)/,
+  /^(commission|margin)$/,
+]
+
+/** @deprecated Use BELIEVE_RAW_DENIED_HEADER_PATTERNS. Kept for existing tests. */
 export const BELIEVE_RAW_DENIED_HEADERS = [
   'gross revenue',
   'client share rate',
@@ -25,12 +40,45 @@ export interface ArtistRawSourceSheet {
 }
 
 function normalizeHeader(header: string): string {
-  return header.trim().toLowerCase().replace(/\s+/g, ' ')
+  return header
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .replace(/^["']+|["']+$/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
 }
 
 function isDeniedBelieveHeader(header: string): boolean {
   const key = normalizeHeader(header)
-  return (BELIEVE_RAW_DENIED_HEADERS as readonly string[]).includes(key)
+  if (!key || key.includes('net rev') || key === 'netto' || key.includes('net revenue')) {
+    return false
+  }
+  return BELIEVE_RAW_DENIED_HEADER_PATTERNS.some((pattern) => pattern.test(key))
+}
+
+/** Excel forbids \ / ? * [ ] and caps names at 31 characters. */
+export function excelSafeSheetName(name: string): string {
+  const cleaned = name.replace(/[\\/?*[\]:]/g, ' ').replace(/\s+/g, ' ').trim()
+  return (cleaned || 'Raw').slice(0, 31)
+}
+
+export function missingOriginalReportSources(
+  artistData: {
+    believeRevenue: number
+    bandcampRevenue: number
+    darkmerchRevenue: number
+  },
+  sheets: ArtistRawSourceSheet[],
+): RawExportSource[] {
+  const have = new Set(
+    sheets.filter((sheet) => sheet.rows.length > 0).map((sheet) => sheet.source),
+  )
+  const missing: RawExportSource[] = []
+  if (artistData.believeRevenue > 0 && !have.has('believe')) missing.push('believe')
+  if (artistData.bandcampRevenue > 0 && !have.has('bandcamp')) missing.push('bandcamp')
+  if (artistData.darkmerchRevenue > 0 && !have.has('darkmerch')) missing.push('darkmerch')
+  return missing
 }
 
 export function stripDeniedSourceColumns(
@@ -101,7 +149,7 @@ function buildSheetForSource(
 
   return {
     source,
-    sheetName: RAW_SOURCE_SHEET_NAMES[source],
+    sheetName: excelSafeSheetName(RAW_SOURCE_SHEET_NAMES[source]),
     headers: stripped.headers,
     rows: stripped.rows,
   }

@@ -104,7 +104,7 @@
 
 - [ ] Excel export dialog: uncheck a release column → downloaded workbook omits it; Artist/Period/Final Payout remain
 - [ ] Save Excel preset → reopen dialog → preset still selected and columns match (workspace / rules preset)
-- [ ] Excel raw sheets (default on): download one artist → `Believe` / `Bandcamp` / `Darkmerch` tabs for uploaded sources; only that band; Believe has Net Revenue and no Gross revenue / Client share; Bandcamp/Darkmerch keep all original columns; auto-filter on. Toggle Raw data off → those sheets omitted. ZIP: each xlsx is that artist only.
+- [ ] Excel raw sheets (default on): download one artist → `Believe` / `Bandcamp` / `Darkmerch` tabs for uploaded sources; only that band; Believe has Net Revenue and no Gross revenue / Client share; Bandcamp/Darkmerch keep all original columns; auto-filter on. Toggle Raw data off → filename `*_summary-only.xlsx`. If original tabs cannot be built, no xlsx downloads (error toast). ZIP: each xlsx is that artist only; failed Excel becomes `_EXCEL_NOT_INCLUDED.txt`.
 
 ## Accounting wizard (DAU path)
 - [ ] `/admin/accounting` Statement History tab and `/admin/statements` render without `Something went wrong`

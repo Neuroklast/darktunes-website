@@ -12,8 +12,12 @@ import {
 } from '@/lib/sos/export-utils'
 import { createSafeFilename } from '@/lib/sos/utils'
 import { isValidArtistId, isValidPeriod } from '@/lib/sos/validation'
-import type { ExcelExportSettingsPatch } from '@/lib/sos/excelExportSettings'
-import type { ArtistRawSourceSheet } from '@/lib/sos/export/rawSourceRows'
+import {
+  DEFAULT_EXCEL_EXPORT_SETTINGS,
+  normalizeExcelExportSettings,
+  type ExcelExportSettingsPatch,
+} from '@/lib/sos/excelExportSettings'
+import type { SosExcelBuildArgs } from '@/workers/sos-csv-processor.worker'
 import { uploadStatement } from '../../app/portal/statements/_actions/uploadStatement'
 import {
   buildLineItemsFromArtistData,
@@ -48,6 +52,13 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(Array.from(bytes, (b) => String.fromCharCode(b)).join(''))
 }
 
+function wantsRawExcelSheet(settings?: ExcelExportSettingsPatch): boolean {
+  if (!settings || (!('sheets' in settings) && !('columns' in settings))) {
+    return DEFAULT_EXCEL_EXPORT_SETTINGS.sheets.raw
+  }
+  return normalizeExcelExportSettings(settings).sheets.raw
+}
+
 function resolveBronzeBatchLineage(bronzeBatchIds: string[] | undefined) {
   const batchIds = bronzeBatchIds ?? []
   return {
@@ -63,6 +74,11 @@ const exportFallback = {
   exportPdfFailed: 'PDF export failed',
   exportExcelDownloaded: 'Excel for "{artist}" downloaded',
   exportExcelFailed: 'Excel export failed',
+  exportExcelPreparing: 'Preparing Excel for "{artist}"…',
+  exportExcelRawSkipped:
+    'Original-report tabs were skipped. Summary sheets are in the file.',
+  exportExcelRawRequired:
+    'Original distributor tabs could not be attached. The file was not downloaded so an incomplete statement cannot be sent by mistake. Retry, or turn off Raw data for a summary-only file.',
   exportZipDownloaded: 'ZIP with {count} statements downloaded',
   exportZipFailed: 'ZIP export failed',
   exportPortalDraftSaved:
@@ -110,7 +126,7 @@ export function useExports(
   compilationFilters: CompilationFilter[] = [],
   autoUploadToPortal = false,
   persistContext?: SosExportPersistContext,
-  requestRawRows?: (artist: string) => Promise<ArtistRawSourceSheet[]>,
+  requestExcelBlob?: (args: SosExcelBuildArgs) => Promise<Blob | null>,
 ) {
   const t = useMergedAccountingLabels(exportFallback)
 
@@ -239,26 +255,48 @@ export function useExports(
         return
       }
 
+      const toastId = toast.loading(interpolate(t.exportExcelPreparing, { artist }))
       try {
-        const rawSheets = requestRawRows ? await requestRawRows(artist) : []
-        const blob = await generateExcel(
-          artistData,
-          labelInfo,
-          periodStart || undefined,
-          periodEnd || undefined,
-          compilationFilters,
-          excelSettings ?? pdfSettings,
-          rawSheets,
-        )
-        downloadBlob(blob, `${createSafeFilename(artist)}_statement.xlsx`)
-        toast.success(interpolate(t.exportExcelDownloaded, { artist }))
+        const wantRaw = wantsRawExcelSheet(excelSettings)
+        let blob: Blob | null = null
+        if (wantRaw && requestExcelBlob) {
+          blob = await requestExcelBlob({
+            artist,
+            artistData,
+            labelInfo,
+            periodStart: periodStart || undefined,
+            periodEnd: periodEnd || undefined,
+            compilationFilters,
+            settings: excelSettings ?? pdfSettings,
+          })
+          if (!blob) {
+            toast.error(t.exportExcelRawRequired, { id: toastId })
+            return
+          }
+        }
+        if (!blob) {
+          blob = await generateExcel(
+            artistData,
+            labelInfo,
+            periodStart || undefined,
+            periodEnd || undefined,
+            compilationFilters,
+            excelSettings ?? pdfSettings,
+            [],
+          )
+        }
+        const filename = wantRaw
+          ? `${createSafeFilename(artist)}_statement.xlsx`
+          : `${createSafeFilename(artist)}_statement_summary-only.xlsx`
+        downloadBlob(blob, filename)
+        toast.success(interpolate(t.exportExcelDownloaded, { artist }), { id: toastId })
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error'
-        toast.error(t.exportExcelFailed, { description: message })
+        toast.error(t.exportExcelFailed, { id: toastId, description: message })
         console.error('Excel export error:', err)
       }
     },
-    [processedData, labelInfo, periodStart, periodEnd, compilationFilters, pdfSettings, requestRawRows, t]
+    [processedData, labelInfo, periodStart, periodEnd, compilationFilters, pdfSettings, requestExcelBlob, t]
   )
 
   /**
@@ -294,7 +332,18 @@ export function useExports(
         emailConfig,
         compilationFilters,
         excelSettings,
-        requestRawRows,
+        wantsRawExcelSheet(excelSettings)
+          ? (name, data) =>
+              requestExcelBlob?.({
+                artist: name,
+                artistData: data,
+                labelInfo,
+                periodStart: periodStart || undefined,
+                periodEnd: periodEnd || undefined,
+                compilationFilters,
+                settings: excelSettings ?? pdfSettings,
+              }) ?? Promise.resolve(null)
+          : undefined,
       )
       downloadBlob(blob, 'artist_statements.zip')
       toast.success(`All ${total} statements downloaded`, { id: toastId })
@@ -303,7 +352,7 @@ export function useExports(
       toast.error(t.exportZipFailed, { id: toastId, description: message })
       console.error('ZIP export error:', err)
     }
-  }, [processedData, labelInfo, periodStart, periodEnd, pdfSettings, emailOptions, labelArtists, appDefaults, emailConfig, compilationFilters, requestRawRows, t])
+  }, [processedData, labelInfo, periodStart, periodEnd, pdfSettings, emailOptions, labelArtists, appDefaults, emailConfig, compilationFilters, requestExcelBlob, t])
 
   /**
    * Queued batch export for a specific subset of artists — same async queue
@@ -345,7 +394,18 @@ export function useExports(
         emailConfig,
         compilationFilters,
         excelSettings,
-        requestRawRows,
+        wantsRawExcelSheet(excelSettings)
+          ? (name, data) =>
+              requestExcelBlob?.({
+                artist: name,
+                artistData: data,
+                labelInfo,
+                periodStart: periodStart || undefined,
+                periodEnd: periodEnd || undefined,
+                compilationFilters,
+                settings: excelSettings ?? pdfSettings,
+              }) ?? Promise.resolve(null)
+          : undefined,
       )
       downloadBlob(blob, 'selected_artist_statements.zip')
       toast.success(`${total} selected statement${total !== 1 ? 's' : ''} downloaded`, { id: toastId })
@@ -354,7 +414,7 @@ export function useExports(
       toast.error(t.exportZipFailed, { id: toastId, description: message })
       console.error('ZIP export error:', err)
     }
-  }, [processedData, labelInfo, periodStart, periodEnd, pdfSettings, emailOptions, labelArtists, appDefaults, emailConfig, compilationFilters, requestRawRows, t])
+  }, [processedData, labelInfo, periodStart, periodEnd, pdfSettings, emailOptions, labelArtists, appDefaults, emailConfig, compilationFilters, requestExcelBlob, t])
 
   const handlePublishToPortal = useCallback(
     async (artist: string) => {

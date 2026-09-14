@@ -246,7 +246,7 @@ describe('useCSVProcessor', () => {
     expect(result.current.revenues[0]?.finalAmount).toBe(6)
   })
 
-  it('requestRawRows resolves the worker’s artist-scoped Believe sheet', async () => {
+  it('requestExcelBlob resolves a transferred workbook buffer', async () => {
     const { result } = renderHook(() => useCSVProcessor([], [], makeConfig()))
 
     await waitFor(() => {
@@ -254,37 +254,62 @@ describe('useCSVProcessor', () => {
     })
 
     const worker = workerInstances[0]
-    let sheetsPromise: Promise<unknown> | undefined
+    const artistData = { artist: 'Reaper' } as never
+    let blobPromise: Promise<Blob | null> | undefined
     await act(async () => {
-      sheetsPromise = result.current.requestRawRows('Reaper')
+      blobPromise = result.current.requestExcelBlob({
+        artist: 'Reaper',
+        artistData,
+        labelInfo: { name: 'darkTunes', address: '' },
+        compilationFilters: [],
+      })
     })
 
     const posted = worker?.postMessage.mock.calls.find(
-      (c) => (c[0] as { type?: string })?.type === 'raw-rows',
+      (c) => (c[0] as { type?: string })?.type === 'build-excel',
     )?.[0] as { type: string; artist: string; requestId: string } | undefined
     expect(posted?.artist).toBe('Reaper')
     expect(posted?.requestId).toBeTruthy()
 
-    const rawSheet = {
-      source: 'believe' as const,
-      sheetName: 'Believe',
-      headers: ['Artist Name', 'Net Revenue'],
-      rows: [['Reaper', '0.85']],
-    }
-
-    let sheets: unknown
+    let blob: Blob | null | undefined
     await act(async () => {
       worker?.onmessage?.({
         data: {
-          type: 'raw-rows',
-          artist: 'Reaper',
+          type: 'excel-done',
           requestId: posted?.requestId,
-          sheets: [rawSheet],
+          buffer: new Uint8Array([1, 2, 3]).buffer,
         },
       } as MessageEvent)
-      sheets = await sheetsPromise
+      blob = await blobPromise
     })
 
-    expect(sheets).toEqual([rawSheet])
+    expect(blob).toBeInstanceOf(Blob)
+    expect((blob as Blob).size).toBe(3)
+  })
+
+  it('requestExcelBlob returns null when AbortSignal times out', async () => {
+    const { result } = renderHook(() => useCSVProcessor([], [], makeConfig()))
+
+    await waitFor(() => {
+      expect(workerInstances).toHaveLength(1)
+    })
+
+    const controller = new AbortController()
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal)
+
+    let blob: Blob | null | undefined
+    await act(async () => {
+      const pending = result.current.requestExcelBlob({
+        artist: 'Reaper',
+        artistData: { artist: 'Reaper' } as never,
+        labelInfo: { name: 'darkTunes', address: '' },
+        compilationFilters: [],
+      })
+      controller.abort()
+      blob = await pending
+    })
+
+    expect(blob).toBeNull()
+    vi.mocked(AbortSignal.timeout).mockRestore()
   })
 })

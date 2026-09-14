@@ -102,6 +102,7 @@ describe('generateExcel column filters', () => {
     expect(labels).toContain('Period Payout')
     expect(labels).toContain('Opening Balance')
     expect(labels).toContain('Amount Due')
+    expect(labels).toContain('Original reports')
     expect(labels).not.toContain('Believe Revenue')
     expect(labels).not.toContain('Bandcamp Revenue')
   })

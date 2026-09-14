@@ -13,7 +13,7 @@ import {
   type ExcelExportSettings,
   type ExcelExportSettingsPatch,
 } from '../excelExportSettings'
-import type { ArtistRawSourceSheet } from './rawSourceRows'
+import { excelSafeSheetName, type ArtistRawSourceSheet } from './rawSourceRows'
 import { DEFAULT_PDF_SETTINGS, isCompilationRelease } from './shared'
 
 type ExcelGenerateSettings = ExcelExportSettingsPatch | Partial<PdfExportSettings>
@@ -193,6 +193,16 @@ async function buildExcel(
     summaryData.push(['Period Payout', artistData.finalPayout])
     summaryData.push(['Opening Balance', artistData.openingBalanceEur ?? 0])
     summaryData.push(['Amount Due', artistData.amountDueEur ?? artistData.finalPayout])
+    if (isExcelSheetEnabled(excelSettings, 'raw')) {
+      summaryData.push([])
+      summaryData.push(['Original reports'])
+      summaryData.push([
+        'Believe, Bandcamp and Darkmerch tabs list unaggregated distributor line items for this artist only.',
+      ])
+      summaryData.push([
+        'Believe distributor commission / client-share columns are omitted. Net Revenue is the amount received by the label.',
+      ])
+    }
 
     const summarySheet = workbook.addWorksheet('Summary')
     summarySheet.columns = [{ width: 38 }, { width: 25 }]
@@ -267,15 +277,13 @@ async function buildExcel(
   if (isExcelSheetEnabled(excelSettings, 'raw')) {
     for (const sourceSheet of rawSheets) {
       if (sourceSheet.headers.length === 0) continue
-      const worksheet = workbook.addWorksheet(sourceSheet.sheetName)
+      const worksheet = workbook.addWorksheet(excelSafeSheetName(sourceSheet.sheetName))
       worksheet.columns = sourceSheet.headers.map((header) => ({
         width: Math.min(36, Math.max(14, header.length + 4)),
       }))
       worksheet.addRow(sourceSheet.headers)
       worksheet.getRow(1).font = { bold: true }
-      for (const row of sourceSheet.rows) {
-        worksheet.addRow(row)
-      }
+      worksheet.addRows(sourceSheet.rows)
       worksheet.views = [{ state: 'frozen', ySplit: 1 }]
       worksheet.autoFilter = {
         from: { row: 1, column: 1 },

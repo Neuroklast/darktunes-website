@@ -32,8 +32,16 @@ import type {
   IgnoredEntry,
   TrackRevenueAssignment,
 } from '@/lib/sos/types'
-import type { ArtistRawSourceSheet } from '@/lib/sos/export/rawSourceRows'
-import type { WorkerRequest, WorkerResponse, WorkerProcessConfig, WorkerResult } from '@/workers/sos-csv-processor.worker'
+import type {
+  SosExcelBuildArgs,
+  WorkerRequest,
+  WorkerResponse,
+  WorkerProcessConfig,
+  WorkerResult,
+} from '@/workers/sos-csv-processor.worker'
+
+/** Huge Believe workbooks can take minutes in the worker; 15s would skip them. */
+export const SOS_EXCEL_WORKER_TIMEOUT_MS = 5 * 60 * 1000
 
 interface CSVProcessorConfig {
   compilationFilters: CompilationFilter[]
@@ -119,9 +127,9 @@ export function useCSVProcessor(
   const latestConfigRef = useRef<WorkerProcessConfig | null>(null)
   /** The alias key that was in effect the last time files were synced with the worker. */
   const prevAliasKeyRef = useRef<string | undefined>(undefined)
-  /** In-flight `raw-rows` requests, keyed by requestId. */
-  const pendingRawRowsRef = useRef(
-    new Map<string, { resolve: (sheets: ArtistRawSourceSheet[]) => void }>(),
+  /** In-flight `build-excel` requests, keyed by requestId. */
+  const pendingExcelRef = useRef(
+    new Map<string, { resolve: (blob: Blob | null) => void }>(),
   )
   /** Latest file arrays — updated every render so the file-sync effect reads current data. */
   const believeFilesRef = useRef(believeFiles)
@@ -379,11 +387,25 @@ export function useCSVProcessor(
           break
         }
 
-        case 'raw-rows': {
-          const pending = pendingRawRowsRef.current.get(msg.requestId)
+        case 'excel-done': {
+          const pending = pendingExcelRef.current.get(msg.requestId)
           if (pending) {
-            pendingRawRowsRef.current.delete(msg.requestId)
-            pending.resolve(msg.sheets)
+            pendingExcelRef.current.delete(msg.requestId)
+            pending.resolve(
+              new Blob([msg.buffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              }),
+            )
+          }
+          break
+        }
+
+        case 'excel-error': {
+          console.error('CSV Worker excel error:', msg.message)
+          const pending = pendingExcelRef.current.get(msg.requestId)
+          if (pending) {
+            pendingExcelRef.current.delete(msg.requestId)
+            pending.resolve(null)
           }
           break
         }
@@ -397,17 +419,19 @@ export function useCSVProcessor(
         description: err.message || labels('workerCrashedUnknown'),
       })
       setIsProcessing(false)
+      for (const pending of pendingExcelRef.current.values()) pending.resolve(null)
+      pendingExcelRef.current.clear()
     }
 
     const knownFileIds = knownFileIdsRef.current
-    const pendingRawRows = pendingRawRowsRef.current
+    const pendingExcel = pendingExcelRef.current
     return () => {
       worker.terminate()
       workerRef.current = null
       knownFileIds.clear()
       pendingParsesRef.current = 0
-      for (const pending of pendingRawRows.values()) pending.resolve([])
-      pendingRawRows.clear()
+      for (const pending of pendingExcel.values()) pending.resolve(null)
+      pendingExcel.clear()
     }
   }, [])
 
@@ -532,13 +556,35 @@ export function useCSVProcessor(
 
   const exchangeRatesReady = Object.keys(exchangeRates).length > 0
 
-  const requestRawRows = useCallback((artist: string): Promise<ArtistRawSourceSheet[]> => {
+  const requestExcelBlob = useCallback((args: SosExcelBuildArgs): Promise<Blob | null> => {
     const worker = workerRef.current
-    if (!worker) return Promise.resolve([])
+    if (!worker) return Promise.resolve(null)
     const requestId = crypto.randomUUID()
+    const signal = AbortSignal.timeout(SOS_EXCEL_WORKER_TIMEOUT_MS)
     return new Promise((resolve) => {
-      pendingRawRowsRef.current.set(requestId, { resolve })
-      worker.postMessage({ type: 'raw-rows', artist, requestId } satisfies WorkerRequest)
+      const finish = (blob: Blob | null) => {
+        pendingExcelRef.current.delete(requestId)
+        signal.removeEventListener('abort', onAbort)
+        resolve(blob)
+      }
+      const onAbort = () => finish(null)
+      if (signal.aborted) {
+        resolve(null)
+        return
+      }
+      signal.addEventListener('abort', onAbort, { once: true })
+      pendingExcelRef.current.set(requestId, { resolve: finish })
+      worker.postMessage({
+        type: 'build-excel',
+        requestId,
+        artist: args.artist,
+        artistData: args.artistData,
+        labelInfo: args.labelInfo,
+        periodStart: args.periodStart,
+        periodEnd: args.periodEnd,
+        compilationFilters: args.compilationFilters,
+        settings: args.settings,
+      } satisfies WorkerRequest)
     })
   }, [])
 
@@ -563,7 +609,7 @@ export function useCSVProcessor(
     releaseTitlesByArtistIncFeaturing: workerResult.releaseTitlesByArtistIncFeaturing,
     territoryMetrics: workerResult.territoryMetrics,
     merchOrderRows: workerResult.merchOrderRows,
-    requestRawRows,
+    requestExcelBlob,
   }
 }
 

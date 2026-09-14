@@ -3,6 +3,7 @@ import type { SalesTransaction } from '../ingest/csv-parser'
 import {
   BELIEVE_RAW_DENIED_HEADERS,
   buildArtistRawSheets,
+  missingOriginalReportSources,
   stripDeniedSourceColumns,
 } from './rawSourceRows'
 
@@ -26,6 +27,14 @@ describe('stripDeniedSourceColumns', () => {
     const headers = ['date', 'artist', 'net amount', 'item name']
     const rows = [['01/01/2026', 'Reaper', '10', 'Hell']]
     expect(stripDeniedSourceColumns(headers, rows, 'bandcamp')).toEqual({ headers, rows })
+  })
+
+  it('strips quoted and German Believe commission headers and keeps Net Revenue', () => {
+    const headers = ['"Gross Revenue"', 'Kundenanteil', 'Client share %', 'Net Revenue']
+    const rows = [['1.00', '0.85', '0.85', '0.85']]
+    const out = stripDeniedSourceColumns(headers, rows, 'believe')
+    expect(out.headers).toEqual(['Net Revenue'])
+    expect(out.rows[0]).toEqual(['0.85'])
   })
 })
 
@@ -183,5 +192,25 @@ describe('BELIEVE_RAW_DENIED_HEADERS', () => {
     expect(BELIEVE_RAW_DENIED_HEADERS).toEqual(
       expect.arrayContaining(['gross revenue', 'client share rate', 'client share']),
     )
+  })
+})
+
+describe('missingOriginalReportSources', () => {
+  it('flags Believe revenue with no Believe original rows', () => {
+    expect(
+      missingOriginalReportSources(
+        { believeRevenue: 10, bandcampRevenue: 0, darkmerchRevenue: 0 },
+        [],
+      ),
+    ).toEqual(['believe'])
+  })
+
+  it('is empty when distributor revenue is only manual / none', () => {
+    expect(
+      missingOriginalReportSources(
+        { believeRevenue: 0, bandcampRevenue: 0, darkmerchRevenue: 0 },
+        [],
+      ),
+    ).toEqual([])
   })
 })
