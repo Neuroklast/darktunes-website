@@ -86,7 +86,8 @@ export async function generateZipOfAllStatements(
       if (buildExcelBlob) {
         const workerBlob = await buildExcelBlob(artistData.artist, artistData)
         if (workerBlob) {
-          zip.file(`${safeArtistName}_statement.xlsx`, workerBlob)
+          const ext = workerBlob.type.includes('zip') ? 'zip' : 'xlsx'
+          zip.file(`${safeArtistName}_statement.${ext}`, workerBlob)
         } else {
           zip.file(
             `${safeArtistName}_EXCEL_NOT_INCLUDED.txt`,

@@ -76,9 +76,11 @@ const exportFallback = {
   exportExcelFailed: 'Excel export failed',
   exportExcelPreparing: 'Preparing Excel for "{artist}"…',
   exportExcelRawSkipped:
-    'Original-report tabs were skipped. Summary sheets are in the file.',
+    'Original-report files were skipped. Summary sheets are in the file.',
   exportExcelRawRequired:
     'Original distributor tabs could not be attached. The file was not downloaded so an incomplete statement cannot be sent by mistake. Retry, or turn off Raw data for a summary-only file.',
+  exportExcelProgressReports: 'Collecting original reports…',
+  exportExcelProgressSummary: 'Writing summary workbook…',
   exportZipDownloaded: 'ZIP with {count} statements downloaded',
   exportZipFailed: 'ZIP export failed',
   exportPortalDraftSaved:
@@ -126,7 +128,10 @@ export function useExports(
   compilationFilters: CompilationFilter[] = [],
   autoUploadToPortal = false,
   persistContext?: SosExportPersistContext,
-  requestExcelBlob?: (args: SosExcelBuildArgs) => Promise<Blob | null>,
+  requestExcelBlob?: (
+    args: SosExcelBuildArgs,
+    onProgress?: (phase: string, rows?: number) => void,
+  ) => Promise<Blob | null>,
 ) {
   const t = useMergedAccountingLabels(exportFallback)
 
@@ -260,15 +265,31 @@ export function useExports(
         const wantRaw = wantsRawExcelSheet(excelSettings)
         let blob: Blob | null = null
         if (wantRaw && requestExcelBlob) {
-          blob = await requestExcelBlob({
-            artist,
-            artistData,
-            labelInfo,
-            periodStart: periodStart || undefined,
-            periodEnd: periodEnd || undefined,
-            compilationFilters,
-            settings: excelSettings ?? pdfSettings,
-          })
+          blob = await requestExcelBlob(
+            {
+              artist,
+              artistData,
+              labelInfo,
+              periodStart: periodStart || undefined,
+              periodEnd: periodEnd || undefined,
+              compilationFilters,
+              settings: excelSettings ?? pdfSettings,
+            },
+            (phase, rows) => {
+              const description =
+                phase === 'original-reports'
+                  ? rows
+                    ? `${t.exportExcelProgressReports} ${rows}`
+                    : t.exportExcelProgressReports
+                  : phase === 'summary'
+                    ? t.exportExcelProgressSummary
+                    : undefined
+              toast.loading(interpolate(t.exportExcelPreparing, { artist }), {
+                id: toastId,
+                description,
+              })
+            },
+          )
           if (!blob) {
             toast.error(t.exportExcelRawRequired, { id: toastId })
             return

@@ -1,13 +1,14 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useKV } from '@/hooks/useLocalKV'
 import { toast } from 'sonner'
 import { useMergedAccountingLabels } from '@/lib/i18n/accountingFallbacks'
-import { parseCSVContentStreaming } from '@/lib/sos/ingest/streaming-csv-parser'
-import { parseShopifyCSV } from '@/lib/sos/ingest/shopify-parser'
+import { interpolate } from '@/lib/i18n/interpolate'
 import { extractPeriodBounds, uploadBronzeDistributorCsv } from '@/lib/sos/bronzeUpload'
-import type { UploadedFile, FileProcessingState } from '@/lib/sos/types'
+import { formatBytes, formatInteger, type SosParseDoneStats } from '@/lib/sos/ingestProgress'
+import { readFileWithProgress } from '@/lib/sos/readFileWithProgress'
+import type { FileProcessingState, UploadedFile } from '@/lib/sos/types'
 
 type FileType = 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch'
 
@@ -39,6 +40,11 @@ const FILE_FALLBACK = {
   fileReplaceFailed: 'Failed to replace file',
   fileRemoved: 'File removed',
   xlsxConvertWarning: '"{filename}" could not be converted from XLSX — file may be corrupted or unsupported.',
+  ingestReading: 'Reading {read} of {total}…',
+  ingestDecoding: 'Decoding text…',
+  ingestConverting: 'Converting spreadsheet to CSV…',
+  ingestWaitingParser: 'Queued for parser…',
+  ingestArchiving: 'Archiving to storage…',
 } as const
 
 export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
@@ -48,6 +54,11 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
   // Raw CSV strings kept in memory only — lost on page reload, no storage limit issues.
   const [fileDataMap, setFileDataMap] = useState<Record<string, string>>({})
   const [fileStates, setFileStates] = useState<Record<string, FileProcessingState>>({})
+  const bronzeStartedRef = useRef(new Set<string>())
+  const fileDataRef = useRef<Record<string, string>>({})
+  fileDataRef.current = fileDataMap
+  const fileMetasRef = useRef(fileMetas)
+  fileMetasRef.current = fileMetas
 
   // Merge metadata with in-memory raw data so consumers see a unified UploadedFile.
   const files = useMemo<UploadedFile[]>(
@@ -56,10 +67,15 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
   )
 
   const setFileState = useCallback((id: string, state: Partial<FileProcessingState>) => {
-    setFileStates(prev => ({
-      ...prev,
-      [id]: { ...prev[id], ...state },
-    }))
+    setFileStates((prev) => {
+      if (!prev[id] && !(fileMetasRef.current ?? []).some((file) => file.id === id)) {
+        return prev
+      }
+      return {
+        ...prev,
+        [id]: { ...prev[id], ...state },
+      }
+    })
   }, [])
 
   const removeFileState = useCallback((id: string) => {
@@ -71,21 +87,41 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
   }, [])
 
   const processAndStore = useCallback(
-    async (rawFile: File, id: string): Promise<{
-      data: string
-      rowsParsed: number
-      rowsSkipped: number
-      uniqueArtists: number
-      emptyCurrencyRows: number
-      skipReasons: string[]
-    }> => {
-      setFileState(id, { status: 'uploading', progress: 0 })
+    async (rawFile: File, id: string): Promise<{ data: string }> => {
+      setFileState(id, {
+        status: 'uploading',
+        phase: 'reading',
+        progress: 0,
+        bytesRead: 0,
+        bytesTotal: rawFile.size,
+        detail: interpolate(t.ingestReading, {
+          read: formatBytes(0),
+          total: formatBytes(rawFile.size),
+        }),
+      })
 
-      // Detect UTF-16 BOM (0xFF 0xFE for LE, 0xFE 0xFF for BE) and decode
-      // accordingly. Bandcamp exports CSV files in UTF-16 LE. The browser's
-      // default rawFile.text() uses UTF-8 and would produce garbled output.
-      const buffer = await rawFile.arrayBuffer()
-      const firstBytes = new Uint8Array(buffer, 0, 2)
+      const buffer = await readFileWithProgress(rawFile, (loaded, total) => {
+        setFileState(id, {
+          status: 'uploading',
+          phase: 'reading',
+          progress: total > 0 ? Math.round((loaded / total) * 100) : 0,
+          bytesRead: loaded,
+          bytesTotal: total,
+          detail: interpolate(t.ingestReading, {
+            read: formatBytes(loaded),
+            total: formatBytes(total),
+          }),
+        })
+      })
+
+      setFileState(id, {
+        status: 'uploading',
+        phase: 'decoding',
+        progress: 100,
+        detail: t.ingestDecoding,
+      })
+
+      const firstBytes = new Uint8Array(buffer, 0, Math.min(2, buffer.byteLength))
       let data: string
       if (firstBytes[0] === 0xFF && firstBytes[1] === 0xFE) {
         data = new TextDecoder('utf-16le').decode(buffer)
@@ -95,10 +131,12 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
         data = new TextDecoder('utf-8').decode(buffer)
       }
 
-      // For Darkmerch XLSX files the UTF-8 decode above produced garbled binary.
-      // Convert XLSX → CSV now so that fileDataMap and the worker both receive
-      // a valid CSV string instead of binary noise.
       if (type === 'darkmerch' && rawFile.name.toLowerCase().endsWith('.xlsx')) {
+        setFileState(id, {
+          status: 'uploading',
+          phase: 'decoding',
+          detail: t.ingestConverting,
+        })
         const { darkmerchXLSXtoCSV } = await import('@/lib/sos/ingest/darkmerch-parser')
         const csvText = await darkmerchXLSXtoCSV(buffer)
         if (csvText) {
@@ -108,80 +146,83 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
         }
       }
 
-      // Store raw CSV in memory immediately so re-parse with alias changes works.
-      setFileDataMap(prev => ({ ...prev, [id]: data }))
+      setFileDataMap((prev) => ({ ...prev, [id]: data }))
+      setFileState(id, {
+        status: 'processing',
+        phase: 'parsing',
+        progress: 0,
+        detail: t.ingestWaitingParser,
+      })
 
-      setFileState(id, { status: 'processing', progress: 0 })
+      return { data }
+    },
+    [type, setFileState, t],
+  )
 
-      let rowsParsed: number
-      let rowsSkipped: number
-      let uniqueArtists: number
-      let emptyCurrencyRows = 0
-      let skipReasons: string[] = []
-      let salesMonths: string[] = []
+  const applyParseResult = useCallback(
+    (stats: SosParseDoneStats) => {
+      const id = stats.fileId
+      if (!(fileMetasRef.current ?? []).some((file) => file.id === id)) return
 
-      if (type === 'shopify') {
-        const result = parseShopifyCSV(data)
-        rowsParsed = result.transactions.length
-        rowsSkipped = result.errors.length
-        uniqueArtists = new Set(result.transactions.map(t => t.original_artist)).size
-        salesMonths = result.transactions.map((t) => t.sales_month)
-      } else if (type === 'printful') {
-        // parsePrintfulCSV is imported lazily to keep the bundle lean in non-merch flows
-        const { parsePrintfulCSV } = await import('@/lib/sos/ingest/printful-parser')
-        const result = parsePrintfulCSV(data)
-        rowsParsed = result.costs.length
-        rowsSkipped = result.errors.length
-        uniqueArtists = 0
-      } else if (type === 'darkmerch') {
-        // data is always valid CSV at this point: for XLSX files it was converted
-        // above; for CSV files it was decoded from UTF-8 directly.
-        const { parseDarkmerchCSV } = await import('@/lib/sos/ingest/darkmerch-parser')
-        const result = parseDarkmerchCSV(data)
-        rowsParsed = result.transactions.length
-        rowsSkipped = result.errors.length
-        uniqueArtists = new Set(result.transactions.map(t => t.original_artist).filter(Boolean)).size
-        salesMonths = result.transactions.map((t) => t.sales_month)
-      } else {
-        const result = await parseCSVContentStreaming(data, type, progress => {
-          setFileState(id, { progress: progress.percentage })
-        })
-        rowsParsed = result.transactions.length
-        rowsSkipped = result.errors.length + result.skipped.length
-        uniqueArtists = result.uniqueArtists.length
-        emptyCurrencyRows = result.emptyCurrencyRows
-        skipReasons = [...new Set(result.skipped.map((skip) => skip.reason))]
-        salesMonths = result.transactions.map((t) => t.sales_month)
-      }
+      setFileMetas((current) =>
+        (current ?? []).map((file) =>
+          file.id === id
+            ? {
+                ...file,
+                rowsParsed: stats.rowsParsed,
+                rowsSkipped: stats.rowsSkipped,
+                uniqueArtistsCount: stats.uniqueArtistsCount,
+                emptyCurrencyRows: stats.emptyCurrencyRows,
+                skipReasons: stats.skipReasons,
+              }
+            : file,
+        ),
+      )
+      setFileState(id, {
+        status: 'done',
+        phase: 'done',
+        progress: 100,
+        processedRows: stats.rowsParsed,
+        totalRows: stats.rowsParsed + stats.rowsSkipped,
+        detail: `${formatInteger(stats.rowsParsed)} rows`,
+      })
 
-      setFileState(id, { status: 'done', progress: 100 })
+      if (bronzeStartedRef.current.has(id)) return
+      bronzeStartedRef.current.add(id)
+      const data = fileDataRef.current[id]
+      const meta = (fileMetasRef.current ?? []).find((file) => file.id === id)
+      if (!data || !meta) return
 
-      const { periodStart, periodEnd } = extractPeriodBounds(salesMonths)
+      const bounds = extractPeriodBounds(
+        [stats.periodStart, stats.periodEnd].filter(Boolean),
+      )
       void (async () => {
-        setFileState(id, { bronzeStatus: 'uploading' })
+        setFileState(id, {
+          bronzeStatus: 'uploading',
+          phase: 'archiving',
+          detail: t.ingestArchiving,
+        })
         const bronze = await uploadBronzeDistributorCsv({
           distributor: type,
-          filename: rawFile.name,
+          filename: meta.name,
           uploadBody: data,
-          rowCount: rowsParsed,
-          periodStart,
-          periodEnd,
+          rowCount: stats.rowsParsed,
+          periodStart: bounds.periodStart,
+          periodEnd: bounds.periodEnd,
         })
-        if (bronze) {
+        if (bronze.ok) {
           setFileMetas((current) =>
-            (current ?? []).map((f) =>
-              f.id === id ? { ...f, bronzeBatchId: bronze.batchId } : f,
+            (current ?? []).map((file) =>
+              file.id === id ? { ...file, bronzeBatchId: bronze.batchId } : file,
             ),
           )
-          setFileState(id, { bronzeStatus: 'done' })
+          setFileState(id, { bronzeStatus: 'done', bronzeError: undefined, phase: 'done' })
         } else {
-          setFileState(id, { bronzeStatus: 'error' })
+          setFileState(id, { bronzeStatus: 'error', bronzeError: bronze.message, phase: 'done' })
         }
       })()
-
-      return { data, rowsParsed, rowsSkipped, uniqueArtists, emptyCurrencyRows, skipReasons }
     },
-    [type, setFileState, setFileMetas, t.xlsxConvertWarning]
+    [setFileMetas, setFileState, t.ingestArchiving, type],
   )
 
   const addFiles = useCallback(
@@ -205,21 +246,7 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
         rawFiles.map(async (rawFile, i) => {
           const id = ids[i]
           try {
-            const { data, rowsParsed, rowsSkipped, uniqueArtists, emptyCurrencyRows, skipReasons } = await processAndStore(rawFile, id)
-            // Update metadata with parsed stats (no raw data stored in KV).
-            setFileMetas(current =>
-              (current ?? []).map(f =>
-                f.id === id ? {
-                  ...f,
-                  rowsParsed,
-                  rowsSkipped,
-                  uniqueArtistsCount: uniqueArtists,
-                  emptyCurrencyRows,
-                  skipReasons,
-                } : f
-              )
-            )
-            // Notify parent for history logging.
+            const { data } = await processAndStore(rawFile, id)
             const uploadedFile: UploadedFile = {
               id,
               name: rawFile.name,
@@ -227,13 +254,8 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
               type,
               data,
               uploadedAt: new Date().toISOString(),
-              rowsParsed,
-              rowsSkipped,
-              uniqueArtistsCount: uniqueArtists,
-              emptyCurrencyRows,
-              skipReasons,
             }
-            callbacks?.onFileAdded?.(uploadedFile, rowsParsed, rowsSkipped, uniqueArtists)
+            callbacks?.onFileAdded?.(uploadedFile, 0, 0, 0)
           } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to process file'
             setFileState(id, { status: 'error', progress: 0, error: message })
@@ -269,6 +291,7 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
         return next
       })
       removeFileState(id)
+      bronzeStartedRef.current.delete(id)
       callbacks?.onFileRemoved?.(id)
       toast.info(t.fileRemoved)
     },
@@ -285,19 +308,8 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
       )
 
       try {
-        const { data, rowsParsed, rowsSkipped, uniqueArtists, emptyCurrencyRows, skipReasons } = await processAndStore(rawFile, id)
-        setFileMetas(current =>
-          (current ?? []).map(f =>
-            f.id === id ? {
-              ...f,
-              rowsParsed,
-              rowsSkipped,
-              uniqueArtistsCount: uniqueArtists,
-              emptyCurrencyRows,
-              skipReasons,
-            } : f
-          )
-        )
+        bronzeStartedRef.current.delete(id)
+        const { data } = await processAndStore(rawFile, id)
         const uploadedFile: UploadedFile = {
           id,
           name: rawFile.name,
@@ -305,13 +317,8 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
           type,
           data,
           uploadedAt: new Date().toISOString(),
-          rowsParsed,
-          rowsSkipped,
-          uniqueArtistsCount: uniqueArtists,
-          emptyCurrencyRows,
-          skipReasons,
         }
-        callbacks?.onFileAdded?.(uploadedFile, rowsParsed, rowsSkipped, uniqueArtists)
+        callbacks?.onFileAdded?.(uploadedFile, 0, 0, 0)
         toast.success(t.fileReplaceSuccess.replace('{filename}', rawFile.name))
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to process file'
@@ -327,6 +334,7 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
     setFileMetas([])
     setFileDataMap({})
     setFileStates({})
+    bronzeStartedRef.current.clear()
   }, [setFileMetas])
 
   return {
@@ -336,5 +344,7 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
     removeFile,
     replaceFile,
     clearAll,
+    patchFileState: setFileState,
+    applyParseResult,
   }
 }

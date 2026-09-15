@@ -93,6 +93,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { toast } from 'sonner'
 import { useAccountingLabels } from '@/lib/i18n/accountingFallbacks'
 import { interpolate } from '@/lib/i18n/interpolate'
+import { type SosParseDoneStats, type SosParseProgress } from '@/lib/sos/ingestProgress'
+import type { FileProcessingState } from '@/lib/sos/types'
 
 const StatementsManager = lazy(
   () => import('@/components/admin/StatementsManager').then(m => ({ default: m.StatementsManager }))
@@ -407,6 +409,30 @@ function SosGeneratorPanel() {
   const darkmerchManager = useFileManager('darkmerch')
   const [carryForwardByArtist, setCarryForwardByArtist] = useState<Record<string, number>>({})
 
+  const ingestEvents = {
+    onParseProgress: (progress: SosParseProgress) => {
+      const patch: Partial<FileProcessingState> = {
+        status: 'processing',
+        phase: progress.phase === 'tokenizing' ? 'tokenizing' : 'parsing',
+        progress: progress.percentage,
+        processedRows: progress.processedRows,
+        totalRows: progress.totalRows,
+      }
+      believeManager.patchFileState(progress.fileId, patch)
+      bandcampManager.patchFileState(progress.fileId, patch)
+      shopifyManager.patchFileState(progress.fileId, patch)
+      printfulManager.patchFileState(progress.fileId, patch)
+      darkmerchManager.patchFileState(progress.fileId, patch)
+    },
+    onParseDone: (stats: SosParseDoneStats) => {
+      believeManager.applyParseResult(stats)
+      bandcampManager.applyParseResult(stats)
+      shopifyManager.applyParseResult(stats)
+      printfulManager.applyParseResult(stats)
+      darkmerchManager.applyParseResult(stats)
+    },
+  }
+
   // Load a bronze archive into the appropriate in-memory file manager for processing.
   // CSV is fetched via presigned R2 GET (bypasses Vercel response size limit).
   const loadBronzeBatch = useCallback(async (batch: { id: string; distributor: string; periodStart: string }) => {
@@ -454,6 +480,7 @@ function SosGeneratorPanel() {
     exchangeRatesSource,
     exchangeRates,
     historicalRates,
+    pipelineProgress,
     refreshExchangeRates,
   } = useCSVProcessor(
     believeManager.files,
@@ -481,6 +508,7 @@ function SosGeneratorPanel() {
     shopifyManager.files,
     printfulManager.files,
     darkmerchManager.files,
+    ingestEvents,
   )
 
   useEffect(() => {
@@ -913,6 +941,8 @@ function SosGeneratorPanel() {
         printfulManager={printfulManager}
         darkmerchManager={darkmerchManager}
         csvProfiles={csvImportProfiles}
+        isProcessing={isProcessing}
+        pipelineProgress={pipelineProgress}
         onAddAliases={(aliases) => {
           aliases.forEach((alias) => handleAddCsvAlias(alias))
         }}
@@ -1009,7 +1039,10 @@ function SosGeneratorPanel() {
         {detectedPeriodEnd && detectedPeriodEnd !== detectedPeriodStart && (
           <> – <strong>{detectedPeriodEnd}</strong></>
         )}
-        {isProcessing && ` ${t.processing}`}
+        {isProcessing &&
+          (pipelineProgress
+            ? ` ${pipelineProgress.phase} ${pipelineProgress.percentage}%`
+            : ` ${t.processing}`)}
       </AlertDescription>
     </Alert>
   ) : null
@@ -1282,6 +1315,8 @@ function SosGeneratorPanel() {
               printfulManager={printfulManager}
               darkmerchManager={darkmerchManager}
               csvProfiles={csvImportProfiles}
+              isProcessing={isProcessing}
+              pipelineProgress={pipelineProgress}
               onAddAliases={aliases => {
                 aliases.forEach(alias => handleAddCsvAlias(alias))
               }}

@@ -15,6 +15,7 @@ import {
   getImportBatchById,
   updateImportBatchStatus,
 } from '@/lib/api/distributorImportBatches'
+import { logAdminAction } from '@/lib/adminAuditLog'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { createR2Client, deleteObjectFromR2 } from '@/lib/r2Utils'
 
@@ -75,7 +76,7 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
 })
 
 export const DELETE = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
-  await requireAdminFromRequest(req)
+  const { userId } = await requireAdminFromRequest(req)
   const id = extractBatchIdFromPath(new URL(req.url).pathname)
   if (!id) throw new ApiError(400, 'Invalid import batch path')
 
@@ -98,6 +99,19 @@ export const DELETE = withErrorHandler(async (req: NextRequest): Promise<NextRes
 
   const deleted = await deleteImportBatch(serviceSupabase, id)
   if (!deleted) throw new ApiError(404, 'Import batch not found')
+
+  await logAdminAction(serviceSupabase, {
+    actorId: userId,
+    action: 'deleted',
+    resource: 'distributor_import_batches',
+    resourceId: id,
+    details: {
+      distributor: batch.distributor,
+      r2_key: batch.r2Key,
+      status: batch.status,
+      file_hash: batch.fileHash ?? null,
+    },
+  })
 
   return NextResponse.json({ ok: true })
 })

@@ -13,8 +13,8 @@
  *   process      Reconcile e-commerce buffers, run processTransactionsWithCompilations
  *                + buildArtistTree + buildArtistCollabTree on all transactions,
  *                then post the aggregated result WITHOUT any raw transaction arrays.
- *   build-excel  Build one artist xlsx in the worker (raw sheets stay here; only
- *                the ArrayBuffer is transferred back). For huge Believe files.
+ *   build-excel  Build one artist xlsx in the worker (summary + original-report
+ *                tabs). Only the buffer is transferred.
  *   reset        Clear all stored data (e.g. when column aliases change).
  *
  * E-Commerce staging (Schritt 2)
@@ -48,7 +48,10 @@ import {
 } from '../lib/sos/data-processor'
 import type { TerritoryMetricRow } from '../lib/sos/data-processor'
 import { buildMerchOrderRows, type MerchOrderRow } from '../lib/sos/merchOrderRows'
-import { buildArtistRawSheets, missingOriginalReportSources } from '../lib/sos/export/rawSourceRows'
+import {
+  buildArtistRawSheets,
+  missingOriginalReportSources,
+} from '../lib/sos/export/rawSourceRows'
 import {
   isExcelSheetEnabled,
   normalizeExcelExportSettings,
@@ -56,6 +59,7 @@ import {
 } from '../lib/sos/excelExportSettings'
 import { generateExcel } from '../lib/sos/export/excelStatement'
 import { normalizeArtistNameKey } from '../lib/sos/artistNameKey'
+import { periodBoundsFromMonths } from '../lib/sos/ingestProgress'
 import type { ProcessedArtistData } from '../lib/sos/data-processor'
 import { buildArtistCollabTree } from '../lib/sos/grouping'
 import type { SalesTransaction } from '../lib/sos/ingest/csv-parser'
@@ -176,11 +180,34 @@ export type WorkerRequest =
 export type SosExcelBuildArgs = Omit<Extract<WorkerRequest, { type: 'build-excel' }>, 'type' | 'requestId'>
 
 export type WorkerResponse =
-  | { type: 'parse-progress'; fileId: string; percentage: number }
-  | { type: 'parse-done'; fileId: string; rowsParsed: number; rowsSkipped: number; uniqueArtistsCount: number }
+  | {
+      type: 'parse-progress'
+      fileId: string
+      percentage: number
+      phase: 'tokenizing' | 'parsing'
+      processedRows?: number
+      totalRows?: number
+    }
+  | {
+      type: 'parse-done'
+      fileId: string
+      rowsParsed: number
+      rowsSkipped: number
+      uniqueArtistsCount: number
+      emptyCurrencyRows?: number
+      skipReasons?: string[]
+      periodStart?: string
+      periodEnd?: string
+    }
+  | {
+      type: 'process-progress'
+      phase: 'aggregating' | 'summaries' | 'finalizing'
+      percentage: number
+    }
   | { type: 'result'; data: WorkerResult }
   | { type: 'error'; message: string; fileId?: string }
-  | { type: 'excel-done'; requestId: string; buffer: ArrayBuffer }
+  | { type: 'excel-done'; requestId: string; buffer: ArrayBuffer; kind: 'zip' | 'xlsx' }
+  | { type: 'excel-progress'; requestId: string; phase: string; rows?: number }
   | { type: 'excel-error'; requestId: string; message: string }
 
 // ── Internal worker state ──────────────────────────────────────────────────────
@@ -247,6 +274,28 @@ function buildReleaseTitlesByArtistIncFeaturing(
   return result
 }
 
+function postParseDone(
+  fileId: string,
+  rowsParsed: number,
+  rowsSkipped: number,
+  uniqueArtistsCount: number,
+  months: string[] = [],
+  extra: { emptyCurrencyRows?: number; skipReasons?: string[] } = {},
+): void {
+  const bounds = periodBoundsFromMonths(months)
+  post({
+    type: 'parse-done',
+    fileId,
+    rowsParsed,
+    rowsSkipped,
+    uniqueArtistsCount,
+    emptyCurrencyRows: extra.emptyCurrencyRows ?? 0,
+    skipReasons: extra.skipReasons ?? [],
+    periodStart: bounds.periodStart,
+    periodEnd: bounds.periodEnd,
+  })
+}
+
 function getAllTransactions(): SalesTransaction[] {
   const all: SalesTransaction[] = []
   for (const txs of fileTransactions.values()) {
@@ -275,6 +324,7 @@ function getAllTransactions(): SalesTransaction[] {
 
 function runProcess(config: WorkerProcessConfig): void {
   try {
+    post({ type: 'process-progress', phase: 'aggregating', percentage: 8 })
     const allTransactions = getAllTransactions()
 
     if (allTransactions.length === 0) {
@@ -329,11 +379,13 @@ function runProcess(config: WorkerProcessConfig): void {
       0,
     )
 
+    post({ type: 'process-progress', phase: 'aggregating', percentage: 35 })
     // Core processing — financial math runs unchanged (no modifications to data-processor.ts)
     const { artistData, filteredCompilations } = processTransactionsWithCompilations(
       allTransactions,
       config
     )
+    post({ type: 'process-progress', phase: 'summaries', percentage: 70 })
     // Pre-compute tree structures while we still have raw transactions in scope
     const artistTrees: ArtistTreeNode[] = buildArtistTree(artistData)
     const collabTransactions = config.excludePhysical
@@ -366,6 +418,7 @@ function runProcess(config: WorkerProcessConfig): void {
     // Raw transaction arrays and the full ProcessedArtistData (with .transactions)
     // are now only in local scope and will be garbage-collected once this
     // function returns — they are NEVER sent to the main thread.
+    post({ type: 'process-progress', phase: 'finalizing', percentage: 92 })
     post({
       type: 'result',
       data: {
@@ -403,55 +456,52 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
           // Stage raw orders for reconciliation — do NOT convert to SalesTransactions yet.
           const { orders, errors } = parseShopifyRaw(content)
           shopifyRawOrdersMap.set(fileId, orders)
-          post({
-            type: 'parse-done',
-            fileId,
-            rowsParsed: orders.length,
-            rowsSkipped: errors.length,
-            // Artist count is not known until reconciliation — report 0 here;
-            // the actual unique artists appear in the `result` message.
-            uniqueArtistsCount: 0,
-          })
+          postParseDone(fileId, orders.length, errors.length, 0)
         } else if (source === 'printful') {
           // Stage raw costs for reconciliation.
           const { costs, errors } = parsePrintfulCSV(content)
           printfulRawCostsMap.set(fileId, costs)
-          post({
-            type: 'parse-done',
-            fileId,
-            rowsParsed: costs.length,
-            rowsSkipped: errors.length,
-            uniqueArtistsCount: 0,
-          })
+          postParseDone(fileId, costs.length, errors.length, 0)
         } else if (source === 'darkmerch') {
           const { transactions, errors } = parseDarkmerchCSV(content)
           fileTransactions.set(fileId, transactions)
           const uniqueArtists = [...new Set(transactions.map(t => t.original_artist).filter(Boolean))]
-          post({
-            type: 'parse-done',
+          postParseDone(
             fileId,
-            rowsParsed: transactions.length,
-            rowsSkipped: errors.length,
-            uniqueArtistsCount: uniqueArtists.length,
-          })
+            transactions.length,
+            errors.length,
+            uniqueArtists.length,
+            transactions.map((tx) => tx.sales_month),
+          )
         } else {
           const result = await parseCSVContentStreaming(
             content,
             source,
             (progress) => {
-              post({ type: 'parse-progress', fileId, percentage: progress.percentage })
+              post({
+                type: 'parse-progress',
+                fileId,
+                percentage: progress.percentage,
+                phase: progress.phase,
+                processedRows: progress.processedRows,
+                totalRows: progress.totalRows,
+              })
             },
             undefined,
             customAliases
           )
           fileTransactions.set(fileId, result.transactions)
-          post({
-            type: 'parse-done',
+          postParseDone(
             fileId,
-            rowsParsed: result.transactions.length,
-            rowsSkipped: result.errors.length + result.skipped.length,
-            uniqueArtistsCount: result.uniqueArtists.length,
-          })
+            result.transactions.length,
+            result.errors.length + result.skipped.length,
+            result.uniqueArtists.length,
+            result.transactions.map((tx) => tx.sales_month),
+            {
+              emptyCurrencyRows: result.emptyCurrencyRows,
+              skipReasons: [...new Set(result.skipped.map((skip) => skip.reason))],
+            },
+          )
         }
       } catch (err) {
         post({
@@ -485,6 +535,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
 
     case 'build-excel': {
       try {
+        post({ type: 'excel-progress', requestId: msg.requestId, phase: 'original-reports' })
         const match = lastProcessedArtistData.find(
           (row) => normalizeArtistNameKey(row.artist) === normalizeArtistNameKey(msg.artist),
         )
@@ -496,7 +547,8 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
             ? msg.settings
             : {},
         )
-        if (isExcelSheetEnabled(excelSettings, 'raw')) {
+        const wantRaw = isExcelSheetEnabled(excelSettings, 'raw')
+        if (wantRaw) {
           const missing = missingOriginalReportSources(msg.artistData, sheets)
           if (missing.length > 0) {
             post({
@@ -507,17 +559,32 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
             break
           }
         }
-        const blob = await generateExcel(
+        const rawRowCount = sheets.reduce((sum, sheet) => sum + sheet.rows.length, 0)
+        post({
+          type: 'excel-progress',
+          requestId: msg.requestId,
+          phase: 'original-reports',
+          rows: rawRowCount,
+        })
+        const xlsx = await generateExcel(
           msg.artistData,
           msg.labelInfo,
           msg.periodStart,
           msg.periodEnd,
           msg.compilationFilters,
           msg.settings,
-          sheets,
+          wantRaw ? sheets : [],
+          (progress) => {
+            post({
+              type: 'excel-progress',
+              requestId: msg.requestId,
+              phase: 'original-reports',
+              rows: progress.written,
+            })
+          },
         )
-        const buffer = await blob.arrayBuffer()
-        post({ type: 'excel-done', requestId: msg.requestId, buffer }, [buffer])
+        const buffer = await xlsx.arrayBuffer()
+        post({ type: 'excel-done', requestId: msg.requestId, buffer, kind: 'xlsx' }, [buffer])
       } catch (err) {
         console.error('[sos-worker] build-excel failed:', err)
         post({

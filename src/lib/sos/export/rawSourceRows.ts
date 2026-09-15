@@ -184,3 +184,29 @@ export function lookupArtistRawSheets(
 ): ArtistRawSourceSheet[] {
   return sheets.get(normalizeArtistNameKey(artist)) ?? []
 }
+
+function csvEscape(value: string): string {
+  if (/[";\r\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`
+  return value
+}
+
+function sheetToCsv(sheet: ArtistRawSourceSheet): string {
+  const lines = [
+    'sep=;',
+    sheet.headers.map(csvEscape).join(';'),
+    ...sheet.rows.map((row) => row.map((cell) => csvEscape(cell ?? '')).join(';')),
+  ]
+  return `\uFEFF${lines.join('\r\n')}`
+}
+
+/** Original-report CSVs for the statement zip (Excel-friendly semicolon + BOM). */
+export function rawSheetsToCsvFiles(
+  sheets: ArtistRawSourceSheet[],
+): Array<{ filename: string; text: string }> {
+  return sheets
+    .filter((sheet) => sheet.headers.length > 0)
+    .map((sheet) => ({
+      filename: `${sheet.sheetName}.csv`,
+      text: sheetToCsv(sheet),
+    }))
+}

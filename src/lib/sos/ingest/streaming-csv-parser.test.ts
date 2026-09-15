@@ -78,4 +78,30 @@ describe('parseCSVContentStreaming skips', () => {
     expect(tx?.source_headers).toEqual(['Artist', 'Release', 'Net Revenue', 'Currency', 'Sales Month'])
     expect(tx?.source_values).toEqual(['Neuroklast', 'Album', '12.5', 'EUR', '2024-03'])
   })
+
+  it('reports tokenizing then mapping progress', async () => {
+    const csv = [
+      'Artist,Release,Net Revenue,Currency,Sales Month',
+      'Neuroklast,Album,12.5,EUR,2024-03',
+      'Neuroklast,EP,1,EUR,2024-04',
+    ].join('\n')
+    const phases: string[] = []
+    await parseCSVContentStreaming(csv, 'believe', (progress) => {
+      phases.push(progress.phase)
+    })
+    expect(phases[0]).toBe('tokenizing')
+    expect(phases.at(-1)).toBe('parsing')
+  })
+
+  it('reuses one source_headers array for every row in the file', async () => {
+    const csv = [
+      'Artist,Release,Net Revenue,Currency,Sales Month',
+      'Neuroklast,Album,12.5,EUR,2024-03',
+      'Neuroklast,EP,1,EUR,2024-04',
+    ].join('\n')
+
+    const result = await parseCSVContentStreaming(csv, 'believe')
+    expect(result.transactions).toHaveLength(2)
+    expect(result.transactions[0]?.source_headers).toBe(result.transactions[1]?.source_headers)
+  })
 })

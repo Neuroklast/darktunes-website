@@ -484,6 +484,11 @@ const schemaOverrides = {
   '/api/v1/release-submissions/{id}': {
     GET: { summary: 'Get release submission by ID', responses: { 200: { schema: 'PartnerReleaseSubmissionEnvelope' } } },
   },
+  '/api/admin/maintenance/purge-sos-data': {
+    POST: {
+      summary: 'Audited purge of Statement of Sales bronze archives or portal gold analytics',
+    },
+  },
   '/api/v1/analytics/export': {
     GET: {
       summary: 'Export artist analytics (CSV default, JSON when format=json)',

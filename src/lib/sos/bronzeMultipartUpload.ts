@@ -33,13 +33,14 @@ export async function createBronzeMultipartR2Context(): Promise<BronzeMultipartR
   }
 }
 
+/** Pending batches stay writable; only confirmed (`completed`) archives are locked. */
 export async function getWritableImportBatch(
   supabase: SupabaseClient<Database>,
   batchId: string,
 ) {
   const batch = await getImportBatchById(supabase, batchId)
   if (!batch) throw new ApiError(404, 'Import batch not found')
-  if (batch.fileHash || batch.status === 'completed') {
+  if (batch.status === 'completed') {
     throw new ApiError(409, 'Import batch already has archived content')
   }
   return batch

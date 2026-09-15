@@ -104,7 +104,10 @@
 
 - [ ] Excel export dialog: uncheck a release column → downloaded workbook omits it; Artist/Period/Final Payout remain
 - [ ] Save Excel preset → reopen dialog → preset still selected and columns match (workspace / rules preset)
-- [ ] Excel raw sheets (default on): download one artist → `Believe` / `Bandcamp` / `Darkmerch` tabs for uploaded sources; only that band; Believe has Net Revenue and no Gross revenue / Client share; Bandcamp/Darkmerch keep all original columns; auto-filter on. Toggle Raw data off → filename `*_summary-only.xlsx`. If original tabs cannot be built, no xlsx downloads (error toast). ZIP: each xlsx is that artist only; failed Excel becomes `_EXCEL_NOT_INCLUDED.txt`.
+- [ ] SOS upload: file card shows reading bytes, then parsing `row x of y`, pipeline banner during payout aggregation; bronze failure shows the server message (not only “R2 archive failed”). Large files (>50 MB) warn that parse can take minutes.
+- [ ] Excel raw data (default on): download one artist → `{artist}_statement.xlsx` with `Believe` / `Bandcamp` / `Darkmerch` tabs for uploaded sources; only that band; Believe has Net Revenue and no Gross revenue / Client share; Bandcamp/Darkmerch keep all original columns; auto-filter + frozen header. Toggle Raw data off → filename `*_summary-only.xlsx`. If original tabs cannot be built, no file downloads (error toast). ZIP-of-all: each xlsx is that artist only; failed Excel becomes `_EXCEL_NOT_INCLUDED.txt`.
+- [ ] Bronze: first upload of a new CSV does **not** 409 `already has archived content`; retry of a completed hash is treated as duplicate.
+- [ ] Admin → System → Maintenance → **Statement of Sales data**: type-confirm `DELETE FAILED` removes only unconfirmed/failed bronze (completed stay); `DELETE BRONZE` / `DELETE GOLD` as labeled. After a purge, Log Manager → Admin Actions shows `purged` / `sos_data`. Statements/invoices remain.
 
 ## Accounting wizard (DAU path)
 - [ ] `/admin/accounting` Statement History tab and `/admin/statements` render without `Something went wrong`

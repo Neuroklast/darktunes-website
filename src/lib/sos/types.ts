@@ -112,12 +112,31 @@ export interface UploadedFile {
 /** Transient per-file processing state (not persisted). */
 export type FileStatus = 'idle' | 'uploading' | 'processing' | 'done' | 'error'
 
+export type SosFileIngestPhase =
+  | 'reading'
+  | 'decoding'
+  | 'tokenizing'
+  | 'parsing'
+  | 'aggregating'
+  | 'archiving'
+  | 'done'
+  | 'error'
+
 export interface FileProcessingState {
   status: FileStatus
   progress: number
   error?: string
+  /** Fine-grained ingest stage shown on the file card. */
+  phase?: SosFileIngestPhase
+  /** Operator-facing one-liner (already localized by the caller). */
+  detail?: string
+  processedRows?: number
+  totalRows?: number
+  bytesRead?: number
+  bytesTotal?: number
   /** Bronze R2 archive status (non-blocking side upload). */
   bronzeStatus?: 'uploading' | 'done' | 'error' | 'skipped'
+  bronzeError?: string
 }
 
 export interface CompilationFilter {

@@ -246,7 +246,9 @@ describe('useSosExports.handleDownloadExcel', () => {
 
   it('downloads the worker-built workbook when Raw is on', async () => {
     const mockGenerateExcel = vi.mocked(generateExcel)
-    const workerBlob = new Blob(['worker-xlsx'])
+    const workerBlob = new Blob(['worker-xlsx'], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
     const requestExcelBlob = vi.fn().mockResolvedValue(workerBlob)
 
     const { result } = renderHook(() =>
@@ -272,6 +274,7 @@ describe('useSosExports.handleDownloadExcel', () => {
 
     expect(requestExcelBlob).toHaveBeenCalledWith(
       expect.objectContaining({ artist: 'Artist One' }),
+      expect.any(Function),
     )
     expect(mockGenerateExcel).not.toHaveBeenCalled()
     expect(mockDownloadBlob).toHaveBeenCalledWith(

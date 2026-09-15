@@ -62,7 +62,7 @@ describe('uploadBronzeDistributorCsv', () => {
       periodEnd: '2024-01',
     })
 
-    expect(result).toBeNull()
+    expect(result).toEqual({ ok: false, message: 'Service unavailable' })
     expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/admin/sos/import-batches/batch-1/upload')
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: 'POST' })
@@ -92,7 +92,7 @@ describe('uploadBronzeDistributorCsv', () => {
       periodEnd: '2024-02',
     })
 
-    expect(result).toEqual({ batchId: 'batch-2', r2Key: 'sos-imports/batch-2/file.csv' })
+    expect(result).toEqual({ ok: true, batchId: 'batch-2', r2Key: 'sos-imports/batch-2/file.csv' })
     const confirmCalls = fetchMock.mock.calls.filter(
       (call) => typeof call[0] === 'string' && call[0].includes('/confirm'),
     )
@@ -144,7 +144,7 @@ describe('uploadBronzeDistributorCsv', () => {
       periodEnd: '2024-04',
     })
 
-    expect(result).toEqual({ batchId: 'batch-large', r2Key: 'sos-imports/batch-large/file.csv' })
+    expect(result).toEqual({ ok: true, batchId: 'batch-large', r2Key: 'sos-imports/batch-large/file.csv' })
     expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/admin/sos/import-batches/batch-large/multipart/init')
     expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/admin/sos/import-batches/batch-large/multipart/part')
     expect(fetchMock.mock.calls[3]?.[0]).toBe('/api/admin/sos/import-batches/batch-large/multipart/part')
@@ -178,7 +178,7 @@ describe('uploadBronzeDistributorCsv', () => {
       periodEnd: '2024-03',
     })
 
-    expect(result).toBeNull()
+    expect(result).toEqual({ ok: false, message: 'Archive confirm failed after upload' })
     const failCall = fetchMock.mock.calls.find(
       (call) => call[0] === '/api/admin/sos/import-batches/batch-3' && call[1]?.method === 'PATCH',
     )
@@ -216,6 +216,7 @@ describe('uploadBronzeDistributorCsv', () => {
     })
 
     expect(result).toEqual({
+      ok: true,
       batchId: 'batch-direct',
       r2Key: 'sos-imports/batch-direct/file.csv',
     })
@@ -224,5 +225,32 @@ describe('uploadBronzeDistributorCsv', () => {
     )
     expect(fetchMock.mock.calls[2]?.[0]).toBe('https://r2.example/presigned-put')
     expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({ method: 'PUT' })
+  })
+
+  it('skips R2 upload when register reports a completed duplicate', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        duplicate: true,
+        batch: { id: 'batch-existing', r2Key: 'sos-imports/batch-existing/file.csv' },
+      }),
+    })
+
+    const result = await uploadBronzeDistributorCsv({
+      distributor: 'believe',
+      filename: 'sales.csv',
+      uploadBody: 'a,b\n1,2',
+      rowCount: 1,
+      periodStart: '2024-01',
+      periodEnd: '2024-01',
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      batchId: 'batch-existing',
+      r2Key: 'sos-imports/batch-existing/file.csv',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/admin/sos/import-batches')
   })
 })

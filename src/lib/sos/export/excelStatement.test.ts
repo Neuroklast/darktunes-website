@@ -201,4 +201,39 @@ describe('generateExcel column filters', () => {
     expect(await sheetRows(blob, 'Believe')).toEqual([])
     expect(await sheetRows(blob, 'Bandcamp')).toEqual([])
   })
+
+  it('writes a large Believe tab in batches with progress and keeps the last row', { timeout: 20_000 }, async () => {
+    const total = 4_000
+    const rows = Array.from({ length: total }, (_, i) => [
+      '01/01/2026',
+      'Neuroklast',
+      String(i),
+    ])
+    const progress: number[] = []
+    const blob = await generateExcel(
+      makeArtist(),
+      label,
+      '2026-01',
+      '2026-03',
+      [],
+      DEFAULT_EXCEL_EXPORT_SETTINGS,
+      [
+        {
+          source: 'believe',
+          sheetName: 'Believe',
+          headers: ['Sales Month', 'Artist Name', 'Net Revenue'],
+          rows,
+        },
+      ],
+      (info) => {
+        if (info.sheet === 'Believe' && info.written != null) progress.push(info.written)
+      },
+    )
+    const believe = await sheetRows(blob, 'Believe')
+    expect(believe).toHaveLength(total + 1)
+    expect(believe[0]).toEqual(['Sales Month', 'Artist Name', 'Net Revenue'])
+    expect(believe[total]?.[2]).toBe(String(total - 1))
+    expect(progress.some((written) => written < total)).toBe(true)
+    expect(progress.at(-1)).toBe(total)
+  })
 })

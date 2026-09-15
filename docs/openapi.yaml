@@ -1427,6 +1427,31 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/maintenance/purge-sos-data:
+    post:
+      operationId: postadmin_maintenance_purge-sos-data
+      tags: [Admin]
+      summary: Audited purge of Statement of Sales bronze archives or portal gold analytics
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/admin/maintenance/requeue-sync-jobs:
     get:
       operationId: getadmin_maintenance_requeue-sync-jobs

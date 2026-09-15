@@ -11,6 +11,7 @@ export interface ParseProgress {
   totalRows: number
   percentage: number
   isComplete: boolean
+  phase: 'tokenizing' | 'parsing'
 }
 
 export interface ParseSkip {
@@ -261,6 +262,14 @@ export async function parseCSVContentStreaming(
   const allSkipped: ParseSkip[] = []
   let emptyCurrencyRows = 0
 
+  onProgress?.({
+    processedRows: 0,
+    totalRows: 0,
+    percentage: 0,
+    isComplete: false,
+    phase: 'tokenizing',
+  })
+
   const parsed = Papa.parse<string[]>(stripBOM(csvContent), {
     delimiter: '',
     skipEmptyLines: false,
@@ -315,6 +324,7 @@ export async function parseCSVContentStreaming(
       totalRows,
       percentage: totalRows > 0 ? Math.round((processedRows / totalRows) * 100) : 100,
       isComplete: processedRows >= totalRows,
+      phase: 'parsing',
     })
   }
 

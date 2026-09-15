@@ -28,7 +28,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   const serviceSupabase = await createServiceRoleSupabaseClient()
   const batch = await getImportBatchById(serviceSupabase, id)
   if (!batch) throw new ApiError(404, 'Import batch not found')
-  if (batch.fileHash || batch.status === 'completed') {
+  if (batch.status === 'completed') {
     throw new ApiError(409, 'Import batch already has archived content')
   }
 

@@ -34,6 +34,10 @@ export interface BronzeUploadResult {
   r2Key: string
 }
 
+export type BronzeUploadOutcome =
+  | { ok: true; batchId: string; r2Key: string }
+  | { ok: false; message: string }
+
 export function isBronzeDirectUploadEnabled(): boolean {
   return process.env.NEXT_PUBLIC_BRONZE_DIRECT_UPLOAD !== 'false'
 }
@@ -379,11 +383,11 @@ async function confirmBronzeUpload(batchId: string, fileHash: string): Promise<b
 
 /**
  * Registers an import batch and uploads the raw CSV to R2.
- * Returns null on failure (local SOS processing should continue).
+ * Returns `{ ok: false, message }` on failure (local SOS processing continues).
  */
 export async function uploadBronzeDistributorCsv(
   params: BronzeUploadParams,
-): Promise<BronzeUploadResult | null> {
+): Promise<BronzeUploadOutcome> {
   try {
     const contentType = params.contentType ?? 'text/csv; charset=utf-8'
     const uploadBlob = toUploadBlob(params.uploadBody, contentType)
@@ -404,8 +408,9 @@ export async function uploadBronzeDistributorCsv(
     })
 
     if (registerPayload.length > MAX_REGISTRATION_JSON_BYTES) {
-      await logBronzeError('registration metadata too large')
-      return null
+      const message = 'registration metadata too large'
+      await logBronzeError(message)
+      return { ok: false, message }
     }
 
     const registerRes = await fetch('/api/admin/sos/import-batches', {
@@ -417,7 +422,7 @@ export async function uploadBronzeDistributorCsv(
     if (!registerRes.ok) {
       const message = await readApiErrorMessage(registerRes)
       await logBronzeError('batch registration failed', { message })
-      return null
+      return { ok: false, message }
     }
 
     const registerJson = (await registerRes.json()) as {
@@ -428,6 +433,7 @@ export async function uploadBronzeDistributorCsv(
 
     if (registerJson.duplicate) {
       return {
+        ok: true,
         batchId: registerJson.batch.id,
         r2Key: registerJson.batch.r2Key ?? registerJson.r2Key ?? '',
       }
@@ -435,38 +441,40 @@ export async function uploadBronzeDistributorCsv(
 
     const { batch, r2Key } = registerJson
     if (!batch?.id || !r2Key) {
-      await logBronzeError('invalid register response')
-      return null
+      const message = 'invalid register response'
+      await logBronzeError(message)
+      return { ok: false, message }
     }
 
     if (uploadBlob.size > MAX_BRONZE_CSV_BYTES) {
+      const message = `CSV exceeds upload limit (max ${MAX_BRONZE_CSV_BYTES} bytes)`
       await logBronzeError('CSV exceeds upload limit', {
         size: uploadBlob.size,
         max: MAX_BRONZE_CSV_BYTES,
       })
       await abandonBronzeImportBatch(batch.id)
-      return null
+      return { ok: false, message }
     }
 
     const uploadResult = await uploadBronzeCsvToR2(batch.id, uploadBlob, uploadFilename, contentType)
     if (!uploadResult.ok) {
       await logBronzeError('upload failed', { message: uploadResult.message, batchId: batch.id })
       await abandonBronzeImportBatch(batch.id)
-      return null
+      return { ok: false, message: uploadResult.message }
     }
 
     const confirmed = await confirmBronzeUpload(batch.id, fileHash)
     if (!confirmed) {
+      const message = 'Archive confirm failed after upload'
       await logBronzeError('hash confirm failed after R2 upload', { batchId: batch.id })
       await markBronzeUploadFailed(batch.id)
-      return null
+      return { ok: false, message }
     }
 
-    return { batchId: batch.id, r2Key }
+    return { ok: true, batchId: batch.id, r2Key }
   } catch (err) {
-    await logBronzeError('unexpected error', {
-      error: err instanceof Error ? err.message : String(err),
-    })
-    return null
+    const message = err instanceof Error ? err.message : String(err)
+    await logBronzeError('unexpected error', { error: message })
+    return { ok: false, message }
   }
 }

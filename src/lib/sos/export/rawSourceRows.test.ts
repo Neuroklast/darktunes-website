@@ -4,6 +4,7 @@ import {
   BELIEVE_RAW_DENIED_HEADERS,
   buildArtistRawSheets,
   missingOriginalReportSources,
+  rawSheetsToCsvFiles,
   stripDeniedSourceColumns,
 } from './rawSourceRows'
 
@@ -192,6 +193,25 @@ describe('BELIEVE_RAW_DENIED_HEADERS', () => {
     expect(BELIEVE_RAW_DENIED_HEADERS).toEqual(
       expect.arrayContaining(['gross revenue', 'client share rate', 'client share']),
     )
+  })
+})
+
+describe('rawSheetsToCsvFiles', () => {
+  it('writes semicolon CSV with Excel sep= hint and quotes delimiter cells', () => {
+    const files = rawSheetsToCsvFiles([
+      {
+        source: 'believe',
+        sheetName: 'Believe',
+        headers: ['Sales Month', 'Artist Name', 'Net Revenue'],
+        rows: [['01/01/2026', 'Reaper; Band', '0.85']],
+      },
+    ])
+    expect(files).toHaveLength(1)
+    expect(files[0]?.filename).toBe('Believe.csv')
+    expect(files[0]?.text).toContain('sep=;')
+    expect(files[0]?.text).toContain('Sales Month;Artist Name;Net Revenue')
+    expect(files[0]?.text).toContain('"Reaper; Band"')
+    expect(files[0]?.text).not.toMatch(/gross revenue|client share/i)
   })
 })
 

@@ -33,6 +33,11 @@ import type {
   TrackRevenueAssignment,
 } from '@/lib/sos/types'
 import type {
+  SosParseDoneStats,
+  SosParseProgress,
+  SosProcessProgress,
+} from '@/lib/sos/ingestProgress'
+import type {
   SosExcelBuildArgs,
   WorkerRequest,
   WorkerResponse,
@@ -40,8 +45,14 @@ import type {
   WorkerResult,
 } from '@/workers/sos-csv-processor.worker'
 
-/** Huge Believe workbooks can take minutes in the worker; 15s would skip them. */
+/** Safety cap. Original reports are CSV now, so this should not be the happy path. */
 export const SOS_EXCEL_WORKER_TIMEOUT_MS = 5 * 60 * 1000
+
+export interface CsvProcessorEvents {
+  onParseProgress?: (progress: SosParseProgress) => void
+  onParseDone?: (stats: SosParseDoneStats) => void
+  onProcessProgress?: (progress: SosProcessProgress) => void
+}
 
 interface CSVProcessorConfig {
   compilationFilters: CompilationFilter[]
@@ -116,7 +127,8 @@ export function useCSVProcessor(
   config: CSVProcessorConfig,
   shopifyFiles: UploadedFile[] = [],
   printfulFiles: UploadedFile[] = [],
-  darkmerchFiles: UploadedFile[] = []
+  darkmerchFiles: UploadedFile[] = [],
+  events: CsvProcessorEvents = {},
 ) {
   const workerRef = useRef<Worker | null>(null)
   /** IDs of files that have been successfully sent to the worker for parsing. */
@@ -129,7 +141,14 @@ export function useCSVProcessor(
   const prevAliasKeyRef = useRef<string | undefined>(undefined)
   /** In-flight `build-excel` requests, keyed by requestId. */
   const pendingExcelRef = useRef(
-    new Map<string, { resolve: (blob: Blob | null) => void }>(),
+    new Map<
+      string,
+      {
+        resolve: (blob: Blob | null) => void
+        reject: (error: Error) => void
+        onProgress?: (phase: string, rows?: number) => void
+      }
+    >(),
   )
   /** Latest file arrays — updated every render so the file-sync effect reads current data. */
   const believeFilesRef = useRef(believeFiles)
@@ -151,6 +170,9 @@ export function useCSVProcessor(
   const [exchangeRatesLoading, setExchangeRatesLoading] = useState(true)
   const [exchangeRatesSource, setExchangeRatesSource] = useState<ExchangeRateSource | 'unknown'>('unknown')
   const [historicalRates, setHistoricalRates] = useState<HistoricalRates | null>(null)
+  const [pipelineProgress, setPipelineProgress] = useState<SosProcessProgress | null>(null)
+  const eventsRef = useRef(events)
+  eventsRef.current = events
   const t = useTranslations('admin.accounting')
   const tRef = useRef(t)
   tRef.current = t
@@ -354,19 +376,43 @@ export function useCSVProcessor(
       const msg = event.data
       switch (msg.type) {
         case 'parse-progress':
-          // Progress updates are currently consumed by useFileManager's own
-          // parsing pass for the UI progress bars; we don't duplicate them here.
+          eventsRef.current.onParseProgress?.({
+            fileId: msg.fileId,
+            phase: msg.phase,
+            percentage: msg.percentage,
+            processedRows: msg.processedRows,
+            totalRows: msg.totalRows,
+          })
           break
 
         case 'parse-done':
           pendingParsesRef.current = Math.max(0, pendingParsesRef.current - 1)
+          eventsRef.current.onParseDone?.({
+            fileId: msg.fileId,
+            rowsParsed: msg.rowsParsed,
+            rowsSkipped: msg.rowsSkipped,
+            uniqueArtistsCount: msg.uniqueArtistsCount,
+            emptyCurrencyRows: msg.emptyCurrencyRows ?? 0,
+            skipReasons: msg.skipReasons ?? [],
+            periodStart: msg.periodStart ?? '',
+            periodEnd: msg.periodEnd ?? '',
+          })
           if (pendingParsesRef.current === 0) {
             sendProcessRef.current()
           }
           break
 
+        case 'process-progress':
+          setPipelineProgress({ phase: msg.phase, percentage: msg.percentage })
+          eventsRef.current.onProcessProgress?.({
+            phase: msg.phase,
+            percentage: msg.percentage,
+          })
+          break
+
         case 'result':
           setWorkerResult(msg.data)
+          setPipelineProgress(null)
           setIsProcessing(false)
           break
 
@@ -383,7 +429,13 @@ export function useCSVProcessor(
           } else {
             toast.error(labels('csvProcessingError'), { description: msg.message })
           }
+          setPipelineProgress(null)
           setIsProcessing(false)
+          break
+        }
+
+        case 'excel-progress': {
+          pendingExcelRef.current.get(msg.requestId)?.onProgress?.(msg.phase, msg.rows)
           break
         }
 
@@ -391,11 +443,11 @@ export function useCSVProcessor(
           const pending = pendingExcelRef.current.get(msg.requestId)
           if (pending) {
             pendingExcelRef.current.delete(msg.requestId)
-            pending.resolve(
-              new Blob([msg.buffer], {
-                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              }),
-            )
+            const mime =
+              msg.kind === 'zip'
+                ? 'application/zip'
+                : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            pending.resolve(new Blob([msg.buffer], { type: mime }))
           }
           break
         }
@@ -405,7 +457,7 @@ export function useCSVProcessor(
           const pending = pendingExcelRef.current.get(msg.requestId)
           if (pending) {
             pendingExcelRef.current.delete(msg.requestId)
-            pending.resolve(null)
+            pending.reject(new Error(msg.message))
           }
           break
         }
@@ -419,7 +471,9 @@ export function useCSVProcessor(
         description: err.message || labels('workerCrashedUnknown'),
       })
       setIsProcessing(false)
-      for (const pending of pendingExcelRef.current.values()) pending.resolve(null)
+      for (const pending of pendingExcelRef.current.values()) {
+        pending.reject(new Error(err.message || 'Worker crashed'))
+      }
       pendingExcelRef.current.clear()
     }
 
@@ -556,16 +610,24 @@ export function useCSVProcessor(
 
   const exchangeRatesReady = Object.keys(exchangeRates).length > 0
 
-  const requestExcelBlob = useCallback((args: SosExcelBuildArgs): Promise<Blob | null> => {
+  const requestExcelBlob = useCallback((
+    args: SosExcelBuildArgs,
+    onProgress?: (phase: string, rows?: number) => void,
+  ): Promise<Blob | null> => {
     const worker = workerRef.current
     if (!worker) return Promise.resolve(null)
     const requestId = crypto.randomUUID()
     const signal = AbortSignal.timeout(SOS_EXCEL_WORKER_TIMEOUT_MS)
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const finish = (blob: Blob | null) => {
         pendingExcelRef.current.delete(requestId)
         signal.removeEventListener('abort', onAbort)
         resolve(blob)
+      }
+      const fail = (error: Error) => {
+        pendingExcelRef.current.delete(requestId)
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
       }
       const onAbort = () => finish(null)
       if (signal.aborted) {
@@ -573,7 +635,7 @@ export function useCSVProcessor(
         return
       }
       signal.addEventListener('abort', onAbort, { once: true })
-      pendingExcelRef.current.set(requestId, { resolve: finish })
+      pendingExcelRef.current.set(requestId, { resolve: finish, reject: fail, onProgress })
       worker.postMessage({
         type: 'build-excel',
         requestId,
@@ -595,6 +657,7 @@ export function useCSVProcessor(
     exchangeRatesSource,
     exchangeRates,
     historicalRates,
+    pipelineProgress,
     refreshExchangeRates,
     uniqueArtists: workerResult.uniqueArtists,
     processedData: workerResult.processedData as SafeProcessedArtistData[],

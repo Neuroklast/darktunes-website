@@ -40,6 +40,17 @@ export function resolveExcelGenerateSettings(
 /**
  * Generates an Excel statement workbook for one artist.
  */
+export interface ExcelRawWriteProgress {
+  sheet: string
+  written: number
+  total: number
+}
+
+/** Rows per addRows call — large enough to be fast, small enough to yield. */
+export const RAW_SHEET_WRITE_BATCH = 400
+
+const EXCEL_MAX_DATA_ROWS = 1_000_000
+
 export async function generateExcel(
   artistData: SafeProcessedArtistData,
   labelInfo: LabelInfo,
@@ -48,6 +59,7 @@ export async function generateExcel(
   compilationFilters: CompilationFilter[] = [],
   settings?: ExcelGenerateSettings,
   rawSheets: ArtistRawSourceSheet[] = [],
+  onRawProgress?: (progress: ExcelRawWriteProgress) => void,
 ): Promise<Blob> {
   try {
     return await buildExcel(
@@ -58,6 +70,7 @@ export async function generateExcel(
       compilationFilters,
       settings,
       rawSheets,
+      onRawProgress,
     )
   } catch (err) {
     throw new Error(
@@ -158,6 +171,60 @@ const MONTHLY_COLUMNS: Array<{
   { id: 'monthly.revenue', header: 'Revenue', width: 15, value: (row) => row.revenue },
 ]
 
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 0)
+  })
+}
+
+async function writeRawSheet(
+  workbook: import('exceljs').Workbook,
+  sourceSheet: ArtistRawSourceSheet,
+  onRawProgress?: (progress: ExcelRawWriteProgress) => void,
+): Promise<void> {
+  if (sourceSheet.headers.length === 0) return
+
+  const chunks: Array<{ name: string; rows: string[][] }> = []
+  for (let offset = 0; offset < sourceSheet.rows.length; offset += EXCEL_MAX_DATA_ROWS) {
+    const slice = sourceSheet.rows.slice(offset, offset + EXCEL_MAX_DATA_ROWS)
+    const suffix = offset === 0 ? '' : `_${Math.floor(offset / EXCEL_MAX_DATA_ROWS) + 1}`
+    chunks.push({
+      name: excelSafeSheetName(`${sourceSheet.sheetName}${suffix}`),
+      rows: slice,
+    })
+  }
+  if (chunks.length === 0) {
+    chunks.push({ name: excelSafeSheetName(sourceSheet.sheetName), rows: [] })
+  }
+
+  for (const chunk of chunks) {
+    const worksheet = workbook.addWorksheet(chunk.name)
+    worksheet.columns = sourceSheet.headers.map((header) => ({
+      width: Math.min(36, Math.max(14, header.length + 4)),
+    }))
+    worksheet.addRow(sourceSheet.headers)
+    worksheet.getRow(1).font = { bold: true }
+
+    const total = chunk.rows.length
+    for (let i = 0; i < total; i += RAW_SHEET_WRITE_BATCH) {
+      const batch = chunk.rows.slice(i, i + RAW_SHEET_WRITE_BATCH)
+      worksheet.addRows(batch)
+      const written = Math.min(i + batch.length, total)
+      onRawProgress?.({ sheet: chunk.name, written, total })
+      if (total > RAW_SHEET_WRITE_BATCH) {
+        await yieldToEventLoop()
+      }
+    }
+
+    const lastRow = Math.max(1, total + 1)
+    worksheet.views = [{ state: 'frozen', ySplit: 1 }]
+    worksheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: lastRow, column: sourceSheet.headers.length },
+    }
+  }
+}
+
 async function buildExcel(
   artistData: SafeProcessedArtistData,
   labelInfo: LabelInfo,
@@ -166,6 +233,7 @@ async function buildExcel(
   compilationFilters: CompilationFilter[] = [],
   settings?: ExcelGenerateSettings,
   rawSheets: ArtistRawSourceSheet[] = [],
+  onRawProgress?: (progress: ExcelRawWriteProgress) => void,
 ): Promise<Blob> {
   const excelSettings = resolveExcelGenerateSettings(settings)
   const ExcelJS = (await import('exceljs')).default
@@ -276,19 +344,7 @@ async function buildExcel(
 
   if (isExcelSheetEnabled(excelSettings, 'raw')) {
     for (const sourceSheet of rawSheets) {
-      if (sourceSheet.headers.length === 0) continue
-      const worksheet = workbook.addWorksheet(excelSafeSheetName(sourceSheet.sheetName))
-      worksheet.columns = sourceSheet.headers.map((header) => ({
-        width: Math.min(36, Math.max(14, header.length + 4)),
-      }))
-      worksheet.addRow(sourceSheet.headers)
-      worksheet.getRow(1).font = { bold: true }
-      worksheet.addRows(sourceSheet.rows)
-      worksheet.views = [{ state: 'frozen', ySplit: 1 }]
-      worksheet.autoFilter = {
-        from: { row: 1, column: 1 },
-        to: { row: 1, column: sourceSheet.headers.length },
-      }
+      await writeRawSheet(workbook, sourceSheet, onRawProgress)
     }
   }
 

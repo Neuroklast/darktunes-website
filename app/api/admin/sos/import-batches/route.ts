@@ -14,6 +14,7 @@ import {
   DuplicateImportBatchError,
   findImportBatchByFileHash,
   listImportBatches,
+  updateImportBatchStatus,
 } from '@/lib/api/distributorImportBatches'
 import { assertSettlementPeriodWritable } from '@/lib/api/settlementPeriods'
 import { ApiError, withErrorHandler } from '@/lib/errors'
@@ -66,8 +67,13 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
 
   if (file_hash && /^[a-f0-9]{64}$/i.test(file_hash)) {
     const existing = await findImportBatchByFileHash(serviceSupabase, file_hash)
-    if (existing) {
+    if (existing?.status === 'completed') {
       return NextResponse.json({ batch: existing, duplicate: true }, { status: 200 })
+    }
+    // Unconfirmed rows that already hold this hash (legacy register-before-upload)
+    // block the unique index and must not skip a real retry.
+    if (existing) {
+      await updateImportBatchStatus(serviceSupabase, existing.id, 'failed')
     }
   }
 
@@ -87,7 +93,8 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
       periodEnd: period_end,
       distributor,
       r2Key,
-      fileHash: normalizedHash,
+      // Hash is a duplicate-lookup key at register; persist only after confirm.
+      fileHash: null,
       rowCount: row_count ?? 0,
       uploadedBy: user.id,
     })

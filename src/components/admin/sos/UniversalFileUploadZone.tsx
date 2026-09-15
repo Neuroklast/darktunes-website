@@ -53,6 +53,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { toast } from 'sonner'
 import type { UploadedFile, FileProcessingState } from '@/lib/sos/types'
+import { formatBytes, formatInteger, type SosProcessProgress } from '@/lib/sos/ingestProgress'
+import { interpolate } from '@/lib/i18n/interpolate'
 import { parseCSVLine } from '@/lib/sos/ingest/csv-parser'
 import { matchProfile } from '@/lib/sos/ingest/parser-facade'
 import {
@@ -85,6 +87,7 @@ export interface FileManagerCallbacks {
  */
 export interface EcommerceManagerCallbacks {
   files: UploadedFile[]
+  fileStates?: Record<string, FileProcessingState>
   addFiles: (files: File[]) => void
   removeFile: (id: string) => void
 }
@@ -100,6 +103,8 @@ interface UniversalFileUploadZoneProps {
   darkmerchManager: EcommerceManagerCallbacks
   /** Called when an unknown CSV is confirmed with user-defined column aliases. */
   onAddAliases: (aliases: { fieldName: string; synonym: string }[]) => void
+  isProcessing?: boolean
+  pipelineProgress?: SosProcessProgress | null
   /**
    * Active CSV import profiles used for header-based auto-detection.
    * When provided, profile matching is attempted before the legacy heuristic.
@@ -217,7 +222,8 @@ function FileStatusIcon({ state, hasData }: { state: FileProcessingState | undef
 }
 
 function FileProgressBar({ state }: { state: FileProcessingState | undefined }) {
-  if (!state || state.status === 'done' || state.status === 'idle') return null
+  const t = useTranslations('admin.accounting')
+  if (!state) return null
   if (state.status === 'error') {
     return (
       <p className="text-xs text-destructive mt-1.5 leading-relaxed">
@@ -225,11 +231,42 @@ function FileProgressBar({ state }: { state: FileProcessingState | undefined }) 
       </p>
     )
   }
-  const label = state.status === 'uploading' ? 'Reading file…' : `Parsing rows… ${state.progress}%`
+  const archiving = state.bronzeStatus === 'uploading'
+  const showBar =
+    state.status === 'uploading' ||
+    state.status === 'processing' ||
+    archiving
+  if (!showBar && state.bronzeStatus !== 'error') return null
+
+  let label = state.detail ?? ''
+  if (state.phase === 'reading') {
+    label = interpolate(t('ingestReading'), {
+      read: formatBytes(state.bytesRead ?? 0),
+      total: formatBytes(state.bytesTotal ?? 0),
+    })
+  } else if (state.phase === 'decoding') {
+    label = t('ingestDecoding')
+  } else if (state.phase === 'tokenizing') {
+    label = t('ingestTokenizing')
+  } else if (state.phase === 'parsing') {
+    label = interpolate(t('ingestParsing'), {
+      current: formatInteger(state.processedRows ?? 0),
+      total: formatInteger(state.totalRows ?? 0),
+      percent: state.progress,
+    })
+  } else if (archiving) {
+    label = t('ingestArchiving')
+  }
+
   return (
     <div className="mt-1.5 space-y-0.5">
-      <Progress value={state.progress} className="h-1.5" />
-      <p className="text-xs text-muted-foreground">{label}</p>
+      {showBar && (
+        <Progress value={archiving ? 100 : state.progress} className="h-1.5" />
+      )}
+      {label ? <p className="text-xs text-muted-foreground">{label}</p> : null}
+      {state.bronzeStatus === 'error' && state.bronzeError ? (
+        <p className="text-xs text-amber-400 leading-relaxed">{state.bronzeError}</p>
+      ) : null}
     </div>
   )
 }
@@ -524,7 +561,10 @@ interface FileItemProps {
 }
 
 function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef, onReplaceInput }: FileItemProps) {
-  const isProcessingFile = state?.status === 'uploading' || state?.status === 'processing'
+  const isProcessingFile =
+    state?.status === 'uploading' ||
+    state?.status === 'processing' ||
+    state?.bronzeStatus === 'uploading'
   const isDone = !state || state.status === 'done' || state.status === 'idle'
   const hasData = Boolean(file.data)
   const needsReupload = isDone && !hasData
@@ -658,8 +698,11 @@ export function UniversalFileUploadZone({
   darkmerchManager,
   onAddAliases,
   csvProfiles = [],
+  isProcessing = false,
+  pipelineProgress = null,
 }: UniversalFileUploadZoneProps) {
   const tToast = useTranslations('admin.toast')
+  const t = useTranslations('admin.accounting')
 
 
   const [isDragging, setIsDragging] = useState(false)
@@ -683,8 +726,13 @@ export function UniversalFileUploadZone({
   )
 
   const isAnyProcessing =
-    Object.values(believeManager.fileStates).some(s => s.status === 'uploading' || s.status === 'processing') ||
-    Object.values(bandcampManager.fileStates).some(s => s.status === 'uploading' || s.status === 'processing')
+    isProcessing ||
+    Object.values(believeManager.fileStates).some(
+      (s) => s.status === 'uploading' || s.status === 'processing' || s.bronzeStatus === 'uploading',
+    ) ||
+    Object.values(bandcampManager.fileStates).some(
+      (s) => s.status === 'uploading' || s.status === 'processing' || s.bronzeStatus === 'uploading',
+    )
 
   // ── File routing ──────────────────────────────────────────────────────────
 
@@ -744,7 +792,10 @@ export function UniversalFileUploadZone({
     const LARGE_THRESHOLD = 50 * 1024 * 1024
     const large = acceptedFiles.find(f => f.size > LARGE_THRESHOLD)
     if (large) {
-      const msg = `"${large.name}" is ${formatFileSize(large.size)}. Large files may take a minute.`
+      const msg = interpolate(t('largeFileWarning'), {
+        filename: large.name,
+        size: formatFileSize(large.size),
+      })
       setSizeWarning(msg)
       setTimeout(() => setSizeWarning(null), 8000)
     }
@@ -752,7 +803,7 @@ export function UniversalFileUploadZone({
     for (const file of acceptedFiles) {
       await routeFile(file)
     }
-  }, [routeFile, tToast])
+  }, [routeFile, tToast, t])
 
   // ── Drag & drop ────────────────────────────────────────────────────────────
 
@@ -850,7 +901,7 @@ export function UniversalFileUploadZone({
       manager.files.map(f => ({
         file: f,
         source,
-        state: undefined,
+        state: manager.fileStates?.[f.id],
         onRemove: () => manager.removeFile(f.id),
         onReplace: null,
         replaceRef: null,
@@ -906,11 +957,20 @@ export function UniversalFileUploadZone({
 
           <div className="text-center">
             <p className="text-base font-semibold mb-1">
-              {isAnyProcessing ? 'Processing files…' : 'Upload CSV / XLSX files'}
+              {isAnyProcessing ? t('ingestPipelineTitle') : 'Upload CSV / XLSX files'}
             </p>
             <p className="text-sm text-muted-foreground">
               {isAnyProcessing
-                ? 'Please wait — parsing your data'
+                ? pipelineProgress
+                  ? interpolate(
+                      pipelineProgress.phase === 'aggregating'
+                        ? t('ingestAggregating')
+                        : pipelineProgress.phase === 'summaries'
+                          ? t('ingestSummaries')
+                          : t('ingestFinalizing'),
+                      { percent: pipelineProgress.percentage },
+                    )
+                  : t('ingestWaitingParser')
                 : 'Drag & drop files here or click to browse — format is auto-detected'}
             </p>
           </div>
@@ -959,6 +1019,30 @@ export function UniversalFileUploadZone({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {allFiles.length > 0 && (isAnyProcessing || pipelineProgress) && (
+        <div className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-foreground">{t('ingestPipelineTitle')}</p>
+            <p className="text-xs text-muted-foreground">
+              {interpolate(t('ingestPipelineFiles'), {
+                done: allFiles.filter((entry) => entry.state?.status === 'done').length,
+                total: allFiles.length,
+              })}
+            </p>
+          </div>
+          <Progress
+            value={
+              pipelineProgress?.percentage ??
+              Math.round(
+                allFiles.reduce((sum, entry) => sum + (entry.state?.progress ?? 0), 0) /
+                  Math.max(1, allFiles.length),
+              )
+            }
+            className="h-1.5"
+          />
+        </div>
+      )}
 
       {/* Combined file list */}
       <AnimatePresence mode="popLayout">

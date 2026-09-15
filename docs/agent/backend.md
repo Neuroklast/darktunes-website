@@ -96,7 +96,7 @@ Admin/editor only. **Guided** default: `AccountingGuidedWizard` (Upload → Revi
 
 ## Bronze CSV import
 
-Client: `bronzeUpload.ts`. Multipart: `bronzeMultipartUpload.ts`. Limits: `bronzeUploadLimits.ts`. Decision tree in `AGENTS.md` / `features.md`.
+Client: `bronzeUpload.ts`. Multipart: `bronzeMultipartUpload.ts`. Limits: `bronzeUploadLimits.ts`. Decision tree in `AGENTS.md` / `features.md`. Register may send `file_hash` for duplicate lookup; persist hash only at confirm. Pending batches stay writable until `status === 'completed'`.
 
 ## SOS upload (portal + admin)
 
@@ -134,6 +134,8 @@ Release/video submit also fires `sendSubmissionNotificationEmail()` (env `LABEL_
 **New feature checklist:** catalog entry → emit after successful write → i18n (admin/portal) → routing href → unit/route test.
 
 ## Admin system (`/admin/system`)
+
+**SOS data purge (Maintenance tab):** `POST /api/admin/maintenance/purge-sos-data` with `{ scope, confirmation }`. Scopes: `failed_bronze` (unconfirmed/failed batches + R2), `bronze` (all bronze archives), `gold` (territory metrics, merch orders, period summaries, event impact). Confirmation phrases: `DELETE FAILED` / `DELETE BRONZE` / `DELETE GOLD`. Writes `admin_audit_log` + `financial_audit_events`. Does **not** delete `sales_statements`, invoices, or settlement ledger. Per-batch bronze DELETE on Accounting also logs `admin_audit_log`.
 
 Health: `GET /api/health` defaults to **lite** (DB liveness); full dashboard snapshot only via `?mode=full` (admin widget uses this). `buildHealthSnapshot` powers full mode + `/api/health/alert`: **latest sync per API** is `limit(1)` per `api_source` (no global lookback — chatty sources must not bury others as “Never”); 24h SLA stats are a separate capped query (`HEALTH_LOG_STATS_*`). Full snapshot includes **`app.version`** (from `package.json` via `src/lib/appVersion.ts`) and **`app.commit`** (short SHA from `VERCEL_GIT_COMMIT_SHA` / `GITHUB_SHA` / `NEXT_PUBLIC_GIT_COMMIT`). Admin System Health shows `vX.Y.Z · sha`. Sync logs, app errors, maintenance routes. Cron heartbeats (`recordHealthHeartbeat`, read-modify-write + retry) on `sync_execute` (awaited, mid-drain refresh) and `sync_youtube` (start of `/api/sync-youtube` and youtube branch of `/api/sync-api`). YouTube channel sync caps at 500 newest videos per run and always writes `sync_logs`. Optional alert webhook. Product release tags/ritual: [RELEASING.md](../RELEASING.md).
 

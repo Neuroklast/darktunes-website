@@ -10,6 +10,7 @@ describe('parseDarkmerchCSV original cells', () => {
     expect(result.transactions[0]?.source_headers).toEqual(['DATE', 'BAND', 'NET REVENUE'])
     expect(result.transactions[0]?.source_values).toEqual(['Q1 2026', 'Reaper', '5'])
     expect(result.transactions[0]?.source_row_id).toBe(result.transactions[0]?.id)
+    expect(result.transactions[0]?.source_headers).toBe(result.transactions[1]?.source_headers)
   })
 
   it('does not reuse row ids across two parses of the same file', () => {

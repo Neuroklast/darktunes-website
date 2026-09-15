@@ -136,6 +136,138 @@ describe('useCSVProcessor', () => {
     expect(result.current.isProcessing).toBe(false)
   })
 
+  it('forwards worker parse-progress and parse-done to ingest callbacks', async () => {
+    const onParseProgress = vi.fn()
+    const onParseDone = vi.fn()
+    const file = {
+      id: 'f-progress',
+      name: 'believe.csv',
+      size: 10,
+      type: 'believe' as const,
+      data: 'artist,revenue\nA,10',
+      uploadedAt: '2026-01-01T00:00:00.000Z',
+    }
+
+    renderHook(() =>
+      useCSVProcessor([file], [], makeConfig(), [], [], [], {
+        onParseProgress,
+        onParseDone,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(workerInstances).toHaveLength(1)
+    })
+
+    const worker = workerInstances[0]
+    await act(async () => {
+      worker?.onmessage?.({
+        data: {
+          type: 'parse-progress',
+          fileId: 'f-progress',
+          phase: 'parsing',
+          percentage: 40,
+          processedRows: 40000,
+          totalRows: 100000,
+        },
+      } as MessageEvent)
+    })
+    expect(onParseProgress).toHaveBeenCalledWith({
+      fileId: 'f-progress',
+      phase: 'parsing',
+      percentage: 40,
+      processedRows: 40000,
+      totalRows: 100000,
+    })
+
+    await act(async () => {
+      worker?.onmessage?.({
+        data: {
+          type: 'parse-done',
+          fileId: 'f-progress',
+          rowsParsed: 100000,
+          rowsSkipped: 2,
+          uniqueArtistsCount: 8,
+          periodStart: '2025-10',
+          periodEnd: '2026-03',
+        },
+      } as MessageEvent)
+    })
+    expect(onParseDone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileId: 'f-progress',
+        rowsParsed: 100000,
+        periodStart: '2025-10',
+      }),
+    )
+  })
+
+  it('forwards worker parse-progress and parse-done to ingest callbacks', async () => {
+    const onParseProgress = vi.fn()
+    const onParseDone = vi.fn()
+    const file = {
+      id: 'f-progress',
+      name: 'believe.csv',
+      size: 10,
+      type: 'believe' as const,
+      data: 'artist,revenue\nA,10',
+      uploadedAt: '2026-01-01T00:00:00.000Z',
+    }
+
+    renderHook(() =>
+      useCSVProcessor([file], [], makeConfig(), [], [], [], {
+        onParseProgress,
+        onParseDone,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(workerInstances).toHaveLength(1)
+    })
+
+    const worker = workerInstances[0]
+    await act(async () => {
+      worker?.onmessage?.({
+        data: {
+          type: 'parse-progress',
+          fileId: 'f-progress',
+          phase: 'parsing',
+          percentage: 40,
+          processedRows: 40000,
+          totalRows: 100000,
+        },
+      } as MessageEvent)
+    })
+    expect(onParseProgress).toHaveBeenCalledWith({
+      fileId: 'f-progress',
+      phase: 'parsing',
+      percentage: 40,
+      processedRows: 40000,
+      totalRows: 100000,
+    })
+
+    await act(async () => {
+      worker?.onmessage?.({
+        data: {
+          type: 'parse-done',
+          fileId: 'f-progress',
+          rowsParsed: 100000,
+          rowsSkipped: 2,
+          uniqueArtistsCount: 8,
+          periodStart: '2025-10',
+          periodEnd: '2026-03',
+        },
+      } as MessageEvent)
+    })
+    expect(onParseDone).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileId: 'f-progress',
+        rowsParsed: 100000,
+        periodStart: '2025-10',
+      }),
+    )
+  })
+
   it('does not process until exchange rates are ready', async () => {
     let resolveRates: (value: { source: string; rates: Record<string, number> }) => void = () => {}
     mockFetchExchangeRates.mockImplementation(
@@ -277,6 +409,7 @@ describe('useCSVProcessor', () => {
         data: {
           type: 'excel-done',
           requestId: posted?.requestId,
+          kind: 'xlsx',
           buffer: new Uint8Array([1, 2, 3]).buffer,
         },
       } as MessageEvent)
@@ -285,6 +418,42 @@ describe('useCSVProcessor', () => {
 
     expect(blob).toBeInstanceOf(Blob)
     expect((blob as Blob).size).toBe(3)
+    expect((blob as Blob).type).toContain('spreadsheetml.sheet')
+  })
+
+  it('requestExcelBlob rejects when the worker reports excel-error', async () => {
+    const { result } = renderHook(() => useCSVProcessor([], [], makeConfig()))
+
+    await waitFor(() => {
+      expect(workerInstances).toHaveLength(1)
+    })
+
+    const worker = workerInstances[0]
+    let blobPromise: Promise<Blob | null> | undefined
+    await act(async () => {
+      blobPromise = result.current.requestExcelBlob({
+        artist: 'Reaper',
+        artistData: { artist: 'Reaper' } as never,
+        labelInfo: { name: 'darkTunes', address: '' },
+        compilationFilters: [],
+      })
+    })
+
+    const posted = worker?.postMessage.mock.calls.find(
+      (c) => (c[0] as { type?: string })?.type === 'build-excel',
+    )?.[0] as { requestId: string } | undefined
+
+    const rejected = expect(blobPromise).rejects.toThrow('Missing original-report tabs: believe')
+    await act(async () => {
+      worker?.onmessage?.({
+        data: {
+          type: 'excel-error',
+          requestId: posted?.requestId,
+          message: 'Missing original-report tabs: believe',
+        },
+      } as MessageEvent)
+    })
+    await rejected
   })
 
   it('requestExcelBlob returns null when AbortSignal times out', async () => {

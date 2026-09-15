@@ -45,6 +45,10 @@ import {
   FloppyDisk,
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import {
+  SOS_PURGE_CONFIRMATION,
+  type SosPurgeScope,
+} from '@/lib/sos/purgeSosData'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,6 +65,9 @@ type LoadingKey =
   | 'reset-accreditations'
   | 'clear-streaming-stats'
   | 'clear-sos-summaries'
+  | 'purge-sos-failed-bronze'
+  | 'purge-sos-bronze'
+  | 'purge-sos-gold'
   | 'revalidate-all'
   | 'revalidate-site-settings'
   | 'requeue-sync-jobs'
@@ -76,6 +83,9 @@ type ConfirmDialog =
   | 'reset-accreditations'
   | 'clear-streaming-stats'
   | 'clear-sos-summaries'
+  | 'purge-sos-failed-bronze'
+  | 'purge-sos-bronze'
+  | 'purge-sos-gold'
   | 'requeue-sync-jobs'
   | null
 
@@ -245,6 +255,36 @@ export function MaintenanceManager() {
     } finally {
       setLoading(null)
       setConfirmDialog(null)
+    }
+  }
+
+  function sosLoadingKey(scope: SosPurgeScope): LoadingKey {
+    if (scope === 'failed_bronze') return 'purge-sos-failed-bronze'
+    if (scope === 'bronze') return 'purge-sos-bronze'
+    return 'purge-sos-gold'
+  }
+
+  async function handlePurgeSosData(scope: SosPurgeScope) {
+    setLoading(sosLoadingKey(scope))
+    try {
+      const result = await callMaintenanceApi('/api/admin/maintenance/purge-sos-data', {
+        scope,
+        confirmation: SOS_PURGE_CONFIRMATION[scope],
+      })
+      const bronze = Number(result.bronze_deleted ?? 0)
+      const gold = result.gold as Record<string, number> | undefined
+      const goldTotal = gold
+        ? Object.values(gold).reduce((sum, n) => sum + Number(n ?? 0), 0)
+        : 0
+      toast.success(
+        `SOS purge recorded in the audit log. Bronze archives: ${bronze}. Portal analytics rows: ${goldTotal}.`,
+      )
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to purge SOS data')
+    } finally {
+      setLoading(null)
+      setConfirmDialog(null)
+      setPurgeConfirmText('')
     }
   }
 
@@ -498,6 +538,64 @@ export function MaintenanceManager() {
           >
             <Spinner active={loading === 'clear-sos-summaries'} />
             Clear Sales Statement Period Summaries
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Trash size={18} weight="bold" aria-hidden="true" />
+            Statement of Sales data
+          </CardTitle>
+          <CardDescription>
+            Audited deletion of bronze CSV archives (R2 + batch rows) and portal
+            gold analytics. Each action writes <code className="font-mono text-xs">admin_audit_log</code>{' '}
+            and a financial audit event. Sales statements, invoices, and the
+            settlement ledger are not deleted.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={loading !== null}
+            onClick={() => {
+              setPurgeConfirmText('')
+              setConfirmDialog('purge-sos-failed-bronze')
+            }}
+            className="gap-2"
+          >
+            <Spinner active={loading === 'purge-sos-failed-bronze'} />
+            Delete failed / unconfirmed bronze
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={loading !== null}
+            onClick={() => {
+              setPurgeConfirmText('')
+              setConfirmDialog('purge-sos-bronze')
+            }}
+            className="gap-2"
+          >
+            <Spinner active={loading === 'purge-sos-bronze'} />
+            Delete all bronze archives
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={loading !== null}
+            onClick={() => {
+              setPurgeConfirmText('')
+              setConfirmDialog('purge-sos-gold')
+            }}
+            className="gap-2"
+          >
+            <Spinner active={loading === 'purge-sos-gold'} />
+            Delete portal SOS analytics
           </Button>
         </CardContent>
       </Card>
@@ -930,6 +1028,144 @@ export function MaintenanceManager() {
               className="bg-destructive hover:bg-destructive/90"
             >
               Delete All Sales Statement Period Summaries
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmDialog === 'purge-sos-failed-bronze'}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDialog(null)
+            setPurgeConfirmText('')
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Warning size={18} aria-hidden="true" />
+              Delete failed / unconfirmed bronze archives?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Removes import batches that are not <code className="font-mono text-xs">completed</code>{' '}
+                  (failed, uploading, processing) and their R2 objects. Completed
+                  archives stay. Type{' '}
+                  <code className="font-mono font-bold text-foreground">DELETE FAILED</code>.
+                </p>
+                <Input
+                  value={purgeConfirmText}
+                  onChange={(e) => setPurgeConfirmText(e.target.value)}
+                  placeholder={SOS_PURGE_CONFIRMATION.failed_bronze}
+                  autoComplete="off"
+                  aria-label={SOS_PURGE_CONFIRMATION.failed_bronze}
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={purgeConfirmText !== SOS_PURGE_CONFIRMATION.failed_bronze}
+              onClick={() => void handlePurgeSosData('failed_bronze')}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete failed bronze
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmDialog === 'purge-sos-bronze'}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDialog(null)
+            setPurgeConfirmText('')
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Warning size={18} aria-hidden="true" />
+              Delete ALL bronze CSV archives?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Permanently deletes every distributor CSV in R2 and every{' '}
+                  <code className="font-mono text-xs">distributor_import_batches</code> row.
+                  Linked statements keep their PDFs; source provenance is lost. Type{' '}
+                  <code className="font-mono font-bold text-foreground">DELETE BRONZE</code>.
+                </p>
+                <Input
+                  value={purgeConfirmText}
+                  onChange={(e) => setPurgeConfirmText(e.target.value)}
+                  placeholder={SOS_PURGE_CONFIRMATION.bronze}
+                  autoComplete="off"
+                  aria-label={SOS_PURGE_CONFIRMATION.bronze}
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={purgeConfirmText !== SOS_PURGE_CONFIRMATION.bronze}
+              onClick={() => void handlePurgeSosData('bronze')}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete all bronze
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmDialog === 'purge-sos-gold'}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDialog(null)
+            setPurgeConfirmText('')
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Warning size={18} aria-hidden="true" />
+              Delete portal SOS analytics?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Clears territory metrics, merch orders, period summaries, and
+                  event-impact rows that artists see after Save to Portal. Does
+                  not delete statements or invoices. Type{' '}
+                  <code className="font-mono font-bold text-foreground">DELETE GOLD</code>.
+                </p>
+                <Input
+                  value={purgeConfirmText}
+                  onChange={(e) => setPurgeConfirmText(e.target.value)}
+                  placeholder={SOS_PURGE_CONFIRMATION.gold}
+                  autoComplete="off"
+                  aria-label={SOS_PURGE_CONFIRMATION.gold}
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={purgeConfirmText !== SOS_PURGE_CONFIRMATION.gold}
+              onClick={() => void handlePurgeSosData('gold')}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete portal analytics
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

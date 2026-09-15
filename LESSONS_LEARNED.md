@@ -228,10 +228,30 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-09-15 — Destructive SOS cleanup belongs on System, with an audit row
+
+- **Finding:** Failed bronze uploads and test CSVs left R2 + batch rows with no audited wipe. Accounting can delete one batch; System already purged logs/releases, not SOS working data.
+- **Rule:** Mass-delete bronze/gold from `/admin/system` Maintenance only, typed confirmation, `admin_audit_log` + financial audit. Never include statements/invoices in a “working data” purge.
+
+### 2026-09-15 — Parse once, in the worker, with a visible pipeline
+
+- **Finding:** Main thread parsed Believe CSVs for UI stats, then the worker parsed them again. Progress was a 0% “Reading” bar plus ignored worker events, so 70 MB files looked frozen.
+- **Rule:** Read/decode on the main thread with byte progress. Parse only in the worker and forward `row x of y`. Aggregation is a global pipeline phase. Surface bronze errors as the API message.
+
+### 2026-09-15 — Per-band raw tabs, never one addRows of the whole dump
+
+- **Finding:** Raphael’s statement is one Excel per band with 1:1 original tabs. ExcelJS `addRows` of the unfiltered 750k-row dump hung the worker. The browser ExcelJS build has no `WorkbookWriter`. CSV-in-zip matched the data but not the file he sends.
+- **Rule:** Filter to that artist first, write raw tabs in small batches with yields and progress, keep one `.xlsx`. Split a sheet only at the Excel row cap. Fail closed if those tabs cannot be built.
+
+### 2026-09-15 — Bronze `file_hash` at register blocks the upload
+
+- **Finding:** `POST /import-batches` stored `file_hash` on insert. `getWritableImportBatch` treated any hash as “already archived”, so presign + proxy upload 409ed (`Import batch already has archived content`) and bronze never landed in R2. Local CSV processing still continued.
+- **Rule:** Register uses `file_hash` only for duplicate lookup. Persist hash + `completed` at confirm after hashing the R2 object. Writable = not `completed`. Duplicate skip is only for **completed** archives — unconfirmed hash rows are zombies and must be failed so a retry can confirm.
+
 ### 2026-09-13 — Statement Excel raw rows must stay in the worker
 
-- **Finding:** `SafeProcessedArtistData` drops `transactions` so the main thread never holds the full CSV. A 1:1 Believe dump for legal transparency therefore cannot be rebuilt from summary sheets. Original header/value strings have to ride on the transaction inside the worker, then `requestRawRows(artist)` returns only that artist at export time.
-- **Rule:** Include every uploaded original report (Believe, Bandcamp, Darkmerch), artist-filtered. Strip Believe commission columns (gross / client share and variants) only — never Bandcamp/Darkmerch columns. Build the xlsx in the worker (`build-excel`) and transfer the buffer. If original tabs cannot be built, do not download a complete-looking statement (fail closed). Summary-only files must be named `*_summary-only.xlsx`.
+- **Finding:** `SafeProcessedArtistData` drops `transactions` so the main thread never holds the full CSV. A 1:1 Believe dump for legal transparency therefore cannot be rebuilt from summary sheets. Original header/value strings have to ride on the transaction inside the worker.
+- **Rule:** Include every uploaded original report (Believe, Bandcamp, Darkmerch), artist-filtered. Strip Believe commission columns (gross / client share and variants) only — never Bandcamp/Darkmerch columns. Build the package in the worker (`build-excel`) and transfer the buffer. If original reports cannot be built, do not download a complete-looking statement (fail closed). Summary-only files must be named `*_summary-only.xlsx`.
 
 ### 2026-08-17 — Odesli `hasMoreWork` can park one job forever
 

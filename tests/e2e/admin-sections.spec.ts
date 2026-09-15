@@ -148,6 +148,15 @@ test.describe('Admin sections — every route renders for an admin', () => {
     })
   }
 
+  test('/admin/system Maintenance exposes audited SOS data deletion', async () => {
+    await page.goto('/admin/system', { waitUntil: 'domcontentloaded' })
+    await waitForPageSettled(page)
+    await page.getByRole('tab', { name: 'Maintenance' }).click()
+    await expect(page.getByRole('heading', { name: 'Statement of Sales data' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Delete failed / unconfirmed bronze' })).toBeVisible()
+    await expectNoErrorBoundary(page)
+  })
+
   for (const sub of ADMIN_SUBROUTES) {
     test(`${sub.path} renders "${sub.heading}"`, async () => {
       const response = await page.goto(sub.path, { waitUntil: 'domcontentloaded' })
