@@ -228,6 +228,21 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-09-16 — A success toast is a claim about side effects
+
+- **Finding:** `POST /api/portal/invoices` ignored the Resend result (`sendInvoiceEmail` is deliberately non-throwing) and always set `status: 'sent'` + 201, while the portal toasted “Invoice sent to client.” Staff never saw the invoice because the catalog had no submit event, and the Settlement Center only joins statement-linked invoices for the selected period — so free invoices were invisible everywhere.
+- **Rule:** Only claim “sent” after the mail provider confirms it; otherwise return `warnings` and toast the failure. Every new portal mutation needs a staff notification event in the catalog. Admin search needs an inbox that is not period-scoped.
+
+### 2026-09-16 — Public object URLs are not access control
+
+- **Finding:** Invoice PDFs were emailed and linked as plain `CLOUDFLARE_R2_PUBLIC_URL` objects, unlike documents/statements which use presigned or streamed access. Anyone with a forwarded mail had permanent access, and the URL was serialized into portal responses.
+- **Rule:** Legal/financial PDFs get an authenticated download route plus a short-lived HMAC token link for external recipients. Never return the stored public URL to clients. If the bucket stays public, that is an ops task, not a code fix — document the residual.
+
+### 2026-09-16 — Silent serialization needs a phase, a cap and a busy signal
+
+- **Finding:** The Excel worker only reported `original-reports`; `workbook.xlsx.writeBuffer()` ran for minutes with no event, the UI branch for `summary` was dead code, buttons stayed enabled while the single-threaded worker was queued behind `process`, and the 5-minute timeout produced the wrong error (“original tabs could not be attached”).
+- **Rule:** Emit a phase before every un-progressable step, disable exports while the worker is busy, map timeout/limit failures to their own messages, and cap raw rows (1.5 M) instead of gambling on the worker surviving. Transfer the ArrayBuffer once — wrapping it in a Blob only to read it back doubles peak memory.
+
 ### 2026-09-15 — Destructive SOS cleanup belongs on System, with an audit row
 
 - **Finding:** Failed bronze uploads and test CSVs left R2 + batch rows with no audited wipe. Accounting can delete one batch; System already purged logs/releases, not SOS working data.

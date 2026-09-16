@@ -11,8 +11,15 @@ export interface LabelClientInfo {
 /**
  * Resolve label (recipient) party for artist invoices from CMS site_settings.
  * Prefer structured label_billing_* fields; fall back to impressum free-text address.
+ *
+ * `financeEmail` (SOS accounting default preset) takes precedence as the label
+ * mail target so bookkeeping receives invoice mails even when the CMS contact
+ * address differs.
  */
-export function resolveLabelBillingParty(settings: SiteSettings): BillingParty {
+export function resolveLabelBillingParty(
+  settings: SiteSettings,
+  financeEmail?: string,
+): BillingParty {
   const name =
     settings.impressumCompanyName?.trim() ||
     settings.labelName?.trim() ||
@@ -28,6 +35,7 @@ export function resolveLabelBillingParty(settings: SiteSettings): BillingParty {
   const country = settings.labelBillingCountry?.trim() || 'Germany'
 
   const email =
+    financeEmail?.trim() ||
     settings.impressumEmail?.trim() ||
     settings.contactEmail?.trim() ||
     ''
@@ -43,8 +51,11 @@ export function resolveLabelBillingParty(settings: SiteSettings): BillingParty {
   }
 }
 
-export function resolveLabelClientInfo(settings: SiteSettings): LabelClientInfo {
-  const billingParty = resolveLabelBillingParty(settings)
+export function resolveLabelClientInfo(
+  settings: SiteSettings,
+  financeEmail?: string,
+): LabelClientInfo {
+  const billingParty = resolveLabelBillingParty(settings, financeEmail)
   const address = [
     billingParty.street,
     [billingParty.postalCode, billingParty.city].filter(Boolean).join(' ').trim(),

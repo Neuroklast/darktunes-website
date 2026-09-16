@@ -10,24 +10,27 @@ import {
   getArtistInvoiceByStatementId,
   listArtistInvoices,
   updateInvoice,
+  type ArtistInvoice,
 } from '@/lib/api/artistInvoices'
-import { appendLedgerEntry } from '@/lib/api/settlementLedger'
+import { appendLedgerEntry, hasLedgerEntry } from '@/lib/api/settlementLedger'
 import {
   assertSettlementPeriodWritableById,
   getOrCreateSettlementPeriod,
   SettlementPeriodNotWritableError,
 } from '@/lib/api/settlementPeriods'
-import {
-  InvalidStatementTransitionError,
-} from '@/lib/sos/statementStatusTransitions'
 import { getSalesStatementById, updateSalesStatementStatus } from '@/lib/api/salesStatements'
 import { getSiteSettings } from '@/lib/api/siteSettings'
+import { getRulesPresetByName } from '@/lib/api/sosRulesPresets'
+import { DEFAULT_PRESET_NAME } from '@/lib/sos/sosAccountingSettings'
 import { sendInvoiceEmail } from '@/lib/email/sendInvoiceEmail'
+import { emitNotification } from '@/lib/notifications/emit'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { taxRateForStatus } from '@/lib/legal/taxStatus'
 import { formatEcbRateNote, getEcbRateForCurrency } from '@/lib/legal/serverFx'
 import { generateInvoiceNumber } from '@/lib/portal/invoiceNumber'
 import { generateInvoicePdf } from '@/lib/portal/invoicePdf'
+import { mintInvoicePdfToken } from '@/lib/portal/invoicePdfToken'
+import { toPortalInvoiceListItem } from '@/lib/portal/invoiceUi'
 import { resolveLabelClientInfo } from '@/lib/portal/labelBilling'
 import { createR2Client } from '@/lib/r2Utils'
 import { portalMemberWrite, withPortalMembershipWrite } from '@/lib/portal/withPortalMembership'
@@ -74,7 +77,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     (db) => listArtistInvoices(db, ctx.artist.id, page),
   )
 
-  return NextResponse.json({ invoices: value.invoices, total: value.total, page })
+  return NextResponse.json({
+    invoices: value.invoices.map(toPortalInvoiceListItem),
+    total: value.total,
+    page,
+  })
 })
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
@@ -99,7 +106,20 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
 
   const siteSettings = await write('site_settings', 'select', (db) => getSiteSettings(db))
-  const labelClient = resolveLabelClientInfo(siteSettings)
+
+  // Label mail target: SOS accounting financeEmail wins over Impressum/contact.
+  // Best-effort — invoice creation must not fail when the preset is unavailable.
+  let financeEmail = ''
+  try {
+    const preset = await write('sos_rules_presets', 'select', (db) =>
+      getRulesPresetByName(db, DEFAULT_PRESET_NAME),
+    )
+    financeEmail = preset?.config.appDefaults.financeEmail?.trim() ?? ''
+  } catch (err) {
+    console.warn('[portal invoices] financeEmail lookup failed:', err)
+  }
+
+  const labelClient = resolveLabelClientInfo(siteSettings, financeEmail)
 
   // Non-EUR invoices: attach ECB reference rate (Frankfurter, no API key).
   const currency = input.currency.toUpperCase()
@@ -120,6 +140,102 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     throw new ApiError(404, 'Statement not found')
   }
 
+  const warnings: string[] = []
+  let recoveredInvoice: ArtistInvoice | null = null
+
+  if (statement) {
+    const existingLinkedInvoice = await write('artist_invoices', 'select', (db) =>
+      getArtistInvoiceByStatementId(db, artist.id, statement.id),
+    )
+    if (existingLinkedInvoice?.pdfUrl) {
+      // Idempotent replay — the invoice and its PDF already exist. Repair any
+      // follow-up step that failed after the PDF was attached (statement
+      // status, ledger liability, staff notification) and return the row.
+      // This runs before the status gate: a successful create advances the
+      // statement to "invoiced", which must not turn a retry into a 422.
+      const replayWarnings: string[] = ['already_exists']
+      const replayInvoiceId = existingLinkedInvoice.id
+      const replayPeriodId = statement.settlementPeriodId
+      const replayInvoiceNumber =
+        existingLinkedInvoice.artistInvoiceNumber ?? existingLinkedInvoice.invoiceNumber
+
+      if (['label_approved', 'artist_notified', 'viewed'].includes(statement.status)) {
+        try {
+          await write('sales_statements', 'update', (db) =>
+            updateSalesStatementStatus(db, statement.id, 'invoiced'),
+          )
+        } catch (err) {
+          console.error('[portal invoices] replay statement status update failed:', err)
+          replayWarnings.push('statement_status_failed')
+        }
+      }
+
+      if (replayPeriodId) {
+        try {
+          await write('settlement_periods', 'select', (db) =>
+            assertSettlementPeriodWritableById(db, replayPeriodId),
+          )
+          const alreadyBooked = await write('settlement_ledger', 'select', (db) =>
+            hasLedgerEntry(db, 'artist_invoice', replayInvoiceId, 'invoice_liability'),
+          )
+          if (!alreadyBooked) {
+            await write('settlement_ledger', 'insert', (db) =>
+              appendLedgerEntry(db, {
+                artistId: artist.id,
+                settlementPeriodId: replayPeriodId,
+                entryType: 'invoice_liability',
+                amountEur: -Number(statement.amountEur ?? 0),
+                currency,
+                referenceType: 'artist_invoice',
+                referenceId: replayInvoiceId,
+                description: `Invoice liability ${replayInvoiceNumber}`,
+              }),
+            )
+          }
+        } catch (err) {
+          console.error('[portal invoices] replay ledger repair failed:', err)
+          replayWarnings.push('ledger_entry_failed')
+        }
+      }
+
+      try {
+        await emitNotification(serviceDb, {
+          type: 'invoice_submitted',
+          entityId: replayInvoiceId,
+          entityName: `Invoice ${replayInvoiceNumber} — ${artist.name}`,
+          artistId: artist.id,
+          payload: {
+            invoice_number: replayInvoiceNumber,
+            amount_cents: Math.round(Number(statement.amountEur ?? 0) * 100),
+            currency,
+            statement_id: statement.id,
+            client_email: existingLinkedInvoice.clientEmail,
+          },
+          dedupeKey: `invoice_submitted:${replayInvoiceId}`,
+        })
+      } catch (notifErr) {
+        console.error('[portal invoices] replay staff notify failed:', notifErr)
+        replayWarnings.push('notify_failed')
+      }
+
+      return NextResponse.json(
+        {
+          invoice: toPortalInvoiceListItem(existingLinkedInvoice),
+          pdf_available: true,
+          email: {},
+          warnings: replayWarnings,
+        },
+        { status: 200 },
+      )
+    }
+    if (existingLinkedInvoice) {
+      // Recovery — a previous attempt persisted the row but failed before the
+      // PDF was attached. Continue with the existing row instead of 409-ing.
+      recoveredInvoice = existingLinkedInvoice
+      warnings.push('recovered_partial')
+    }
+  }
+
   if (statement && !['label_approved', 'artist_notified', 'viewed'].includes(statement.status)) {
     throw new ApiError(422, 'Statement is not ready for invoice creation')
   }
@@ -129,13 +245,6 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
 
   if (statement) {
-    const existingLinkedInvoice = await write('artist_invoices', 'select', (db) =>
-      getArtistInvoiceByStatementId(db, artist.id, statement.id),
-    )
-    if (existingLinkedInvoice) {
-      throw new ApiError(409, 'An invoice for this statement already exists')
-    }
-
     const expectedSubtotal = Math.round((statement.amountEur ?? 0) * 100)
     const submittedSubtotal = getLineItemSubtotal(input.line_items)
     if (submittedSubtotal !== expectedSubtotal) {
@@ -144,9 +253,12 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
 
   const issuedDate = input.issued_date ?? new Date().toISOString().slice(0, 10)
-  const internalInvoiceNumber = await write('artist_invoices', 'select', (db) =>
-    generateInvoiceNumber(db, artist.id),
-  )
+  // A recovered row keeps its persisted number so PDF, mails and ledger stay consistent.
+  const artistInvoiceNumber =
+    recoveredInvoice?.artistInvoiceNumber ?? input.artist_invoice_number
+  const internalInvoiceNumber = recoveredInvoice
+    ? recoveredInvoice.invoiceNumber
+    : await write('artist_invoices', 'select', (db) => generateInvoiceNumber(db, artist.id))
   const taxStatus = billingProfile.taxStatus
   const effectiveTaxRate = taxRateForStatus(taxStatus, input.tax_rate_pct)
 
@@ -212,26 +324,30 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     }
   }
 
-  let invoice
-  try {
-    invoice = statement
-      ? await write('artist_invoices', 'insert', (db) =>
-          createSosLinkedInvoice(db, {
-            ...invoicePayload,
-            statementId: statement.id,
-            settlementPeriodId,
-          }),
-        )
-      : await write('artist_invoices', 'insert', (db) => createArtistInvoice(db, invoicePayload))
-  } catch (err) {
-    if (err instanceof DuplicateStatementInvoiceError) {
-      throw new ApiError(409, err.message)
+  let invoice: ArtistInvoice
+  if (recoveredInvoice) {
+    invoice = recoveredInvoice
+  } else {
+    try {
+      invoice = statement
+        ? await write('artist_invoices', 'insert', (db) =>
+            createSosLinkedInvoice(db, {
+              ...invoicePayload,
+              statementId: statement.id,
+              settlementPeriodId,
+            }),
+          )
+        : await write('artist_invoices', 'insert', (db) => createArtistInvoice(db, invoicePayload))
+    } catch (err) {
+      if (err instanceof DuplicateStatementInvoiceError) {
+        throw new ApiError(409, err.message)
+      }
+      throw err
     }
-    throw err
   }
 
   const pdfBytes = await generateInvoicePdf({
-    invoiceNumber: input.artist_invoice_number,
+    invoiceNumber: artistInvoiceNumber,
     issuedDate,
     dueDate: input.due_date,
     artist: {
@@ -281,6 +397,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   )
 
   const pdfUrl = `${serverEnv.CLOUDFLARE_R2_PUBLIC_URL.replace(/\/$/, '')}/${key}`
+  // Never downgrade a recovered invoice that was already marked sent.
+  const nextStatus =
+    input.send_email || recoveredInvoice?.status === 'sent' ? 'sent' : 'draft'
   const updatedInvoice = await write('artist_invoices', 'update', (db) =>
     updateInvoice(db, invoice.id, artist.id, {
       pdf_url: pdfUrl,
@@ -290,7 +409,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       fx_rate: fxQuote?.rate ?? null,
       fx_rate_date: fxQuote?.date ?? null,
       fx_rate_source: fxQuote?.source ?? null,
-      status: input.send_email ? 'sent' : 'draft',
+      status: nextStatus,
     }),
   )
 
@@ -303,38 +422,79 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         updateSalesStatementStatus(db, statement.id, 'invoiced'),
       )
     } catch (err) {
-      if (err instanceof InvalidStatementTransitionError) {
-        throw new ApiError(422, err.message)
-      }
-      throw err
+      // The invoice row + PDF exist — surface the failure without losing them.
+      console.error('[portal invoices] statement status update failed:', err)
+      warnings.push('statement_status_failed')
     }
   }
 
   if (statement && settlementPeriodId) {
     // Net liability zeros statement_payout; cash still owed is tracked via unpaid invoice gross.
     const invoiceTotalEur = getLineItemSubtotal(input.line_items) / 100
-    await write('settlement_ledger', 'insert', (db) =>
-      appendLedgerEntry(db, {
-        artistId: artist.id,
-        settlementPeriodId,
-        entryType: 'invoice_liability',
-        amountEur: -invoiceTotalEur,
-        currency,
-        referenceType: 'artist_invoice',
-        referenceId: invoice.id,
-        description: `Invoice liability ${input.artist_invoice_number}`,
-      }),
+    const alreadyBooked = await write('settlement_ledger', 'select', (db) =>
+      hasLedgerEntry(db, 'artist_invoice', invoice.id, 'invoice_liability'),
     )
+    if (!alreadyBooked) {
+      try {
+        await write('settlement_ledger', 'insert', (db) =>
+          appendLedgerEntry(db, {
+            artistId: artist.id,
+            settlementPeriodId,
+            entryType: 'invoice_liability',
+            amountEur: -invoiceTotalEur,
+            currency,
+            referenceType: 'artist_invoice',
+            referenceId: invoice.id,
+            description: `Invoice liability ${artistInvoiceNumber}`,
+          }),
+        )
+      } catch (err) {
+        console.error('[portal invoices] ledger entry failed:', err)
+        warnings.push('ledger_entry_failed')
+      }
+    }
   }
 
+  try {
+    await emitNotification(serviceDb, {
+      type: 'invoice_submitted',
+      entityId: invoice.id,
+      entityName: `Invoice ${artistInvoiceNumber} — ${artist.name}`,
+      artistId: artist.id,
+      payload: {
+        invoice_number: artistInvoiceNumber,
+        amount_cents: getLineItemSubtotal(input.line_items),
+        currency,
+        statement_id: statement?.id ?? null,
+        client_email: clientEmail,
+      },
+      dedupeKey: `invoice_submitted:${invoice.id}`,
+    })
+  } catch (notifErr) {
+    console.error('[portal invoices] staff notify failed:', notifErr)
+    warnings.push('notify_failed')
+  }
+
+  const emailResults: {
+    client?: { sent: boolean; error?: string }
+    label?: { sent: boolean; error?: string }
+  } = {}
+
+  // Tokenized download link — no world-readable R2 URL in customer mails.
+  const downloadToken = mintInvoicePdfToken(
+    serverEnv.API_CREDENTIALS_ENCRYPTION_KEY,
+    invoice.id,
+  )
+  const downloadUrl = `${req.nextUrl.origin}/api/invoices/${invoice.id}/pdf?token=${encodeURIComponent(downloadToken)}`
+
   if (input.send_email) {
-    await sendInvoiceEmail(
+    const result = await sendInvoiceEmail(
       {
         artistName: artist.name,
-        invoiceNumber: input.artist_invoice_number,
+        invoiceNumber: artistInvoiceNumber,
         clientEmail,
         clientName,
-        pdfUrl,
+        pdfUrl: downloadUrl,
         labelName: labelClient.name,
       },
       {
@@ -343,16 +503,18 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         fetch: globalThis.fetch,
       },
     )
+    emailResults.client = result.success ? { sent: true } : { sent: false, error: result.error }
+    if (!result.success) warnings.push('client_email_failed')
   }
 
   if (input.send_to_label && clientEmail !== labelClient.email) {
-    await sendInvoiceEmail(
+    const result = await sendInvoiceEmail(
       {
         artistName: artist.name,
-        invoiceNumber: input.artist_invoice_number,
+        invoiceNumber: artistInvoiceNumber,
         clientEmail: labelClient.email,
         clientName: labelClient.name,
-        pdfUrl,
+        pdfUrl: downloadUrl,
         labelName: labelClient.name,
       },
       {
@@ -361,7 +523,17 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         fetch: globalThis.fetch,
       },
     )
+    emailResults.label = result.success ? { sent: true } : { sent: false, error: result.error }
+    if (!result.success) warnings.push('label_email_failed')
   }
 
-  return NextResponse.json({ invoice: updatedInvoice, pdf_url: pdfUrl }, { status: 201 })
+  return NextResponse.json(
+    {
+      invoice: toPortalInvoiceListItem(updatedInvoice),
+      pdf_available: true,
+      email: emailResults,
+      warnings,
+    },
+    { status: 201 },
+  )
 })

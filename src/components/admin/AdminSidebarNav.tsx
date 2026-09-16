@@ -39,6 +39,7 @@ import {
   IdentificationCard,
   Briefcase,
   Receipt,
+  FileText,
   FolderOpen,
   Tag,
   Wallet,
@@ -91,6 +92,7 @@ type NavItemKey =
   | 'accounting'
   | 'labelIntelligence'
   | 'statements'
+  | 'invoices'
   | 'messages'
   | 'promotionActivity'
   | 'users'
@@ -169,6 +171,7 @@ const NAV_GROUPS: NavGroup[] = [
       { labelKey: 'accounting', href: '/admin/accounting', icon: Wallet, adminOnly: true },
       { labelKey: 'labelIntelligence', href: '/admin/analytics', icon: ChartLine, adminOnly: true },
       { labelKey: 'statements', href: '/admin/statements', icon: Receipt, adminOnly: true },
+      { labelKey: 'invoices', href: '/admin/invoices', icon: FileText, adminOnly: true },
       { labelKey: 'messages', href: '/admin/messages', icon: ChatCircle, adminOnly: true, badgeKey: 'messages' },
       { labelKey: 'promotionActivity', href: '/admin/promo-log', editorHref: getCmsPromoLogPath('editor'), icon: MegaphoneSimple, adminOnly: false },
       { labelKey: 'users', href: '/admin/users', icon: UsersThree, adminOnly: true },

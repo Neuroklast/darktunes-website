@@ -126,12 +126,15 @@ export async function sendInvoiceEmail(
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    return { success: false, error: msg }
+    console.error('[sendInvoiceEmail] network error:', msg)
+    return { success: false, error: 'network_error' }
   }
 
   if (!res.ok) {
-    const txt = await res.text().catch(() => `HTTP ${res.status}`)
-    return { success: false, error: txt }
+    const txt = await res.text().catch(() => '')
+    // Keep provider internals in the server log — never in the API response/UI.
+    console.error('[sendInvoiceEmail] Resend error', res.status, txt.slice(0, 500))
+    return { success: false, error: `HTTP ${res.status}` }
   }
 
   return { success: true }

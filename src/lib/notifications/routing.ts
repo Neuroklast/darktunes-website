@@ -66,6 +66,8 @@ function getKnownNotificationHref(
       return withArtist('/portal/releases/videos', artistId)
     case 'statement_available':
       return withEntity(withArtist('/portal/statements', artistId), entityId)
+    case 'invoice_submitted':
+      return withEntity('/admin/invoices', entityId)
     case 'invoice_payment_received':
       return withEntity(withArtist('/portal/invoices', artistId), entityId)
     case 'journalist_application_submitted':
@@ -103,6 +105,8 @@ export function getNotificationSummaryFallback(
       return entityName ?? 'Video submission decision'
     case 'statement_available':
       return entityName ?? 'New statement available'
+    case 'invoice_submitted':
+      return entityName ?? 'New invoice submitted'
     case 'invoice_payment_received':
       return entityName ?? 'Invoice payment received'
     case 'journalist_application_submitted':
@@ -136,6 +140,8 @@ export function getNotificationActionLabelFallback(type: string): string {
       return 'Open videos'
     case 'statement_available':
       return 'Open statements'
+    case 'invoice_submitted':
+      return 'Open invoices'
     case 'invoice_payment_received':
       return 'Open invoices'
     case 'journalist_application_submitted':

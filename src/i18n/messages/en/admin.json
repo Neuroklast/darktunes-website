@@ -28,6 +28,7 @@
     "accounting": "Accounting",
     "labelIntelligence": "Analytics",
     "statements": "Statements",
+    "invoices": "Invoices",
     "messages": "Messages",
     "promotionActivity": "Promotion Activity",
     "users": "Users",
@@ -118,6 +119,38 @@
     "updateError": "Failed to update request",
     "updateSuccess": "Request {status}"
   },
+  "invoices": {
+    "pageTitle": "Invoices",
+    "pageDescription": "All artist invoices — including free invoices without a statement.",
+    "filterArtist": "Filter by artist",
+    "filterAllArtists": "All artists",
+    "filterStatus": "Filter by status",
+    "filterAllStatuses": "All statuses",
+    "resultCount": "{count} invoices",
+    "loading": "Loading invoices…",
+    "loadError": "Could not load invoices.",
+    "empty": "No invoices found.",
+    "colNumber": "Invoice",
+    "colArtist": "Artist",
+    "colClient": "Client",
+    "colTotal": "Total",
+    "colStatus": "Status",
+    "colIssued": "Issued",
+    "colDue": "Due",
+    "colActions": "Actions",
+    "downloadPdf": "PDF",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {pages}",
+    "status": {
+      "draft": "Draft",
+      "sent": "Sent",
+      "received": "Received",
+      "partially_paid": "Partially paid",
+      "paid": "Paid",
+      "cancelled": "Cancelled"
+    }
+  },
   "accounting": {
     "pageTitle": "Accounting",
     "pageDescription": "Generate royalty statements for artists and review statement history.",
@@ -159,6 +192,9 @@
     "excelSheetMonthly": "Monthly",
     "excelSheetRaw": "Raw data",
     "excelSheetRawHint": "Required for a complete statement: original Believe, Bandcamp, and Darkmerch tabs for this artist only. Believe commission columns are omitted. Turning this off downloads a summary-only file.",
+    "exportExcelTimeout": "Excel export stopped after 5 minutes. The file is too large — turn off Raw data or export fewer artists.",
+    "exportExcelRawLimit": "Too many raw rows ({rows}). The limit is {limit} — turn off Raw data for a summary-only file.",
+    "exportExcelBatchSkipped": "{count} artist(s) had no original-report Excel and were skipped in the ZIP. The ZIP contains a placeholder note for each.",
     "excelHideCompilations": "Hide compilations in the release sheet",
     "excelColBelieveRevenue": "Believe revenue",
     "excelColBandcampRevenue": "Bandcamp revenue",
@@ -1090,7 +1126,8 @@
       "press_asset": "Press asset suggestion",
       "portal_message": "New message from artist",
       "label_message": "New message from label",
-      "fan_page_decision": "Fan page review decision"
+      "fan_page_decision": "Fan page review decision",
+      "invoice_submitted": "New invoice submitted"
     },
     "actions": {
       "review_release": "Review release",
@@ -1098,7 +1135,8 @@
       "review_fan_page": "Review fan page",
       "review_asset": "Review asset",
       "open_messages": "Open messages",
-      "open_fan_page": "Open fan page"
+      "open_fan_page": "Open fan page",
+      "open_invoices": "Open invoices"
     },
     "typeLabels": {
       "artist_release_submission": "Release submission (staff)",
@@ -1111,6 +1149,7 @@
       "release_submission_decision": "Release decision",
       "video_submission_decision": "Video decision",
       "statement_available": "Statement available",
+      "invoice_submitted": "Invoice submitted",
       "invoice_payment_received": "Invoice payment",
       "journalist_application_submitted": "Journalist application",
       "journalist_application_decision": "Journalist decision"

@@ -36,4 +36,13 @@ test.describe('Admin SOS drafts + statements', () => {
     await expectNoErrorBoundary(page)
     await expect(page.getByRole('heading', { name: /accounting/i })).toBeVisible()
   })
+
+  test('invoice inbox mounts with filters and without the error boundary', async ({ page }) => {
+    await page.goto('/admin/invoices', { waitUntil: 'domcontentloaded' })
+    await waitForPageSettled(page)
+    await expect(page.getByRole('heading', { name: /invoices/i })).toBeVisible()
+    await expect(page.getByLabel(/filter by artist/i)).toBeVisible()
+    await expect(page.getByLabel(/filter by status/i)).toBeVisible()
+    await expectNoErrorBoundary(page)
+  })
 })

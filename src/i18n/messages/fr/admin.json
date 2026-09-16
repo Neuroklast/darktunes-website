@@ -28,6 +28,7 @@
     "accounting": "Comptabilité",
     "labelIntelligence": "Analytics",
     "statements": "Relevés",
+    "invoices": "Factures",
     "messages": "Messages",
     "promotionActivity": "Activité promo",
     "users": "Utilisateurs",
@@ -118,6 +119,38 @@
     "updateError": "Échec de la mise à jour de la demande",
     "updateSuccess": "Demande {status}"
   },
+  "invoices": {
+    "pageTitle": "Factures",
+    "pageDescription": "Toutes les factures d’artistes — y compris les factures libres sans relevé.",
+    "filterArtist": "Filtrer par artiste",
+    "filterAllArtists": "Tous les artistes",
+    "filterStatus": "Filtrer par statut",
+    "filterAllStatuses": "Tous les statuts",
+    "resultCount": "{count} factures",
+    "loading": "Chargement des factures…",
+    "loadError": "Impossible de charger les factures.",
+    "empty": "Aucune facture trouvée.",
+    "colNumber": "Facture",
+    "colArtist": "Artiste",
+    "colClient": "Client",
+    "colTotal": "Total",
+    "colStatus": "Statut",
+    "colIssued": "Émise",
+    "colDue": "Échéance",
+    "colActions": "Actions",
+    "downloadPdf": "PDF",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "pageOf": "Page {page} sur {pages}",
+    "status": {
+      "draft": "Brouillon",
+      "sent": "Envoyée",
+      "received": "Reçue",
+      "partially_paid": "Partiellement payée",
+      "paid": "Payée",
+      "cancelled": "Annulée"
+    }
+  },
   "accounting": {
     "pageTitle": "Comptabilité",
     "pageDescription": "Générez des relevés de redevances pour les artistes et consultez l’historique des relevés.",
@@ -159,6 +192,9 @@
     "excelSheetMonthly": "Mensuel",
     "excelSheetRaw": "Données brutes",
     "excelSheetRawHint": "Requis pour un relevé complet : onglets Believe, Bandcamp et Darkmerch de cet artiste uniquement. Colonnes de commission Believe omises. Désactiver = fichier résumé seulement.",
+    "exportExcelTimeout": "Export Excel interrompu après 5 minutes. Le fichier est trop volumineux — désactivez les données brutes ou exportez moins d’artistes.",
+    "exportExcelRawLimit": "Trop de lignes brutes ({rows}). La limite est {limit} — désactivez les données brutes pour un fichier résumé.",
+    "exportExcelBatchSkipped": "{count} artiste(s) sans Excel de rapports originaux ont été ignorés dans le ZIP. Le ZIP contient une note de remplacement pour chacun.",
     "excelHideCompilations": "Masquer les compilations dans la feuille des sorties",
     "excelColBelieveRevenue": "Revenu Believe",
     "excelColBandcampRevenue": "Revenu Bandcamp",
@@ -1090,7 +1126,8 @@
       "press_asset": "Suggestion d’asset presse",
       "portal_message": "Nouveau message d’un artiste",
       "label_message": "Nouveau message du label",
-      "fan_page_decision": "Décision de relecture de page fan"
+      "fan_page_decision": "Décision de relecture de page fan",
+      "invoice_submitted": "Nouvelle facture soumise"
     },
     "actions": {
       "review_release": "Examiner la release",
@@ -1098,7 +1135,8 @@
       "review_fan_page": "Examiner la page fan",
       "review_asset": "Examiner l’asset",
       "open_messages": "Ouvrir les messages",
-      "open_fan_page": "Ouvrir la page fan"
+      "open_fan_page": "Ouvrir la page fan",
+      "open_invoices": "Ouvrir les factures"
     },
     "typeLabels": {
       "artist_release_submission": "Envoi de release (équipe)",
@@ -1111,6 +1149,7 @@
       "release_submission_decision": "Décision de release",
       "video_submission_decision": "Décision de vidéo",
       "statement_available": "Relevé disponible",
+      "invoice_submitted": "Facture soumise",
       "invoice_payment_received": "Paiement de facture",
       "journalist_application_submitted": "Candidature journaliste",
       "journalist_application_decision": "Décision journaliste"

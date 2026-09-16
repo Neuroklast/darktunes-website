@@ -17,6 +17,7 @@ export type NotificationEventType =
   | 'release_submission_decision'
   | 'video_submission_decision'
   | 'statement_available'
+  | 'invoice_submitted'
   | 'invoice_payment_received'
   | 'journalist_application_submitted'
   | 'journalist_application_decision'

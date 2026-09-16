@@ -117,6 +117,7 @@ Client: `bronzeUpload.ts`. Multipart: `bronzeMultipartUpload.ts`. Limits: `bronz
 | `release_submission_decision` | artist members | `PATCH /api/admin/release-submissions/[id]` |
 | `video_submission_decision` | artist members | `PATCH /api/admin/video-submissions/[id]` |
 | `statement_available` | artist members | `uploadStatement` (notify path) |
+| `invoice_submitted` | staff (admin) | `POST /api/portal/invoices` |
 | `invoice_payment_received` | artist members | `PATCH /api/admin/invoices/[id]/payment` |
 | `journalist_application_submitted` | staff (admin) | `POST /api/journalist-applications` |
 | `journalist_application_decision` | applicant user | `PATCH /api/journalist-applications/[id]` |
@@ -148,6 +149,7 @@ Health: `GET /api/health` defaults to **lite** (DB liveness); full dashboard sna
 | IBAN | Local only `src/lib/sos/iban-validator.ts` on billing POST |
 | FX | Frankfurter via `getEcbRateForCurrency` / `/api/exchange-rates`; non-EUR invoice footnotes |
 | PDF immutability | `pdf_sha256` + write-once update guard; R2 key `invoices/{artistId}/{invoiceId}.pdf` |
+| PDF access | Email: expiring HMAC link `/api/invoices/{id}/pdf?token=` (`invoicePdfToken.ts`, secret = `API_CREDENTIALS_ENCRYPTION_KEY`). Portal/admin: 10-min presigned URLs. `pdf_url` is never returned to clients (`hasPdf` only) |
 | AGB | `/agb` + `portal_terms_*` on `artists` + `POST /api/portal/accept-terms` |
 
 ## Scheduled news publishing

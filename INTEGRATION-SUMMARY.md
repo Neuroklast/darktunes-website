@@ -36,7 +36,7 @@ Living product-status snapshot. Architecture and agent rules: `AGENTS.md` + `doc
 |------|--------|
 | Profile, EPK (legacy + canvas builder), onboarding | ✅ |
 | Analytics (11 tabs + intelligence) | ✅ |
-| Statements, billing, invoices | ✅ SOS-linked + free PDF generator |
+| Statements, billing, invoices | ✅ SOS-linked + free PDF generator; admin invoice inbox (`/admin/invoices`) with finance-email delivery + tokenized PDF links |
 | **Inline billing** | ✅ `InlineBillingProfileStep` on invoices, analytics earnings, statements |
 | Releases, tour, calendar, marketing, documents | ✅ |
 | Messages, interviews, help, settings | ✅ |

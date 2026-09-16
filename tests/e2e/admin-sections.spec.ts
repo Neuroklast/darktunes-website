@@ -44,6 +44,7 @@ const ADMIN_SECTIONS: { path: string; heading: string; note?: string }[] = [
   { path: '/admin/accounting', heading: 'Accounting', note: 'admin.accounting.pageTitle' },
   { path: '/admin/analytics', heading: 'Analytics', note: 'admin.labelIntelligence.pageTitle' },
   { path: '/admin/statements', heading: 'Statements', note: 'admin.accounting.statementsPageTitle' },
+  { path: '/admin/invoices', heading: 'Invoices', note: 'admin.invoices.pageTitle' },
   { path: '/admin/messages', heading: 'Artist Messages' },
   { path: '/admin/promo-log', heading: 'Promotion Activity' },
   { path: '/admin/users', heading: 'User Management' },

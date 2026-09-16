@@ -22,6 +22,14 @@ import type { ArtistBillingProfile } from '@/lib/api/artistBillingProfiles'
 import type { ArtistInvoice } from '@/lib/api/artistInvoices'
 import type { SalesStatement } from '@/lib/api/salesStatements'
 import type { LabelClientInfo } from '@/lib/portal/labelBilling'
+import { getPortalAuthHeaders } from '@/lib/portal/portalFetchAuth'
+import {
+  invoiceEmailError,
+  invoiceEmailFailed,
+  invoiceFollowUpWarning,
+  type InvoiceSubmitMeta,
+} from '@/lib/portal/invoiceSubmission'
+import { toPortalInvoiceListItem, type PortalInvoiceListItem } from '@/lib/portal/invoiceUi'
 import { FreeInvoiceGenerator } from './FreeInvoiceGenerator'
 import { InvoiceForm } from './InvoiceForm'
 import { InvoiceFromStatementAssistant } from './InvoiceFromStatementAssistant'
@@ -31,7 +39,7 @@ interface InvoicesClientProps {
   billingProfile: ArtistBillingProfile | null
   billingProfileComplete: boolean
   labelClient: LabelClientInfo
-  invoices: ArtistInvoice[]
+  invoices: PortalInvoiceListItem[]
   statement: SalesStatement | null
 }
 
@@ -78,7 +86,7 @@ export function InvoicesClient({
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [invoices, setInvoices] = useState<ArtistInvoice[]>(initialInvoices)
+  const [invoices, setInvoices] = useState<PortalInvoiceListItem[]>(initialInvoices)
   const [showForm, setShowForm] = useState(Boolean(statement))
   const [activeTab, setActiveTab] = useState<ActiveTab>('my-invoices')
 
@@ -88,11 +96,53 @@ export function InvoicesClient({
     router.replace(nextParams.size > 0 ? `${pathname}?${nextParams.toString()}` : pathname)
   }
 
-  const handleNewInvoice = (invoice: ArtistInvoice) => {
-    setInvoices((prev) => [invoice, ...prev])
+  const handleNewInvoice = (invoice: ArtistInvoice, meta?: InvoiceSubmitMeta) => {
+    // Replays return the existing row — replace instead of duplicating it.
+    setInvoices((prev) => [
+      toPortalInvoiceListItem(invoice),
+      ...prev.filter((entry) => entry.id !== invoice.id),
+    ])
     setShowForm(false)
     clearStatementQuery()
+
+    if (meta?.warnings.includes('already_exists')) {
+      toast.info(t('invoice_already_exists'))
+      return
+    }
+    if (meta && invoiceEmailFailed(meta)) {
+      toast.warning(t('invoice_email_failed', { error: invoiceEmailError(meta) ?? 'unknown' }))
+      return
+    }
+    if (meta && invoiceFollowUpWarning(meta)) {
+      toast.warning(t('invoice_created_with_warnings'))
+      return
+    }
     toast.success(invoice.status === 'sent' ? t('invoice_sent_success') : t('invoice_save_success'))
+  }
+
+  const handleDownloadPdf = async (invoice: PortalInvoiceListItem) => {
+    // Open the tab synchronously so popup blockers allow the later navigation.
+    const newTab = window.open('', '_blank')
+    if (newTab) newTab.opener = null
+    try {
+      const headers = await getPortalAuthHeaders()
+      const params = new URLSearchParams({ artist_id: artistId })
+      const response = await fetch(`/api/portal/invoices/${invoice.id}/pdf?${params.toString()}`, {
+        headers,
+      })
+      const json = (await response.json().catch(() => null)) as
+        | { url?: string; error?: string }
+        | null
+      if (!response.ok || !json?.url) throw new Error(json?.error ?? t('invoice_error'))
+      if (newTab) {
+        newTab.location.href = json.url
+      } else {
+        window.location.assign(json.url)
+      }
+    } catch (err) {
+      newTab?.close()
+      toast.error(err instanceof Error ? err.message : t('invoice_error'))
+    }
   }
 
   const handleCancel = () => {
@@ -245,17 +295,15 @@ export function InvoicesClient({
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              {invoice.pdfUrl ? (
-                                <Button asChild size="sm" variant="outline">
-                                  <a
-                                    className="gap-1"
-                                    href={invoice.pdfUrl}
-                                    rel="noreferrer"
-                                    target="_blank"
-                                  >
-                                    <DownloadSimple size={14} aria-hidden="true" />
-                                    {t('invoice_download_pdf')}
-                                  </a>
+                              {invoice.hasPdf ? (
+                                <Button
+                                  className="gap-1"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => void handleDownloadPdf(invoice)}
+                                >
+                                  <DownloadSimple size={14} aria-hidden="true" />
+                                  {t('invoice_download_pdf')}
                                 </Button>
                               ) : (
                                 <Button

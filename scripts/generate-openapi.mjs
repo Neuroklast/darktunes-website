@@ -37,6 +37,7 @@ function getTag(routePath) {
     'journalist-applications': 'Journalist Applications',
     upload: 'Upload',
     'upload-epk': 'Upload',
+    invoices: 'Invoices',
     'sync-api': 'Sync',
     'sync-artist': 'Sync',
     'sync-youtube': 'Sync',
@@ -174,6 +175,7 @@ const tagDescriptions = {
   Cache: 'On-demand ISR cache revalidation (secret-protected).',
   EPK: 'Electronic press kit sharing and export.',
   Health: 'System health probes and alerting.',
+  Invoices: 'Invoice PDF access — authenticated portal/admin downloads and tokenized email links.',
   'Journalist Applications': 'Press accreditation application flow.',
   Newsletter: 'Double opt-in newsletter subscription.',
   Portal: 'Artist portal dashboard APIs.',
@@ -294,6 +296,115 @@ lines.push('        database:');
 lines.push('          type: object');
 lines.push('          properties:');
 lines.push('            status: { type: string, enum: [online, offline] }');
+// --- Invoice schemas (portal + admin invoice inbox) ---
+lines.push('    InvoiceLineItem:');
+lines.push('      type: object');
+lines.push('      required: [description, qty, unit_price_cents]');
+lines.push('      properties:');
+lines.push('        description: { type: string }');
+lines.push('        qty: { type: integer, minimum: 1 }');
+lines.push('        unit_price_cents: { type: integer, minimum: 0 }');
+lines.push('    InvoiceEmailResult:');
+lines.push('      type: object');
+lines.push('      required: [sent]');
+lines.push('      properties:');
+lines.push('        sent: { type: boolean }');
+lines.push('        error: { type: string, description: "Sanitized delivery error (e.g. HTTP 401)." }');
+lines.push('    InvoiceSubmitResponse:');
+lines.push('      type: object');
+lines.push('      required: [invoice, warnings]');
+lines.push('      properties:');
+lines.push('        invoice: { $ref: "#/components/schemas/PortalInvoice" }');
+lines.push('        pdf_available: { type: boolean }');
+lines.push('        warnings:');
+lines.push('          type: array');
+lines.push('          description: Follow-up problems (mail delivery, ledger, statement status, replay).');
+lines.push('          items: { type: string }');
+lines.push('        email:');
+lines.push('          type: object');
+lines.push('          properties:');
+lines.push('            client: { $ref: "#/components/schemas/InvoiceEmailResult" }');
+lines.push('            label: { $ref: "#/components/schemas/InvoiceEmailResult" }');
+lines.push('    PortalInvoice:');
+lines.push('      type: object');
+lines.push('      description: Invoice as exposed to the portal — never includes the public R2 pdf_url.');
+lines.push('      properties:');
+lines.push('        id: { type: string, format: uuid }');
+lines.push('        artistId: { type: string, format: uuid }');
+lines.push('        invoiceNumber: { type: string }');
+lines.push('        artistInvoiceNumber: { type: string, nullable: true }');
+lines.push('        statementId: { type: string, format: uuid, nullable: true }');
+lines.push('        clientName: { type: string }');
+lines.push('        clientEmail: { type: string, format: email }');
+lines.push('        lineItems: { type: array, items: { $ref: "#/components/schemas/InvoiceLineItem" } }');
+lines.push('        currency: { type: string }');
+lines.push('        taxRatePct: { type: number }');
+lines.push('        status: { type: string, enum: [draft, sent, received, partially_paid, paid, cancelled] }');
+lines.push('        issuedDate: { type: string, format: date }');
+lines.push('        dueDate: { type: string, format: date }');
+lines.push('        notes: { type: string, nullable: true }');
+lines.push('        hasPdf: { type: boolean }');
+lines.push('        createdAt: { type: string, format: date-time }');
+lines.push('        updatedAt: { type: string, format: date-time }');
+lines.push('    PortalInvoiceList:');
+lines.push('      type: object');
+lines.push('      required: [invoices, total, page]');
+lines.push('      properties:');
+lines.push('        invoices: { type: array, items: { $ref: "#/components/schemas/PortalInvoice" } }');
+lines.push('        total: { type: integer }');
+lines.push('        page: { type: integer }');
+lines.push('    AdminInvoice:');
+lines.push('      type: object');
+lines.push('      description: Admin inbox row (same shape as PortalInvoice plus artistName).');
+lines.push('      properties:');
+lines.push('        id: { type: string, format: uuid }');
+lines.push('        artistId: { type: string, format: uuid }');
+lines.push('        artistName: { type: string }');
+lines.push('        invoiceNumber: { type: string }');
+lines.push('        artistInvoiceNumber: { type: string, nullable: true }');
+lines.push('        statementId: { type: string, format: uuid, nullable: true }');
+lines.push('        clientName: { type: string }');
+lines.push('        clientEmail: { type: string, format: email }');
+lines.push('        lineItems: { type: array, items: { $ref: "#/components/schemas/InvoiceLineItem" } }');
+lines.push('        currency: { type: string }');
+lines.push('        taxRatePct: { type: number }');
+lines.push('        status: { type: string, enum: [draft, sent, received, partially_paid, paid, cancelled] }');
+lines.push('        issuedDate: { type: string, format: date }');
+lines.push('        dueDate: { type: string, format: date }');
+lines.push('        hasPdf: { type: boolean }');
+lines.push('        createdAt: { type: string, format: date-time }');
+lines.push('        updatedAt: { type: string, format: date-time }');
+lines.push('    AdminInvoiceList:');
+lines.push('      type: object');
+lines.push('      required: [items, total, page, page_size]');
+lines.push('      properties:');
+lines.push('        items: { type: array, items: { $ref: "#/components/schemas/AdminInvoice" } }');
+lines.push('        total: { type: integer }');
+lines.push('        page: { type: integer }');
+lines.push('        page_size: { type: integer }');
+lines.push('    InvoiceCreateRequest:');
+lines.push('      type: object');
+lines.push('      required: [artist_id, artist_invoice_number, client_name, client_email, line_items, due_date]');
+lines.push('      properties:');
+lines.push('        artist_id: { type: string, format: uuid }');
+lines.push('        artist_invoice_number: { type: string, maxLength: 100 }');
+lines.push('        client_name: { type: string }');
+lines.push('        client_email: { type: string, format: email }');
+lines.push('        client_address: { type: string }');
+lines.push('        statement_id: { type: string, format: uuid, description: "SOS-linked invoice; client fields are overridden with the label finance address." }');
+lines.push('        line_items: { type: array, minItems: 1, items: { $ref: "#/components/schemas/InvoiceLineItem" } }');
+lines.push('        currency: { type: string, default: EUR }');
+lines.push('        tax_rate_pct: { type: number, minimum: 0, maximum: 100, default: 19 }');
+lines.push('        due_date: { type: string, format: date }');
+lines.push('        issued_date: { type: string, format: date }');
+lines.push('        notes: { type: string }');
+lines.push('        send_email: { type: boolean, default: true }');
+lines.push('        send_to_label: { type: boolean, default: false }');
+lines.push('    PresignedUrlResponse:');
+lines.push('      type: object');
+lines.push('      required: [url]');
+lines.push('      properties:');
+lines.push('        url: { type: string, format: uri, description: "Short-lived (10 min) presigned R2 download URL." }');
 // --- Partner API (/api/v1/*) schemas — Zalando RESTful API Guidelines ---
 lines.push('    PartnerArtist:');
 lines.push('      type: object');
@@ -499,6 +610,72 @@ const schemaOverrides = {
       responses: { 200: { schema: 'PartnerAnalyticsExport' } },
     },
   },
+  // --- Invoices (portal + admin inbox + PDF access) ---
+  '/api/portal/invoices': {
+    GET: { responses: { 200: { schema: 'PortalInvoiceList' } } },
+    POST: {
+      requestBody: { schema: 'InvoiceCreateRequest' },
+      responses: {
+        200: {
+          schema: 'InvoiceSubmitResponse',
+          description: 'Idempotent replay — the statement already has an invoice.',
+        },
+        201: { schema: 'InvoiceSubmitResponse', description: 'Invoice created.' },
+        409: { description: 'Duplicate statement invoice (concurrent create).' },
+        422: { description: 'Statement not invoiceable or amount mismatch.' },
+      },
+    },
+  },
+  '/api/portal/invoices/{id}/pdf': {
+    GET: {
+      summary: 'Get a presigned download URL for an invoice PDF',
+      responses: { 200: { schema: 'PresignedUrlResponse' } },
+    },
+  },
+  '/api/admin/invoices': {
+    GET: {
+      summary: 'List all artist invoices (admin inbox, includes free invoices)',
+      parameters: [
+        { name: 'artist_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        {
+          name: 'status',
+          in: 'query',
+          schema: {
+            type: 'string',
+            enum: ['draft', 'sent', 'received', 'partially_paid', 'paid', 'cancelled'],
+          },
+        },
+        { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+        {
+          name: 'page_size',
+          in: 'query',
+          schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+        },
+      ],
+      responses: { 200: { schema: 'AdminInvoiceList' } },
+    },
+  },
+  '/api/admin/invoices/{id}/pdf': {
+    GET: {
+      summary: 'Get a presigned download URL for an invoice PDF',
+      responses: { 200: { schema: 'PresignedUrlResponse' } },
+    },
+  },
+  '/api/invoices/{id}/pdf': {
+    GET: {
+      summary: 'Download an invoice PDF with an expiring email token',
+      parameters: [
+        { name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+      ],
+      responses: {
+        200: {
+          schema: { type: 'string', format: 'binary' },
+          contentType: 'application/pdf',
+          description: 'Invoice PDF bytes.',
+        },
+      },
+    },
+  },
 };
 
 for (const route of sortedPaths) {
@@ -580,14 +757,25 @@ for (const route of sortedPaths) {
 
     lines.push('      responses:');
     const responses = override?.responses ?? {};
-    if (responses[200]) {
-      lines.push("        '200':");
-      lines.push('          description: Success');
-      if (responses[200].schema) {
-        lines.push('          content:');
-        lines.push('            application/json:');
-        lines.push('              schema:');
-        lines.push(`                $ref: "#/components/schemas/${responses[200].schema}"`);
+    const successCodes = ['200', '201'].filter((code) => responses[code]);
+    if (successCodes.length > 0) {
+      for (const code of successCodes) {
+        const spec = responses[code];
+        lines.push(`        '${code}':`);
+        lines.push(
+          `          description: ${yamlEscape(spec.description ?? (code === '201' ? 'Created' : 'Success'))}`,
+        );
+        if (spec.schema) {
+          lines.push('          content:');
+          lines.push(`            ${spec.contentType ?? 'application/json'}:`);
+          lines.push('              schema:');
+          if (typeof spec.schema === 'string') {
+            lines.push(`                $ref: "#/components/schemas/${spec.schema}"`);
+          } else {
+            lines.push(`                type: ${spec.schema.type}`);
+            if (spec.schema.format) lines.push(`                format: ${spec.schema.format}`);
+          }
+        }
       }
     } else if (method === 'HEAD') {
       lines.push("        '200':");
@@ -619,6 +807,11 @@ for (const route of sortedPaths) {
     if (responses[503]) {
       lines.push("        '503':");
       lines.push(`          description: ${yamlEscape(responses[503].description ?? 'Service unavailable')}`);
+    }
+    for (const code of ['409', '422', '429']) {
+      if (!responses[code]) continue;
+      lines.push(`        '${code}':`);
+      lines.push(`          description: ${yamlEscape(responses[code].description ?? 'Error')}`);
     }
 
     lines.push("        '400': { $ref: '#/components/responses/BadRequest' }");

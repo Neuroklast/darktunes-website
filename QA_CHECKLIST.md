@@ -93,7 +93,13 @@
 - [ ] Archive a period with leftover → next period opening line + `carry_in`; new `amount_eur` does not include that leftover
 - [ ] Track split 70/20 blocks Continue and does not leak 10% to the original artist
 - [ ] Pay a statement-linked invoice: no second `payment` ledger row after `invoice_liability`; `received_at` is set if it was empty
-- [ ] Illegal statement status jump (e.g. draft → paid) returns 422; second SOS invoice for the same statement returns 409
+- [ ] Illegal statement status jump (e.g. draft → paid) returns 422; submitting the same SOS invoice again returns `200` with the existing invoice (`warnings: already_exists`) instead of a duplicate row or 409
+- [ ] Submit a statement-linked invoice → admin bell shows **Invoice submitted**; clicking it opens `/admin/invoices?id=…` with the row highlighted
+- [ ] Free invoice (no statement) is visible in `/admin/invoices` with artist/status filters and pagination — even though it never appears in the Settlement Center
+- [ ] Invoice mail recipient is the Accounting **finance email** (Default preset); with an invalid Resend key the portal toasts a warning (“email could not be sent”), not a success message
+- [ ] Invoice email PDF link points to `/api/invoices/{id}/pdf?token=…` (no `cdn.` public URL); portal/admin PDF buttons open a presigned URL
+- [ ] Re-submitting the same statement invoice returns the existing invoice (no duplicate row, no second mail)
+- [ ] Retry after a mail failure still shows the invoice in `/admin/invoices` (warnings do not drop the row)
 - [ ] Bandcamp payout rows show as skipped (not revenue); empty currency rows warn “treated as EUR”
 - [ ] Believe `01/09/2024` lands in September; Bandcamp `01/09/2024` lands in January
 - [ ] Rebuild Gold does not change bronze row count; Save to Portal does not toast a gold-vs-statement warning
@@ -106,6 +112,8 @@
 - [ ] Save Excel preset → reopen dialog → preset still selected and columns match (workspace / rules preset)
 - [ ] SOS upload: file card shows reading bytes, then parsing `row x of y`, pipeline banner during payout aggregation; bronze failure shows the server message (not only “R2 archive failed”). Large files (>50 MB) warn that parse can take minutes.
 - [ ] Excel raw data (default on): download one artist → `{artist}_statement.xlsx` with `Believe` / `Bandcamp` / `Darkmerch` tabs for uploaded sources; only that band; Believe has Net Revenue and no Gross revenue / Client share; Bandcamp/Darkmerch keep all original columns; auto-filter + frozen header. Toggle Raw data off → filename `*_summary-only.xlsx`. If original tabs cannot be built, no file downloads (error toast). ZIP-of-all: each xlsx is that artist only; failed Excel becomes `_EXCEL_NOT_INCLUDED.txt`.
+- [ ] Excel export on a large artist: toast shows “Collecting original reports…” then “Writing summary workbook…” (not stuck on the title); PDF/Excel/Export All buttons are disabled while CSV processing runs; an export over 1.5 M raw rows fails with the row count and limit; a >5 min export shows the timeout message (not “original tabs could not be attached”)
+- [ ] ZIP-of-all with a skipped raw Excel finishes and shows a warning naming the skipped artist count (plus the placeholder file)
 - [ ] Bronze: first upload of a new CSV does **not** 409 `already has archived content`; retry of a completed hash is treated as duplicate.
 - [ ] Admin → System → Maintenance → **Statement of Sales data**: type-confirm `DELETE FAILED` removes only unconfirmed/failed bronze (completed stay); `DELETE BRONZE` / `DELETE GOLD` as labeled. After a purge, Log Manager → Admin Actions shows `purged` / `sos_data`. Statements/invoices remain.
 

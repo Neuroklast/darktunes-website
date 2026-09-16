@@ -218,6 +218,12 @@ The **SOS Generator** tab in the same Accounting page lets admins upload royalty
 
 **Do NOT** use a webhook or external HTTP POST to upload statements — the Server Action is the only supported upload path.
 
+## Invoices (Admin-only — `/admin/invoices`)
+
+The **Invoice Inbox** lists every `artist_invoices` row — including free invoices without a statement, which never appear in the period-scoped Settlement Center. Filter by artist and status, paginate, and download the PDF through a short-lived (10 min) presigned URL. New submissions raise the `invoice_submitted` staff notification; the bell deep-links to the invoice (`/admin/invoices?id=…`).
+
+Invoice mails to the label resolve the SOS accounting **finance email** (Accounting → Default preset) before the Impressum/contact address. Delivery failures and follow-up problems (statement status, ledger, notification) are surfaced as warnings to the artist — the invoice is still created so bookkeeping can act, and it shows up in the inbox.
+
 ## Monitoring Sync (label admin)
 
 Label admins do **not** configure hosting, R2, Vercel, Supabase Cron, Edge Functions, or secrets from the dashboard. That stays in operator docs (`DEPLOYMENT.md`).

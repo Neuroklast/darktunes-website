@@ -28,6 +28,7 @@
     "accounting": "Buchhaltung",
     "labelIntelligence": "Analytics",
     "statements": "Statements",
+    "invoices": "Rechnungen",
     "messages": "Nachrichten",
     "promotionActivity": "Promo-Aktivität",
     "users": "Benutzer",
@@ -118,6 +119,38 @@
     "updateError": "Anfrage konnte nicht aktualisiert werden",
     "updateSuccess": "Anfrage {status}"
   },
+  "invoices": {
+    "pageTitle": "Rechnungen",
+    "pageDescription": "Alle Artist-Rechnungen — auch freie Rechnungen ohne Statement.",
+    "filterArtist": "Nach Artist filtern",
+    "filterAllArtists": "Alle Artists",
+    "filterStatus": "Nach Status filtern",
+    "filterAllStatuses": "Alle Status",
+    "resultCount": "{count} Rechnungen",
+    "loading": "Rechnungen werden geladen…",
+    "loadError": "Rechnungen konnten nicht geladen werden.",
+    "empty": "Keine Rechnungen gefunden.",
+    "colNumber": "Rechnung",
+    "colArtist": "Artist",
+    "colClient": "Kunde",
+    "colTotal": "Gesamt",
+    "colStatus": "Status",
+    "colIssued": "Gestellt",
+    "colDue": "Fällig",
+    "colActions": "Aktionen",
+    "downloadPdf": "PDF",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "pageOf": "Seite {page} von {pages}",
+    "status": {
+      "draft": "Entwurf",
+      "sent": "Gesendet",
+      "received": "Empfangen",
+      "partially_paid": "Teilweise bezahlt",
+      "paid": "Bezahlt",
+      "cancelled": "Storniert"
+    }
+  },
   "accounting": {
     "pageTitle": "Accounting",
     "pageDescription": "Royalty-Statements für Artists erstellen und Statement-Historie einsehen.",
@@ -159,6 +192,9 @@
     "excelSheetMonthly": "Monate",
     "excelSheetRaw": "Rohdaten",
     "excelSheetRawHint": "Für ein vollständiges Statement: Original-Tabs Believe, Bandcamp und Darkmerch nur dieser Band. Believe-Provisionsspalten fehlen. Aus = Summary-only-Datei.",
+    "exportExcelTimeout": "Excel-Export nach 5 Minuten abgebrochen. Die Datei ist zu groß — Raw-Daten abschalten oder weniger Artists exportieren.",
+    "exportExcelRawLimit": "Zu viele Raw-Zeilen ({rows}). Das Limit ist {limit} — Raw-Daten abschalten für eine Summary-only-Datei.",
+    "exportExcelBatchSkipped": "{count} Artist(s) ohne Original-Report-Excel wurden im ZIP übersprungen. Das ZIP enthält je eine Hinweisdatei.",
     "excelHideCompilations": "Sampler im Release-Blatt ausblenden",
     "excelColBelieveRevenue": "Believe-Umsatz",
     "excelColBandcampRevenue": "Bandcamp-Umsatz",
@@ -1090,7 +1126,8 @@
       "press_asset": "Press-Asset-Vorschlag",
       "portal_message": "Neue Nachricht vom Artist",
       "label_message": "Neue Nachricht vom Label",
-      "fan_page_decision": "Fan-Page-Review-Entscheidung"
+      "fan_page_decision": "Fan-Page-Review-Entscheidung",
+      "invoice_submitted": "Neue Rechnung eingereicht"
     },
     "actions": {
       "review_release": "Release prüfen",
@@ -1098,7 +1135,8 @@
       "review_fan_page": "Fan-Page prüfen",
       "review_asset": "Asset prüfen",
       "open_messages": "Nachrichten öffnen",
-      "open_fan_page": "Fan-Page öffnen"
+      "open_fan_page": "Fan-Page öffnen",
+      "open_invoices": "Rechnungen öffnen"
     },
     "typeLabels": {
       "artist_release_submission": "Release-Einreichung (Staff)",
@@ -1111,6 +1149,7 @@
       "release_submission_decision": "Release-Entscheidung",
       "video_submission_decision": "Video-Entscheidung",
       "statement_available": "Abrechnung verfügbar",
+      "invoice_submitted": "Rechnung eingereicht",
       "invoice_payment_received": "Rechnungszahlung",
       "journalist_application_submitted": "Journalist-Bewerbung",
       "journalist_application_decision": "Journalist-Entscheidung"

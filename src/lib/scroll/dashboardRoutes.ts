@@ -12,6 +12,7 @@ const ADMIN_LIST_ROUTES = [
   '/admin/artists',
   '/admin/submission-form',
   '/admin/feedback',
+  '/admin/invoices',
 ] as const
 
 /** Admin CRUD list pages: outer shell scroll is locked; AdminListShell scrolls internally. */

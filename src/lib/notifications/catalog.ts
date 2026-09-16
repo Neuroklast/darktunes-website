@@ -71,6 +71,13 @@ export const NOTIFICATION_CATALOG: Record<NotificationEventType, NotificationCat
     summaryKey: 'types.statement_available',
     actionKey: 'actions.open_statements',
   },
+  invoice_submitted: {
+    audience: 'staff',
+    roles: ['admin'],
+    defaultEntityType: 'artist_invoice',
+    summaryKey: 'types.invoice_submitted',
+    actionKey: 'actions.open_invoices',
+  },
   invoice_payment_received: {
     audience: 'artist',
     defaultEntityType: 'artist_invoice',

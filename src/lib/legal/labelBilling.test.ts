@@ -42,6 +42,27 @@ describe('resolveLabelBillingParty', () => {
     expect(party.street).toBe('Street 9')
     expect(party.city).toContain('Heidelberg')
   })
+
+  it('prefers the SOS finance email over impressum and contact', () => {
+    const party = resolveLabelBillingParty(
+      settings({
+        impressumEmail: 'legal@acme.test',
+        contactEmail: 'hello@acme.test',
+      }),
+      'finance@acme.test',
+    )
+    expect(party.email).toBe('finance@acme.test')
+  })
+
+  it('falls back to impressum when the finance email is empty or blank', () => {
+    const base = settings({
+      impressumEmail: 'legal@acme.test',
+      contactEmail: 'hello@acme.test',
+    })
+    expect(resolveLabelBillingParty(base, '').email).toBe('legal@acme.test')
+    expect(resolveLabelBillingParty(base, '   ').email).toBe('legal@acme.test')
+    expect(resolveLabelBillingParty(base).email).toBe('legal@acme.test')
+  })
 })
 
 describe('resolveLabelClientInfo', () => {

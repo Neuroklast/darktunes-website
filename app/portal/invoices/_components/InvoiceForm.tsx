@@ -16,6 +16,7 @@ import type { ArtistBillingProfile } from '@/lib/api/artistBillingProfiles'
 import type { ArtistInvoice } from '@/lib/api/artistInvoices'
 import type { SalesStatement } from '@/lib/api/salesStatements'
 import type { LabelClientInfo } from '@/lib/portal/labelBilling'
+import { invoiceSubmitMeta, type InvoiceSubmitMeta } from '@/lib/portal/invoiceSubmission'
 import { InlineBillingProfileStep } from './InlineBillingProfileStep'
 
 interface LineItem {
@@ -29,7 +30,7 @@ interface InvoiceFormProps {
   billingProfile: ArtistBillingProfile | null
   billingProfileComplete: boolean
   labelClient: LabelClientInfo
-  onSuccess: (invoice: ArtistInvoice) => void
+  onSuccess: (invoice: ArtistInvoice, meta?: InvoiceSubmitMeta) => void
   onCancel: () => void
   statement?: SalesStatement
 }
@@ -147,14 +148,19 @@ export function InvoiceForm({
       })
 
       const json = (await response.json().catch(() => null)) as
-        | { invoice?: ArtistInvoice; error?: string }
+        | {
+            invoice?: ArtistInvoice
+            error?: string
+            warnings?: string[]
+            email?: InvoiceSubmitMeta['email']
+          }
         | null
 
       if (!response.ok || !json?.invoice) {
         throw new Error(json?.error ?? t('invoice_error'))
       }
 
-      onSuccess(json.invoice)
+      onSuccess(json.invoice, invoiceSubmitMeta(json))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('invoice_error'))
     } finally {

@@ -8,7 +8,10 @@ import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
 import { resolvePortalArtist } from '@/lib/api/artistProfiles'
 import { getSalesStatementById } from '@/lib/api/salesStatements'
 import { getSiteSettings, SITE_SETTINGS_DEFAULTS } from '@/lib/api/siteSettings'
+import { getRulesPresetByName } from '@/lib/api/sosRulesPresets'
+import { DEFAULT_PRESET_NAME } from '@/lib/sos/sosAccountingSettings'
 import { resolveLabelClientInfo } from '@/lib/portal/labelBilling'
+import { toPortalInvoiceListItem } from '@/lib/portal/invoiceUi'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getTranslations } from 'next-intl/server'
@@ -71,7 +74,11 @@ async function InvoicesContent({
     ? await getSalesStatementById(supabase, statement, artist.id).catch(() => null)
     : null
   const siteSettings = await getSiteSettings(supabase).catch(() => SITE_SETTINGS_DEFAULTS)
-  const labelClient = resolveLabelClientInfo(siteSettings)
+  const defaultPreset = await getRulesPresetByName(supabase, DEFAULT_PRESET_NAME).catch(() => null)
+  const labelClient = resolveLabelClientInfo(
+    siteSettings,
+    defaultPreset?.config.appDefaults.financeEmail,
+  )
 
   return (
     <InvoicesClient
@@ -79,7 +86,7 @@ async function InvoicesContent({
       billingProfile={billingProfile}
       billingProfileComplete={isBillingProfileComplete(billingProfile)}
       labelClient={labelClient}
-      invoices={invoices}
+      invoices={invoices.map(toPortalInvoiceListItem)}
       statement={selectedStatement}
     />
   )

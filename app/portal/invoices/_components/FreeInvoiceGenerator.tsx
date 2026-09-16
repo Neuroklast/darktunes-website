@@ -214,6 +214,7 @@ export function FreeInvoiceGenerator({
     <div className="space-y-6">
       <div>
         <p className="text-sm text-muted-foreground">{t('invoice_generator_desc')}</p>
+        <p className="text-xs text-muted-foreground mt-1">{t('invoice_generator_pdf_only')}</p>
       </div>
 
       <form className="space-y-6" onSubmit={handleSubmit}>

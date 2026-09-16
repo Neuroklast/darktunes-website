@@ -70,7 +70,7 @@ A modern alternative music label platform that combines:
 ### 3.3 Admin (`/admin`)
 - CMS: artists, releases, news, videos, events, genres, assets (R2 explorer), colors, settings, features, portal FAQ.
 - Queues: release submissions, video submissions, fan page reviews, **artist feedback**, accreditations.
-- Finance: accounting (guided SOS + Abrechnungszentrale + bronze CSV), statements, settlements, invoices.
+- Finance: accounting (guided SOS + Abrechnungszentrale + bronze CSV), statements, settlements, invoices (**invoice inbox** `/admin/invoices` — includes free invoices without a statement; label mails go to the accounting finance email; staff bell fires on submit).
 - Comms: messages (shared inbox), notifications, promo log.
 - Users / roles / custom roles / API credentials (encrypted).
 - System: health, sync control plane, logs, maintenance, support (Zammad).

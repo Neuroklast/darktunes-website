@@ -22,7 +22,15 @@ import {
   DEFAULT_INVOICE_DUE_DAYS,
   DEFAULT_TAX_RATE_PCT,
 } from '@/lib/analytics/constants'
+import type { ArtistInvoice } from '@/lib/api/artistInvoices'
 import type { SalesStatement } from '@/lib/api/salesStatements'
+import {
+  invoiceEmailError,
+  invoiceEmailFailed,
+  invoiceFollowUpWarning,
+  invoiceSubmitMeta,
+  type InvoiceSubmitMeta,
+} from '@/lib/portal/invoiceSubmission'
 
 interface QuickInvoiceButtonProps {
   artistId: string
@@ -90,12 +98,28 @@ export function QuickInvoiceButton({
         }),
       })
 
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({})) as { message?: string; error?: string }
-        throw new Error(payload.error ?? payload.message ?? t('invoice_error'))
+      const payload = (await response.json().catch(() => null)) as {
+        invoice?: ArtistInvoice
+        error?: string
+        message?: string
+        warnings?: string[]
+        email?: InvoiceSubmitMeta['email']
+      } | null
+
+      if (!response.ok || !payload?.invoice) {
+        throw new Error(payload?.error ?? payload?.message ?? t('invoice_error'))
       }
 
-      toast.success(t('analytics_invoice_sent'))
+      const meta = invoiceSubmitMeta(payload)
+      if (meta.warnings.includes('already_exists')) {
+        toast.info(t('invoice_already_exists'))
+      } else if (invoiceEmailFailed(meta)) {
+        toast.warning(t('invoice_email_failed', { error: invoiceEmailError(meta) ?? 'unknown' }))
+      } else if (invoiceFollowUpWarning(meta)) {
+        toast.warning(t('invoice_created_with_warnings'))
+      } else {
+        toast.success(t('analytics_invoice_sent'))
+      }
       window.location.reload()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('invoice_error'))

@@ -319,6 +319,76 @@ export async function listInvoicesByStatementIds(
   return (data ?? []).map((row) => rowToArtistInvoice(row as InvoiceRow))
 }
 
+export interface AdminInvoiceListItem extends ArtistInvoice {
+  artistName: string
+}
+
+export interface ListAdminInvoicesOptions {
+  page?: number
+  pageSize?: number
+  artistId?: string
+  status?: InvoiceStatus
+}
+
+export const ADMIN_INVOICE_PAGE_SIZE_DEFAULT = 50
+export const ADMIN_INVOICE_PAGE_SIZE_MAX = 200
+
+/**
+ * Admin invoice inbox — every invoice, including free invoices without a
+ * statement (which never appear in the period-scoped Settlement Center).
+ */
+export async function listAdminInvoices(
+  db: DbClient,
+  options: ListAdminInvoicesOptions = {},
+): Promise<{
+  invoices: AdminInvoiceListItem[]
+  total: number
+  page: number
+  pageSize: number
+}> {
+  const page = Math.max(1, options.page ?? 1)
+  const pageSize = Math.min(
+    ADMIN_INVOICE_PAGE_SIZE_MAX,
+    Math.max(1, options.pageSize ?? ADMIN_INVOICE_PAGE_SIZE_DEFAULT),
+  )
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+
+  let query = db
+    .from('artist_invoices')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to)
+
+  if (options.artistId) query = query.eq('artist_id', options.artistId)
+  if (options.status) query = query.eq('status', options.status)
+
+  const { data, error, count } = await query
+  if (error) throw new Error(`Failed to list admin invoices: ${error.message}`)
+
+  const rows = data ?? []
+  const artistIds = [...new Set(rows.map((row) => row.artist_id))]
+  const names = new Map<string, string>()
+  if (artistIds.length > 0) {
+    const { data: artists, error: artistError } = await db
+      .from('artists')
+      .select('id, name')
+      .in('id', artistIds)
+    if (artistError) throw new Error(`Failed to load invoice artists: ${artistError.message}`)
+    for (const artist of artists ?? []) names.set(artist.id, artist.name)
+  }
+
+  return {
+    invoices: rows.map((row) => ({
+      ...rowToArtistInvoice(row as InvoiceRow),
+      artistName: names.get(row.artist_id) ?? '',
+    })),
+    total: count ?? 0,
+    page,
+    pageSize,
+  }
+}
+
 export async function markInvoiceReceived(
   db: DbClient,
   id: string,

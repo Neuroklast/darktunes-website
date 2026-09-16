@@ -21,6 +21,7 @@ import {
 import type { ArtistInvoice } from '@/lib/api/artistInvoices'
 import type { SalesStatement } from '@/lib/api/salesStatements'
 import type { LabelClientInfo } from '@/lib/portal/labelBilling'
+import { invoiceSubmitMeta, type InvoiceSubmitMeta } from '@/lib/portal/invoiceSubmission'
 import { taxRateForStatus } from '@/lib/legal/taxStatus'
 import { isInvoiceableStatementStatus, type GuidedStepDef } from '@/lib/guided/guidedSteps'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
@@ -50,7 +51,7 @@ export interface InvoiceFromStatementAssistantProps {
   billingProfile: ArtistBillingProfile | null
   billingProfileComplete: boolean
   labelClient: LabelClientInfo
-  onSuccess: (invoice: ArtistInvoice) => void
+  onSuccess: (invoice: ArtistInvoice, meta?: InvoiceSubmitMeta) => void
   onCancel: () => void
 }
 
@@ -71,7 +72,6 @@ export function InvoiceFromStatementAssistant({
   const [invoiceNumber, setInvoiceNumber] = useState(defaultArtistInvoiceNumber(statement.period))
   const [dueDate, setDueDate] = useState(dueDateFromNow(DEFAULT_INVOICE_DUE_DAYS))
   const [sendEmail, setSendEmail] = useState(true)
-  const [sendToLabel, setSendToLabel] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
   const amountEur = statement.amountEur ?? 0
@@ -166,18 +166,19 @@ export function InvoiceFromStatementAssistant({
           tax_rate_pct: taxRate,
           due_date: dueDate,
           send_email: sendEmail,
-          send_to_label: sendToLabel,
         }),
       })
       const json = (await response.json().catch(() => null)) as {
         invoice?: ArtistInvoice
         error?: string
         message?: string
+        warnings?: string[]
+        email?: InvoiceSubmitMeta['email']
       } | null
       if (!response.ok || !json?.invoice) {
         throw new Error(json?.error ?? json?.message ?? t('invoice_error'))
       }
-      onSuccess(json.invoice)
+      onSuccess(json.invoice, invoiceSubmitMeta(json))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('invoice_error'))
     } finally {
@@ -330,14 +331,9 @@ export function InvoiceFromStatementAssistant({
               />
               <Label htmlFor="send-email">{t('invoice_send')}</Label>
             </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="send-label"
-                checked={sendToLabel}
-                onCheckedChange={(c) => setSendToLabel(c === true)}
-              />
-              <Label htmlFor="send-label">{t('invoice_send_to_label')}</Label>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('invoice_assistant_label_mail_hint', { email: labelClient.email })}
+            </p>
           </CardContent>
         </Card>
       )}

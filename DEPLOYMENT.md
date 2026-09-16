@@ -102,6 +102,16 @@ WHERE id = (
 
 Enable **bucket versioning** on the production R2 bucket (or at least for prefixes `invoices/` and `statements/`). The app stores a stable key `invoices/{artistId}/{invoiceId}.pdf` and refuses to overwrite `pdf_url` / `pdf_sha256` once set. Versioning provides an extra recovery trail if objects are replaced outside the app.
 
+### Invoice PDF privacy (ops)
+
+Invoice PDFs contain legal names, addresses, and tax IDs. The app no longer renders or emails the public `CLOUDFLARE_R2_PUBLIC_URL` for invoices: customer mails carry an expiring HMAC link (`/api/invoices/{id}/pdf?token=…`, signed with `API_CREDENTIALS_ENCRYPTION_KEY`), and portal/admin downloads use authenticated presigned routes.
+
+To make this a real access control (not just link hygiene), the `invoices/` prefix must not be publicly readable:
+
+- Preferred: keep the public bucket for marketing assets and serve `invoices/` (and `statements/`, `artist-documents/`) through a Worker/private bucket, or use a separate private bucket.
+- Until then, the object URL stays guessable-but-unlisted for anyone who already has it — rotate keys or move objects if a link leaked.
+- Existing rows keep their old public `pdf_url`; the app ignores it for access and derives the R2 key from it. No backfill is required.
+
 ### 1. Create R2 Bucket
 1. Go to Cloudflare Dashboard
 2. Navigate to R2 Object Storage

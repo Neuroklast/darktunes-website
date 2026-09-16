@@ -37,12 +37,12 @@ tags:
     description: Electronic press kit sharing and export.
   - name: Health
     description: System health probes and alerting.
+  - name: Invoices
+    description: Invoice PDF access — authenticated portal/admin downloads and tokenized email links.
   - name: Journalist Applications
     description: Press accreditation application flow.
   - name: Newsletter
     description: Double opt-in newsletter subscription.
-  - name: Partner API
-    description: "Public, versioned REST API (/api/v1/*) for partner organizations. Bearer organization API key (dt_live_…), gated behind the partner_api feature flag and per-key scopes. Data is isolated to the calling organization. Follows the Zalando RESTful API Guidelines."
   - name: Portal
     description: Artist portal dashboard APIs.
   - name: Press
@@ -126,6 +126,114 @@ components:
           type: object
           properties:
             status: { type: string, enum: [online, offline] }
+    InvoiceLineItem:
+      type: object
+      required: [description, qty, unit_price_cents]
+      properties:
+        description: { type: string }
+        qty: { type: integer, minimum: 1 }
+        unit_price_cents: { type: integer, minimum: 0 }
+    InvoiceEmailResult:
+      type: object
+      required: [sent]
+      properties:
+        sent: { type: boolean }
+        error: { type: string, description: "Sanitized delivery error (e.g. HTTP 401)." }
+    InvoiceSubmitResponse:
+      type: object
+      required: [invoice, warnings]
+      properties:
+        invoice: { $ref: "#/components/schemas/PortalInvoice" }
+        pdf_available: { type: boolean }
+        warnings:
+          type: array
+          description: Follow-up problems (mail delivery, ledger, statement status, replay).
+          items: { type: string }
+        email:
+          type: object
+          properties:
+            client: { $ref: "#/components/schemas/InvoiceEmailResult" }
+            label: { $ref: "#/components/schemas/InvoiceEmailResult" }
+    PortalInvoice:
+      type: object
+      description: Invoice as exposed to the portal — never includes the public R2 pdf_url.
+      properties:
+        id: { type: string, format: uuid }
+        artistId: { type: string, format: uuid }
+        invoiceNumber: { type: string }
+        artistInvoiceNumber: { type: string, nullable: true }
+        statementId: { type: string, format: uuid, nullable: true }
+        clientName: { type: string }
+        clientEmail: { type: string, format: email }
+        lineItems: { type: array, items: { $ref: "#/components/schemas/InvoiceLineItem" } }
+        currency: { type: string }
+        taxRatePct: { type: number }
+        status: { type: string, enum: [draft, sent, received, partially_paid, paid, cancelled] }
+        issuedDate: { type: string, format: date }
+        dueDate: { type: string, format: date }
+        notes: { type: string, nullable: true }
+        hasPdf: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PortalInvoiceList:
+      type: object
+      required: [invoices, total, page]
+      properties:
+        invoices: { type: array, items: { $ref: "#/components/schemas/PortalInvoice" } }
+        total: { type: integer }
+        page: { type: integer }
+    AdminInvoice:
+      type: object
+      description: Admin inbox row (same shape as PortalInvoice plus artistName).
+      properties:
+        id: { type: string, format: uuid }
+        artistId: { type: string, format: uuid }
+        artistName: { type: string }
+        invoiceNumber: { type: string }
+        artistInvoiceNumber: { type: string, nullable: true }
+        statementId: { type: string, format: uuid, nullable: true }
+        clientName: { type: string }
+        clientEmail: { type: string, format: email }
+        lineItems: { type: array, items: { $ref: "#/components/schemas/InvoiceLineItem" } }
+        currency: { type: string }
+        taxRatePct: { type: number }
+        status: { type: string, enum: [draft, sent, received, partially_paid, paid, cancelled] }
+        issuedDate: { type: string, format: date }
+        dueDate: { type: string, format: date }
+        hasPdf: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AdminInvoiceList:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AdminInvoice" } }
+        total: { type: integer }
+        page: { type: integer }
+        page_size: { type: integer }
+    InvoiceCreateRequest:
+      type: object
+      required: [artist_id, artist_invoice_number, client_name, client_email, line_items, due_date]
+      properties:
+        artist_id: { type: string, format: uuid }
+        artist_invoice_number: { type: string, maxLength: 100 }
+        client_name: { type: string }
+        client_email: { type: string, format: email }
+        client_address: { type: string }
+        statement_id: { type: string, format: uuid, description: "SOS-linked invoice; client fields are overridden with the label finance address." }
+        line_items: { type: array, minItems: 1, items: { $ref: "#/components/schemas/InvoiceLineItem" } }
+        currency: { type: string, default: EUR }
+        tax_rate_pct: { type: number, minimum: 0, maximum: 100, default: 19 }
+        due_date: { type: string, format: date }
+        issued_date: { type: string, format: date }
+        notes: { type: string }
+        send_email: { type: boolean, default: true }
+        send_to_label: { type: boolean, default: false }
+    PresignedUrlResponse:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, format: uri, description: "Short-lived (10 min) presigned R2 download URL." }
     PartnerArtist:
       type: object
       description: Artist record scoped to the calling organization.
@@ -791,74 +899,6 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-  /api/admin/custom-domains:
-    get:
-      operationId: getadmin_custom-domains
-      tags: [Admin]
-      summary: Retrieve /api/admin/custom-domains
-      security:
-        - AdminBearer: []
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-    post:
-      operationId: postadmin_custom-domains
-      tags: [Admin]
-      summary: Create or submit /api/admin/custom-domains
-      security:
-        - AdminBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/admin/custom-domains/verify:
-    post:
-      operationId: postadmin_custom-domains_verify
-      tags: [Admin]
-      summary: Create or submit /api/admin/custom-domains/verify
-      security:
-        - AdminBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
   /api/admin/enrich-artist-discogs:
     post:
       operationId: postadmin_enrich-artist-discogs
@@ -888,7 +928,7 @@ paths:
     get:
       operationId: getadmin_epk-templates
       tags: [Admin]
-      summary: GET — list all EPK templates for the host organization (admin) POST — create template
+      summary: GET — list all EPK templates (admin) POST — create template
       security:
         - AdminBearer: []
       responses:
@@ -906,7 +946,7 @@ paths:
     post:
       operationId: postadmin_epk-templates
       tags: [Admin]
-      summary: GET — list all EPK templates for the host organization (admin) POST — create template
+      summary: GET — list all EPK templates (admin) POST — create template
       security:
         - AdminBearer: []
       requestBody:
@@ -930,7 +970,7 @@ paths:
     patch:
       operationId: patchadmin_epk-templates
       tags: [Admin]
-      summary: GET — list all EPK templates for the host organization (admin) POST — create template
+      summary: GET — list all EPK templates (admin) POST — create template
       security:
         - AdminBearer: []
       requestBody:
@@ -954,7 +994,7 @@ paths:
     delete:
       operationId: deleteadmin_epk-templates
       tags: [Admin]
-      summary: GET — list all EPK templates for the host organization (admin) POST — create template
+      summary: GET — list all EPK templates (admin) POST — create template
       security:
         - AdminBearer: []
       responses:
@@ -1265,6 +1305,48 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/invoices:
+    get:
+      operationId: getadmin_invoices
+      tags: [Admin]
+      summary: "List all artist invoices (admin inbox, includes free invoices)"
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: artist_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: ["draft", "sent", "received", "partially_paid", "paid", "cancelled"]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminInvoiceList"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/admin/invoices/{id}/payment:
     patch:
       operationId: patchadmin_invoices_ById_payment
@@ -1292,6 +1374,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/invoices/{id}/pdf:
+    get:
+      operationId: getadmin_invoices_ById_pdf
+      tags: [Admin]
+      summary: Get a presigned download URL for an invoice PDF
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresignedUrlResponse"
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -1661,234 +1767,6 @@ paths:
       operationId: postadmin_messages_send
       tags: [Admin]
       summary: Create or submit /api/admin/messages/send
-      security:
-        - AdminBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/admin/organization-api-keys:
-    get:
-      operationId: getadmin_organization-api-keys
-      tags: [Admin]
-      summary: Retrieve /api/admin/organization-api-keys
-      security:
-        - AdminBearer: []
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-    post:
-      operationId: postadmin_organization-api-keys
-      tags: [Admin]
-      summary: Create or submit /api/admin/organization-api-keys
-      security:
-        - AdminBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/admin/organization-audit-log:
-    get:
-      operationId: getadmin_organization-audit-log
-      tags: [Admin]
-      summary: Retrieve /api/admin/organization-audit-log
-      security:
-        - AdminBearer: []
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/admin/organization-webhooks:
-    get:
-      operationId: getadmin_organization-webhooks
-      tags: [Admin]
-      summary: Retrieve /api/admin/organization-webhooks
-      security:
-        - AdminBearer: []
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-    post:
-      operationId: postadmin_organization-webhooks
-      tags: [Admin]
-      summary: Create or submit /api/admin/organization-webhooks
-      security:
-        - AdminBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/admin/organization-webhooks/{id}:
-    patch:
-      operationId: patchadmin_organization-webhooks_ById
-      tags: [Admin]
-      summary: "Update /api/admin/organization-webhooks/{id}"
-      security:
-        - AdminBearer: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-    delete:
-      operationId: deleteadmin_organization-webhooks_ById
-      tags: [Admin]
-      summary: "Delete /api/admin/organization-webhooks/{id}"
-      security:
-        - AdminBearer: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/admin/organizations:
-    get:
-      operationId: getadmin_organizations
-      tags: [Admin]
-      summary: Retrieve /api/admin/organizations
-      security:
-        - AdminBearer: []
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/admin/organizations/{id}/export:
-    get:
-      operationId: getadmin_organizations_ById_export
-      tags: [Admin]
-      summary: "Retrieve /api/admin/organizations/{id}/export"
-      security:
-        - AdminBearer: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/admin/partner-webhooks/emit:
-    post:
-      operationId: postadmin_partner-webhooks_emit
-      tags: [Admin]
-      summary: Create or submit /api/admin/partner-webhooks/emit
       security:
         - AdminBearer: []
       requestBody:
@@ -2474,31 +2352,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/admin/release-submissions/{id}/export-believe:
-    get:
-      operationId: getadmin_release-submissions_ById_export-believe
-      tags: [Admin]
-      summary: "Retrieve /api/admin/release-submissions/{id}/export-believe"
-      security:
-        - AdminBearer: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -3091,7 +2944,7 @@ paths:
     get:
       operationId: getadmin_sos_import-batches
       tags: [Admin]
-      summary: list Sales Statement bronze import batches (host org)
+      summary: list bronze import batches
       security:
         - AdminBearer: []
       responses:
@@ -3109,7 +2962,7 @@ paths:
     post:
       operationId: postadmin_sos_import-batches
       tags: [Admin]
-      summary: list Sales Statement bronze import batches (host org)
+      summary: list bronze import batches
       security:
         - AdminBearer: []
       requestBody:
@@ -3543,7 +3396,7 @@ paths:
     get:
       operationId: getadmin_sos_period-summaries
       tags: [Admin]
-      summary: list Sales Statement period summaries (host org)
+      summary: list historical period summaries
       security:
         - AdminBearer: []
       responses:
@@ -3561,7 +3414,32 @@ paths:
     post:
       operationId: postadmin_sos_period-summaries
       tags: [Admin]
-      summary: list Sales Statement period summaries (host org)
+      summary: list historical period summaries
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/sos/persist-analytics:
+    post:
+      operationId: postadmin_sos_persist-analytics
+      tags: [Admin]
+      summary: Create or submit /api/admin/sos/persist-analytics
       security:
         - AdminBearer: []
       requestBody:
@@ -3586,7 +3464,7 @@ paths:
     get:
       operationId: getadmin_sos_presets
       tags: [Admin]
-      summary: list all Sales Statement rule presets (host org)
+      summary: list all rule presets
       security:
         - AdminBearer: []
       responses:
@@ -3604,7 +3482,7 @@ paths:
     post:
       operationId: postadmin_sos_presets
       tags: [Admin]
-      summary: list all Sales Statement rule presets (host org)
+      summary: list all rule presets
       security:
         - AdminBearer: []
       requestBody:
@@ -3629,7 +3507,7 @@ paths:
     put:
       operationId: putadmin_sos_presets_ById
       tags: [Admin]
-      summary: update a Sales Statement preset (name and/or config)
+      summary: update a preset (name and/or config)
       security:
         - AdminBearer: []
       parameters:
@@ -3659,7 +3537,7 @@ paths:
     delete:
       operationId: deleteadmin_sos_presets_ById
       tags: [Admin]
-      summary: update a Sales Statement preset (name and/or config)
+      summary: update a preset (name and/or config)
       security:
         - AdminBearer: []
       parameters:
@@ -3683,7 +3561,7 @@ paths:
     get:
       operationId: getadmin_sos_presets_default
       tags: [Admin]
-      summary: ensure and return the Default Sales Statement preset
+      summary: ensure and return the Default preset
       security:
         - AdminBearer: []
       responses:
@@ -3701,7 +3579,7 @@ paths:
     put:
       operationId: putadmin_sos_presets_default
       tags: [Admin]
-      summary: ensure and return the Default Sales Statement preset
+      summary: ensure and return the Default preset
       security:
         - AdminBearer: []
       requestBody:
@@ -4637,6 +4515,34 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/invoices/{id}/pdf:
+    get:
+      operationId: getinvoices_ById_pdf
+      tags: [Invoices]
+      summary: Download an invoice PDF with an expiring email token
+      security:
+        - {}
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Invoice PDF bytes.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/journalist-applications:
     get:
       operationId: getjournalist-applications
@@ -4688,7 +4594,7 @@ paths:
       tags: [Journalist Applications]
       summary: "PATCH — Admin: approve or reject a journalist application. The applicant's profile role is automatically updated by the"
       security:
-        - {}
+        - SessionBearer: []
       parameters:
         - name: id
           in: path
@@ -4710,6 +4616,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /api/log-error:
     post:
@@ -4793,29 +4701,6 @@ paths:
                 additionalProperties: true
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
-  /api/onboarding/register:
-    post:
-      operationId: postonboarding_register
-      tags: [Public]
-      summary: Create or submit /api/onboarding/register
-      security:
-        - {}
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '404': { $ref: '#/components/responses/NotFound' }
   /api/page-events:
     post:
       operationId: postpage-events
@@ -4840,25 +4725,6 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
-  /api/plans:
-    get:
-      operationId: getplans
-      tags: [Public]
-      summary: Retrieve /api/plans
-      security:
-        - SessionBearer: []
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
   /api/portal/accept-terms:
     post:
       operationId: postportal_accept-terms
@@ -5678,8 +5544,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: "#/components/schemas/PortalInvoiceList"
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -5695,15 +5560,24 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: "#/components/schemas/InvoiceCreateRequest"
       responses:
         '200':
-          description: Success
+          description: Idempotent replay — the statement already has an invoice.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SuccessResponse"
+                $ref: "#/components/schemas/InvoiceSubmitResponse"
+        '201':
+          description: Invoice created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceSubmitResponse"
+        '409':
+          description: Duplicate statement invoice (concurrent create).
+        '422':
+          description: Statement not invoiceable or amount mismatch.
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -5735,6 +5609,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/portal/invoices/{id}/pdf:
+    get:
+      operationId: getportal_invoices_ById_pdf
+      tags: [Portal]
+      summary: Get a presigned download URL for an invoice PDF
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresignedUrlResponse"
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -7383,54 +7281,6 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-  /api/stripe/checkout:
-    post:
-      operationId: poststripe_checkout
-      tags: [Public]
-      summary: Start Stripe Checkout for an existing organization subscription. Requires authenticated caller with platform_admin or organization_users membership.
-      security:
-        - SessionBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/stripe/webhook:
-    post:
-      operationId: poststripe_webhook
-      tags: [Public]
-      summary: Create or submit /api/stripe/webhook
-      security:
-        - {}
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '404': { $ref: '#/components/responses/NotFound' }
   /api/sync:
     get:
       operationId: getsync
@@ -7587,7 +7437,7 @@ paths:
       tags: [Sync]
       summary: Retrieve /api/sync/artist
       security:
-        - {}
+        - AdminBearer: []
       responses:
         '200':
           description: Success
@@ -7597,13 +7447,15 @@ paths:
                 type: object
                 additionalProperties: true
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
       operationId: postsync_artist
       tags: [Sync]
       summary: Create or submit /api/sync/artist
       security:
-        - {}
+        - AdminBearer: []
       requestBody:
         required: true
         content:
@@ -7619,6 +7471,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /api/sync/execute:
     get:
@@ -7751,7 +7605,7 @@ paths:
       tags: [Upload]
       summary: "Securely handles file uploads to Cloudflare R2 entirely server-side, preventing CORS policy issues that would occur with direct client uploads."
       security:
-        - SessionBearer: []
+        - AdminBearer: []
       requestBody:
         required: true
         content:
@@ -7777,7 +7631,7 @@ paths:
       tags: [Upload]
       summary: Create or submit /api/upload-epk
       security:
-        - {}
+        - AdminBearer: []
       requestBody:
         required: true
         content:
@@ -7793,205 +7647,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/v1/analytics/export:
-    get:
-      operationId: getv1_analytics_export
-      tags: [Partner API]
-      summary: "Export artist analytics (CSV default, JSON when format=json)"
-      security:
-        - PartnerApiKey: []
-      parameters:
-        - name: artistId
-          in: query
-          required: true
-          description: Artist to export; must belong to the calling organization.
-          schema:
-            type: string
-            format: uuid
-        - name: format
-          in: query
-          description: Response format.
-          schema:
-            type: string
-            enum: ["csv", "json"]
-            default: csv
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PartnerAnalyticsExport"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/v1/artists:
-    get:
-      operationId: getv1_artists
-      tags: [Partner API]
-      summary: List artists
-      security:
-        - PartnerApiKey: []
-      parameters:
-        - name: limit
-          in: query
-          description: Page size (1-200).
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
-        - name: cursor
-          in: query
-          description: Opaque cursor from a previous response's nextCursor.
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PartnerArtistList"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/v1/artists/{id}:
-    get:
-      operationId: getv1_artists_ById
-      tags: [Partner API]
-      summary: Get artist by ID
-      security:
-        - PartnerApiKey: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PartnerArtistEnvelope"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/v1/release-submissions:
-    get:
-      operationId: getv1_release-submissions
-      tags: [Partner API]
-      summary: List release submissions
-      security:
-        - PartnerApiKey: []
-      parameters:
-        - name: limit
-          in: query
-          description: Page size (1-200).
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
-        - name: cursor
-          in: query
-          description: Opaque cursor from a previous response's nextCursor.
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PartnerReleaseSubmissionList"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/v1/release-submissions/{id}:
-    get:
-      operationId: getv1_release-submissions_ById
-      tags: [Partner API]
-      summary: Get release submission by ID
-      security:
-        - PartnerApiKey: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PartnerReleaseSubmissionEnvelope"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/v1/releases:
-    get:
-      operationId: getv1_releases
-      tags: [Partner API]
-      summary: List releases
-      security:
-        - PartnerApiKey: []
-      parameters:
-        - name: limit
-          in: query
-          description: Page size (1-200).
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
-        - name: cursor
-          in: query
-          description: Opaque cursor from a previous response's nextCursor.
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PartnerReleaseList"
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /api/v1/releases/{id}:
-    get:
-      operationId: getv1_releases_ById
-      tags: [Partner API]
-      summary: Get release by ID
-      security:
-        - PartnerApiKey: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PartnerReleaseEnvelope"
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }

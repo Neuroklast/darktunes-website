@@ -16,6 +16,7 @@ describe('dashboardRoutes', () => {
     expect(isAdminListRoute('/admin/artists')).toBe(true)
     expect(isAdminListRoute('/admin/submission-form')).toBe(true)
     expect(isAdminListRoute('/admin/feedback')).toBe(true)
+    expect(isAdminListRoute('/admin/invoices')).toBe(true)
     expect(isAdminListRoute('/admin/messages')).toBe(false)
     expect(isAdminListRoute('/admin/news/edit/1')).toBe(false)
   })
