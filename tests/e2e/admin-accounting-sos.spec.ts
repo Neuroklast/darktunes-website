@@ -40,9 +40,12 @@ test.describe('Admin SOS drafts + statements', () => {
   test('invoice inbox mounts with filters and without the error boundary', async ({ page }) => {
     await page.goto('/admin/invoices', { waitUntil: 'domcontentloaded' })
     await waitForPageSettled(page)
-    await expect(page.getByRole('heading', { name: /invoices/i })).toBeVisible()
-    await expect(page.getByLabel(/filter by artist/i)).toBeVisible()
-    await expect(page.getByLabel(/filter by status/i)).toBeVisible()
+    const main = page.getByRole('main')
+    await expect(main.getByRole('heading', { level: 1, name: /invoices/i })).toBeVisible()
+    // Role-based locators ignore React's hidden streaming container (div#S:0),
+    // which briefly duplicates the page content during hydration.
+    await expect(main.getByRole('combobox', { name: /filter by artist/i })).toBeVisible()
+    await expect(main.getByRole('combobox', { name: /filter by status/i })).toBeVisible()
     await expectNoErrorBoundary(page)
   })
 })
