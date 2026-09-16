@@ -4,7 +4,13 @@ import {
   DEFAULT_EXCEL_EXPORT_SETTINGS,
   normalizeExcelExportSettings,
 } from '../excelExportSettings'
-import { generateExcel } from './excelStatement'
+import {
+  buildExcelBuffer,
+  EXCEL_MAX_TOTAL_RAW_ROWS,
+  ExcelRawRowsLimitError,
+  generateExcel,
+} from './excelStatement'
+import type { ArtistRawSourceSheet } from './rawSourceRows'
 
 function makeArtist(overrides: Partial<SafeProcessedArtistData> = {}): SafeProcessedArtistData {
   return {
@@ -235,5 +241,55 @@ describe('generateExcel column filters', () => {
     expect(believe[total]?.[2]).toBe(String(total - 1))
     expect(progress.some((written) => written < total)).toBe(true)
     expect(progress.at(-1)).toBe(total)
+  })
+
+  it('emits the summary phase right before serialization', { timeout: 20_000 }, async () => {
+    const phases: string[] = []
+    await generateExcel(
+      makeArtist(),
+      label,
+      '2026-01',
+      '2026-03',
+      [],
+      DEFAULT_EXCEL_EXPORT_SETTINGS,
+      [],
+      undefined,
+      (phase) => phases.push(phase),
+    )
+    expect(phases).toEqual(['summary'])
+  })
+
+  it('fails closed above the total raw-row limit', async () => {
+    const oversizedSheet: ArtistRawSourceSheet = {
+      source: 'believe',
+      sheetName: 'Believe',
+      headers: ['Net Revenue'],
+      rows: { length: EXCEL_MAX_TOTAL_RAW_ROWS + 1 } as unknown as string[][],
+    }
+
+    await expect(
+      buildExcelBuffer(makeArtist(), label, '2026-01', '2026-03', [], DEFAULT_EXCEL_EXPORT_SETTINGS, [
+        oversizedSheet,
+      ]),
+    ).rejects.toBeInstanceOf(ExcelRawRowsLimitError)
+  })
+
+  it('does not apply the raw-row limit when Raw data is off', { timeout: 20_000 }, async () => {
+    const oversizedSheet: ArtistRawSourceSheet = {
+      source: 'believe',
+      sheetName: 'Believe',
+      headers: ['Net Revenue'],
+      rows: { length: EXCEL_MAX_TOTAL_RAW_ROWS + 1 } as unknown as string[][],
+    }
+    const buffer = await buildExcelBuffer(
+      makeArtist(),
+      label,
+      '2026-01',
+      '2026-03',
+      [],
+      normalizeExcelExportSettings({ sheets: { raw: false } }),
+      [oversizedSheet],
+    )
+    expect(buffer.byteLength).toBeGreaterThan(0)
   })
 })

@@ -44,7 +44,10 @@ export async function generateZipOfAllStatements(
   buildExcelBlob?: (
     artist: string,
     artistData: SafeProcessedArtistData,
+    onProgress?: (phase: string, rows?: number) => void,
   ) => Promise<Blob | null | undefined>,
+  onExcelProgress?: (artist: string, phase: string, rows?: number) => void,
+  onExcelSkipped?: (artist: string) => void,
 ): Promise<Blob> {
   const JSZip = (await import('jszip')).default
   const zip = new JSZip()
@@ -84,7 +87,18 @@ export async function generateZipOfAllStatements(
 
     if (format === 'excel' || format === 'both') {
       if (buildExcelBlob) {
-        const workerBlob = await buildExcelBlob(artistData.artist, artistData)
+        let workerBlob: Blob | null | undefined = null
+        try {
+          workerBlob = await buildExcelBlob(
+            artistData.artist,
+            artistData,
+            (phase, rows) => onExcelProgress?.(artistData.artist, phase, rows),
+          )
+        } catch (err) {
+          // Batch export stays resilient: mark the gap and keep going.
+          console.error(`Excel build failed for ${artistData.artist}:`, err)
+          workerBlob = null
+        }
         if (workerBlob) {
           const ext = workerBlob.type.includes('zip') ? 'zip' : 'xlsx'
           zip.file(`${safeArtistName}_statement.${ext}`, workerBlob)
@@ -93,6 +107,7 @@ export async function generateZipOfAllStatements(
             `${safeArtistName}_EXCEL_NOT_INCLUDED.txt`,
             'Original-report Excel could not be generated. No spreadsheet was added, so an incomplete statement cannot be sent by mistake.',
           )
+          onExcelSkipped?.(artistData.artist)
         }
       } else {
         const excelBlob = await generateExcel(

@@ -57,7 +57,7 @@ import {
   normalizeExcelExportSettings,
   type ExcelExportSettingsPatch,
 } from '../lib/sos/excelExportSettings'
-import { generateExcel } from '../lib/sos/export/excelStatement'
+import { buildExcelBuffer, ExcelRawRowsLimitError } from '../lib/sos/export/excelStatement'
 import { normalizeArtistNameKey } from '../lib/sos/artistNameKey'
 import { periodBoundsFromMonths } from '../lib/sos/ingestProgress'
 import type { ProcessedArtistData } from '../lib/sos/data-processor'
@@ -208,7 +208,14 @@ export type WorkerResponse =
   | { type: 'error'; message: string; fileId?: string }
   | { type: 'excel-done'; requestId: string; buffer: ArrayBuffer; kind: 'zip' | 'xlsx' }
   | { type: 'excel-progress'; requestId: string; phase: string; rows?: number }
-  | { type: 'excel-error'; requestId: string; message: string }
+  | {
+      type: 'excel-error'
+      requestId: string
+      message: string
+      code?: string
+      rows?: number
+      limit?: number
+    }
 
 // ── Internal worker state ──────────────────────────────────────────────────────
 
@@ -535,13 +542,32 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
 
     case 'build-excel': {
       try {
+        if (lastProcessedArtistData.length === 0) {
+          post({
+            type: 'excel-error',
+            requestId: msg.requestId,
+            code: 'EXCEL_WORKER_DATA_MISSING',
+            message:
+              'No processed data in the export worker. Re-run the CSV processing, then retry the export.',
+          })
+          break
+        }
+
         post({ type: 'excel-progress', requestId: msg.requestId, phase: 'original-reports' })
         const match = lastProcessedArtistData.find(
           (row) => normalizeArtistNameKey(row.artist) === normalizeArtistNameKey(msg.artist),
         )
-        const sheets = match
-          ? (buildArtistRawSheets([match]).get(normalizeArtistNameKey(match.artist)) ?? [])
-          : []
+        if (!match) {
+          post({
+            type: 'excel-error',
+            requestId: msg.requestId,
+            code: 'EXCEL_ARTIST_NOT_IN_WORKER',
+            message: `Artist "${msg.artist}" is not in the processed dataset. Re-run the CSV processing, then retry the export.`,
+          })
+          break
+        }
+        const sheets =
+          buildArtistRawSheets([match]).get(normalizeArtistNameKey(match.artist)) ?? []
         const excelSettings = normalizeExcelExportSettings(
           msg.settings && ('sheets' in msg.settings || 'columns' in msg.settings)
             ? msg.settings
@@ -566,7 +592,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
           phase: 'original-reports',
           rows: rawRowCount,
         })
-        const xlsx = await generateExcel(
+        const buffer = await buildExcelBuffer(
           msg.artistData,
           msg.labelInfo,
           msg.periodStart,
@@ -582,16 +608,33 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
               rows: progress.written,
             })
           },
+          () => {
+            post({
+              type: 'excel-progress',
+              requestId: msg.requestId,
+              phase: 'summary',
+            })
+          },
         )
-        const buffer = await xlsx.arrayBuffer()
         post({ type: 'excel-done', requestId: msg.requestId, buffer, kind: 'xlsx' }, [buffer])
       } catch (err) {
         console.error('[sos-worker] build-excel failed:', err)
-        post({
-          type: 'excel-error',
-          requestId: msg.requestId,
-          message: err instanceof Error ? err.message : 'Excel generation failed',
-        })
+        if (err instanceof ExcelRawRowsLimitError) {
+          post({
+            type: 'excel-error',
+            requestId: msg.requestId,
+            code: 'EXCEL_RAW_ROWS_LIMIT',
+            rows: err.rows,
+            limit: err.limit,
+            message: err.message,
+          })
+        } else {
+          post({
+            type: 'excel-error',
+            requestId: msg.requestId,
+            message: err instanceof Error ? err.message : 'Excel generation failed',
+          })
+        }
       }
       break
     }

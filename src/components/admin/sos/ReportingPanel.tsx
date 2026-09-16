@@ -39,6 +39,8 @@ interface ReportingPanelProps {
   periodStart?: string
   periodEnd?: string
   onGoToSettlementCenter?: () => void
+  /** Disables exports while the CSV worker is processing or still busy. */
+  disabled?: boolean
 }
 
 const ARTIST_CELL_RESERVED_PX = 32
@@ -82,6 +84,7 @@ export function ReportingPanel({
   periodStart,
   periodEnd,
   onGoToSettlementCenter,
+  disabled = false,
 }: ReportingPanelProps) {
   const t = useMergedAccountingLabels(reportingFallback)
   const [selectedArtists, setSelectedArtists] = useState<Set<string>>(new Set())
@@ -258,6 +261,7 @@ export function ReportingPanel({
                 className="h-7 px-2 gap-1 text-xs"
                 onClick={() => handleSendEmail(r)}
                 title={`Send e-mail to ${r.artist}`}
+                disabled={disabled}
               >
                 <EnvelopeSimple size={13} />
                 Email
@@ -269,6 +273,7 @@ export function ReportingPanel({
               className="h-7 px-2 gap-1 text-xs"
               onClick={() => onDownloadPDF(r.artist)}
               title={`Download PDF for ${r.artist}`}
+              disabled={disabled}
             >
               <FileText size={13} />
               PDF
@@ -279,6 +284,7 @@ export function ReportingPanel({
               className="h-7 px-2 gap-1 text-xs"
               onClick={() => onDownloadExcel(r.artist)}
               title={`Download Excel for ${r.artist}`}
+              disabled={disabled}
             >
               <TableIcon size={13} />
               Excel
@@ -347,7 +353,7 @@ export function ReportingPanel({
             size="sm"
             variant="outline"
             className="gap-1.5 text-xs"
-            disabled={selectedCount === 0}
+            disabled={disabled || selectedCount === 0}
             onClick={exportSelected}
           >
             <Archive size={14} />
@@ -357,7 +363,7 @@ export function ReportingPanel({
             size="sm"
             variant="outline"
             className="gap-1.5 text-xs"
-            disabled={revenues.length === 0}
+            disabled={disabled || revenues.length === 0}
             onClick={onDownloadAll}
           >
             <DownloadSimple size={14} />

@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateExcel } from '@/lib/sos/export-utils'
 import { normalizeExcelExportSettings } from '@/lib/sos/excelExportSettings'
+import { ExcelExportWorkerError } from '@/lib/sos/excelExportError'
 import { useExports } from './useSosExports'
 import type { LabelArtist, LabelInfo, SafeProcessedArtistData } from '@/lib/sos/types'
 
@@ -350,5 +351,77 @@ describe('useSosExports.handleDownloadExcel', () => {
     expect(mockGenerateExcel).not.toHaveBeenCalled()
     expect(mockDownloadBlob).not.toHaveBeenCalled()
     expect(mockToastError).toHaveBeenCalled()
+  })
+
+  it('shows a specific message when the worker export times out', async () => {
+    const requestExcelBlob = vi
+      .fn()
+      .mockRejectedValue(
+        new ExcelExportWorkerError('Excel export timed out after 5 minutes', {
+          code: 'EXCEL_TIMEOUT',
+        }),
+      )
+
+    const { result } = renderHook(() =>
+      useExports(
+        [makeProcessedArtist('Artist One')],
+        labelInfo,
+        '2026-03',
+        '2026-03',
+        {},
+        {},
+        [],
+        {},
+        [],
+        false,
+        undefined,
+        requestExcelBlob,
+      ),
+    )
+
+    await act(async () => {
+      await result.current.handleDownloadExcel('Artist One')
+    })
+
+    expect(mockToastError).toHaveBeenCalledWith(
+      expect.stringContaining('stopped after 5 minutes'),
+      expect.anything(),
+    )
+  })
+
+  it('shows the raw-row limit with formatted numbers', async () => {
+    const requestExcelBlob = vi.fn().mockRejectedValue(
+      new ExcelExportWorkerError('Too many rows', {
+        code: 'EXCEL_RAW_ROWS_LIMIT',
+        rows: 2_345_678,
+        limit: 1_500_000,
+      }),
+    )
+
+    const { result } = renderHook(() =>
+      useExports(
+        [makeProcessedArtist('Artist One')],
+        labelInfo,
+        '2026-03',
+        '2026-03',
+        {},
+        {},
+        [],
+        {},
+        [],
+        false,
+        undefined,
+        requestExcelBlob,
+      ),
+    )
+
+    await act(async () => {
+      await result.current.handleDownloadExcel('Artist One')
+    })
+
+    expect(mockToastError).toHaveBeenCalledWith(
+      expect.stringContaining('2,345,678'),
+      expect.anything(),
+    )
   })
 })

@@ -466,6 +466,7 @@ function SosGeneratorPanel() {
   // CSV processing — all config fields now wired
   const {
     isProcessing,
+    excelBusy,
     revenues,
     processedData,
     detectedPeriodStart,
@@ -964,6 +965,7 @@ function SosGeneratorPanel() {
       periodStart={detectedPeriodStart}
       periodEnd={detectedPeriodEnd}
       onGoToSettlementCenter={() => setGuidedStep('settle')}
+      disabled={isProcessing || excelBusy}
     />
   ) : (
     <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-3">
@@ -1057,6 +1059,7 @@ function SosGeneratorPanel() {
       state={excelExport}
       onStateChange={setExcelExport}
       onConfirm={handleExcelDialogConfirm}
+      disabled={isProcessing || excelBusy}
     />
   )
 
@@ -1344,6 +1347,7 @@ function SosGeneratorPanel() {
               periodStart={detectedPeriodStart}
               periodEnd={detectedPeriodEnd}
               onGoToSettlementCenter={() => setActiveSubTab('settlements')}
+              disabled={isProcessing || excelBusy}
             />
           ) : (
             <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-3">

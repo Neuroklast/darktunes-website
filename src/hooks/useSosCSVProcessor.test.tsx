@@ -456,7 +456,7 @@ describe('useCSVProcessor', () => {
     await rejected
   })
 
-  it('requestExcelBlob returns null when AbortSignal times out', async () => {
+  it('requestExcelBlob rejects with EXCEL_TIMEOUT and marks the worker busy', async () => {
     const { result } = renderHook(() => useCSVProcessor([], [], makeConfig()))
 
     await waitFor(() => {
@@ -466,19 +466,26 @@ describe('useCSVProcessor', () => {
     const controller = new AbortController()
     vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal)
 
-    let blob: Blob | null | undefined
+    let pending: Promise<Blob | null> | undefined
     await act(async () => {
-      const pending = result.current.requestExcelBlob({
+      pending = result.current.requestExcelBlob({
         artist: 'Reaper',
         artistData: { artist: 'Reaper' } as never,
         labelInfo: { name: 'darkTunes', address: '' },
         compilationFilters: [],
       })
-      controller.abort()
-      blob = await pending
     })
 
-    expect(blob).toBeNull()
+    const rejected = expect(pending).rejects.toMatchObject({
+      name: 'ExcelExportWorkerError',
+      code: 'EXCEL_TIMEOUT',
+    })
+    await act(async () => {
+      controller.abort()
+    })
+    await rejected
+
+    expect(result.current.excelBusy).toBe(true)
     vi.mocked(AbortSignal.timeout).mockRestore()
   })
 })

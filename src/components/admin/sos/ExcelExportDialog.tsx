@@ -132,6 +132,8 @@ export interface ExcelExportDialogProps {
   state: ExcelExportState
   onStateChange: (next: ExcelExportState) => void
   onConfirm: (settings: ExcelExportSettings) => void
+  /** Disables the confirm action while the CSV worker is busy. */
+  disabled?: boolean
 }
 
 export function ExcelExportDialog({
@@ -140,6 +142,7 @@ export function ExcelExportDialog({
   state,
   onStateChange,
   onConfirm,
+  disabled = false,
 }: ExcelExportDialogProps) {
   const t = useMergedAccountingLabels(EXCEL_DIALOG_FALLBACK)
   const [presetName, setPresetName] = useState('')
@@ -351,7 +354,7 @@ export function ExcelExportDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t.excelExportCancel}
           </Button>
-          <Button type="button" onClick={() => onConfirm(settings)}>
+          <Button type="button" onClick={() => onConfirm(settings)} disabled={disabled}>
             {t.excelExportDownload}
           </Button>
         </DialogFooter>

@@ -12,6 +12,7 @@ import {
 } from '@/lib/sos/export-utils'
 import { createSafeFilename } from '@/lib/sos/utils'
 import { isValidArtistId, isValidPeriod } from '@/lib/sos/validation'
+import { ExcelExportWorkerError } from '@/lib/sos/excelExportError'
 import {
   DEFAULT_EXCEL_EXPORT_SETTINGS,
   normalizeExcelExportSettings,
@@ -81,6 +82,12 @@ const exportFallback = {
     'Original distributor tabs could not be attached. The file was not downloaded so an incomplete statement cannot be sent by mistake. Retry, or turn off Raw data for a summary-only file.',
   exportExcelProgressReports: 'Collecting original reports…',
   exportExcelProgressSummary: 'Writing summary workbook…',
+  exportExcelTimeout:
+    'Excel export stopped after 5 minutes. The file is too large — turn off Raw data or export fewer artists.',
+  exportExcelRawLimit:
+    'Too many raw rows ({rows}). The limit is {limit} — turn off Raw data for a summary-only file.',
+  exportExcelBatchSkipped:
+    '{count} artist(s) had no original-report Excel and were skipped in the ZIP. The ZIP contains a placeholder note for each.',
   exportZipDownloaded: 'ZIP with {count} statements downloaded',
   exportZipFailed: 'ZIP export failed',
   exportPortalDraftSaved:
@@ -134,6 +141,22 @@ export function useExports(
   ) => Promise<Blob | null>,
 ) {
   const t = useMergedAccountingLabels(exportFallback)
+
+  /** Maps typed Excel worker failures to a specific toast message. */
+  const excelWorkerErrorMessage = useCallback(
+    (err: unknown): string | null => {
+      if (!(err instanceof ExcelExportWorkerError)) return null
+      if (err.code === 'EXCEL_TIMEOUT') return t.exportExcelTimeout
+      if (err.code === 'EXCEL_RAW_ROWS_LIMIT') {
+        return interpolate(t.exportExcelRawLimit, {
+          rows: err.rows?.toLocaleString('en-US') ?? '?',
+          limit: err.limit?.toLocaleString('en-US') ?? '?',
+        })
+      }
+      return null
+    },
+    [t],
+  )
 
   const emailOptions = useMemo(
     () =>
@@ -312,12 +335,17 @@ export function useExports(
         downloadBlob(blob, filename)
         toast.success(interpolate(t.exportExcelDownloaded, { artist }), { id: toastId })
       } catch (err) {
+        const workerMessage = excelWorkerErrorMessage(err)
+        if (workerMessage) {
+          toast.error(workerMessage, { id: toastId })
+          return
+        }
         const message = err instanceof Error ? err.message : 'Unknown error'
         toast.error(t.exportExcelFailed, { id: toastId, description: message })
         console.error('Excel export error:', err)
       }
     },
-    [processedData, labelInfo, periodStart, periodEnd, compilationFilters, pdfSettings, requestExcelBlob, t]
+    [processedData, labelInfo, periodStart, periodEnd, compilationFilters, pdfSettings, requestExcelBlob, t, excelWorkerErrorMessage]
   )
 
   /**
@@ -334,6 +362,8 @@ export function useExports(
 
     const total = processedData.length
     const toastId = toast.loading(`Preparing 1 / ${total} statements…`)
+    let current = 0
+    const skippedExcel: string[] = []
     try {
       const blob = await generateZipOfAllStatements(
         processedData,
@@ -342,6 +372,7 @@ export function useExports(
         periodEnd || undefined,
         'both',
         (done, tot) => {
+          current = done
           if (done < tot) {
             toast.loading(`Generating ${done + 1} / ${tot} statements…`, { id: toastId })
           }
@@ -354,7 +385,7 @@ export function useExports(
         compilationFilters,
         excelSettings,
         wantsRawExcelSheet(excelSettings)
-          ? (name, data) =>
+          ? (name, data, onProgress) =>
               requestExcelBlob?.({
                 artist: name,
                 artistData: data,
@@ -363,17 +394,36 @@ export function useExports(
                 periodEnd: periodEnd || undefined,
                 compilationFilters,
                 settings: excelSettings ?? pdfSettings,
-              }) ?? Promise.resolve(null)
+              }, onProgress) ?? Promise.resolve(null)
           : undefined,
+        (artist, phase, rows) => {
+          const description =
+            phase === 'summary'
+              ? t.exportExcelProgressSummary
+              : `${t.exportExcelProgressReports}${rows ? ` ${rows}` : ''}`
+          toast.loading(`Generating ${Math.max(1, current)} / ${total} statements…`, {
+            id: toastId,
+            description: `${artist}: ${description}`,
+          })
+        },
+        (artist) => skippedExcel.push(artist),
       )
       downloadBlob(blob, 'artist_statements.zip')
       toast.success(`All ${total} statements downloaded`, { id: toastId })
+      if (skippedExcel.length > 0) {
+        toast.warning(interpolate(t.exportExcelBatchSkipped, { count: skippedExcel.length }))
+      }
     } catch (err) {
+      const workerMessage = excelWorkerErrorMessage(err)
+      if (workerMessage) {
+        toast.error(workerMessage, { id: toastId })
+        return
+      }
       const message = err instanceof Error ? err.message : 'Unknown error'
       toast.error(t.exportZipFailed, { id: toastId, description: message })
       console.error('ZIP export error:', err)
     }
-  }, [processedData, labelInfo, periodStart, periodEnd, pdfSettings, emailOptions, labelArtists, appDefaults, emailConfig, compilationFilters, requestExcelBlob, t])
+  }, [processedData, labelInfo, periodStart, periodEnd, pdfSettings, emailOptions, labelArtists, appDefaults, emailConfig, compilationFilters, requestExcelBlob, t, excelWorkerErrorMessage])
 
   /**
    * Queued batch export for a specific subset of artists — same async queue
@@ -396,6 +446,8 @@ export function useExports(
 
     const total = subset.length
     const toastId = toast.loading(`Preparing 1 / ${total} statements…`)
+    let current = 0
+    const skippedExcel: string[] = []
     try {
       const blob = await generateZipOfAllStatements(
         subset,
@@ -404,6 +456,7 @@ export function useExports(
         periodEnd || undefined,
         'both',
         (done, tot) => {
+          current = done
           if (done < tot) {
             toast.loading(`Generating ${done + 1} / ${tot} statements…`, { id: toastId })
           }
@@ -416,7 +469,7 @@ export function useExports(
         compilationFilters,
         excelSettings,
         wantsRawExcelSheet(excelSettings)
-          ? (name, data) =>
+          ? (name, data, onProgress) =>
               requestExcelBlob?.({
                 artist: name,
                 artistData: data,
@@ -425,17 +478,36 @@ export function useExports(
                 periodEnd: periodEnd || undefined,
                 compilationFilters,
                 settings: excelSettings ?? pdfSettings,
-              }) ?? Promise.resolve(null)
+              }, onProgress) ?? Promise.resolve(null)
           : undefined,
+        (artist, phase, rows) => {
+          const description =
+            phase === 'summary'
+              ? t.exportExcelProgressSummary
+              : `${t.exportExcelProgressReports}${rows ? ` ${rows}` : ''}`
+          toast.loading(`Generating ${Math.max(1, current)} / ${total} statements…`, {
+            id: toastId,
+            description: `${artist}: ${description}`,
+          })
+        },
+        (artist) => skippedExcel.push(artist),
       )
       downloadBlob(blob, 'selected_artist_statements.zip')
       toast.success(`${total} selected statement${total !== 1 ? 's' : ''} downloaded`, { id: toastId })
+      if (skippedExcel.length > 0) {
+        toast.warning(interpolate(t.exportExcelBatchSkipped, { count: skippedExcel.length }))
+      }
     } catch (err) {
+      const workerMessage = excelWorkerErrorMessage(err)
+      if (workerMessage) {
+        toast.error(workerMessage, { id: toastId })
+        return
+      }
       const message = err instanceof Error ? err.message : 'Unknown error'
       toast.error(t.exportZipFailed, { id: toastId, description: message })
       console.error('ZIP export error:', err)
     }
-  }, [processedData, labelInfo, periodStart, periodEnd, pdfSettings, emailOptions, labelArtists, appDefaults, emailConfig, compilationFilters, requestExcelBlob, t])
+  }, [processedData, labelInfo, periodStart, periodEnd, pdfSettings, emailOptions, labelArtists, appDefaults, emailConfig, compilationFilters, requestExcelBlob, t, excelWorkerErrorMessage])
 
   const handlePublishToPortal = useCallback(
     async (artist: string) => {

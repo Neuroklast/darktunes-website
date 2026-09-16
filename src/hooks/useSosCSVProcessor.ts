@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { computeAutoMappings } from '@/lib/sos/auto-mapping'
 import { logClientAppEvent } from '@/lib/sos/clientAppLog'
+import { ExcelExportWorkerError } from '@/lib/sos/excelExportError'
 import {
   FALLBACK_EXCHANGE_RATES,
   fetchExchangeRates,
@@ -47,6 +48,11 @@ import type {
 
 /** Safety cap. Original reports are CSV now, so this should not be the happy path. */
 export const SOS_EXCEL_WORKER_TIMEOUT_MS = 5 * 60 * 1000
+
+export {
+  ExcelExportWorkerError,
+  type ExcelExportWorkerErrorCode,
+} from '@/lib/sos/excelExportError'
 
 export interface CsvProcessorEvents {
   onParseProgress?: (progress: SosParseProgress) => void
@@ -150,6 +156,17 @@ export function useCSVProcessor(
       }
     >(),
   )
+  /**
+   * Requests abandoned by the timeout that the worker is still computing.
+   * The worker is single-threaded and cannot be cancelled mid-serialization,
+   * so new exports stay disabled until the orphaned result arrives.
+   */
+  const orphanExcelRef = useRef(new Set<string>())
+  const [excelBusy, setExcelBusy] = useState(false)
+  /** Grace timer: recreate the worker when an orphan never answers. */
+  const orphanGraceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Bumped to terminate + recreate the worker and re-sync all files. */
+  const [workerGeneration, setWorkerGeneration] = useState(0)
   /** Latest file arrays — updated every render so the file-sync effect reads current data. */
   const believeFilesRef = useRef(believeFiles)
   believeFilesRef.current = believeFiles
@@ -366,6 +383,13 @@ export function useCSVProcessor(
   // ── Worker lifecycle ──────────────────────────────────────────────────────────
 
   useEffect(() => {
+    // A recreated worker starts empty — re-send every file so parsing runs again.
+    if (workerGeneration > 0) {
+      knownFileIdsRef.current.clear()
+      pendingParsesRef.current = 0
+      prevAliasKeyRef.current = undefined
+    }
+
     const worker = new Worker(
       new URL('../workers/sos-csv-processor.worker.ts', import.meta.url),
       { type: 'module' }
@@ -449,6 +473,13 @@ export function useCSVProcessor(
                 : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             pending.resolve(new Blob([msg.buffer], { type: mime }))
           }
+          if (orphanExcelRef.current.delete(msg.requestId) && orphanExcelRef.current.size === 0) {
+            setExcelBusy(false)
+            if (orphanGraceTimerRef.current) {
+              clearTimeout(orphanGraceTimerRef.current)
+              orphanGraceTimerRef.current = null
+            }
+          }
           break
         }
 
@@ -457,7 +488,20 @@ export function useCSVProcessor(
           const pending = pendingExcelRef.current.get(msg.requestId)
           if (pending) {
             pendingExcelRef.current.delete(msg.requestId)
-            pending.reject(new Error(msg.message))
+            pending.reject(
+              new ExcelExportWorkerError(msg.message, {
+                code: msg.code,
+                rows: msg.rows,
+                limit: msg.limit,
+              }),
+            )
+          }
+          if (orphanExcelRef.current.delete(msg.requestId) && orphanExcelRef.current.size === 0) {
+            setExcelBusy(false)
+            if (orphanGraceTimerRef.current) {
+              clearTimeout(orphanGraceTimerRef.current)
+              orphanGraceTimerRef.current = null
+            }
           }
           break
         }
@@ -475,10 +519,17 @@ export function useCSVProcessor(
         pending.reject(new Error(err.message || 'Worker crashed'))
       }
       pendingExcelRef.current.clear()
+      orphanExcelRef.current.clear()
+      setExcelBusy(false)
+      if (orphanGraceTimerRef.current) {
+        clearTimeout(orphanGraceTimerRef.current)
+        orphanGraceTimerRef.current = null
+      }
     }
 
     const knownFileIds = knownFileIdsRef.current
     const pendingExcel = pendingExcelRef.current
+    const orphanExcel = orphanExcelRef.current
     return () => {
       worker.terminate()
       workerRef.current = null
@@ -486,8 +537,13 @@ export function useCSVProcessor(
       pendingParsesRef.current = 0
       for (const pending of pendingExcel.values()) pending.resolve(null)
       pendingExcel.clear()
+      orphanExcel.clear()
+      if (orphanGraceTimerRef.current) {
+        clearTimeout(orphanGraceTimerRef.current)
+        orphanGraceTimerRef.current = null
+      }
     }
-  }, [])
+  }, [workerGeneration])
 
   // ── Effect: sync files with worker ────────────────────────────────────────────
   // Triggers when file content changes or when column aliases change.
@@ -557,7 +613,7 @@ export function useCSVProcessor(
         sendProcessRef.current()
       }
     }
-  }, [believeKey, bandcampKey, shopifyKey, printfulKey, darkmerchKey, aliasKey])
+  }, [believeKey, bandcampKey, shopifyKey, printfulKey, darkmerchKey, aliasKey, workerGeneration])
 
   // ── Effect: re-process when config changes (no re-parse needed) ───────────────
 
@@ -615,7 +671,13 @@ export function useCSVProcessor(
     onProgress?: (phase: string, rows?: number) => void,
   ): Promise<Blob | null> => {
     const worker = workerRef.current
-    if (!worker) return Promise.resolve(null)
+    if (!worker) {
+      return Promise.reject(
+        new ExcelExportWorkerError('Excel worker is not ready. Please retry the export.', {
+          code: 'EXCEL_WORKER_NOT_READY',
+        }),
+      )
+    }
     const requestId = crypto.randomUUID()
     const signal = AbortSignal.timeout(SOS_EXCEL_WORKER_TIMEOUT_MS)
     return new Promise((resolve, reject) => {
@@ -629,9 +691,42 @@ export function useCSVProcessor(
         signal.removeEventListener('abort', onAbort)
         reject(error)
       }
-      const onAbort = () => finish(null)
+      const onAbort = () => {
+        // The worker cannot be cancelled mid-serialization. Track the orphaned
+        // request so new exports stay disabled until its result arrives.
+        orphanExcelRef.current.add(requestId)
+        setExcelBusy(true)
+        if (orphanGraceTimerRef.current) clearTimeout(orphanGraceTimerRef.current)
+        orphanGraceTimerRef.current = setTimeout(() => {
+          // The worker never answered the orphan — terminate and recreate it.
+          // The file-sync effect re-sends every CSV for the new generation.
+          orphanGraceTimerRef.current = null
+          console.error('[useCSVProcessor] Excel worker unresponsive — recreating worker')
+          const stuckWorker = workerRef.current
+          workerRef.current = null
+          stuckWorker?.terminate()
+          for (const pending of pendingExcelRef.current.values()) {
+            pending.reject(
+              new ExcelExportWorkerError(
+                'Excel worker was unresponsive and has been restarted. Please retry the export.',
+                { code: 'EXCEL_TIMEOUT' },
+              ),
+            )
+          }
+          pendingExcelRef.current.clear()
+          orphanExcelRef.current.clear()
+          setExcelBusy(false)
+          setIsProcessing(false)
+          setWorkerGeneration((generation) => generation + 1)
+        }, SOS_EXCEL_WORKER_TIMEOUT_MS)
+        fail(
+          new ExcelExportWorkerError('Excel export timed out after 5 minutes', {
+            code: 'EXCEL_TIMEOUT',
+          }),
+        )
+      }
       if (signal.aborted) {
-        resolve(null)
+        onAbort()
         return
       }
       signal.addEventListener('abort', onAbort, { once: true })
@@ -652,6 +747,7 @@ export function useCSVProcessor(
 
   return {
     isProcessing,
+    excelBusy,
     exchangeRatesLoading,
     exchangeRatesReady,
     exchangeRatesSource,

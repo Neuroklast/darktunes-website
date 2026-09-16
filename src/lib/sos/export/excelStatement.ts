@@ -51,7 +51,34 @@ export const RAW_SHEET_WRITE_BATCH = 400
 
 const EXCEL_MAX_DATA_ROWS = 1_000_000
 
-export async function generateExcel(
+/**
+ * Hard cap on total raw rows across all original-report tabs of one artist.
+ * ExcelJS holds every row in memory; beyond this the worker would risk an
+ * OOM (or a multi-minute silent writeBuffer). Fail closed with a clear error.
+ */
+export const EXCEL_MAX_TOTAL_RAW_ROWS = 1_500_000
+
+export class ExcelRawRowsLimitError extends Error {
+  readonly rows: number
+  readonly limit: number
+
+  constructor(rows: number, limit = EXCEL_MAX_TOTAL_RAW_ROWS) {
+    super(
+      `This artist has ${rows.toLocaleString('en-US')} raw rows — exceeds the ${limit.toLocaleString('en-US')} row export limit. Turn off Raw data for a summary-only file, or split the period.`,
+    )
+    this.name = 'ExcelRawRowsLimitError'
+    this.rows = rows
+    this.limit = limit
+  }
+}
+
+export type ExcelBuildPhase = 'summary'
+
+/**
+ * Builds the workbook and returns the raw XLSX bytes. Used directly by the
+ * worker so the buffer is transferred once (no Blob → ArrayBuffer copy).
+ */
+export async function buildExcelBuffer(
   artistData: SafeProcessedArtistData,
   labelInfo: LabelInfo,
   periodStart?: string,
@@ -60,7 +87,8 @@ export async function generateExcel(
   settings?: ExcelGenerateSettings,
   rawSheets: ArtistRawSourceSheet[] = [],
   onRawProgress?: (progress: ExcelRawWriteProgress) => void,
-): Promise<Blob> {
+  onPhase?: (phase: ExcelBuildPhase) => void,
+): Promise<ArrayBuffer> {
   try {
     return await buildExcel(
       artistData,
@@ -71,12 +99,41 @@ export async function generateExcel(
       settings,
       rawSheets,
       onRawProgress,
+      onPhase,
     )
   } catch (err) {
+    if (err instanceof ExcelRawRowsLimitError) throw err
     throw new Error(
       `Excel generation failed for "${artistData.artist}": ${err instanceof Error ? err.message : String(err)}`,
     )
   }
+}
+
+export async function generateExcel(
+  artistData: SafeProcessedArtistData,
+  labelInfo: LabelInfo,
+  periodStart?: string,
+  periodEnd?: string,
+  compilationFilters: CompilationFilter[] = [],
+  settings?: ExcelGenerateSettings,
+  rawSheets: ArtistRawSourceSheet[] = [],
+  onRawProgress?: (progress: ExcelRawWriteProgress) => void,
+  onPhase?: (phase: ExcelBuildPhase) => void,
+): Promise<Blob> {
+  const buffer = await buildExcelBuffer(
+    artistData,
+    labelInfo,
+    periodStart,
+    periodEnd,
+    compilationFilters,
+    settings,
+    rawSheets,
+    onRawProgress,
+    onPhase,
+  )
+  return new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
 }
 
 type SummaryRow = [string, string | number]
@@ -234,8 +291,16 @@ async function buildExcel(
   settings?: ExcelGenerateSettings,
   rawSheets: ArtistRawSourceSheet[] = [],
   onRawProgress?: (progress: ExcelRawWriteProgress) => void,
-): Promise<Blob> {
+  onPhase?: (phase: ExcelBuildPhase) => void,
+): Promise<ArrayBuffer> {
   const excelSettings = resolveExcelGenerateSettings(settings)
+
+  if (isExcelSheetEnabled(excelSettings, 'raw')) {
+    const rawRowCount = rawSheets.reduce((sum, sheet) => sum + sheet.rows.length, 0)
+    if (rawRowCount > EXCEL_MAX_TOTAL_RAW_ROWS) {
+      throw new ExcelRawRowsLimitError(rawRowCount)
+    }
+  }
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
@@ -348,8 +413,9 @@ async function buildExcel(
     }
   }
 
+  // Serialization is synchronous inside ExcelJS and cannot report progress —
+  // emit a phase so the UI can show what it is waiting for.
+  onPhase?.('summary')
   const buffer = await workbook.xlsx.writeBuffer()
-  return new Blob([buffer], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  })
+  return buffer
 }
