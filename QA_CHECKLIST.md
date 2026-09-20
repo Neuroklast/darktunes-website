@@ -232,6 +232,15 @@
 - [ ] Admin → System → Health: **no** infra setup (no CRON_SECRET / Supabase Cron / Vault / Vercel / R2 operator docs); speaking issues stay product-facing (Force Sync / technical operator), never expose secrets or cron schedules
 - [ ] `vercel.json` has no `crons` key
 
+## Error logging & audit
+- [ ] Trigger an unhandled server error (e.g. throw in a route) → one structured JSON line appears and one `app_logs` row is written with a `fingerprint`
+- [ ] Trigger the same error twice → the row's `occurrences` increments; no duplicate row
+- [ ] `app_logs.details` contains no email addresses, bearer tokens, or sensitive keys (redaction)
+- [ ] Admin → System → Logs → **App Errors**: Count / Last seen / Status columns render; Resolve / Ignore toggle updates the row (audited)
+- [ ] Admin mutation (e.g. invite user, clear logs) writes an `admin_audit_log` entry; explicit business actions are not duplicated by the automatic fallback
+- [ ] `app-logs-cleanup` pg_cron job is registered and prunes rows older than 90 days
+- [ ] Client error boundary reports to `/api/log-error` and persists an aggregated row
+
 ## Documentation
 - [ ] README reflects current setup and QA commands
 - [ ] DEPLOYMENT guide is up to date

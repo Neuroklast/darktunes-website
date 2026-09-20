@@ -343,6 +343,9 @@ function AppLogsPanel() {
   const [source, setSource] = useState('all')
   const [level, setLevel] = useState('all')
   const [userErrorsOnly, setUserErrorsOnly] = useState(false)
+  const [unresolvedOnly, setUnresolvedOnly] = useState(false)
+  const [hideIgnored, setHideIgnored] = useState(true)
+  const [mutatingId, setMutatingId] = useState<string | null>(null)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const { pagination, setPagination, resetPage } = useManualPagination()
 
@@ -352,7 +355,7 @@ function AppLogsPanel() {
       let query = supabase
         .from('app_logs')
         .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
+        .order('last_seen_at', { ascending: false })
         .range(
           pagination.pageIndex * ADMIN_TABLE_PAGE_SIZE,
           pagination.pageIndex * ADMIN_TABLE_PAGE_SIZE + ADMIN_TABLE_PAGE_SIZE - 1,
@@ -372,6 +375,12 @@ function AppLogsPanel() {
       if (userErrorsOnly) {
         query = query.not('user_id', 'is', null)
       }
+      if (unresolvedOnly) {
+        query = query.eq('resolved', false)
+      }
+      if (hideIgnored) {
+        query = query.eq('ignored', false)
+      }
 
       const { data, count, error } = await query
       if (error) throw error
@@ -382,11 +391,39 @@ function AppLogsPanel() {
     } finally {
       setLoading(false)
     }
-  }, [supabase, pagination.pageIndex, source, level, search, userErrorsOnly])
+  }, [supabase, pagination.pageIndex, source, level, search, userErrorsOnly, unresolvedOnly, hideIgnored])
+
+  const updateLog = useCallback(
+    async (id: string, patch: { resolved?: boolean; ignored?: boolean }) => {
+      setMutatingId(id)
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        const res = await fetch(`/api/admin/app-logs/${id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.access_token
+              ? { Authorization: `Bearer ${session.access_token}` }
+              : {}),
+          },
+          body: JSON.stringify(patch),
+        })
+        if (!res.ok) throw new Error('Failed to update log entry')
+        await fetchLogs()
+      } catch {
+        // Best-effort — the table simply keeps its previous state
+      } finally {
+        setMutatingId(null)
+      }
+    },
+    [supabase, fetchLogs],
+  )
 
   useEffect(() => {
     resetPage()
-  }, [search, source, level, userErrorsOnly, resetPage])
+  }, [search, source, level, userErrorsOnly, unresolvedOnly, hideIgnored, resetPage])
 
   useEffect(() => {
     void fetchLogs()
@@ -412,6 +449,22 @@ function AppLogsPanel() {
         accessorKey: 'level',
         header: 'Level',
         cell: ({ row }) => <AppLevelBadge level={row.original.level} />,
+      },
+      {
+        accessorKey: 'occurrences',
+        header: 'Count',
+        cell: ({ row }) => (
+          <span className="text-xs tabular-nums">{row.original.occurrences}</span>
+        ),
+      },
+      {
+        accessorKey: 'first_seen_at',
+        header: 'First seen',
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {formatDate(row.original.first_seen_at)}
+          </span>
+        ),
       },
       {
         accessorKey: 'user_id',
@@ -461,8 +514,62 @@ function AppLogsPanel() {
           )
         },
       },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => {
+          const entry = row.original
+          if (entry.ignored) {
+            return (
+              <Badge variant="outline" className="text-xs">
+                Ignored
+              </Badge>
+            )
+          }
+          if (entry.resolved) {
+            return (
+              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                Resolved
+              </Badge>
+            )
+          }
+          return (
+            <Badge variant="outline" className="text-xs">
+              Open
+            </Badge>
+          )
+        },
+      },
+      {
+        id: 'actions',
+        header: '',
+        cell: ({ row }) => {
+          const entry = row.original
+          const busy = mutatingId === entry.id
+          return (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void updateLog(entry.id, { resolved: !entry.resolved })}
+                className="text-xs underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+              >
+                {entry.resolved ? 'Reopen' : 'Resolve'}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void updateLog(entry.id, { ignored: !entry.ignored })}
+                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+              >
+                {entry.ignored ? 'Unignore' : 'Ignore'}
+              </button>
+            </div>
+          )
+        },
+      },
     ],
-    [expandedRow],
+    [expandedRow, mutatingId, updateLog],
   )
 
   const table = useAdminTable({
@@ -516,6 +623,24 @@ function AppLogsPanel() {
             className="rounded border-border"
           />
           User errors only
+        </label>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={unresolvedOnly}
+            onChange={(e) => setUnresolvedOnly(e.target.checked)}
+            className="rounded border-border"
+          />
+          Unresolved only
+        </label>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={hideIgnored}
+            onChange={(e) => setHideIgnored(e.target.checked)}
+            className="rounded border-border"
+          />
+          Hide ignored
         </label>
         <Select value={level} onValueChange={setLevel}>
           <SelectTrigger className="h-8 w-[120px] text-sm">

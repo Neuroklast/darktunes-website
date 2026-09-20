@@ -24,8 +24,8 @@ import { fileURLToPath } from 'node:url'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const resetPath = join(root, 'supabase', 'reset.sql')
 
-/** Tables that the retention cron job may prune (telemetry only). */
-const DELETE_ALLOWLIST = new Set(['cron_ticks', 'sync_runs'])
+/** Tables that the retention cron job may prune (telemetry + aggregated error logs). */
+const DELETE_ALLOWLIST = new Set(['cron_ticks', 'sync_runs', 'app_logs'])
 
 function stripComments(sql) {
   return sql.replace(/--[^\n]*/g, '')

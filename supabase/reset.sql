@@ -3015,21 +3015,114 @@ CREATE TRIGGER trg_accreditation_requests_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ---------------------------------------------------------------------------
--- TABLE: app_logs  (UI errors, R2 errors, Vercel errors, etc.)
+-- TABLE: app_logs  (UI errors, R2 errors, Vercel errors, operational events)
+--
+-- Aggregated error log: rows carrying a fingerprint are deduplicated by the
+-- `upsert_app_log` RPC into a single row with an `occurrences` counter and
+-- first/last seen timestamps. See docs/agent/backend.md § Error logging.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.app_logs (
-  id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-  source      TEXT        NOT NULL,           -- e.g. 'r2', 'supabase', 'upload', 'ui', 'vercel'
-  level       TEXT        NOT NULL DEFAULT 'error', -- 'error' | 'warn' | 'info'
-  message     TEXT        NOT NULL,
-  details     JSONB       NOT NULL DEFAULT '{}',
-  user_id     UUID        REFERENCES public.users (id) ON DELETE SET NULL,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id            UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  source        TEXT        NOT NULL,           -- e.g. 'r2', 'supabase', 'upload', 'ui', 'vercel'
+  level         TEXT        NOT NULL DEFAULT 'error', -- 'error' | 'warn' | 'info'
+  message       TEXT        NOT NULL,
+  details       JSONB       NOT NULL DEFAULT '{}',
+  user_id       UUID        REFERENCES public.users (id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  fingerprint   TEXT,
+  occurrences   INTEGER     NOT NULL DEFAULT 1,
+  first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  resolved      BOOLEAN     NOT NULL DEFAULT FALSE,
+  resolved_at   TIMESTAMPTZ,
+  resolved_by   UUID        REFERENCES public.users (id) ON DELETE SET NULL,
+  ignored       BOOLEAN     NOT NULL DEFAULT FALSE,
+  environment   TEXT,
+  app_version   TEXT,
+  request_id    TEXT,
+  route_path    TEXT,
+  method        TEXT
 );
+
+-- Idempotent column guards for existing databases (SSOT: reset.sql, no migrations)
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS fingerprint   TEXT;
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS occurrences   INTEGER     NOT NULL DEFAULT 1;
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS resolved      BOOLEAN     NOT NULL DEFAULT FALSE;
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS resolved_at   TIMESTAMPTZ;
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS resolved_by   UUID        REFERENCES public.users (id) ON DELETE SET NULL;
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS ignored       BOOLEAN     NOT NULL DEFAULT FALSE;
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS environment   TEXT;
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS app_version   TEXT;
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS request_id    TEXT;
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS route_path    TEXT;
+ALTER TABLE public.app_logs ADD COLUMN IF NOT EXISTS method        TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_app_logs_source     ON public.app_logs (source);
 CREATE INDEX IF NOT EXISTS idx_app_logs_level      ON public.app_logs (level);
 CREATE INDEX IF NOT EXISTS idx_app_logs_created_at ON public.app_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_app_logs_last_seen  ON public.app_logs (last_seen_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_app_logs_fingerprint ON public.app_logs (fingerprint);
+
+-- Best-effort aggregated write used by src/lib/appLog.ts. Same fingerprint →
+-- one row with occurrences incremented; NULL/empty fingerprint → plain insert.
+CREATE OR REPLACE FUNCTION public.upsert_app_log(
+  p_fingerprint TEXT,
+  p_source      TEXT,
+  p_level       TEXT,
+  p_message     TEXT,
+  p_details     JSONB,
+  p_user_id     UUID,
+  p_environment TEXT,
+  p_app_version TEXT,
+  p_request_id  TEXT,
+  p_route_path  TEXT,
+  p_method      TEXT
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF p_fingerprint IS NULL OR p_fingerprint = '' THEN
+    INSERT INTO public.app_logs (
+      source, level, message, details, user_id,
+      environment, app_version, request_id, route_path, method
+    ) VALUES (
+      p_source, p_level, p_message, p_details, p_user_id,
+      p_environment, p_app_version, p_request_id, p_route_path, p_method
+    );
+    RETURN;
+  END IF;
+
+  INSERT INTO public.app_logs (
+    fingerprint, source, level, message, details, user_id,
+    environment, app_version, request_id, route_path, method,
+    first_seen_at, last_seen_at, occurrences
+  ) VALUES (
+    p_fingerprint, p_source, p_level, p_message, p_details, p_user_id,
+    p_environment, p_app_version, p_request_id, p_route_path, p_method,
+    NOW(), NOW(), 1
+  )
+  ON CONFLICT (fingerprint) DO UPDATE SET
+    level        = EXCLUDED.level,
+    message      = EXCLUDED.message,
+    details      = EXCLUDED.details,
+    user_id      = COALESCE(EXCLUDED.user_id, app_logs.user_id),
+    environment  = EXCLUDED.environment,
+    app_version  = EXCLUDED.app_version,
+    request_id   = EXCLUDED.request_id,
+    route_path   = EXCLUDED.route_path,
+    method       = EXCLUDED.method,
+    last_seen_at = NOW(),
+    occurrences  = app_logs.occurrences + 1;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.upsert_app_log(TEXT, TEXT, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.upsert_app_log(TEXT, TEXT, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, TEXT, TEXT, TEXT) TO service_role;
 
 -- ---------------------------------------------------------------------------
 -- TABLE: support_known_errors  (fingerprints excluded from Zammad auto-tickets)
@@ -7455,6 +7548,12 @@ BEGIN
       'sync-telemetry-cleanup',
       '15 4 * * *',
       $job$DELETE FROM public.cron_ticks WHERE created_at < NOW() - INTERVAL '14 days'; DELETE FROM public.sync_runs WHERE started_at < NOW() - INTERVAL '30 days';$job$
+    );
+    -- Error-log retention: drop aggregated rows not seen for 90 days.
+    PERFORM cron.schedule(
+      'app-logs-cleanup',
+      '30 4 * * *',
+      $job$DELETE FROM public.app_logs WHERE last_seen_at < NOW() - INTERVAL '90 days';$job$
     );
   END IF;
 EXCEPTION WHEN OTHERS THEN

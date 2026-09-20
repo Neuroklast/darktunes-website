@@ -465,6 +465,16 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 **A metric join gap must not render as a fabricated 0:** Forward-fill (carry the previous non-zero value) each presence series so an incomplete scrape, or a metric missing for one month (`fMap.get(period) ?? 0`), doesn't dip the trend line or the listener/follower KPIs to `0`. Only drop a whole period when *no* public Spotify data exists for it (a no-sync month) — not when one individual metric is absent.
 
+### 2026-09-20 — Error logging & audit were opt-in islands
+
+**Opt-in logging is blind logging:** `withErrorHandler` only covers route handlers that use it (145/217) and `logServerActionError` was called in one place, so RSC, server actions and middleware errors were never persisted. A framework-level `instrumentation.ts` `onRequestError` hook plus one `captureError` entry point covers everything without per-call-site discipline.
+
+**Append-only error tables flood and hide signal:** Storing one row per occurrence makes triage impossible and bloats the table. Aggregate by a stable `fingerprint` (event + name + normalized message + first stack frame) with an `occurrences` counter and first/last seen; add resolve/ignore and retention.
+
+**Raw error text is a PII leak:** Messages/stacks routinely contain emails, tokens and IDs. Redact before persistence — never assume the caller sanitized.
+
+**A 85-route audit rollout is not 85 edits:** Attach the authenticated actor to the request in the shared auth helper and derive the audit action centrally in `withErrorHandler`; keep explicit semantic entries via `logAdminActionForRequest` (marking the request) so the fallback does not duplicate them.
+
 ---
 
 *Last updated: 2026-09-20*

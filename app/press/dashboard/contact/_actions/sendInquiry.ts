@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getFeatureFlagsForRole } from '@/lib/api/featureFlags'
 import { logServerActionError } from '@/lib/logServerActionError'
+import { writeAppLog } from '@/lib/appLog'
 
 function escapeHtml(value: string): string {
   return value
@@ -29,7 +30,7 @@ export async function sendPressInquiry(data: {
     const flags = await getFeatureFlagsForRole(supabase, 'journalist').catch(() => ({} as Record<string, boolean>))
     if (flags['press.contact'] === false) return { success: false }
 
-    const { error } = await supabase.from('app_logs').insert({
+    await writeAppLog({
       source: 'press_inquiry',
       level: 'info',
       message: `[${data.subject}] ${data.body}`,
@@ -38,13 +39,8 @@ export async function sendPressInquiry(data: {
         subject: data.subject,
         user_email: user.email ?? '',
       },
-      user_id: user.id,
+      userId: user.id,
     })
-
-    if (error) {
-      await logServerActionError('press.sendInquiry', error, userId)
-      return { success: false }
-    }
 
     return { success: true }
   } catch (err) {

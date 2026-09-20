@@ -110,19 +110,6 @@ components:
       properties:
         success:
           type: boolean
-    SyncAcceptedResponse:
-      type: object
-      required: [accepted, alreadyRunning]
-      properties:
-        accepted:
-          type: boolean
-          description: The worker accepted the kick (it may still have found no due jobs).
-        alreadyRunning:
-          type: boolean
-          description: True when another worker already holds the single-flight lease.
-        processed:
-          type: integer
-          description: Present (0) when alreadyRunning is true.
     ContactRequest:
       type: object
       required: [name, email, topic, message, gdprConsent]
@@ -148,6 +135,40 @@ components:
       required: [displayName]
       properties:
         displayName: { type: string, minLength: 1, maxLength: 120 }
+    AppLogUpdateRequest:
+      type: object
+      description: Partial update — resolve and/or ignore an aggregated error log entry.
+      properties:
+        resolved: { type: boolean }
+        ignored: { type: boolean }
+    AppLog:
+      type: object
+      description: Aggregated error/operational log row (app_logs).
+      properties:
+        id: { type: string, format: uuid }
+        source: { type: string }
+        level: { type: string, enum: [error, warn, info] }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+        user_id: { type: string, format: uuid, nullable: true }
+        fingerprint: { type: string, nullable: true }
+        occurrences: { type: integer, minimum: 1 }
+        first_seen_at: { type: string, format: date-time }
+        last_seen_at: { type: string, format: date-time }
+        resolved: { type: boolean }
+        resolved_at: { type: string, format: date-time, nullable: true }
+        resolved_by: { type: string, format: uuid, nullable: true }
+        ignored: { type: boolean }
+        environment: { type: string, nullable: true }
+        app_version: { type: string, nullable: true }
+        request_id: { type: string, nullable: true }
+        route_path: { type: string, nullable: true }
+        method: { type: string, nullable: true }
+    AppLogEntry:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/AppLog" }
     HealthLiveness:
       type: object
       properties:
@@ -556,6 +577,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/app-logs/{id}:
+    patch:
+      operationId: patchadmin_app-logs_ById
+      tags: [Admin]
+      summary: Resolve or ignore an aggregated error log entry
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppLogUpdateRequest"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppLogEntry"
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -4730,7 +4781,7 @@ paths:
     post:
       operationId: postlog-error
       tags: [Public]
-      summary: Create or submit /api/log-error
+      summary: Ingest a client error/warning; persists an aggregated app_logs row (source "ui" may open a Zammad ticket)
       security:
         - SessionBearer: []
       requestBody:
@@ -7392,21 +7443,17 @@ paths:
     get:
       operationId: getsync
       tags: [Sync]
-      summary: Run the sync worker (claims and processes queued jobs)
-      description: >-
-        Cron-authenticated worker tick. Atomically claims due `sync_queue` jobs
-        (`FOR UPDATE SKIP LOCKED`), processes a bounded batch, writes a `sync_runs`
-        ledger row and a `cron_ticks` worker tick, then returns. Returns
-        `alreadyRunning: true` when another worker holds the lease.
+      summary: Retrieve /api/sync
       security:
         - CronSecret: []
       responses:
         '200':
-          description: Worker accepted (drain runs in the background)
+          description: Success
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SyncAcceptedResponse'
+                type: object
+                additionalProperties: true
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -7414,16 +7461,11 @@ paths:
     post:
       operationId: postsync
       tags: [Sync]
-      summary: Run the sync worker (claims and processes queued jobs)
-      description: >-
-        Cron-authenticated worker tick. Atomically claims due `sync_queue` jobs
-        (`FOR UPDATE SKIP LOCKED`), processes a bounded batch, writes a `sync_runs`
-        ledger row and a `cron_ticks` worker tick, then returns. Returns
-        `alreadyRunning: true` when another worker holds the lease.
+      summary: Create or submit /api/sync
       security:
         - CronSecret: []
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -7431,11 +7473,11 @@ paths:
               additionalProperties: true
       responses:
         '200':
-          description: Worker accepted (drain runs in the background)
+          description: Success
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SyncAcceptedResponse'
+                $ref: "#/components/schemas/SuccessResponse"
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -7771,7 +7813,7 @@ paths:
     post:
       operationId: postvitals
       tags: [Public]
-      summary: Thresholds beyond which a metric is considered critical and warrants persistence in app_logs for admin visibility.
+      summary: Ingest a Core Web Vital; critical values persist an aggregated app_logs row
       security:
         - {}
       requestBody:

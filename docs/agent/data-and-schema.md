@@ -67,6 +67,10 @@ Bronze limits: SSOT `src/lib/sos/bronzeUploadLimits.ts` only.
 
 **SOS financial tables (additive groundwork):** `settlement_operations` (operation journal for financial idempotency: `operation_type`, `resource_type`, `resource_id`, `payload_hash`, `status`, `result`; unique replay index), `sepa_payment_orders` (versioned orders with `message_id`, `control_sum_cents`, `entries`), `artist_invoices.delivery_status|delivery_attempted_at|delivery_error`, `sales_statements.rules_fingerprint|fx_snapshot|calculation_snapshot|revision`. Admin-only RLS.
 
+## Operational logs (`app_logs`)
+
+Aggregated error/operational log. Columns: `source`, `level`, `message`, `details` (redacted JSON), `user_id`, plus observability columns `fingerprint` (unique index), `occurrences`, `first_seen_at`, `last_seen_at`, `resolved`/`resolved_at`/`resolved_by`, `ignored`, `environment`, `app_version`, `request_id`, `route_path`, `method`. Writes go through `writeAppLog` → `upsert_app_log` RPC (dedup + counter); see [backend.md](backend.md#error-logging--observability). Retention via pg_cron `app-logs-cleanup` (90 days).
+
 ## Schema management
 
 ⛔ **No** `supabase/migrations/`. Only `supabase/reset.sql` + `src/types/database.ts`.

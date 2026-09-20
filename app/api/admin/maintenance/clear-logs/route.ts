@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorHandler, ApiError } from '@/lib/errors'
-import { logAdminAction } from '@/lib/adminAuditLog'
+import { logAdminActionForRequest } from '@/lib/adminAuditLog'
 import { extractBearerToken, verifyAdmin } from '@/lib/adminAuth'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 const ALLOWED_LOG_TABLES = [
@@ -59,7 +59,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
 
   const deleted = (data ?? []).length
 
-  await logAdminAction(db, {
+  await logAdminActionForRequest(req, db, {
     actorId,
     action: 'cleared',
     resource: table,

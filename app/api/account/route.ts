@@ -19,6 +19,7 @@ import { NextResponse } from 'next/server'
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { softDeleteAccount } from '@/lib/api/users'
+import { writeAppLog } from '@/lib/appLog'
 
 export const DELETE = withErrorHandler(async (): Promise<NextResponse> => {
   const supabase = await createServerSupabaseClient()
@@ -49,11 +50,11 @@ export const DELETE = withErrorHandler(async (): Promise<NextResponse> => {
   await softDeleteAccount(adminClient, user.id)
 
   // 3. Log for compliance auditing
-  await supabase.from('app_logs').insert({
+  await writeAppLog({
     source: 'gdpr-deletion',
     level: 'info',
     message: 'User account deletion requested',
-    user_id: user.id,
+    userId: user.id,
     details: { role: profile.role },
   })
 

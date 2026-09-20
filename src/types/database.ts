@@ -423,6 +423,19 @@ export interface Database {
           details: Record<string, unknown>
           user_id: string | null
           created_at: string
+          fingerprint: string | null
+          occurrences: number
+          first_seen_at: string
+          last_seen_at: string
+          resolved: boolean
+          resolved_at: string | null
+          resolved_by: string | null
+          ignored: boolean
+          environment: string | null
+          app_version: string | null
+          request_id: string | null
+          route_path: string | null
+          method: string | null
         }
         Insert: {
           id?: string
@@ -432,6 +445,19 @@ export interface Database {
           details?: Record<string, unknown>
           user_id?: string | null
           created_at?: string
+          fingerprint?: string | null
+          occurrences?: number
+          first_seen_at?: string
+          last_seen_at?: string
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          ignored?: boolean
+          environment?: string | null
+          app_version?: string | null
+          request_id?: string | null
+          route_path?: string | null
+          method?: string | null
         }
         Update: {
           id?: string
@@ -441,6 +467,19 @@ export interface Database {
           details?: Record<string, unknown>
           user_id?: string | null
           created_at?: string
+          fingerprint?: string | null
+          occurrences?: number
+          first_seen_at?: string
+          last_seen_at?: string
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          ignored?: boolean
+          environment?: string | null
+          app_version?: string | null
+          request_id?: string | null
+          route_path?: string | null
+          method?: string | null
         }
         Relationships: []
       }
@@ -5446,6 +5485,22 @@ export interface Database {
       release_sync_worker_lease: {
         Args: {
           p_token: string
+        }
+        Returns: undefined
+      }
+      upsert_app_log: {
+        Args: {
+          p_fingerprint: string | null
+          p_source: string
+          p_level: string
+          p_message: string
+          p_details: Record<string, unknown>
+          p_user_id: string | null
+          p_environment: string | null
+          p_app_version: string | null
+          p_request_id: string | null
+          p_route_path: string | null
+          p_method: string | null
         }
         Returns: undefined
       }

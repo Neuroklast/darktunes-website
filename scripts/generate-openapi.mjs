@@ -305,6 +305,40 @@ lines.push('      type: object');
 lines.push('      required: [displayName]');
 lines.push('      properties:');
 lines.push('        displayName: { type: string, minLength: 1, maxLength: 120 }');
+lines.push('    AppLogUpdateRequest:');
+lines.push('      type: object');
+lines.push('      description: Partial update — resolve and/or ignore an aggregated error log entry.');
+lines.push('      properties:');
+lines.push('        resolved: { type: boolean }');
+lines.push('        ignored: { type: boolean }');
+lines.push('    AppLog:');
+lines.push('      type: object');
+lines.push('      description: Aggregated error/operational log row (app_logs).');
+lines.push('      properties:');
+lines.push('        id: { type: string, format: uuid }');
+lines.push('        source: { type: string }');
+lines.push('        level: { type: string, enum: [error, warn, info] }');
+lines.push('        message: { type: string }');
+lines.push('        details: { type: object, additionalProperties: true }');
+lines.push('        user_id: { type: string, format: uuid, nullable: true }');
+lines.push('        fingerprint: { type: string, nullable: true }');
+lines.push('        occurrences: { type: integer, minimum: 1 }');
+lines.push('        first_seen_at: { type: string, format: date-time }');
+lines.push('        last_seen_at: { type: string, format: date-time }');
+lines.push('        resolved: { type: boolean }');
+lines.push('        resolved_at: { type: string, format: date-time, nullable: true }');
+lines.push('        resolved_by: { type: string, format: uuid, nullable: true }');
+lines.push('        ignored: { type: boolean }');
+lines.push('        environment: { type: string, nullable: true }');
+lines.push('        app_version: { type: string, nullable: true }');
+lines.push('        request_id: { type: string, nullable: true }');
+lines.push('        route_path: { type: string, nullable: true }');
+lines.push('        method: { type: string, nullable: true }');
+lines.push('    AppLogEntry:');
+lines.push('      type: object');
+lines.push('      required: [data]');
+lines.push('      properties:');
+lines.push('        data: { $ref: "#/components/schemas/AppLog" }');
 lines.push('    HealthLiveness:');
 lines.push('      type: object');
 lines.push('      properties:');
@@ -565,6 +599,25 @@ const schemaOverrides = {
     PATCH: {
       requestBody: { schema: 'DisplayNameUpdate' },
       responses: { 200: { schema: 'SuccessResponse' } },
+    },
+  },
+  '/api/admin/app-logs/{id}': {
+    PATCH: {
+      summary: 'Resolve or ignore an aggregated error log entry',
+      requestBody: { schema: 'AppLogUpdateRequest' },
+      responses: { 200: { schema: 'AppLogEntry' } },
+    },
+  },
+  '/api/log-error': {
+    POST: {
+      summary:
+        'Ingest a client error/warning; persists an aggregated app_logs row (source "ui" may open a Zammad ticket)',
+    },
+  },
+  '/api/vitals': {
+    POST: {
+      summary:
+        'Ingest a Core Web Vital; critical values persist an aggregated app_logs row',
     },
   },
   '/api/health': {

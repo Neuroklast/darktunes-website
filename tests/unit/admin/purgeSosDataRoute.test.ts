@@ -6,6 +6,7 @@ const createServiceRoleSupabaseClientMock = vi.fn()
 const purgeSosDataMock = vi.fn()
 const assertSosPurgeAllowedMock = vi.fn()
 const logAdminActionMock = vi.fn()
+const logAdminActionForRequestMock = vi.fn()
 const logFinancialEventMock = vi.fn()
 const deleteObjectFromR2Mock = vi.fn()
 
@@ -32,6 +33,8 @@ vi.mock('@/lib/sos/purgePeriodLock', () => ({
 
 vi.mock('@/lib/adminAuditLog', () => ({
   logAdminAction: (...args: unknown[]) => logAdminActionMock(...args),
+  logAdminActionForRequest: (...args: unknown[]) => logAdminActionForRequestMock(...args),
+  auditAdminMutation: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/api/financialAudit', () => ({
@@ -74,6 +77,7 @@ describe('POST /api/admin/maintenance/purge-sos-data', () => {
       },
     })
     logAdminActionMock.mockResolvedValue(undefined)
+    logAdminActionForRequestMock.mockResolvedValue(undefined)
     logFinancialEventMock.mockResolvedValue(undefined)
     assertSosPurgeAllowedMock.mockResolvedValue(undefined)
   })
@@ -129,7 +133,8 @@ describe('POST /api/admin/maintenance/purge-sos-data', () => {
     expect(status).toBe(200)
     expect(body.ok).toBe(true)
     expect(body.bronze_deleted).toBe(2)
-    expect(logAdminActionMock).toHaveBeenCalledWith(
+    expect(logAdminActionForRequestMock).toHaveBeenCalledWith(
+      expect.anything(),
       expect.anything(),
       expect.objectContaining({
         actorId: 'admin-1',

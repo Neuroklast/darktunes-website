@@ -27,6 +27,7 @@ import { getUserRoleWithClient } from '@/lib/getUserRole'
 import { resolveEffectiveAccess, hasPermissionKey } from '@/lib/rbac/resolveAccess'
 import { hasSyncTriggerAccess } from '@/lib/rbac/guards'
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { setAdminAuditActor } from '@/lib/adminAuditContext'
 
 /** Granular permission keys from the role_permissions table. */
 export type RolePermissionKey =
@@ -180,6 +181,7 @@ export async function verifyAdminRequest(
       const client = createServiceRoleClient()
       const role = await getUserRoleWithClient(client, userId)
       if (!role) throw new ApiError(403, 'Forbidden')
+      setAdminAuditActor(req, { userId, role })
       return { userId, role }
     } catch (err) {
       // Only fall through for auth failures (401). 403 stays hard (wrong role).
@@ -204,6 +206,7 @@ export async function verifyAdminRequest(
     throw new ApiError(403, 'Forbidden')
   }
 
+  setAdminAuditActor(req, { userId: user.id, role })
   return { userId: user.id, role }
 }
 

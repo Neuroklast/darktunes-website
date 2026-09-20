@@ -1,26 +1,20 @@
 /**
  * src/lib/logServerActionError.ts
  *
- * Persists server action failures to app_logs for admin visibility.
- * Server-only.
+ * Persists server action failures via the central observability pipeline
+ * (structured console line + aggregated `app_logs` row). Server-only.
  */
 
-import { writeAppLog } from '@/lib/appLog'
+import { captureError } from '@/lib/observability/captureError'
 
 export async function logServerActionError(
   action: string,
   err: unknown,
   userId?: string | null,
 ): Promise<void> {
-  const message = err instanceof Error ? err.message : String(err)
-  await writeAppLog({
+  await captureError('server_action.error', err, {
     source: 'server_action',
-    level: 'error',
-    message: `[${action}] ${message}`,
-    details: {
-      action,
-      stack: err instanceof Error ? (err.stack ?? null) : null,
-    },
+    context: { action },
     userId: userId ?? null,
   })
 }

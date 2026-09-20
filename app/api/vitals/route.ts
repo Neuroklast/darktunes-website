@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { checkRateLimit, getClientIp } from '@/lib/ipRateLimit'
-import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
+import { writeAppLog } from '@/lib/appLog'
 
 type ConnectionType = '4g' | '3g' | '2g' | 'slow-2g' | 'unknown'
 
@@ -73,8 +73,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const threshold = CRITICAL_THRESHOLDS[body.name]
   if (threshold !== undefined && body.value > threshold) {
     try {
-      const supabase = await createServiceRoleSupabaseClient()
-      await supabase.from('app_logs').insert({
+      await writeAppLog({
         source: 'web-vitals',
         level: 'warn',
         message: `[RUM] ${body.name} = ${body.value.toFixed(1)} (threshold: ${threshold}) on ${body.pathname ?? '/'}`,

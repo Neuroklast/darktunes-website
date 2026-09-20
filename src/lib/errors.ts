@@ -20,6 +20,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { writeAppLog } from '@/lib/appLog'
+import { auditAdminMutation } from '@/lib/adminAuditLog'
 import { extractRouteUserContext } from '@/lib/routeUserContext'
 import { type ErrorCode, ERROR_MESSAGES } from './errorCodes'
 import { SettlementPeriodNotWritableError } from '@/lib/api/settlementPeriods'
@@ -160,6 +161,9 @@ function persistRouteError(
 ): void {
   void (async () => {
     const ctx = await extractRouteUserContext(req)
+    const routePath = (() => {
+      try { return new URL(req.url).pathname } catch { return req.url }
+    })()
     await writeAppLog({
       source: 'api',
       level,
@@ -169,6 +173,8 @@ function persistRouteError(
         ...(ctx.userRole ? { user_role: ctx.userRole } : {}),
       },
       userId: ctx.userId,
+      routePath,
+      method: req.method,
     })
   })()
 }
@@ -263,14 +269,22 @@ export function handleRouteError(req: NextRequest, err: unknown): NextResponse {
  *   - Unknown errors → returns 500 Internal Server Error (sanitised message)
  *                      and persists the error to the `app_logs` DB table
  *
+ * Also records an automatic `admin_audit_log` entry for admin mutations (the
+ * actor is set by `adminAuth.verifyAdminRequest`).
+ *
  * Dynamic routes that need Next.js' context argument use `handleRouteError`.
  */
 export function withErrorHandler(handler: RouteHandler): RouteHandler {
   return async (req) => {
     try {
-      return await handler(req)
+      const response = await handler(req)
+      // Awaited so the audit row is guaranteed to land (admin mutations are rare).
+      await auditAdminMutation(req, response.status)
+      return response
     } catch (err) {
-      return handleRouteError(req, err)
+      const response = handleRouteError(req, err)
+      await auditAdminMutation(req, response.status)
+      return response
     }
   }
 }

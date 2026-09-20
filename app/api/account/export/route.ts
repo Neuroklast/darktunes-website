@@ -16,6 +16,7 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ApiError, withErrorHandler } from '@/lib/errors'
+import { writeAppLog } from '@/lib/appLog'
 
 export const GET = withErrorHandler(async (): Promise<NextResponse> => {
   const supabase = await createServerSupabaseClient()
@@ -103,11 +104,11 @@ export const GET = withErrorHandler(async (): Promise<NextResponse> => {
   }
 
   // Log export for compliance
-  await supabase.from('app_logs').insert({
+  await writeAppLog({
     source: 'gdpr-export',
     level: 'info',
     message: 'User data export requested',
-    user_id: user.id,
+    userId: user.id,
     details: { role: profile.role },
   })
 

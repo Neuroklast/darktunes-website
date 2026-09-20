@@ -263,9 +263,30 @@ Inventory dump: `npm run api:inventory` (`scripts/extract-api-routes.mjs`).
 
 **New columns on evolved tables (`artists`, `artist_epks`):** always add `ADD COLUMN IF NOT EXISTS` next to the CREATE definition.
 
-## Error logging
+## Error logging & observability
 
-Non-fatal errors → `app_logs` (service role). Visible in Admin System tab.
+Non-fatal errors → `app_logs` (service role). Visible in Admin → System → Logs → **App Errors**.
+
+Pipeline:
+
+1. **Global catch** — `instrumentation.ts` (`onRequestError`) captures every unhandled server error (RSC, route handler, server action, proxy) and calls `captureError` (`src/lib/observability/captureError.ts`). Node persists; Edge only logs to console.
+2. **Route errors** — `withErrorHandler` (`src/lib/errors.ts`) persists handled route errors via `writeAppLog` (`src/lib/appLog.ts`).
+3. **Server actions / background** — `logServerActionError` delegates to `captureError`.
+4. **Client** — `reportClientError` (`src/lib/clientErrorReporter.ts`) → `POST /api/log-error` → `writeAppLog`.
+5. **Structured logs** — `src/lib/observability/logger.ts` emits JSON lines with PII redaction (email, bearer tokens, long digit runs, sensitive keys). `app_logs.details` is redacted before persistence.
+
+**Aggregation:** rows with the same `fingerprint` (`src/lib/observability/fingerprint.ts`, FNV-1a over event + name + normalized message + first stack frame) are upserted by the `upsert_app_log` RPC into **one row** with an `occurrences` counter and `first_seen_at`/`last_seen_at`. Admins resolve/ignore rows via `PATCH /api/admin/app-logs/{id}`. Retention: pg_cron `app-logs-cleanup` deletes rows not seen for 90 days (`DEPLOYMENT.md`).
+
+**Not an audit log:** business changes belong in `admin_audit_log` (see below).
+
+## Admin audit trail
+
+`admin_audit_log` (append-only) records admin mutations. Two paths:
+
+- **Automatic (broad):** `adminAuth.verifyAdminRequest` records the resolved actor on the request (`src/lib/adminAuditContext.ts`); `withErrorHandler` then writes an entry for `/api/admin/*` mutations, derived from the path (`admin.patch./users/:id`, `admin.post./maintenance/clear-logs`, …). Legacy token-only auth is covered by a request-based actor fallback. Transport-only endpoints (`presign-*`, `multipart/*`) are excluded to avoid flooding the log.
+- **Explicit (semantic):** `logAdminActionForRequest(req, db, {...})` writes a richer action (`user.invite`, `sos_data.purged`, …) and marks the request so the automatic fallback does not duplicate it. Use for business-critical mutations.
+
+Related trails: `rbac_audit_log` (role/permission changes), `financial_audit_events` (accounting), `message_events` (shared inbox).
 
 ## Zammad support tickets (optional)
 

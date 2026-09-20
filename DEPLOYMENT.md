@@ -330,6 +330,7 @@ Registered jobs (end of `reset.sql`):
 | `sync-enqueue-daily` | `0 3 * * *` | `POST /api/sync/queue` — enqueue a full sync for every artist |
 | `sync-youtube-daily` | `0 6 * * *` | `POST /api/sync-youtube` |
 | `sync-telemetry-cleanup` | `15 4 * * *` | Prunes `cron_ticks` (14d) and `sync_runs` (30d) |
+| `app-logs-cleanup` | `30 4 * * *` | Prunes `app_logs` rows not seen for 90 days (aggregated error log retention) |
 
 Required Vault secrets (upserted by CI, never committed):
 

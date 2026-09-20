@@ -10,7 +10,7 @@ import { randomUUID } from 'crypto'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { requireAdminFromRequest } from '@/lib/adminAuth'
-import { logAdminAction } from '@/lib/adminAuditLog'
+import { logAdminActionForRequest } from '@/lib/adminAuditLog'
 import { logFinancialEvent } from '@/lib/api/financialAudit'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
@@ -62,7 +62,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
     await deleteObjectFromR2(r2Key, s3, bucket)
   })
 
-  await logAdminAction(db, {
+  await logAdminActionForRequest(req, db, {
     actorId: userId,
     action: 'purged',
     resource: 'sos_data',

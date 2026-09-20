@@ -11,7 +11,7 @@
  */
 
 import { requireAdminWithServiceClient } from '@/lib/adminAuth'
-import { logAdminAction } from '@/lib/adminAuditLog'
+import { logAdminActionForRequest } from '@/lib/adminAuditLog'
 import {
   assertUuid,
   enforceAdminInviteRateLimit,
@@ -72,7 +72,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
 
   throwIfInviteFailed(result, { emailForConflict: result.email })
 
-  await logAdminAction(adminClient, {
+  await logAdminActionForRequest(req, adminClient, {
     actorId: currentUserId,
     action: result.mode === 'resend' ? 'artist.resend_invite' : 'artist.invite',
     resource: 'artists',

@@ -15,7 +15,7 @@ import {
   getImportBatchById,
   updateImportBatchStatus,
 } from '@/lib/api/distributorImportBatches'
-import { logAdminAction } from '@/lib/adminAuditLog'
+import { logAdminActionForRequest } from '@/lib/adminAuditLog'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { createR2Client, deleteObjectFromR2 } from '@/lib/r2Utils'
 
@@ -100,7 +100,7 @@ export const DELETE = withErrorHandler(async (req: NextRequest): Promise<NextRes
   const deleted = await deleteImportBatch(serviceSupabase, id)
   if (!deleted) throw new ApiError(404, 'Import batch not found')
 
-  await logAdminAction(serviceSupabase, {
+  await logAdminActionForRequest(req, serviceSupabase, {
     actorId: userId,
     action: 'deleted',
     resource: 'distributor_import_batches',

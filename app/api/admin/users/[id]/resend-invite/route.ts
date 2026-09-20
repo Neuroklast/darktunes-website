@@ -13,7 +13,7 @@ import {
   throwIfInviteFailed,
 } from '@/lib/auth/inviteAdmin'
 import { requireAdminWithServiceClient } from '@/lib/adminAuth'
-import { logAdminAction } from '@/lib/adminAuditLog'
+import { logAdminActionForRequest } from '@/lib/adminAuditLog'
 import { withErrorHandler } from '@/lib/errors'
 import { getClientIp } from '@/lib/ipRateLimit'
 import { getEmailCredentials } from '@/lib/secrets/getExternalCredentials'
@@ -45,7 +45,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
 
   throwIfInviteFailed(result)
 
-  await logAdminAction(adminClient, {
+  await logAdminActionForRequest(req, adminClient, {
     actorId: adminUserId,
     action: 'user.resend_invite',
     resource: 'users',
