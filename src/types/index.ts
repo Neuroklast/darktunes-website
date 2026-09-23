@@ -366,6 +366,8 @@ export interface Asset {
   pressCaption?: string
   photographerCredit?: string
   downloadableForPress: boolean
+  optimizedAt?: string
+  originalSizeBytes?: number
 }
 
 export interface PressKitItem {

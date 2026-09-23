@@ -1226,8 +1226,13 @@ ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS is_press_approved BOOLEAN NOT
 ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS press_suggested BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS press_category TEXT;
 ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS press_caption TEXT;
-ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS photographer_credit TEXT;
+  ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS photographer_credit TEXT;
 ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS downloadable_for_press BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS optimized_at TIMESTAMPTZ;
+ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS original_size_bytes BIGINT;
+
+CREATE INDEX IF NOT EXISTS idx_assets_optimized_at ON public.assets (optimized_at)
+  WHERE optimized_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_assets_uploaded_by ON public.assets (uploaded_by);
 CREATE INDEX IF NOT EXISTS idx_assets_mime_type   ON public.assets (mime_type);
@@ -7521,6 +7526,64 @@ BEGIN
   );
 END;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- TABLE: r2_storage_snapshots  (bucket listing totals for admin storage bar)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.r2_storage_snapshots (
+  id                       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  status                   TEXT        NOT NULL DEFAULT 'running'
+                           CHECK (status IN ('running', 'completed', 'failed')),
+  used_bytes               BIGINT      NOT NULL DEFAULT 0,
+  object_count             INTEGER     NOT NULL DEFAULT 0,
+  orphan_bytes             BIGINT      NOT NULL DEFAULT 0,
+  orphan_count             INTEGER     NOT NULL DEFAULT 0,
+  multipart_aborted_count  INTEGER     NOT NULL DEFAULT 0,
+  prefixes                 JSONB       NOT NULL DEFAULT '[]'::JSONB,
+  truncated                BOOLEAN     NOT NULL DEFAULT FALSE,
+  next_cursor              TEXT,
+  error_message            TEXT,
+  scanned_by               UUID        REFERENCES auth.users (id) ON DELETE SET NULL,
+  scanned_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at             TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_r2_storage_snapshots_scanned_at
+  ON public.r2_storage_snapshots (scanned_at DESC);
+
+ALTER TABLE public.r2_storage_snapshots ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "r2_storage_snapshots: staff read" ON public.r2_storage_snapshots;
+DROP POLICY IF EXISTS "r2_storage_snapshots: admin write" ON public.r2_storage_snapshots;
+CREATE POLICY "r2_storage_snapshots: staff read" ON public.r2_storage_snapshots
+  FOR SELECT USING (public.get_my_role() IN ('admin', 'editor'));
+CREATE POLICY "r2_storage_snapshots: admin write" ON public.r2_storage_snapshots
+  FOR ALL USING (public.get_my_role() = 'admin')
+  WITH CHECK (public.get_my_role() = 'admin');
+
+-- ---------------------------------------------------------------------------
+-- TABLE: r2_orphan_objects  (unreferenced R2 keys from the latest scan)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.r2_orphan_objects (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  snapshot_id    UUID        NOT NULL REFERENCES public.r2_storage_snapshots (id) ON DELETE CASCADE,
+  object_key     TEXT        NOT NULL,
+  size_bytes     BIGINT      NOT NULL DEFAULT 0,
+  last_modified  TIMESTAMPTZ,
+  prefix         TEXT,
+  UNIQUE (snapshot_id, object_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_r2_orphan_objects_snapshot_id
+  ON public.r2_orphan_objects (snapshot_id);
+
+ALTER TABLE public.r2_orphan_objects ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "r2_orphan_objects: staff read" ON public.r2_orphan_objects;
+DROP POLICY IF EXISTS "r2_orphan_objects: admin write" ON public.r2_orphan_objects;
+CREATE POLICY "r2_orphan_objects: staff read" ON public.r2_orphan_objects
+  FOR SELECT USING (public.get_my_role() IN ('admin', 'editor'));
+CREATE POLICY "r2_orphan_objects: admin write" ON public.r2_orphan_objects
+  FOR ALL USING (public.get_my_role() = 'admin')
+  WITH CHECK (public.get_my_role() = 'admin');
 
 REVOKE ALL ON FUNCTION public.get_vault_secret(TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.trigger_sync_worker() FROM PUBLIC, anon, authenticated;

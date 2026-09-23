@@ -77,6 +77,8 @@ const mockRow: AssetRow = {
   press_caption: null,
   photographer_credit: 'Jane Doe',
   downloadable_for_press: true,
+  optimized_at: null,
+  original_size_bytes: null,
 }
 
 describe('assets DAL', () => {

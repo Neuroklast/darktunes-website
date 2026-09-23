@@ -1,9 +1,12 @@
 'use client'
 
 import { type RefObject, useCallback, useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { ListBullets, MagnifyingGlass, SquaresFour, Trash, UploadSimple } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import {
   Select,
@@ -56,6 +59,11 @@ interface ExplorerToolbarProps {
   selectedFileCount?: number
   onBulkPress?: (action: BulkPressAction, kitArtistId?: string | null) => void
   artists?: Array<{ id: string; name: string }>
+  optimizeImages?: boolean
+  onOptimizeImagesChange?: (value: boolean) => void
+  onOptimizeExisting?: () => void
+  optimizingExisting?: boolean
+  selectedImageCount?: number
 }
 
 export function ExplorerToolbar({
@@ -79,10 +87,19 @@ export function ExplorerToolbar({
   selectedFileCount = 0,
   onBulkPress,
   artists = [],
+  optimizeImages = true,
+  onOptimizeImagesChange,
+  onOptimizeExisting,
+  optimizingExisting = false,
+  selectedImageCount = 0,
 }: ExplorerToolbarProps) {
+  const t = useTranslations('admin.r2_storage')
   const [usedBytes, setUsedBytes] = useState<number | null>(null)
+  const [catalogBytes, setCatalogBytes] = useState<number | null>(null)
   const [assetCount, setAssetCount] = useState<number | null>(null)
   const [zeroSizeCount, setZeroSizeCount] = useState(0)
+  const [orphanCount, setOrphanCount] = useState(0)
+  const [scannedAt, setScannedAt] = useState<string | null>(null)
   const [limitBytes, setLimitBytes] = useState(DEFAULT_LIMIT_BYTES)
   const [statsError, setStatsError] = useState(false)
   const [statsLoading, setStatsLoading] = useState(true)
@@ -119,7 +136,7 @@ export function ExplorerToolbar({
             setStatsLoading(false)
             return
           }
-          const used = coerceBytes(json.usedBytes)
+          const used = coerceBytes(json.used_bytes ?? json.usedBytes)
           if (used === null) {
             setStatsError(true)
             setStatsLoading(false)
@@ -127,11 +144,17 @@ export function ExplorerToolbar({
           }
           setUsedBytes(used)
           setStatsError(false)
-          const count = coerceBytes(json.assetCount)
+          const catalog = coerceBytes(json.catalog_used_bytes)
+          if (catalog !== null) setCatalogBytes(catalog)
+          const count = coerceBytes(json.asset_count ?? json.assetCount)
           if (count !== null) setAssetCount(count)
-          const zeros = coerceBytes(json.zeroSizeCount)
+          const zeros = coerceBytes(json.zero_size_count ?? json.zeroSizeCount)
           if (zeros !== null) setZeroSizeCount(zeros)
-          const limit = coerceBytes(json.limitBytes)
+          const orphans = coerceBytes(json.orphan_count)
+          if (orphans !== null) setOrphanCount(orphans)
+          const scanned = typeof json.scanned_at === 'string' ? json.scanned_at : null
+          setScannedAt(scanned)
+          const limit = coerceBytes(json.limit_bytes ?? json.limitBytes)
           if (limit !== null && limit > 0) setLimitBytes(limit)
           setStatsLoading(false)
         })
@@ -295,20 +318,15 @@ export function ExplorerToolbar({
         {usedBytes !== null && usedPct !== null && (
           <div
             className="flex w-52 shrink-0 flex-col gap-1"
-            title={
-              [
-                'Total of all assets in the database catalog (not only this folder).',
-                assetCount != null ? `${assetCount.toLocaleString()} file(s).` : null,
-                zeroSizeCount > 0
-                  ? `${zeroSizeCount.toLocaleString()} file(s) have size 0 in the catalog (under-reports real R2 usage until sizes are backfilled).`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(' ')
-            }
+            title={t('bar_title', {
+              catalog: formatBytes(catalogBytes ?? usedBytes),
+              files: assetCount != null ? assetCount.toLocaleString() : '0',
+              orphan: orphanCount > 0 ? t('bar_orphan', { count: orphanCount.toLocaleString() }) : '',
+              scanned: scannedAt ? t('bar_scanned', { when: scannedAt }) : '',
+            })}
           >
             <div className="flex justify-between gap-2 text-xs text-muted-foreground">
-              <span>Catalog storage</span>
+              <span>{t('bar_label')}</span>
               <span className="tabular-nums">
                 {formatBytes(usedBytes)} / {formatBytes(limitBytes)}
                 {assetCount != null ? ` · ${assetCount.toLocaleString()}` : ''}
@@ -317,18 +335,18 @@ export function ExplorerToolbar({
             <Progress
               value={usedPct}
               className="h-1.5 w-full"
-              aria-label={`Catalog storage usage: ${formatBytes(usedBytes)} of ${formatBytes(limitBytes)}`}
+              aria-label={t('bar_aria', { used: formatBytes(usedBytes), limit: formatBytes(limitBytes) })}
             />
             {zeroSizeCount > 0 && (
               <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                {zeroSizeCount.toLocaleString()} file(s) size unknown
+                {t('unknown_files', { count: zeroSizeCount.toLocaleString() })}
               </span>
             )}
           </div>
         )}
         {statsLoading && usedBytes === null && !statsError && (
           <span className="text-xs text-muted-foreground" role="status">
-            Loading storage…
+            {t('loading')}
           </span>
         )}
         {statsError && usedBytes === null && (
@@ -337,8 +355,18 @@ export function ExplorerToolbar({
             className="text-xs text-destructive underline-offset-2 hover:underline"
             onClick={() => fetchStats()}
           >
-            Storage stats unavailable — retry
+            {t('retry')}
           </button>
+        )}
+        {onOptimizeImagesChange && (
+          <Label className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
+            <Checkbox
+              checked={optimizeImages}
+              onCheckedChange={(value) => onOptimizeImagesChange(value !== false)}
+              aria-label={t('optimize_images_aria')}
+            />
+            {t('optimize_images')}
+          </Label>
         )}
         <span className="text-sm text-muted-foreground">{itemCount} item(s)</span>
         <div className="flex items-center gap-1 rounded-md border border-border p-1">
@@ -354,6 +382,20 @@ export function ExplorerToolbar({
           <UploadSimple size={16} aria-hidden="true" />
           Upload
         </Button>
+        {onOptimizeExisting && (
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={optimizingExisting}
+            onClick={onOptimizeExisting}
+            aria-label={selectedImageCount > 0 ? t('optimize_selected_aria') : t('optimize_existing_aria')}
+          >
+            {selectedImageCount > 0
+              ? t('optimize_selected', { count: selectedImageCount })
+              : t('optimize_existing')}
+          </Button>
+        )}
         {selectedCount > 0 && (
           <Button type="button" variant="destructive" className="gap-2" onClick={onDeleteSelected}>
             <Trash size={16} aria-hidden="true" />

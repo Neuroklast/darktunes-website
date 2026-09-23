@@ -14,6 +14,9 @@ import {
   DeleteObjectCommand,
   HeadObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
+  ListMultipartUploadsCommand,
+  AbortMultipartUploadCommand,
 } from '@aws-sdk/client-s3'
 import { withTransientIoRetry } from '@/lib/sync/retryPolicy'
 
@@ -252,4 +255,130 @@ export async function sha256HexFromR2Object(
     hash.update(chunk)
   }
   return hash.digest('hex')
+}
+
+export interface R2ObjectMeta {
+  key: string
+  sizeBytes: number
+  lastModified: Date | null
+}
+
+export interface R2ListPage {
+  objects: R2ObjectMeta[]
+  nextCursor: string | null
+}
+
+export interface R2MultipartUploadMeta {
+  key: string
+  uploadId: string
+  initiated: Date | null
+}
+
+/** Lists one page of bucket objects (max 1000). */
+export async function listR2ObjectsPage(
+  s3: S3Client,
+  bucket: string,
+  cursor?: string | null,
+): Promise<R2ListPage> {
+  const response = await s3.send(
+    new ListObjectsV2Command({
+      Bucket: bucket,
+      MaxKeys: 1000,
+      ContinuationToken: cursor || undefined,
+    }),
+  )
+  const objects: R2ObjectMeta[] = []
+  for (const item of response.Contents ?? []) {
+    if (!item.Key) continue
+    objects.push({
+      key: item.Key,
+      sizeBytes: item.Size ?? 0,
+      lastModified: item.LastModified ?? null,
+    })
+  }
+  return {
+    objects,
+    nextCursor: response.IsTruncated ? (response.NextContinuationToken ?? null) : null,
+  }
+}
+
+export async function putObjectToR2(
+  s3: S3Client,
+  bucket: string,
+  key: string,
+  body: Buffer,
+  contentType: string,
+): Promise<void> {
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      ContentLength: body.length,
+      CacheControl: 'public, max-age=31536000, immutable',
+    }),
+  )
+}
+
+export async function listIncompleteMultipartUploads(
+  s3: S3Client,
+  bucket: string,
+): Promise<R2MultipartUploadMeta[]> {
+  const uploads: R2MultipartUploadMeta[] = []
+  let keyMarker: string | undefined
+  let uploadIdMarker: string | undefined
+  for (;;) {
+    const response = await s3.send(
+      new ListMultipartUploadsCommand({
+        Bucket: bucket,
+        KeyMarker: keyMarker,
+        UploadIdMarker: uploadIdMarker,
+      }),
+    )
+    for (const item of response.Uploads ?? []) {
+      if (!item.Key || !item.UploadId) continue
+      uploads.push({
+        key: item.Key,
+        uploadId: item.UploadId,
+        initiated: item.Initiated ?? null,
+      })
+    }
+    if (!response.IsTruncated) break
+    keyMarker = response.NextKeyMarker
+    uploadIdMarker = response.NextUploadIdMarker
+  }
+  return uploads
+}
+
+export async function abortMultipartUpload(
+  s3: S3Client,
+  bucket: string,
+  key: string,
+  uploadId: string,
+): Promise<void> {
+  await s3.send(
+    new AbortMultipartUploadCommand({
+      Bucket: bucket,
+      Key: key,
+      UploadId: uploadId,
+    }),
+  )
+}
+
+export async function createConfiguredR2Client(): Promise<{
+  s3: S3Client
+  bucket: string
+  publicUrl: string
+}> {
+  const { serverEnv } = await import('@/lib/env.server')
+  return {
+    s3: createR2Client(
+      serverEnv.CLOUDFLARE_R2_ACCOUNT_ID,
+      serverEnv.CLOUDFLARE_R2_ACCESS_KEY_ID,
+      serverEnv.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+    ),
+    bucket: serverEnv.CLOUDFLARE_R2_BUCKET_NAME,
+    publicUrl: serverEnv.CLOUDFLARE_R2_PUBLIC_URL,
+  }
 }
