@@ -515,6 +515,10 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 **A 85-route audit rollout is not 85 edits:** Attach the authenticated actor to the request in the shared auth helper and derive the audit action centrally in `withErrorHandler`; keep explicit semantic entries via `logAdminActionForRequest` (marking the request) so the fallback does not duplicate them.
 
+### 2026-09-23 — Catalog bytes are not bucket bytes
+
+**Summing `assets.size_bytes` is not R2 usage:** Cover art, statements, invoices, bronze CSVs and orphans live outside the catalog. A storage bar must list the bucket (`ListObjectsV2`) and cache a snapshot. Garbage collection must collect keys from URL columns and HTML/JSON, not only `r2_key`, or it will delete live cover art. Overwrite the same object key when recompressing so published URLs stay valid.
+
 ---
 
-*Last updated: 2026-09-20*
+*Last updated: 2026-09-23*

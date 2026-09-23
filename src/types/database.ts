@@ -3164,6 +3164,8 @@ export interface Database {
           press_caption: string | null
           photographer_credit: string | null
           downloadable_for_press: boolean
+          optimized_at: string | null
+          original_size_bytes: number | null
         }
         Insert: {
           id?: string
@@ -3187,6 +3189,8 @@ export interface Database {
           press_caption?: string | null
           photographer_credit?: string | null
           downloadable_for_press?: boolean
+          optimized_at?: string | null
+          original_size_bytes?: number | null
         }
         Update: {
           id?: string
@@ -3210,6 +3214,86 @@ export interface Database {
           press_caption?: string | null
           photographer_credit?: string | null
           downloadable_for_press?: boolean
+          optimized_at?: string | null
+          original_size_bytes?: number | null
+        }
+        Relationships: []
+      }
+      r2_storage_snapshots: {
+        Row: {
+          id: string
+          status: 'running' | 'completed' | 'failed'
+          used_bytes: number
+          object_count: number
+          orphan_bytes: number
+          orphan_count: number
+          multipart_aborted_count: number
+          prefixes: Json
+          truncated: boolean
+          next_cursor: string | null
+          error_message: string | null
+          scanned_by: string | null
+          scanned_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          status?: 'running' | 'completed' | 'failed'
+          used_bytes?: number
+          object_count?: number
+          orphan_bytes?: number
+          orphan_count?: number
+          multipart_aborted_count?: number
+          prefixes?: Json
+          truncated?: boolean
+          next_cursor?: string | null
+          error_message?: string | null
+          scanned_by?: string | null
+          scanned_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          status?: 'running' | 'completed' | 'failed'
+          used_bytes?: number
+          object_count?: number
+          orphan_bytes?: number
+          orphan_count?: number
+          multipart_aborted_count?: number
+          prefixes?: Json
+          truncated?: boolean
+          next_cursor?: string | null
+          error_message?: string | null
+          scanned_by?: string | null
+          scanned_at?: string
+          completed_at?: string | null
+        }
+        Relationships: []
+      }
+      r2_orphan_objects: {
+        Row: {
+          id: string
+          snapshot_id: string
+          object_key: string
+          size_bytes: number
+          last_modified: string | null
+          prefix: string | null
+        }
+        Insert: {
+          id?: string
+          snapshot_id: string
+          object_key: string
+          size_bytes?: number
+          last_modified?: string | null
+          prefix?: string | null
+        }
+        Update: {
+          id?: string
+          snapshot_id?: string
+          object_key?: string
+          size_bytes?: number
+          last_modified?: string | null
+          prefix?: string | null
         }
         Relationships: []
       }

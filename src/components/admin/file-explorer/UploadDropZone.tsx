@@ -19,12 +19,13 @@ interface UploadDropZoneProps {
   artistId?: string | null
   token: string | null
   uploadEndpoint?: string
+  optimizeImages?: boolean
   onUploadComplete: () => void
   children: ReactNode
 }
 
 export const UploadDropZone = forwardRef<UploadDropZoneRef, UploadDropZoneProps>(function UploadDropZone(
-  { folderId, artistId = null, token, uploadEndpoint = '/api/upload', onUploadComplete, children },
+  { folderId, artistId = null, token, uploadEndpoint = '/api/upload', optimizeImages = true, onUploadComplete, children },
   ref,
 ) {
   const tToast = useTranslations('admin.toast')
@@ -48,6 +49,7 @@ export const UploadDropZone = forwardRef<UploadDropZoneRef, UploadDropZoneProps>
         folderId: targetFolderId,
         artistId,
         endpoint: uploadEndpoint,
+        optimize: optimizeImages,
         onProgress: (fileKey, progress) => {
           setUploadProgress((previous) => ({ ...previous, [fileKey]: progress }))
         },

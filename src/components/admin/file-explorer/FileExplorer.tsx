@@ -11,6 +11,7 @@ import { useArtists } from '@/hooks/useArtists'
 import { useFileExplorer, type PressFilters } from '@/hooks/useFileExplorer'
 import type { AssetPressDraft } from './AssetPressFields'
 import { useReleases } from '@/hooks/useReleases'
+import { drainAssetOptimizations } from '@/lib/images/drainAssetOptimizations'
 import { cn } from '@/lib/utils'
 import type { Asset } from '@/types'
 import { ExplorerBreadcrumb } from './ExplorerBreadcrumb'
@@ -56,6 +57,8 @@ export function FileExplorer({
   const [tagsAsset, setTagsAsset] = useState<Asset | null>(null)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [storageStatsRevision, setStorageStatsRevision] = useState(0)
+  const [optimizeImages, setOptimizeImages] = useState(true)
+  const [optimizingExisting, setOptimizingExisting] = useState(false)
 
   const bumpStorageStats = useCallback(() => {
     setStorageStatsRevision((n) => n + 1)
@@ -66,6 +69,42 @@ export function FileExplorer({
     reloadExplorer()
     bumpStorageStats()
   }, [bumpStorageStats, reloadExplorer])
+
+  const handleOptimizeExisting = useCallback(async () => {
+    const token = explorer.token
+    if (!token) {
+      toast.error(tToast('sign_in_again_before_upload'))
+      return
+    }
+    const known = [...explorer.assets, ...explorer.searchResults]
+    const selectedImageIds = [...explorer.selectedIds].filter((id) => {
+      if (id.startsWith('folder:')) return false
+      const asset = known.find((item) => item.id === id)
+      return Boolean(asset?.mimeType.startsWith('image/'))
+    })
+    setOptimizingExisting(true)
+    try {
+      const result = await drainAssetOptimizations({
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        assetIds: selectedImageIds.length > 0 ? selectedImageIds : undefined,
+      })
+      toast.success(
+        tToast('r2_optimize_complete', {
+          processed: result.processed,
+          saved: `${Math.max(0, Math.round(result.bytes_saved / 1024))} KB`,
+        }),
+      )
+      reloadExplorer()
+      bumpStorageStats()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tToast('r2_optimize_failed'))
+    } finally {
+      setOptimizingExisting(false)
+    }
+  }, [bumpStorageStats, explorer.assets, explorer.searchResults, explorer.selectedIds, explorer.token, reloadExplorer, tToast])
 
   const artistNames = useMemo(
     () => Object.fromEntries(artists.map((artist) => [artist.id, artist.name])),
@@ -81,6 +120,15 @@ export function FileExplorer({
     () => [...explorer.selectedIds].filter((id) => !id.startsWith('folder:')).length,
     [explorer.selectedIds],
   )
+
+  const selectedImageCount = useMemo(() => {
+    const known = [...explorer.assets, ...explorer.searchResults]
+    return [...explorer.selectedIds].filter((id) => {
+      if (id.startsWith('folder:')) return false
+      const asset = known.find((item) => item.id === id)
+      return Boolean(asset?.mimeType.startsWith('image/'))
+    }).length
+  }, [explorer.assets, explorer.searchResults, explorer.selectedIds])
 
   useEffect(() => {
     if (urlSeededRef.current) return
@@ -406,9 +454,14 @@ export function FileExplorer({
                 selectedFileCount={selectedFileCount}
                 onBulkPress={(action, kitArtistId) => void handleBulkPress(action, kitArtistId)}
                 artists={artistOptions}
+                optimizeImages={optimizeImages}
+                onOptimizeImagesChange={setOptimizeImages}
+                onOptimizeExisting={() => void handleOptimizeExisting()}
+                optimizingExisting={optimizingExisting}
+                selectedImageCount={selectedImageCount}
               />
               <ExplorerBreadcrumb path={explorer.folderPath} onNavigate={navigate} />
-              <UploadDropZone ref={uploadRef} folderId={explorer.currentFolderId} token={explorer.token} onUploadComplete={handleUploadComplete}>
+              <UploadDropZone ref={uploadRef} folderId={explorer.currentFolderId} token={explorer.token} optimizeImages={optimizeImages} onUploadComplete={handleUploadComplete}>
                 {explorer.viewMode === 'grid' ? (
                   <FileGrid {...sharedGridListProps} />
                 ) : (
@@ -461,6 +514,11 @@ export function FileExplorer({
             selectedFileCount={selectedFileCount}
             onBulkPress={(action, kitArtistId) => void handleBulkPress(action, kitArtistId)}
             artists={artistOptions}
+            optimizeImages={optimizeImages}
+            onOptimizeImagesChange={setOptimizeImages}
+            onOptimizeExisting={() => void handleOptimizeExisting()}
+            optimizingExisting={optimizingExisting}
+            selectedImageCount={selectedImageCount}
           />
         </div>
         {/* Collapsible folder tree */}
@@ -476,7 +534,7 @@ export function FileExplorer({
         )}
         <ExplorerBreadcrumb path={explorer.folderPath} onNavigate={navigate} />
         <div className="min-h-0 flex-1 overflow-hidden">
-          <UploadDropZone ref={uploadRef} folderId={explorer.currentFolderId} token={explorer.token} onUploadComplete={handleUploadComplete}>
+          <UploadDropZone ref={uploadRef} folderId={explorer.currentFolderId} token={explorer.token} optimizeImages={optimizeImages} onUploadComplete={handleUploadComplete}>
             {explorer.viewMode === 'grid' ? (
               <FileGrid {...sharedGridListProps} />
             ) : (

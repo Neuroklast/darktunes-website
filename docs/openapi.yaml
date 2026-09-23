@@ -169,6 +169,80 @@ components:
       required: [data]
       properties:
         data: { $ref: "#/components/schemas/AppLog" }
+    StorageStats:
+      type: object
+      required: [used_bytes, catalog_used_bytes, asset_count, limit_bytes, source]
+      properties:
+        used_bytes: { type: integer, minimum: 0 }
+        catalog_used_bytes: { type: integer, minimum: 0 }
+        asset_count: { type: integer, minimum: 0 }
+        zero_size_count: { type: integer, minimum: 0 }
+        object_count: { type: integer, nullable: true }
+        orphan_bytes: { type: integer, nullable: true }
+        orphan_count: { type: integer, nullable: true }
+        scanned_at: { type: string, format: date-time, nullable: true }
+        limit_bytes: { type: integer, minimum: 1 }
+        source: { type: string, enum: [bucket, rpc, aggregate, paginated] }
+    StorageSnapshot:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [running, completed, failed] }
+        used_bytes: { type: integer, minimum: 0 }
+        object_count: { type: integer, minimum: 0 }
+        orphan_bytes: { type: integer, minimum: 0 }
+        orphan_count: { type: integer, minimum: 0 }
+        multipart_aborted_count: { type: integer, minimum: 0 }
+        truncated: { type: boolean }
+        next_cursor: { type: string, nullable: true }
+        scanned_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time, nullable: true }
+    StorageSnapshotEnvelope:
+      type: object
+      properties:
+        snapshot: { nullable: true }
+    R2Orphan:
+      type: object
+      properties:
+        object_key: { type: string }
+        size_bytes: { type: integer, minimum: 0 }
+        last_modified: { type: string, format: date-time, nullable: true }
+        prefix: { type: string, nullable: true }
+    R2OrphanList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/R2Orphan" } }
+        next_cursor: { type: string, nullable: true }
+        snapshot_id: { type: string, format: uuid, nullable: true }
+    R2OrphanPurgeRequest:
+      type: object
+      required: [confirmation]
+      properties:
+        confirmation: { type: string }
+    R2OrphanPurgeResult:
+      type: object
+      properties:
+        deleted: { type: integer, minimum: 0 }
+        skipped: { type: integer, minimum: 0 }
+        remaining: { type: integer, minimum: 0 }
+    AssetOptimizationResult:
+      type: object
+      properties:
+        processed: { type: integer, minimum: 0 }
+        skipped: { type: integer, minimum: 0 }
+        bytes_saved: { type: integer, minimum: 0 }
+        next_cursor: { type: string, nullable: true }
+        truncated: { type: boolean }
+    StorageScanRequest:
+      type: object
+      properties:
+        cursor: { type: string }
+    AssetOptimizationRequest:
+      type: object
+      properties:
+        cursor: { type: string }
+        asset_ids: { type: array, items: { type: string, format: uuid }, maxItems: 50 }
     HealthLiveness:
       type: object
       properties:
@@ -661,6 +735,30 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/asset-optimizations:
+    post:
+      operationId: postadmin_asset-optimizations
+      tags: [Admin]
+      summary: Recompress catalog images in place
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetOptimizationRequest"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetOptimizationResult"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/admin/assets:
     get:
       operationId: getadmin_assets
@@ -878,7 +976,7 @@ paths:
     get:
       operationId: getadmin_assets_storage-stats
       tags: [Admin]
-      summary: Retrieve /api/admin/assets/storage-stats
+      summary: Catalog and R2 bucket storage totals
       security:
         - AdminBearer: []
       responses:
@@ -887,8 +985,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: "#/components/schemas/StorageStats"
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -2316,6 +2413,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/r2-orphan-purges:
+    post:
+      operationId: postadmin_r2-orphan-purges
+      tags: [Admin]
+      summary: Delete unreferenced R2 objects from the last completed scan
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/R2OrphanPurgeRequest"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/R2OrphanPurgeResult"
+        '409':
+          description: No completed storage scan.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/r2-orphans:
+    get:
+      operationId: getadmin_r2-orphans
+      tags: [Admin]
+      summary: List unreferenced R2 objects from the latest scan
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/R2OrphanList"
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -3869,6 +4022,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/storage-snapshots:
+    get:
+      operationId: getadmin_storage-snapshots
+      tags: [Admin]
+      summary: Latest R2 bucket usage snapshot
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageSnapshotEnvelope"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: postadmin_storage-snapshots
+      tags: [Admin]
+      summary: Scan the R2 bucket and persist usage plus orphan keys
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageScanRequest"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageSnapshotEnvelope"
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }

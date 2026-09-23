@@ -12,6 +12,10 @@
 - [ ] `Portal → Spotify presence`: charts render crisp (no pixelated donut scaling), muted palette (no neon/rainbow), `role="img"`/`aria-label` present; KPI cards show uppercase titles + large values; tables have roomier padding and hover states on desktop and mobile
 - [ ] Validate newsletter submission flow and confirmation message
 - [ ] Validate media and upload features from admin/portal areas
+- [ ] Admin → Assets: storage bar shows **Bucket storage** after a scan (not only catalog bytes); Optimize images checkbox is on by default and can be turned off for a print-master upload
+- [ ] Admin → Assets: **Optimize existing** recompresses catalog images; with a selection it only touches selected images; pixel size stays the same
+- [ ] Admin → System → Maintenance: Scan bucket completes (or Continue scan); stale multipart note; type `DELETE ORPHANS` to purge; Optimize catalog images runs without changing pixel dimensions
+- [ ] Editor cannot POST `/api/admin/r2-orphan-purges` (403); editor may POST `/api/admin/asset-optimizations`; storage-stats GET still works for editor
 - [ ] Admin → Releases → New Release: **Release Date** calendar opens above the modal, day selectable, form can save with today’s date
 - [ ] Spot-check other modal date/month fields: Videos publish date, Expense date, Settlement period MonthField
 - [ ] Homepage: wheel/trackpad scroll over **Videos** section continues page scroll (no dead zone on desktop)
