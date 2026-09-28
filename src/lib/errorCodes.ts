@@ -7,7 +7,10 @@
  * Dictionary type in src/i18n/types.ts).
  *
  * Rules for error messages:
- *  - NEVER expose HTTP status codes, env-var names, DB error messages, or any
+ *  - NEVER show generic messages ("Something went wrong", "Please try again
+ *    later"). Every message states what failed, why, and what the user can do
+ *    (see AGENTS.md → "Error messages").
+ *  - NEVER expose env-var names, DB error messages, stack traces, or other
  *    internal implementation detail in user-visible strings.
  *  - Every code maps to a safe, user-friendly sentence in the `errors` namespace
  *    of both locale message bundles (en + de).
@@ -81,7 +84,8 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
     'Spotify play-count scrape failed on Apify. Check the Apify Console for run details.',
   APIFY_TIMEOUT:
     'The Apify scrape timed out before finishing. Partial progress may be saved; re-run to continue.',
-  SERVER_ERROR: 'Something went wrong on our end. Please try again later.',
-  CONFIG_ERROR: 'Something went wrong on our end. Please try again later.',
-  DB_ERROR: 'Something went wrong on our end. Please try again later.',
+  SERVER_ERROR: 'Unexpected server error while processing this request.',
+  CONFIG_ERROR:
+    'This feature is not set up on the server: a required setting is missing or invalid. Tell the label team.',
+  DB_ERROR: 'The database could not complete this operation.',
 }

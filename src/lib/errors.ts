@@ -97,6 +97,11 @@ export interface ApiErrorBody {
   error: string
   code?: string
   status?: number
+  /**
+   * Reference for 5xx failures (e.g. `ERR-3FA2B91C`). The same ID prefixes the
+   * `app_logs` message, so admins find the exact entry via Log Manager search.
+   */
+  error_id?: string
 }
 
 export interface ApiErrorResponse extends ApiErrorBody {
@@ -109,18 +114,26 @@ export interface ApiErrorResponse extends ApiErrorBody {
   detail: string
 }
 
+/** Short, human-copyable reference for one server failure. */
+export function createErrorId(): string {
+  return `ERR-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
+}
+
 function buildErrorResponse(
   message: string,
   status: number,
   code?: string,
+  errorId?: string,
 ): NextResponse<ApiErrorResponse> {
+  const text = errorId ? `${message} (Error ID: ${errorId})` : message
   const body: ApiErrorResponse = {
     type: 'about:blank',
     title: code ?? (status >= 500 ? 'Server error' : 'Request failed'),
     status,
-    detail: message,
-    error: message,
+    detail: text,
+    error: text,
     ...(code ? { code } : {}),
+    ...(errorId ? { error_id: errorId } : {}),
   }
   return new NextResponse(JSON.stringify(body), {
     status,
@@ -209,15 +222,17 @@ export function handleRouteError(req: NextRequest, err: unknown): NextResponse {
 
   if (err instanceof ApiError) {
     const logLevel = resolveApiErrorLogLevel(err)
+    const errorId = err.status >= 500 ? createErrorId() : undefined
     if (logLevel) {
-      persistRouteError(req, err.message, {
+      persistRouteError(req, errorId ? `[${errorId}] ${err.message}` : err.message, {
         path: routePath,
         method: req.method,
         code: err.code ?? null,
         status: err.status,
+        ...(errorId ? { error_id: errorId } : {}),
       }, logLevel)
     }
-    return buildErrorResponse(err.message, err.status, err.code)
+    return buildErrorResponse(err.message, err.status, err.code, errorId)
   }
 
   if (err instanceof ZodError) {
@@ -232,32 +247,37 @@ export function handleRouteError(req: NextRequest, err: unknown): NextResponse {
 
   if (isPostgresError(err)) {
     const message = getPostgresErrorMessage(err)
+    const errorId = createErrorId()
     console.error('[withErrorHandler] Database error:', {
+      error_id: errorId,
       code: err.code,
       message,
       details: err.details ?? null,
       path: routePath,
     })
-    persistRouteError(req, message, {
+    persistRouteError(req, `[${errorId}] ${message}`, {
       path: routePath,
       method: req.method,
       code: err.code ?? null,
       details: err.details ?? null,
       hint: err.hint ?? null,
+      error_id: errorId,
     }, 'error')
-    return buildErrorResponse(ERROR_MESSAGES.SERVER_ERROR, 500, 'SERVER_ERROR')
+    return buildErrorResponse(ERROR_MESSAGES.DB_ERROR, 500, 'DB_ERROR', errorId)
   }
 
   // Unknown error — log server-side and persist to app_logs
-  console.error('[withErrorHandler] Unhandled route error:', err)
+  const errorId = createErrorId()
+  console.error(`[withErrorHandler] Unhandled route error [${errorId}]:`, err)
   const errMessage = err instanceof Error ? err.message : String(err)
-  persistRouteError(req, errMessage, {
+  persistRouteError(req, `[${errorId}] ${errMessage}`, {
     path: routePath,
     method: req.method,
     stack: err instanceof Error ? (err.stack ?? null) : null,
+    error_id: errorId,
   }, 'error')
-  // Never expose internal error details — always return a safe generic message
-  return buildErrorResponse(ERROR_MESSAGES.SERVER_ERROR, 500, 'SERVER_ERROR')
+  // Never expose internal details — the error ID links the user report to the log entry
+  return buildErrorResponse(ERROR_MESSAGES.SERVER_ERROR, 500, 'SERVER_ERROR', errorId)
 }
 
 /**

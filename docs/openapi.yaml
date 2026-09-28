@@ -88,6 +88,10 @@ components:
           type: string
         code:
           type: string
+        error_id:
+          type: string
+          pattern: '^ERR-[0-9A-F]{8}$'
+          description: Present on 5xx only. Same ID prefixes the app_logs message (Admin → System → Log Manager search).
     Problem:
       type: object
       description: RFC 9457 problem+json body (legacy `error`/`code` kept as extensions).
@@ -105,6 +109,10 @@ components:
           type: string
         code:
           type: string
+        error_id:
+          type: string
+          pattern: '^ERR-[0-9A-F]{8}$'
+          description: Present on 5xx only. Same ID prefixes the app_logs message (Admin → System → Log Manager search).
     SuccessResponse:
       type: object
       properties:
@@ -475,6 +483,11 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
+    InternalError:
+      description: Unexpected server or database failure. Body carries `error_id` for support.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
 
 paths:
   /api/account:
@@ -8050,8 +8063,15 @@ paths:
           multipart/form-data:
             schema:
               type: object
+              required: [file]
               properties:
-                file: { type: string, format: binary }
+                file:
+                  type: string
+                  format: binary
+                  description: Max 4 MB per request (Vercel rejects bodies above 4.5 MB with a plain-text 413 before the handler runs). Admin clients refuse larger files before sending.
+                artistId: { type: string, format: uuid }
+                folderId: { type: string, format: uuid }
+                optimize: { type: string, enum: ['0', '1'] }
       responses:
         '200':
           description: Success
@@ -8063,6 +8083,12 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '413':
+          description: Request body too large. Returned by the hosting platform as plain text (FUNCTION_PAYLOAD_TOO_LARGE), not problem+json.
+          content:
+            text/plain:
+              schema: { type: string }
+        '500': { $ref: '#/components/responses/InternalError' }
   /api/upload-epk:
     post:
       operationId: postupload-epk

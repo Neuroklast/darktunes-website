@@ -210,6 +210,9 @@ describe('POST /api/admin/prefill-artist-itunes', () => {
     )
 
     expect(response.status).toBe(502)
-    await expect(response.json()).resolves.toMatchObject({ error: 'iTunes API error: 503' })
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringMatching(/^iTunes API error: 503 \(Error ID: ERR-[0-9A-F]{8}\)$/),
+      error_id: expect.stringMatching(/^ERR-[0-9A-F]{8}$/),
+    })
   })
 })

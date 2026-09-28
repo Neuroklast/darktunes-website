@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select'
 import { DEFAULT_SECTION_ORDER } from '@/config/sections'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
+import { ServerUploadError, uploadViaServer } from '@/lib/uploads/adminServerUpload'
 import { TiptapEditor } from '@/components/admin/TiptapEditor'
 import type { SiteSettings, HomepageSection } from '@/types'
 
@@ -193,6 +194,7 @@ function Field({ id, label, error, children }: FieldProps) {
 
 export function SiteSettingsManager({ value: settings, onChange: saveSettings, isLoading }: AdminPanelProps<SiteSettings>) {
   const tToast = useTranslations('admin.toast')
+  const tErrors = useTranslations('errors')
 
 
   const {
@@ -281,21 +283,17 @@ export function SiteSettingsManager({ value: settings, onChange: saveSettings, i
     setUploading(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error('Not authenticated')
+      if (!session?.access_token) throw new ServerUploadError(tErrors('AUTH_REQUIRED'))
 
-      const formData = new FormData()
-      formData.append('file', file)
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: formData,
+      const json = await uploadViaServer<{ publicUrl: string }>({
+        file,
+        token: session.access_token,
+        t: tErrors,
       })
-      if (!res.ok) throw new Error(`Upload failed: ${await res.text()}`)
-      const json = await res.json() as { publicUrl: string }
       setValue(fieldName, json.publicUrl, { shouldDirty: true })
       toast.success(tToast('file_uploaded_success'))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Upload failed')
+      toast.error(err instanceof Error ? err.message : String(err))
     } finally {
       setUploading(false)
     }

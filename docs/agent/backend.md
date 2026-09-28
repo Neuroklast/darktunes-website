@@ -33,7 +33,7 @@ Legacy token helpers still valid: `extractBearerToken` + `verifyAdmin` / `verify
 
 Dual auth: **Bearer first**, cookie session fallback (admin UI often uses cookies without Authorization header).
 
-All admin routes wrap `withErrorHandler`.
+All admin routes wrap `withErrorHandler`. Every 5xx it returns carries `error_id` (`ERR-XXXXXXXX`), which also prefixes the `app_logs` message; Postgres errors map to `DB_ERROR`. Clients show the ID via `getErrorMessage` (`ERROR_REFERENCE`). No generic messages (AGENTS.md).
 
 `RolePermissionKey`: `can_publish_news`, `can_edit_news`, `can_manage_artists`, `can_manage_releases`, `can_manage_videos`, `can_view_admin_panel`.
 
@@ -81,7 +81,7 @@ Encrypted in `api_credentials` (AES-256-GCM). Admin: `/admin/api-keys`. Resolver
 
 ## Admin assets
 
-SSOT: `assets` table + `asset_folders`. Upload: `POST /api/upload`. Explorer APIs: `/api/admin/assets/*`. Press curation: `press_kit_items` + `PressKitBuilder`. Deletes: R2 first, then DB.
+SSOT: `assets` table + `asset_folders`. Upload: `POST /api/upload`. Client callers must use `uploadViaServer` from `src/lib/uploads/adminServerUpload.ts`: it enforces the 4 MB proxy cap before sending (Vercel 413s bodies above 4.5 MB as plain text), never compresses or converts files, and maps 413/network/non-JSON/coded errors to specific messages. Explorer APIs: `/api/admin/assets/*`. Press curation: `press_kit_items` + `PressKitBuilder`. Deletes: R2 first, then DB.
 
 **Storage bar (`GET /api/admin/assets/storage-stats`):** Dual-auth via `requireAdminOrEditorFromRequest` (stale Bearer **must** fall through to cookies on 401). `used_bytes` prefers the latest `r2_storage_snapshots` row (real `ListObjectsV2` bucket total). Fallback is catalog-only `resolveCatalogStorageStats` — RPC `get_assets_storage_stats()` (JSON) → PostgREST `size_bytes.sum()` → paginated sum. Also returns `catalog_used_bytes`. Service-role client only. UI label is **Bucket storage**. Apply RPC from `reset.sql` on live DBs (`DROP FUNCTION` first if return type changed — Postgres `CREATE OR REPLACE` cannot alter return type).
 

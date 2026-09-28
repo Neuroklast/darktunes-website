@@ -23,7 +23,14 @@
   "APIFY_BUDGET_EXCEEDED": "Budget gratuit mensuel Apify épuisé. Réessayez le mois prochain ou réduisez la portée.",
   "APIFY_RUN_FAILED": "L'extraction des écoutes Spotify a échoué sur Apify. Consultez la console Apify.",
   "APIFY_TIMEOUT": "L'extraction Apify a expiré. Une progression partielle peut être enregistrée ; relancez pour continuer.",
-  "SERVER_ERROR": "Une erreur s'est produite de notre côté. Réessayez plus tard.",
-  "CONFIG_ERROR": "Une erreur s'est produite de notre côté. Réessayez plus tard.",
-  "DB_ERROR": "Une erreur s'est produite de notre côté. Réessayez plus tard."
+  "SERVER_ERROR": "Erreur serveur inattendue lors du traitement de cette requête.",
+  "CONFIG_ERROR": "Cette fonctionnalité n’est pas configurée sur le serveur : un paramètre requis est manquant ou invalide. Prévenez l’équipe du label.",
+  "DB_ERROR": "La base de données n’a pas pu terminer cette opération.",
+  "UPLOAD_EXCEEDS_SERVER_LIMIT": "« {filename} » fait {size} ; le maximum est {limit}. Réduisez la taille du fichier.",
+  "UPLOAD_REJECTED_BY_PLATFORM": "« {filename} » fait {size} ; le maximum est {limit}. Réduisez la taille du fichier.",
+  "UPLOAD_CONNECTION_LOST": "Connexion au serveur perdue pendant l’envoi de « {filename} ». Vérifiez votre connexion internet.",
+  "UPLOAD_FAILED_WITH_REASON": "Envoi de « {filename} » : {reason}",
+  "UPLOAD_UNREADABLE_RESPONSE": "Envoi de « {filename} » : le serveur a répondu HTTP {status} sans détail d’erreur. Envoyez l’heure de l’envoi à l’équipe du label.",
+  "ERROR_REFERENCE": "ID d’erreur : {errorId} (à envoyer à l’équipe du label).",
+  "RESPONSE_UNREADABLE": "Le serveur a répondu HTTP {status} sans détail d’erreur. Envoyez l’heure de la requête à l’équipe du label."
 }

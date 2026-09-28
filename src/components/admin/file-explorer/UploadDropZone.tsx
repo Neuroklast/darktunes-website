@@ -29,6 +29,7 @@ export const UploadDropZone = forwardRef<UploadDropZoneRef, UploadDropZoneProps>
   ref,
 ) {
   const tToast = useTranslations('admin.toast')
+  const tErrors = useTranslations('errors')
 
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -50,6 +51,7 @@ export const UploadDropZone = forwardRef<UploadDropZoneRef, UploadDropZoneProps>
         artistId,
         endpoint: uploadEndpoint,
         optimize: optimizeImages,
+        t: tErrors,
         onProgress: (fileKey, progress) => {
           setUploadProgress((previous) => ({ ...previous, [fileKey]: progress }))
         },
@@ -57,7 +59,7 @@ export const UploadDropZone = forwardRef<UploadDropZoneRef, UploadDropZoneProps>
       toast.success(`${files.length} file${files.length > 1 ? 's' : ''} uploaded`)
       onUploadComplete()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Upload failed')
+      toast.error(error instanceof Error ? error.message : String(error))
     } finally {
       setIsDragging(false)
       window.setTimeout(() => setUploadProgress({}), 800)

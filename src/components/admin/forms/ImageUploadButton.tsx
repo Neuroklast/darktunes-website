@@ -4,7 +4,8 @@
  * Uploads the selected file to /api/upload (requires admin/editor auth)
  * and calls onUploaded with the resulting public URL.
  * Shows a real upload-progress bar via XHR.
- * Large images are automatically compressed client-side before uploading.
+ * Files above the server-proxy limit (Vercel body cap) are rejected before
+ * sending; failures show a specific message (file, cause, next step).
  */
 
 import { useRef, useState } from 'react'
@@ -15,12 +16,12 @@ import { Progress } from '@/components/ui/progress'
 import { UploadSimple, CheckCircle } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import type { ApiErrorResponse } from '@/lib/errors'
-import { getErrorMessage } from '@/lib/clientErrors'
-import { compressImage, formatFileSize } from '@/lib/imageResizer'
-
-/** 20 MB client-side soft limit before compression; hard server limit is at the Vercel/R2 layer. */
-const CLIENT_MAX_SIZE_BYTES = 20 * 1024 * 1024
+import {
+  formatMegabytes,
+  SERVER_UPLOAD_MAX_BYTES,
+  ServerUploadError,
+  uploadViaServer,
+} from '@/lib/uploads/adminServerUpload'
 
 interface ImageUploadButtonProps {
   /** Called with the R2 public URL once the upload succeeds. */
@@ -33,8 +34,6 @@ interface ImageUploadButtonProps {
   endpoint?: string
   /** When provided, the uploaded asset is automatically assigned to this artist and placed in their folder. */
   artistId?: string
-  /** Max upload size to show in the hint label. Defaults to CLIENT_MAX_SIZE_BYTES. */
-  maxSizeBytes?: number
 }
 
 export function ImageUploadButton({
@@ -43,7 +42,6 @@ export function ImageUploadButton({
   label = 'Upload image',
   endpoint = '/api/upload',
   artistId,
-  maxSizeBytes = CLIENT_MAX_SIZE_BYTES,
 }: ImageUploadButtonProps) {
   const tToast = useTranslations('admin.toast')
 
@@ -57,68 +55,27 @@ export function ImageUploadButton({
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 
-    const raw = e.target.files?.[0]
-    if (!raw) return
+    const file = e.target.files?.[0]
+    if (!file) return
 
     setUploadProgress(0)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error('Not authenticated')
+      if (!session?.access_token) throw new ServerUploadError(tErrors('AUTH_REQUIRED'))
 
-      // Auto-compress if the image is over the per-request threshold
-      const file = raw.size > maxSizeBytes
-        ? await compressImage(raw, { maxSizeBytes })
-        : raw
-
-      const formData = new FormData()
-      formData.append('file', file)
-      if (artistId) formData.append('artistId', artistId)
-      const token = session.access_token
-
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-
-        xhr.upload.addEventListener('progress', (ev) => {
-          if (ev.lengthComputable) {
-            setUploadProgress(Math.round((ev.loaded / ev.total) * 100))
-          }
-        })
-
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const data = JSON.parse(xhr.responseText) as { publicUrl?: string; error?: string; code?: string }
-              if (data.publicUrl) {
-                setUploadProgress(100)
-                onUploaded(data.publicUrl)
-                resolve()
-              } else {
-                reject(new Error(getErrorMessage(data as ApiErrorResponse, tErrors)))
-              }
-            } catch {
-              reject(new Error(tErrors('SERVER_ERROR')))
-            }
-          } else {
-            try {
-              const data = JSON.parse(xhr.responseText) as ApiErrorResponse
-              reject(new Error(getErrorMessage(data, tErrors)))
-            } catch {
-              reject(new Error(tErrors('SERVER_ERROR')))
-            }
-          }
-        })
-
-        xhr.addEventListener('error', () => reject(new Error('Network error')))
-        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')))
-
-        xhr.open('POST', endpoint)
-        xhr.setRequestHeader('Authorization', 'Bearer ' + token)
-        xhr.send(formData)
+      const data = await uploadViaServer<{ publicUrl: string }>({
+        file,
+        token: session.access_token,
+        t: tErrors,
+        endpoint,
+        fields: { artistId },
+        onProgress: setUploadProgress,
       })
-
+      setUploadProgress(100)
+      onUploaded(data.publicUrl)
       toast.success(tToast('image_uploaded'))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : tErrors('SERVER_ERROR'))
+      toast.error(err instanceof Error ? err.message : String(err))
     } finally {
       // Keep progress bar visible briefly at 100% then hide
       setTimeout(() => setUploadProgress(null), 800)
@@ -160,7 +117,7 @@ export function ImageUploadButton({
         />
       )}
       <p className="text-[11px] text-muted-foreground leading-tight">
-        Max {formatFileSize(maxSizeBytes)} — larger images are compressed automatically
+        Max {formatMegabytes(SERVER_UPLOAD_MAX_BYTES)} per file
       </p>
     </div>
   )

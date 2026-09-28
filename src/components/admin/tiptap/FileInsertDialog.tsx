@@ -19,8 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AssetPicker } from '@/components/admin/file-explorer/AssetPicker'
 import { File as FileIcon, UploadSimple, CheckCircle } from '@phosphor-icons/react'
 import { toast } from 'sonner'
-import { getErrorMessage } from '@/lib/clientErrors'
-import type { ApiErrorResponse } from '@/lib/errors'
+import { ServerUploadError, uploadViaServer } from '@/lib/uploads/adminServerUpload'
 
 interface Props {
   editor: Editor
@@ -43,46 +42,19 @@ function UploadTab({ onUploaded }: { onUploaded: (url: string, fileName: string)
     setProgress(0)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error(tErrors('AUTH_REQUIRED'))
+      if (!session?.access_token) throw new ServerUploadError(tErrors('AUTH_REQUIRED'))
 
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        const formData = new FormData()
-        formData.append('file', file)
-
-        xhr.upload.addEventListener('progress', (ev) => {
-          if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 100))
-        })
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const data = JSON.parse(xhr.responseText) as { publicUrl?: string; error?: string; code?: string }
-              if (data.publicUrl) {
-                setProgress(100)
-                onUploaded(data.publicUrl, file.name)
-                resolve()
-              } else {
-                reject(new Error(getErrorMessage(data as ApiErrorResponse, tErrors)))
-              }
-            } catch {
-              reject(new Error(tErrors('SERVER_ERROR')))
-            }
-          } else {
-            try {
-              reject(new Error(getErrorMessage(JSON.parse(xhr.responseText) as ApiErrorResponse, tErrors)))
-            } catch {
-              reject(new Error(tErrors('SERVER_ERROR')))
-            }
-          }
-        })
-        xhr.addEventListener('error', () => reject(new Error(tErrors('SERVER_ERROR'))))
-        xhr.open('POST', '/api/upload')
-        xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`)
-        xhr.send(formData)
+      const data = await uploadViaServer<{ publicUrl: string }>({
+        file,
+        token: session.access_token,
+        t: tErrors,
+        onProgress: setProgress,
       })
+      setProgress(100)
+      onUploaded(data.publicUrl, file.name)
       toast.success(tToast('file_uploaded'))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : tErrors('SERVER_ERROR'))
+      toast.error(err instanceof Error ? err.message : String(err))
     } finally {
       setTimeout(() => setProgress(null), 800)
       if (inputRef.current) inputRef.current.value = ''

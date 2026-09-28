@@ -38,6 +38,14 @@
 - [ ] Inbox sort: Newest / Unread first / Subject A–Z change list order
 - [ ] Drag conversation onto a custom folder (or Trash) files/deletes the whole thread
 
+## Admin uploads & error messages
+
+- [ ] Artist edit → Logo **Upload** with a PNG above 4 MB: no request is sent, and the toast names the file, its size and “the maximum is 4 MB”. The file is not compressed.
+- [ ] Same with a PNG under 4 MB: upload succeeds and the logo URL is filled.
+- [ ] File explorer drop of a PDF above 4 MB: toast names the file, size and limit.
+- [ ] Force a 5xx (e.g. an invalid R2 key in a preview env): the toast ends with “Error ID: ERR-XXXXXXXX (send it to the label team).”, and searching that ID in Admin → System → Log Manager finds exactly one entry.
+- [ ] No toast anywhere in the upload flow says only “Something went wrong” or “Upload failed”.
+
 ## Security
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)
 - [ ] Validate protected API endpoints reject missing/invalid authentication

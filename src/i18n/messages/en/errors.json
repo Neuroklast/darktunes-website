@@ -23,7 +23,14 @@
   "APIFY_BUDGET_EXCEEDED": "Monthly Apify free budget exhausted. Try again next month or reduce the sync scope.",
   "APIFY_RUN_FAILED": "Spotify play-count scrape failed on Apify. Check the Apify Console for run details.",
   "APIFY_TIMEOUT": "The Apify scrape timed out before finishing. Partial progress may be saved; re-run to continue.",
-  "SERVER_ERROR": "Something went wrong on our end. Please try again later.",
-  "CONFIG_ERROR": "Something went wrong on our end. Please try again later.",
-  "DB_ERROR": "Something went wrong on our end. Please try again later."
+  "SERVER_ERROR": "Unexpected server error while processing this request.",
+  "CONFIG_ERROR": "This feature is not set up on the server: a required setting is missing or invalid. Tell the label team.",
+  "DB_ERROR": "The database could not complete this operation.",
+  "UPLOAD_EXCEEDS_SERVER_LIMIT": "“{filename}” is {size}; the maximum is {limit}. Reduce the file size.",
+  "UPLOAD_REJECTED_BY_PLATFORM": "“{filename}” is {size}; the maximum is {limit}. Reduce the file size.",
+  "UPLOAD_CONNECTION_LOST": "Connection to the server dropped during the upload of “{filename}”. Check your internet connection.",
+  "UPLOAD_FAILED_WITH_REASON": "Upload of “{filename}”: {reason}",
+  "UPLOAD_UNREADABLE_RESPONSE": "Upload of “{filename}”: the server answered HTTP {status} without error details. Send the time of the upload to the label team.",
+  "ERROR_REFERENCE": "Error ID: {errorId} (send it to the label team).",
+  "RESPONSE_UNREADABLE": "The server answered HTTP {status} without error details. Send the time of the request to the label team."
 }

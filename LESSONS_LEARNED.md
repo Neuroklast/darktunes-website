@@ -53,6 +53,13 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-09-28 — Vercel 413 disguised as “server error”
+
+- Vercel rejects function request bodies above 4.5 MB with a **plain-text** 413 before the route runs. A route-side `MAX_FILE_SIZE` of 100 MB never applies on Vercel. Check the size in the browser (`SERVER_UPLOAD_MAX_BYTES`) or use presigned direct-to-R2 uploads.
+- A `catch { tErrors('SERVER_ERROR') }` around `JSON.parse(xhr.responseText)` hides every non-JSON failure (413, 502 HTML, proxy errors). Map status and network errors explicitly (see `adminServerUpload.ts`).
+- Users cannot report “something went wrong”. 5xx responses carry `error_id`, which is also in the `app_logs` message, and the client shows it.
+- Compressing or converting user files is a product decision. Ask the owner first (AGENTS.md).
+
 ### 2026-08-10 — Admin nav postgres_changes after subscribe
 
 - **Symptom:** Production console `cannot add postgres_changes callbacks for realtime:admin-nav-portal-messages after subscribe()`.

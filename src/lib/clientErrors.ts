@@ -14,14 +14,26 @@
  *   }
  *
  * Rules:
- *  - NEVER surface raw HTTP status codes to the user (no "HTTP 413" strings).
  *  - NEVER surface internal details from the error body.
  *  - Always fall back to SERVER_ERROR if the code is unrecognised.
+ *  - 5xx bodies carry `error_id`; it is always appended (ERROR_REFERENCE) so the
+ *    user can hand the admins an ID that matches the `app_logs` entry.
+ *  - No generic messages without context — see AGENTS.md → "Error messages".
  */
 
 import type { Dictionary } from '@/i18n/types'
 import type { ApiErrorBody } from './errors'
 import { ERROR_CODES } from './errorCodes'
+
+type ErrorsTranslator = (
+  code: keyof Dictionary['errors'],
+  values?: Record<string, string | number>,
+) => string
+
+function withErrorReference(message: string, body: ApiErrorBody, tErrors: ErrorsTranslator): string {
+  if (!body.error_id) return message
+  return `${message} ${tErrors('ERROR_REFERENCE', { errorId: body.error_id })}`
+}
 
 /**
  * Returns the translated error message for an API error response.
@@ -29,37 +41,38 @@ import { ERROR_CODES } from './errorCodes'
  * 1. Checks if the response `code` matches a known ErrorCode.
  * 2. If so, returns the dictionary translation for that code.
  * 3. Otherwise falls back to `errors.SERVER_ERROR`.
+ * 4. Appends the error ID (`error_id`) when the server sent one.
  *
  * @param body    - Parsed JSON body from a non-ok API response.
  * @param tErrors - `useTranslations('errors')` (or compatible translator).
  */
 export function getErrorMessage(
   body: ApiErrorBody,
-  tErrors: (code: keyof Dictionary['errors']) => string,
+  tErrors: ErrorsTranslator,
 ): string {
   const code = body.code
-  if (code && (ERROR_CODES as readonly string[]).includes(code)) {
-    return tErrors(code as keyof Dictionary['errors'])
-  }
-  return tErrors('SERVER_ERROR')
+  const message = code && (ERROR_CODES as readonly string[]).includes(code)
+    ? tErrors(code as keyof Dictionary['errors'])
+    : tErrors('SERVER_ERROR')
+  return withErrorReference(message, body, tErrors)
 }
 
 /**
  * Parses the JSON body of an API response and calls `getErrorMessage`.
- * Returns `errors.SERVER_ERROR` if JSON parsing fails.
+ * Returns `errors.RESPONSE_UNREADABLE` (with the HTTP status) if JSON parsing fails.
  *
  * @param res     - A non-ok `Response` object from `fetch`.
  * @param tErrors - `useTranslations('errors')` (or compatible translator).
  */
 export async function getResponseErrorMessage(
   res: Response,
-  tErrors: (code: keyof Dictionary['errors']) => string,
+  tErrors: ErrorsTranslator,
 ): Promise<string> {
   try {
     const body = (await res.json()) as ApiErrorBody
     return getErrorMessage(body, tErrors)
   } catch {
-    return tErrors('SERVER_ERROR')
+    return tErrors('RESPONSE_UNREADABLE', { status: res.status })
   }
 }
 
@@ -69,8 +82,9 @@ export function getErrorMessageFromErrors(
   errors: Dictionary['errors'],
 ): string {
   const code = body.code
-  if (code && (ERROR_CODES as readonly string[]).includes(code)) {
-    return errors[code as keyof Dictionary['errors']]
-  }
-  return errors.SERVER_ERROR
+  const message = code && (ERROR_CODES as readonly string[]).includes(code)
+    ? errors[code as keyof Dictionary['errors']]
+    : errors.SERVER_ERROR
+  if (!body.error_id) return message
+  return `${message} ${errors.ERROR_REFERENCE.replace('{errorId}', body.error_id)}`
 }

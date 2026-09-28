@@ -23,7 +23,14 @@
   "APIFY_BUDGET_EXCEEDED": "Monatliches Apify-Free-Kontingent erschöpft. Nächsten Monat erneut versuchen oder Scope verkleinern.",
   "APIFY_RUN_FAILED": "Spotify-Play-Count-Scrape auf Apify fehlgeschlagen. Details in der Apify Console prüfen.",
   "APIFY_TIMEOUT": "Der Apify-Scrape ist abgelaufen. Teilfortschritt kann gespeichert sein — erneut starten.",
-  "SERVER_ERROR": "Auf unserer Seite ist ein Fehler aufgetreten. Bitte versuche es später erneut.",
-  "CONFIG_ERROR": "Auf unserer Seite ist ein Fehler aufgetreten. Bitte versuche es später erneut.",
-  "DB_ERROR": "Auf unserer Seite ist ein Fehler aufgetreten. Bitte versuche es später erneut."
+  "SERVER_ERROR": "Unerwarteter Serverfehler bei dieser Anfrage.",
+  "CONFIG_ERROR": "Diese Funktion ist auf dem Server nicht eingerichtet: Eine benötigte Einstellung fehlt oder ist ungültig. Gib dem Label-Team Bescheid.",
+  "DB_ERROR": "Die Datenbank konnte diesen Vorgang nicht abschließen.",
+  "UPLOAD_EXCEEDS_SERVER_LIMIT": "„{filename}“ ist {size} groß, maximal erlaubt sind {limit}. Verkleinere die Datei.",
+  "UPLOAD_REJECTED_BY_PLATFORM": "„{filename}“ ist {size} groß, maximal erlaubt sind {limit}. Verkleinere die Datei.",
+  "UPLOAD_CONNECTION_LOST": "Verbindung zum Server beim Upload von „{filename}“ abgebrochen. Prüfe deine Internetverbindung.",
+  "UPLOAD_FAILED_WITH_REASON": "Upload von „{filename}“: {reason}",
+  "UPLOAD_UNREADABLE_RESPONSE": "Upload von „{filename}“: Der Server antwortete mit HTTP {status} ohne Fehlerdetails. Schick dem Label-Team die Uhrzeit des Uploads.",
+  "ERROR_REFERENCE": "Fehler-ID: {errorId} (bitte ans Label-Team schicken).",
+  "RESPONSE_UNREADABLE": "Der Server antwortete mit HTTP {status} ohne Fehlerdetails. Schick dem Label-Team die Uhrzeit der Anfrage."
 }

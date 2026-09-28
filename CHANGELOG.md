@@ -10,7 +10,11 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **Admin uploads above 4 MB showed “Something went wrong on our end”:** Vercel rejects request bodies above 4.5 MB with a plain-text 413 before `/api/upload` runs. The client could not parse that and fell back to the generic server error (for example a 6.5 MB PNG artist logo). Admin uploads (artist/release/news/video image buttons, Tiptap image/file dialogs, site settings, file explorer) now go through `src/lib/uploads/adminServerUpload.ts`. Files above 4 MB are refused before sending, with the file name, real size and limit. Files are never compressed or converted: the old silent client compression above 20 MB in `ImageUploadButton` is removed. A 413, a dropped connection or an unreadable response each get their own message.
+
 ### Changed
+- **Error messages name cause and reference:** `SERVER_ERROR`, `CONFIG_ERROR` and `DB_ERROR` no longer share “Something went wrong on our end”. Every 5xx from `withErrorHandler` returns `error_id` (`ERR-XXXXXXXX`), and the same ID prefixes the `app_logs` message. `getErrorMessage` appends it, so users can report an ID that admins find in Admin → System → Log Manager. Postgres errors now return `DB_ERROR` instead of `SERVER_ERROR`. Unreadable responses in `getResponseErrorMessage` report the HTTP status (`RESPONSE_UNREADABLE`).
 - **Cron jobs are plain HTTPS, managed in the Supabase dashboard:** `supabase/reset.sql` no longer registers any `pg_cron` job and drops the `trigger_sync_worker/enqueue/youtube()` + `get_vault_secret()` wrappers. They read an empty Vault and silently sent nothing, so scheduled YouTube and artist syncs had stopped. HTTP jobs now call `https://www.darktunes.com/...` directly with the Bearer header (the apex redirect drops `Authorization`). `scripts/apply-schema.mjs` no longer writes Vault secrets. See `DEPLOYMENT.md` → Sync Scheduler.
 - **YouTube cap message:** A capped channel sync now reports “Synced newest 500 videos (channel cap).” instead of suggesting a re-run would fetch older videos.
 - **Ledger opening is carry-in only:** Unused `opening_balance` entry type is removed. Period opening stays `carry_in` from archive.

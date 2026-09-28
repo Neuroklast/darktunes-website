@@ -41,9 +41,10 @@ const mockDict = {
     EMAIL_SEND_FAILED: 'Your message could not be sent. Please try again later.',
     EMAIL_NOT_CONFIGURED: 'The email service is not configured on this server. Please contact the administrator.',
     EXTERNAL_API_ERROR: 'An external service is currently unavailable. Please try again later.',
-    SERVER_ERROR: 'Something went wrong on our end. Please try again later.',
-    CONFIG_ERROR: 'Something went wrong on our end. Please try again later.',
-    DB_ERROR: 'Something went wrong on our end. Please try again later.',
+    SERVER_ERROR: 'The server hit an unexpected error while processing this request.',
+    CONFIG_ERROR: 'A required server setting is missing or invalid.',
+    DB_ERROR: 'The database could not complete this operation.',
+    ERROR_REFERENCE: 'Error ID: {errorId}.',
   },
 } as unknown as Dictionary
 
@@ -206,14 +207,54 @@ describe('withErrorHandler', () => {
     expect(mockWriteAppLog).toHaveBeenCalledWith(expect.objectContaining({
       source: 'api',
       level: 'error',
-      message: 'Internal failure',
+      message: expect.stringMatching(/^\[ERR-[0-9A-F]{8}\] Internal failure$/),
       details: expect.objectContaining({
         path: '/api/test',
         method: 'POST',
         code: 'SERVER_ERROR',
         status: 500,
+        error_id: expect.stringMatching(/^ERR-[0-9A-F]{8}$/),
       }),
     }))
+  })
+
+  it('returns an error_id on 5xx that matches the app_logs entry', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const handler = withErrorHandler(async () => {
+      throw new Error('boom')
+    })
+    const res = await handler(makeRequest())
+    const body = await res.json()
+    expect(body.error_id).toMatch(/^ERR-[0-9A-F]{8}$/)
+    expect(body.detail).toContain(body.error_id)
+    await flushAsyncWork()
+    expect(mockWriteAppLog).toHaveBeenCalledWith(expect.objectContaining({
+      message: `[${body.error_id}] boom`,
+      details: expect.objectContaining({ error_id: body.error_id }),
+    }))
+    consoleSpy.mockRestore()
+  })
+
+  it('maps Postgres errors to DB_ERROR with an error_id', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const handler = withErrorHandler(async () => {
+      throw { code: '23502', message: 'null value in column "slug"' }
+    })
+    const res = await handler(makeRequest())
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.code).toBe('DB_ERROR')
+    expect(body.error_id).toMatch(/^ERR-[0-9A-F]{8}$/)
+    expect(body.error).not.toContain('slug')
+    consoleSpy.mockRestore()
+  })
+
+  it('does not attach an error_id to 4xx responses', async () => {
+    const handler = withErrorHandler(async () => {
+      throw new ApiError(404, 'Not found', 'NOT_FOUND')
+    })
+    const body = await (await handler(makeRequest())).json()
+    expect(body.error_id).toBeUndefined()
   })
 
   it('returns RFC 9457 problem+json with legacy extensions', async () => {
@@ -286,6 +327,14 @@ describe('getErrorMessage (client helper)', () => {
     const msg = getErrorMessage(body, (code) => mockDict.errors[code])
     expect(msg).not.toMatch(/\b413\b/)
     expect(msg).not.toContain('HTTP')
+  })
+
+  it('appends the error ID so users can report the exact log entry', () => {
+    const body = { error: 'x', code: 'SERVER_ERROR', status: 500, error_id: 'ERR-ABCD1234' }
+    const msg = getErrorMessage(body, (code, values) =>
+      mockDict.errors[code].replace('{errorId}', String(values?.errorId ?? '')),
+    )
+    expect(msg).toBe(`${mockDict.errors.SERVER_ERROR} Error ID: ERR-ABCD1234.`)
   })
 
   it('handles RATE_LIMITED correctly', () => {
