@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { toTransferableArrayBuffer } from './transferableBuffer'
+import { describe, expect, it, vi } from 'vitest'
+import { postWithTransferFallback, toTransferableArrayBuffer } from './transferableBuffer'
 
 describe('toTransferableArrayBuffer', () => {
   it('converts a Uint8Array into an ArrayBuffer that structuredClone can transfer', () => {
@@ -17,5 +17,30 @@ describe('toTransferableArrayBuffer', () => {
     expect(Object.prototype.toString.call(copy)).toBe('[object ArrayBuffer]')
     expect(copy).not.toBe(original)
     expect(Array.from(new Uint8Array(copy))).toEqual([1, 2, 3])
+  })
+})
+
+describe('postWithTransferFallback', () => {
+  it('sends with the buffer in the transfer list on the happy path', () => {
+    const send = vi.fn()
+    const buffer = new Uint8Array([1, 2, 3]).buffer
+    const msg = { type: 'excel-done', buffer }
+    postWithTransferFallback(send, msg, buffer)
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send).toHaveBeenCalledWith(msg, [buffer])
+  })
+
+  it('retries without a transfer list when the transfer throws DataCloneError', () => {
+    const buffer = new Uint8Array([1, 2, 3]).buffer
+    const msg = { type: 'excel-done', buffer }
+    const send = vi.fn((_msg: typeof msg, transfer?: Transferable[]) => {
+      if (transfer) {
+        throw new DOMException('Value at index 0 does not have a transferable type.', 'DataCloneError')
+      }
+    })
+    expect(() => postWithTransferFallback(send, msg, buffer)).not.toThrow()
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(send).toHaveBeenNthCalledWith(1, msg, [buffer])
+    expect(send).toHaveBeenNthCalledWith(2, msg)
   })
 })

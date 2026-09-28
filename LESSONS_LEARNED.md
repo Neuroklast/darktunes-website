@@ -261,7 +261,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 ### 2026-09-21 — ExcelJS writeBuffer is not a transferable ArrayBuffer
 
 - **Finding:** The worker posted `writeBuffer()` in the transfer list. ExcelJS returns a Node `Buffer`/`Uint8Array`. Chrome then throws `postMessage`: “Value at index 0 does not have a transferable type.” The worker test injected an already-valid `ArrayBuffer` and never hit that seam.
-- **Rule:** Copy ExcelJS output into a real `ArrayBuffer` (`toTransferableArrayBuffer`) before transfer. Tests must convert the real `writeBuffer()` result, not a hand-made buffer.
+- **Rule:** Copy ExcelJS output into a real `ArrayBuffer` (`toTransferableArrayBuffer`) before transfer. Tests must convert the real `writeBuffer()` result, not a hand-made buffer. The worker's transfer-then-fallback send is extracted as `postWithTransferFallback` (own unit tests simulating the `DataCloneError`) instead of an inline try/catch, so the fallback path is exercised directly and not just by inspection. If this error resurfaces after the fix is deployed, check for a stale bundle (long-lived admin tab keeping an old worker chunk) before assuming a code regression — `app/sw.ts` caches hashed `/_next/static` chunks `CacheFirst`, so a tab open across a deploy keeps the old worker until reloaded.
 
 ### 2026-09-21 — A green parse check is not an archived source
 

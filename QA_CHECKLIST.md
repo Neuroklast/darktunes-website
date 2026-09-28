@@ -124,6 +124,7 @@
 - [ ] Archive a settlement period without locking first — allowed; archive is final (no unlock / unpay in the UI)
 
 - [ ] Excel export dialog: uncheck a release column → downloaded workbook omits it; Artist/Period/Final Payout remain
+- [ ] Excel export on a tab reloaded after a deploy downloads without a `postMessage`/"transferable type" error (regression check for the ExcelJS `writeBuffer()` transfer bug; a stale tab open across a deploy can still show the old error until reloaded)
 - [ ] Save Excel preset → reopen dialog → preset still selected and columns match (workspace / rules preset)
 - [ ] SOS upload: file card shows reading bytes, then parsing `row x of y`, pipeline banner during payout aggregation; bronze failure shows the server message (not only “R2 archive failed”). Large files (>50 MB) warn that parse can take minutes.
 - [ ] Excel raw data (default on): download one artist → `{artist}_statement.xlsx` with `Believe` / `Bandcamp` / `Darkmerch` tabs for uploaded sources; only that band; Believe has Net Revenue and no Gross revenue / Client share; Bandcamp/Darkmerch keep all original columns; auto-filter + frozen header. Toggle Raw data off → filename `*_summary-only.xlsx`. If original tabs cannot be built, a dialog offers **Retry** / **Download summary only** / **Cancel** (never a silent summary, never no file). ZIP-of-all: each xlsx is that artist only; failed Excel becomes `_EXCEL_NOT_INCLUDED.txt`.

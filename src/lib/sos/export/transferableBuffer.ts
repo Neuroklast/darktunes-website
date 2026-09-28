@@ -9,3 +9,20 @@ export function toTransferableArrayBuffer(data: ArrayBuffer | ArrayBufferView): 
   new Uint8Array(copy).set(view)
   return copy
 }
+
+/**
+ * postMessage() validates the transfer list synchronously and throws
+ * DataCloneError before anything is detached, so a bare retry without a
+ * transfer list is always safe here.
+ */
+export function postWithTransferFallback<T>(
+  send: (msg: T, transfer?: Transferable[]) => void,
+  msg: T,
+  buffer: ArrayBuffer,
+): void {
+  try {
+    send(msg, [buffer])
+  } catch {
+    send(msg)
+  }
+}

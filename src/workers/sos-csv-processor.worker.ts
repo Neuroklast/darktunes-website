@@ -58,6 +58,7 @@ import {
   type ExcelExportSettingsPatch,
 } from '../lib/sos/excelExportSettings'
 import { buildExcelBuffer, ExcelRawRowsLimitError } from '../lib/sos/export/excelStatement'
+import { postWithTransferFallback } from '../lib/sos/export/transferableBuffer'
 import { normalizeArtistNameKey } from '../lib/sos/artistNameKey'
 import { isStaleExcelRevision } from '../lib/sos/excelExportError'
 import { periodBoundsFromMonths } from '../lib/sos/ingestProgress'
@@ -652,11 +653,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
           })
           break
         }
-        try {
-          post({ type: 'excel-done', requestId: msg.requestId, buffer, kind: 'xlsx' }, [buffer])
-        } catch {
-          post({ type: 'excel-done', requestId: msg.requestId, buffer, kind: 'xlsx' })
-        }
+        postWithTransferFallback(post, { type: 'excel-done', requestId: msg.requestId, buffer, kind: 'xlsx' }, buffer)
       } catch (err) {
         console.error('[sos-worker] build-excel failed:', err)
         if (err instanceof ExcelRawRowsLimitError) {
