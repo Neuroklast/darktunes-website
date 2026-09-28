@@ -56,6 +56,8 @@ Store key in DB `r2_key` column for cleanup via `deleteObjectFromR2`.
 
 Bronze limits: SSOT `src/lib/sos/bronzeUploadLimits.ts` only.
 
+**R2 usage snapshots:** `r2_storage_snapshots` (bucket `used_bytes`, prefix breakdown, orphan counts) and `r2_orphan_objects` (keys from the latest scan). `assets.optimized_at` / `original_size_bytes` mark catalog images already recompressed.
+
 **Statement provenance:** `sales_statements.batch_id` → `distributor_import_batches` (`file_hash`, `distributor`, period, `r2_key`). Portal artists may SELECT linked batches (policy `distributor_import_batches: artist read linked`). Source CSV download is server-streamed only.
 
 **SOS uniqueness (partial indexes, live-DB `IF NOT EXISTS`):**

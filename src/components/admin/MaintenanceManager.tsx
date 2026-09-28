@@ -49,6 +49,7 @@ import {
   SOS_PURGE_CONFIRMATION,
   type SosPurgeScope,
 } from '@/lib/sos/purgeSosData'
+import { R2StorageMaintenanceCard } from '@/components/admin/R2StorageMaintenanceCard'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -363,6 +364,8 @@ export function MaintenanceManager() {
   // -------------------------------------------------------------------------
   return (
     <div className="space-y-6">
+      <R2StorageMaintenanceCard />
+
       {/* ------------------------------------------------------------------ */}
       {/* Section 1 — Log Management                                          */}
       {/* ------------------------------------------------------------------ */}

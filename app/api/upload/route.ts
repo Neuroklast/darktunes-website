@@ -21,6 +21,7 @@ import { extname } from 'path'
 import { createAssetRecord, getAssetByHash } from '@/lib/api/assets'
 import { extractBearerToken, verifyAdminOrEditor } from '@/lib/adminAuth'
 import { ApiError, withErrorHandler } from '@/lib/errors'
+import { optimizeImage, parseOptimizeFlag } from '@/lib/images/optimizeImage'
 import { createR2Client } from '@/lib/r2Utils'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 
@@ -49,11 +50,27 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
 
   const folderId = (formData.get('folderId') as string | null) || null
   const artistId = (formData.get('artistId') as string | null) || null
-  const mimeType = file.type || 'application/octet-stream'
+  const shouldOptimize = parseOptimizeFlag(formData.get('optimize'))
+  const sourceMime = file.type || 'application/octet-stream'
 
   // Read once — arrayBuffer() consumes the FormData File; reusing file.stream()
   // afterwards makes the AWS SDK fail with "Unable to calculate hash for flowing readable stream".
-  const fileBuffer = Buffer.from(await file.arrayBuffer())
+  const sourceBuffer = Buffer.from(await file.arrayBuffer())
+  const optimized = shouldOptimize
+    ? await optimizeImage({
+        buffer: sourceBuffer,
+        mimeType: sourceMime,
+        filename: file.name,
+      })
+    : {
+        buffer: sourceBuffer,
+        mimeType: sourceMime,
+        filename: file.name,
+        skipped: true as const,
+      }
+  const fileBuffer = optimized.buffer
+  const mimeType = optimized.mimeType
+  const storedName = optimized.filename
   const hashBuf = await crypto.subtle.digest('SHA-256', fileBuffer)
   const sha256Hash = Array.from(new Uint8Array(hashBuf))
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -87,7 +104,7 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     })
   }
 
-  const ext = extname(file.name) || ''
+  const ext = extname(storedName) || extname(file.name) || ''
   const r2Key = `uploads/${randomUUID()}${ext}`
   const { serverEnv } = await import('@/lib/env.server')
   const r2 = createR2Client(
@@ -122,6 +139,11 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     artist_id: artistId,
     tags: [],
     sha256_hash: sha256Hash,
+    original_size_bytes: shouldOptimize && fileBuffer.length !== sourceBuffer.length ? sourceBuffer.length : null,
+    optimized_at:
+      shouldOptimize && optimized.reason !== 'not_image' && optimized.reason !== 'error'
+        ? new Date().toISOString()
+        : null,
   })
 
   return NextResponse.json({

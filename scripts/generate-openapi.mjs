@@ -305,7 +305,7 @@ lines.push('      type: object');
 lines.push('      required: [displayName]');
 lines.push('      properties:');
 lines.push('        displayName: { type: string, minLength: 1, maxLength: 120 }');
-lines.push('    AppLogUpdateRequest:');
+    lines.push('    AppLogUpdateRequest:');
 lines.push('      type: object');
 lines.push('      description: Partial update — resolve and/or ignore an aggregated error log entry.');
 lines.push('      properties:');
@@ -339,7 +339,81 @@ lines.push('      type: object');
 lines.push('      required: [data]');
 lines.push('      properties:');
 lines.push('        data: { $ref: "#/components/schemas/AppLog" }');
-lines.push('    HealthLiveness:');
+lines.push('    StorageStats:');
+lines.push('      type: object');
+lines.push('      required: [used_bytes, catalog_used_bytes, asset_count, limit_bytes, source]');
+lines.push('      properties:');
+lines.push('        used_bytes: { type: integer, minimum: 0 }');
+lines.push('        catalog_used_bytes: { type: integer, minimum: 0 }');
+lines.push('        asset_count: { type: integer, minimum: 0 }');
+lines.push('        zero_size_count: { type: integer, minimum: 0 }');
+lines.push('        object_count: { type: integer, nullable: true }');
+lines.push('        orphan_bytes: { type: integer, nullable: true }');
+lines.push('        orphan_count: { type: integer, nullable: true }');
+lines.push('        scanned_at: { type: string, format: date-time, nullable: true }');
+lines.push('        limit_bytes: { type: integer, minimum: 1 }');
+lines.push('        source: { type: string, enum: [bucket, rpc, aggregate, paginated] }');
+lines.push('    StorageSnapshot:');
+lines.push('      type: object');
+lines.push('      properties:');
+lines.push('        id: { type: string, format: uuid }');
+lines.push('        status: { type: string, enum: [running, completed, failed] }');
+lines.push('        used_bytes: { type: integer, minimum: 0 }');
+lines.push('        object_count: { type: integer, minimum: 0 }');
+lines.push('        orphan_bytes: { type: integer, minimum: 0 }');
+lines.push('        orphan_count: { type: integer, minimum: 0 }');
+lines.push('        multipart_aborted_count: { type: integer, minimum: 0 }');
+lines.push('        truncated: { type: boolean }');
+lines.push('        next_cursor: { type: string, nullable: true }');
+lines.push('        scanned_at: { type: string, format: date-time }');
+lines.push('        completed_at: { type: string, format: date-time, nullable: true }');
+lines.push('    StorageSnapshotEnvelope:');
+lines.push('      type: object');
+lines.push('      properties:');
+lines.push('        snapshot: { nullable: true }');
+lines.push('    R2Orphan:');
+lines.push('      type: object');
+lines.push('      properties:');
+lines.push('        object_key: { type: string }');
+lines.push('        size_bytes: { type: integer, minimum: 0 }');
+lines.push('        last_modified: { type: string, format: date-time, nullable: true }');
+lines.push('        prefix: { type: string, nullable: true }');
+lines.push('    R2OrphanList:');
+lines.push('      type: object');
+lines.push('      required: [items]');
+lines.push('      properties:');
+lines.push('        items: { type: array, items: { $ref: "#/components/schemas/R2Orphan" } }');
+lines.push('        next_cursor: { type: string, nullable: true }');
+lines.push('        snapshot_id: { type: string, format: uuid, nullable: true }');
+lines.push('    R2OrphanPurgeRequest:');
+lines.push('      type: object');
+lines.push('      required: [confirmation]');
+lines.push('      properties:');
+lines.push('        confirmation: { type: string }');
+lines.push('    R2OrphanPurgeResult:');
+lines.push('      type: object');
+lines.push('      properties:');
+lines.push('        deleted: { type: integer, minimum: 0 }');
+lines.push('        skipped: { type: integer, minimum: 0 }');
+lines.push('        remaining: { type: integer, minimum: 0 }');
+lines.push('    AssetOptimizationResult:');
+lines.push('      type: object');
+lines.push('      properties:');
+lines.push('        processed: { type: integer, minimum: 0 }');
+lines.push('        skipped: { type: integer, minimum: 0 }');
+lines.push('        bytes_saved: { type: integer, minimum: 0 }');
+lines.push('        next_cursor: { type: string, nullable: true }');
+lines.push('        truncated: { type: boolean }');
+lines.push('    StorageScanRequest:');
+lines.push('      type: object');
+lines.push('      properties:');
+lines.push('        cursor: { type: string }');
+lines.push('    AssetOptimizationRequest:');
+lines.push('      type: object');
+lines.push('      properties:');
+lines.push('        cursor: { type: string }');
+lines.push('        asset_ids: { type: array, items: { type: string, format: uuid }, maxItems: 50 }');
+    lines.push('    HealthLiveness:');
 lines.push('      type: object');
 lines.push('      properties:');
 lines.push('        status: { type: string, enum: [ok, degraded] }');
@@ -577,6 +651,50 @@ lines.push('');
 lines.push('paths:');
 
 const schemaOverrides = {
+  '/api/admin/assets/storage-stats': {
+    GET: {
+      summary: 'Catalog and R2 bucket storage totals',
+      responses: { 200: { schema: 'StorageStats' } },
+    },
+  },
+  '/api/admin/storage-snapshots': {
+    GET: {
+      summary: 'Latest R2 bucket usage snapshot',
+      responses: { 200: { schema: 'StorageSnapshotEnvelope' } },
+    },
+    POST: {
+      summary: 'Scan the R2 bucket and persist usage plus orphan keys',
+      requestBody: { schema: 'StorageScanRequest' },
+      responses: { 200: { schema: 'StorageSnapshotEnvelope' } },
+    },
+  },
+  '/api/admin/r2-orphans': {
+    GET: {
+      summary: 'List unreferenced R2 objects from the latest scan',
+      parameters: [
+        { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 } },
+        { name: 'cursor', in: 'query', schema: { type: 'string' } },
+      ],
+      responses: { 200: { schema: 'R2OrphanList' } },
+    },
+  },
+  '/api/admin/r2-orphan-purges': {
+    POST: {
+      summary: 'Delete unreferenced R2 objects from the last completed scan',
+      requestBody: { schema: 'R2OrphanPurgeRequest' },
+      responses: {
+        200: { schema: 'R2OrphanPurgeResult' },
+        409: { description: 'No completed storage scan.' },
+      },
+    },
+  },
+  '/api/admin/asset-optimizations': {
+    POST: {
+      summary: 'Recompress catalog images in place',
+      requestBody: { schema: 'AssetOptimizationRequest' },
+      responses: { 200: { schema: 'AssetOptimizationResult' } },
+    },
+  },
   '/api/contact': {
     POST: {
       requestBody: { schema: 'ContactRequest' },
@@ -886,15 +1004,17 @@ const schemaOverrides = {
   },
 };
 
-for (const route of sortedPaths) {
+  for (const route of sortedPaths) {
   lines.push(`  ${route.path}:`);
   const tag = getTag(route.path);
-  const security = getSecurity(route.path, route.auth);
   const pathParams = getPathParams(route.path);
 
   for (const method of route.methods) {
     if (method === 'OPTIONS') continue;
     const override = schemaOverrides[route.path]?.[method];
+    const security = override?.security !== undefined
+      ? override.security
+      : getSecurity(route.path, route.auth);
     const opId = (method.toLowerCase() + route.path.replace(/^\/api\//, '').replace(/\{[^}]+\}/g, 'ById').replace(/\//g, '_')).replace(/_+/g, '_');
     lines.push(`    ${method.toLowerCase()}:`);
     lines.push(`      operationId: ${opId}`);
@@ -972,13 +1092,13 @@ for (const route of sortedPaths) {
 
     lines.push('      responses:');
     const responses = override?.responses ?? {};
-    const successCodes = ['200', '201'].filter((code) => responses[code]);
+    const successCodes = ['200', '201', '204'].filter((code) => responses[code]);
     if (successCodes.length > 0) {
       for (const code of successCodes) {
         const spec = responses[code];
         lines.push(`        '${code}':`);
         lines.push(
-          `          description: ${yamlEscape(spec.description ?? (code === '201' ? 'Created' : 'Success'))}`,
+          `          description: ${yamlEscape(spec.description ?? (code === '201' ? 'Created' : code === '204' ? 'No Content' : 'Success'))}`,
         );
         if (spec.schema) {
           lines.push('          content:');
@@ -1019,30 +1139,32 @@ for (const route of sortedPaths) {
       lines.push('                $ref: "#/components/schemas/SuccessResponse"');
     }
 
-    if (responses[503]) {
-      lines.push("        '503':");
-      lines.push(`          description: ${yamlEscape(responses[503].description ?? 'Service unavailable')}`);
-    }
-    for (const code of ['409', '422', '429']) {
-      if (!responses[code]) continue;
-      lines.push(`        '${code}':`);
-      lines.push(`          description: ${yamlEscape(responses[code].description ?? 'Error')}`);
-      if (responses[code].schema) {
-        lines.push('          content:');
-        lines.push(`            ${responses[code].contentType ?? 'application/json'}:`);
-        lines.push('              schema:');
-        lines.push(`                $ref: "#/components/schemas/${responses[code].schema}"`);
+    if (!override?.skipDefaultErrors) {
+      if (responses[503]) {
+        lines.push("        '503':");
+        lines.push(`          description: ${yamlEscape(responses[503].description ?? 'Service unavailable')}`);
       }
-    }
+      for (const code of ['409', '422', '429']) {
+        if (!responses[code]) continue;
+        lines.push(`        '${code}':`);
+        lines.push(`          description: ${yamlEscape(responses[code].description ?? 'Error')}`);
+        if (responses[code].schema) {
+          lines.push('          content:');
+          lines.push(`            ${responses[code].contentType ?? 'application/json'}:`);
+          lines.push('              schema:');
+          lines.push(`                $ref: "#/components/schemas/${responses[code].schema}"`);
+        }
+      }
 
-    lines.push("        '400': { $ref: '#/components/responses/BadRequest' }");
-    if (security.length > 0) {
-      lines.push("        '401': { $ref: '#/components/responses/Unauthorized' }");
-      lines.push("        '403': { $ref: '#/components/responses/Forbidden' }");
-    }
-    lines.push("        '404': { $ref: '#/components/responses/NotFound' }");
-    if (['/api/contact', '/api/auth/forgot-password', '/api/newsletter', '/api/journalist-applications', '/api/page-events'].includes(route.path)) {
-      lines.push("        '429': { $ref: '#/components/responses/TooManyRequests' }");
+      lines.push("        '400': { $ref: '#/components/responses/BadRequest' }");
+      if (security.length > 0) {
+        lines.push("        '401': { $ref: '#/components/responses/Unauthorized' }");
+        lines.push("        '403': { $ref: '#/components/responses/Forbidden' }");
+      }
+      lines.push("        '404': { $ref: '#/components/responses/NotFound' }");
+      if (['/api/contact', '/api/auth/forgot-password', '/api/newsletter', '/api/journalist-applications', '/api/page-events'].includes(route.path)) {
+        lines.push("        '429': { $ref: '#/components/responses/TooManyRequests' }");
+      }
     }
   }
 }

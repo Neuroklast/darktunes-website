@@ -16,6 +16,7 @@ interface UploadOptions {
   folderId: string | null
   artistId?: string | null
   endpoint?: string
+  optimize?: boolean
   onProgress?: (fileKey: string, progress: number) => void
 }
 
@@ -25,11 +26,13 @@ function uploadSingleFile(
   folderId: string | null,
   artistId: string | null,
   endpoint: string,
+  optimize: boolean,
   onProgress?: (progress: number) => void,
 ): Promise<UploadedAssetResponse> {
   return new Promise((resolve, reject) => {
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('optimize', optimize ? '1' : '0')
     if (folderId) formData.append('folderId', folderId)
     if (artistId) formData.append('artistId', artistId)
 
@@ -57,10 +60,10 @@ function uploadSingleFile(
   })
 }
 
-export async function uploadFiles({ files, token, folderId, artistId = null, endpoint = '/api/upload', onProgress }: UploadOptions): Promise<UploadedAssetResponse[]> {
+export async function uploadFiles({ files, token, folderId, artistId = null, endpoint = '/api/upload', optimize = true, onProgress }: UploadOptions): Promise<UploadedAssetResponse[]> {
   const uploads: UploadedAssetResponse[] = []
   for (const file of files) {
-    const result = await uploadSingleFile(file, token, folderId, artistId, endpoint, (progress) => onProgress?.(file.name, progress))
+    const result = await uploadSingleFile(file, token, folderId, artistId, endpoint, optimize, (progress) => onProgress?.(file.name, progress))
     uploads.push(result)
   }
   return uploads

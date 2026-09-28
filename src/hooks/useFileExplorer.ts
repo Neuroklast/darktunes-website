@@ -185,7 +185,7 @@ export function useFileExplorer(initialFolderId: string | null = null): UseFileE
       const assetQuery = supabase
         .from('assets')
         .select(
-          'id, filename, original_filename, mime_type, size_bytes, r2_key, public_url, uploaded_by, created_at, folder_id, artist_id, tags, sha256_hash, release_id, alt_text, is_press_approved, press_suggested, press_category, press_caption, photographer_credit, downloadable_for_press',
+          'id, filename, original_filename, mime_type, size_bytes, r2_key, public_url, uploaded_by, created_at, folder_id, artist_id, tags, sha256_hash, release_id, alt_text, is_press_approved, press_suggested, press_category, press_caption, photographer_credit, downloadable_for_press, optimized_at, original_size_bytes',
         )
         .order('created_at', { ascending: false })
 

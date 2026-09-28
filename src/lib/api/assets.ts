@@ -30,6 +30,8 @@ export function rowToAsset(row: AssetRow): Asset {
     pressCaption: row.press_caption ?? undefined,
     photographerCredit: row.photographer_credit ?? undefined,
     downloadableForPress: row.downloadable_for_press ?? true,
+    optimizedAt: row.optimized_at ?? undefined,
+    originalSizeBytes: row.original_size_bytes ?? undefined,
   }
 }
 

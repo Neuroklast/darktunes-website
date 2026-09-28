@@ -1,0 +1,10 @@
+export const R2_ORPHAN_GRACE_MS = 24 * 60 * 60 * 1000
+export const R2_MULTIPART_STALE_MS = 24 * 60 * 60 * 1000
+export const R2_SCAN_BUDGET_MS = 45_000
+export const R2_ORPHAN_PURGE_CONFIRMATION = 'DELETE ORPHANS'
+export const R2_DELETE_BATCH = 500
+export const R2_ORPHAN_LIST_DEFAULT = 50
+export const R2_ORPHAN_LIST_MAX = 200
+export const ASSET_OPTIMIZE_BATCH = 15
+export const ASSET_OPTIMIZE_BUDGET_MS = 45_000
+export const ASSET_OPTIMIZE_IDS_MAX = 50

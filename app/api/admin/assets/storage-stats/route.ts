@@ -3,16 +3,21 @@ import { requireAdminOrEditorFromRequest } from '@/lib/adminAuth'
 import { withErrorHandler } from '@/lib/errors'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { resolveCatalogStorageStats } from '@/lib/assets/storageStats'
+import { getLatestStorageSnapshot } from '@/lib/r2/storageScan'
 
 export const dynamic = 'force-dynamic'
 
 export interface StorageStatsResponse {
-  usedBytes: number
-  assetCount: number
-  limitBytes: number
-  zeroSizeCount: number
-  /** Where the total came from (helps diagnose undercount). */
-  source: 'rpc' | 'aggregate' | 'paginated'
+  used_bytes: number
+  catalog_used_bytes: number
+  asset_count: number
+  limit_bytes: number
+  zero_size_count: number
+  object_count: number | null
+  orphan_bytes: number | null
+  orphan_count: number | null
+  scanned_at: string | null
+  source: 'bucket' | 'rpc' | 'aggregate' | 'paginated'
 }
 
 const DEFAULT_LIMIT_BYTES = 10 * 1024 * 1024 * 1024 // 10 GB
@@ -26,20 +31,27 @@ function resolveLimitBytes(): number {
 }
 
 export const GET = withErrorHandler(async (request: NextRequest): Promise<NextResponse> => {
-  // Cookie + Bearer (stale Bearer falls through to cookies — see adminAuth)
   await requireAdminOrEditorFromRequest(request)
 
   const supabase = await createServiceRoleSupabaseClient()
   const limitBytes = resolveLimitBytes()
   const stats = await resolveCatalogStorageStats(supabase)
+  const snapshot = await getLatestStorageSnapshot(supabase)
+  const completed = snapshot && snapshot.status === 'completed' ? snapshot : null
+  const usedBytes = completed ? completed.used_bytes : stats.usedBytes
 
   return NextResponse.json(
     {
-      usedBytes: stats.usedBytes,
-      assetCount: stats.assetCount,
-      zeroSizeCount: stats.zeroSizeCount,
-      limitBytes,
-      source: stats.source,
+      used_bytes: usedBytes,
+      catalog_used_bytes: stats.usedBytes,
+      asset_count: stats.assetCount,
+      zero_size_count: stats.zeroSizeCount,
+      object_count: completed ? completed.object_count : null,
+      orphan_bytes: completed ? completed.orphan_bytes : null,
+      orphan_count: completed ? completed.orphan_count : null,
+      scanned_at: completed ? completed.scanned_at : null,
+      limit_bytes: limitBytes,
+      source: completed ? 'bucket' : stats.source,
     } satisfies StorageStatsResponse,
     {
       headers: {
