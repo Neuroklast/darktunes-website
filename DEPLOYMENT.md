@@ -191,7 +191,7 @@ External integration API keys (Spotify, Discogs, Resend, YouTube, MailerLite, Od
 - `CONTACT_EMAIL`: The email address that receives contact form submissions from `POST /api/contact`. Defaults to `info@darktunes.com` if not set. Use a monitored inbox.
 
 ### Cron & infra secrets (optional — remain in Vercel env)
-- `CRON_SECRET`: Shared secret for scheduled calls. Accepted by `/api/sync`, `/api/sync/queue`, `/api/sync/requeue`, `/api/sync-youtube`, `/api/sync-api`, and `/api/health/alert`. The deploy pipeline mirrors it into Supabase Vault as `cron_secret` so `pg_cron` can authenticate (see [Sync Scheduler](#sync-scheduler-supabase-pg_cron--nextjs-worker)).
+- `CRON_SECRET`: Shared secret for scheduled calls. Accepted by `/api/sync`, `/api/sync/queue`, `/api/sync/requeue`, `/api/sync-youtube`, `/api/sync-api`, and `/api/health/alert`. Supabase Cron HTTP jobs send it inline as `Authorization: Bearer <CRON_SECRET>` (see [Sync Scheduler](#sync-scheduler-supabase-cron--nextjs-worker)).
 - `NEXT_PUBLIC_SITE_URL`: Public site URL without trailing slash (e.g. `https://darktunes.com`).
 - `LABEL_NOTIFICATION_EMAIL`: Label inbox for portal submission and health-alert emails. Leave blank to disable.
 - `HEALTH_ALERT_WEBHOOK_URL`: Configure in Admin → API Keys (encrypted in DB), not env.
@@ -285,59 +285,48 @@ Set these in **Supabase Dashboard → Project → Edge Functions → Secrets**:
 Without these secrets, the `newsletter-confirm` Edge Function will fail silently
 and DOI confirmation emails will never be delivered.
 
-### Auto-apply schema on deploy
+### Applying the schema
 
-`supabase/reset.sql` (schema **and** the `pg_cron` scheduler jobs) is applied to
-production automatically by [`.github/workflows/deploy-supabase.yml`](../.github/workflows/deploy-supabase.yml)
-after the CI workflow succeeds on `main` (or via manual `workflow_dispatch`).
+`supabase/reset.sql` is applied **by hand** in the Supabase SQL editor. It is
+idempotent and additive (`ADD COLUMN IF NOT EXISTS`, guarded `DROP … IF EXISTS`);
+`npm run check:destructive-sql` guards new destructive statements.
 
-Required GitHub Actions secrets:
+`reset.sql` contains **no** cron jobs, no cron wrapper functions and no Vault
+secrets. Re-applying it never touches the scheduled jobs.
 
-| Secret | Purpose |
-|--------|---------|
-| `SUPABASE_DB_URL` | Postgres connection string (direct connection or **session** pooler — not the transaction pooler) |
-| `CRON_SECRET` | Mirrored into Vault as `cron_secret` |
-| `NEXT_PUBLIC_SITE_URL` | Mirrored into Vault as `site_url` |
+`npm run db:apply` (`scripts/apply-schema.mjs`) is an optional local helper that
+runs `reset.sql` via `psql` (`SUPABASE_DB_URL` required). The
+`deploy-supabase.yml` workflow is not the production path.
 
-The workflow runs `npm run check:destructive-sql` first — `reset.sql` must stay
-additive (idempotent `ADD COLUMN IF NOT EXISTS`, guarded `DROP … IF EXISTS`); new
-destructive statements fail the guard until explicitly reviewed.
+### Sync Scheduler (Supabase Cron → Next.js worker)
 
-Local dry run (requires `psql`):
+Scheduled jobs are managed **only in the Supabase dashboard** (Integrations →
+Cron). Never create, schedule, unschedule or trigger them via SQL or `reset.sql`.
 
-```bash
-SUPABASE_DB_URL='postgres://…' CRON_SECRET='…' NEXT_PUBLIC_SITE_URL='https://darktunes.com' npm run db:apply
-```
+HTTP jobs are plain `net.http_post` calls — **no** SQL/plpgsql wrapper function,
+**no** Vault indirection (the former `trigger_sync_*()` + Vault setup failed
+silently in production and was removed):
 
-### Sync Scheduler (Supabase pg_cron → Next.js worker)
+- Method `POST`, header `Authorization: Bearer <CRON_SECRET>` (same value as the
+  Vercel `CRON_SECRET` env var), timeout 5000 ms.
+- Host **must** be `https://www.darktunes.com`. The apex `darktunes.com`
+  308-redirects to `www`, and pg_net (libcurl) drops the `Authorization` header
+  on a cross-host redirect → `401 Missing or invalid Authorization header`.
+- A pg_net timeout after 5 s is expected for long runs (e.g. YouTube); the
+  Vercel function keeps running. Check `sync_logs` / `sync_runs`, not only
+  `net._http_response`.
 
-Sync is scheduled **inside the database** with `pg_cron` + `pg_net`, defined in
-`supabase/reset.sql` — the schedule is version-controlled (no dashboard setup, no
-Vercel Cron). Each job calls a `SECURITY DEFINER` function that reads the site URL
-and cron secret from **Supabase Vault** and POSTs to the Next.js worker. Secrets
-never appear in the cron job command.
+| Job name | Schedule | Type | Target |
+|----------|----------|------|--------|
+| `scheduler-heartbeat` | `* * * * *` | SQL | `INSERT INTO public.cron_ticks (kind, status) VALUES ('scheduler', 'ok');` |
+| `sync-worker` | `* * * * *` | HTTP | `POST https://www.darktunes.com/api/sync` — drains a bounded batch of `sync_queue` jobs |
+| `sync-enqueue-daily` | `0 3 * * *` | HTTP | `POST https://www.darktunes.com/api/sync/queue` — enqueue a full sync for every artist |
+| `sync-youtube-daily` | `0 6 * * *` | HTTP | `POST https://www.darktunes.com/api/sync-youtube` |
+| `Spotify Playzahlen` | `0 0 1 * *` | HTTP | `POST https://www.darktunes.com/api/admin/analytics/sync-spotify-plays` |
+| `sync-telemetry-cleanup` | `15 4 * * *` | SQL | Prunes `cron_ticks` (14d) and `sync_runs` (30d) |
+| `app-logs-cleanup` | `30 4 * * *` | SQL | Prunes `app_logs` rows not seen for 90 days |
 
-The deploy pipeline applies `reset.sql` and upserts the Vault secrets
-(`site_url`, `cron_secret`) from GitHub secrets — see
-[Auto-apply schema on deploy](#auto-apply-schema-on-deploy).
-
-Registered jobs (end of `reset.sql`):
-
-| Job name | Schedule | Action |
-|----------|----------|--------|
-| `scheduler-heartbeat` | `* * * * *` | Inserts a `cron_ticks` row (proves pg_cron itself is alive) |
-| `sync-worker` | `* * * * *` | `POST /api/sync` — drains a bounded batch of `sync_queue` jobs |
-| `sync-enqueue-daily` | `0 3 * * *` | `POST /api/sync/queue` — enqueue a full sync for every artist |
-| `sync-youtube-daily` | `0 6 * * *` | `POST /api/sync-youtube` |
-| `sync-telemetry-cleanup` | `15 4 * * *` | Prunes `cron_ticks` (14d) and `sync_runs` (30d) |
-| `app-logs-cleanup` | `30 4 * * *` | Prunes `app_logs` rows not seen for 90 days (aggregated error log retention) |
-
-Required Vault secrets (upserted by CI, never committed):
-
-- `site_url` — public Next.js URL (e.g. `https://darktunes.com`)
-- `cron_secret` — must match the Vercel `CRON_SECRET` env var
-
-Re-running `reset.sql` is idempotent and re-arms/updates every job by name.
+`/api/sync/execute` is an alias of `/api/sync`; do not schedule both.
 
 > **Odesli note:** The Odesli / song.link `v1-alpha.1` public API was sunset on
 > 2026-07-31 (it now returns `401 PUBLIC_API_ACCESS_DEPRECATED`). Add an
@@ -357,24 +346,29 @@ Re-running `reset.sql` is idempotent and re-arms/updates every job by name.
 
 ## ✅ Supabase Cron Validation (sync scheduling)
 
-Scheduling is **not** configured in the Supabase dashboard — it lives in
-`supabase/reset.sql` and is applied by the deploy pipeline. To verify:
+Jobs are managed in the Supabase dashboard (see
+[Sync Scheduler](#sync-scheduler-supabase-cron--nextjs-worker)). Read-only checks:
 
 ```sql
--- List the sync jobs
-SELECT jobid, jobname, schedule, active FROM cron.job ORDER BY jobname;
+-- Jobs and their commands (HTTP jobs must target https://www. and carry the Bearer header)
+SELECT jobid, jobname, schedule, active, command FROM cron.job ORDER BY jobname;
 
--- Recent runs (look for failures)
-SELECT jobid, status, return_message, start_time
-FROM cron.job_run_details ORDER BY start_time DESC LIMIT 20;
+-- HTTP results of the jobs (401 = missing/wrong header, e.g. apex URL)
+SELECT id, status_code, left(content, 200) AS body, error_msg, created
+FROM net._http_response ORDER BY id DESC LIMIT 20;
 
 -- Dead-man's switch: scheduler (pg_cron) vs worker (HTTP hop)
 SELECT kind, MAX(created_at) AS last_tick FROM cron_ticks GROUP BY kind;
+
+-- YouTube sync outcome
+SELECT created_at, status, message FROM sync_logs
+WHERE api_source = 'youtube' ORDER BY created_at DESC LIMIT 5;
 ```
 
-If `scheduler` ticks are fresh but `worker` ticks are stale, the HTTP hop is
-broken (Vault `site_url`/`cron_secret` or the deployed site). If both are stale,
-`pg_cron` itself is not running.
+`cron.job_run_details` showing `succeeded` only proves the SQL ran — for HTTP
+jobs check `net._http_response`. If `scheduler` ticks are fresh but `worker`
+ticks are stale, the HTTP hop is broken (job URL not `www`, wrong Bearer, or the
+deployed site). If both are stale, `pg_cron` itself is not running.
 
 Before applying `releases_spotify_id_key` / `releases_discogs_id_key` UNIQUE constraints from `reset.sql`, dedupe existing rows:
 

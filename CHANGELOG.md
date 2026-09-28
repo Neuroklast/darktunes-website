@@ -11,6 +11,8 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 ## [Unreleased]
 
 ### Changed
+- **Cron jobs are plain HTTPS, managed in the Supabase dashboard:** `supabase/reset.sql` no longer registers any `pg_cron` job and drops the `trigger_sync_worker/enqueue/youtube()` + `get_vault_secret()` wrappers. They read an empty Vault and silently sent nothing, so scheduled YouTube and artist syncs had stopped. HTTP jobs now call `https://www.darktunes.com/...` directly with the Bearer header (the apex redirect drops `Authorization`). `scripts/apply-schema.mjs` no longer writes Vault secrets. See `DEPLOYMENT.md` → Sync Scheduler.
+- **YouTube cap message:** A capped channel sync now reports “Synced newest 500 videos (channel cap).” instead of suggesting a re-run would fetch older videos.
 - **Ledger opening is carry-in only:** Unused `opening_balance` entry type is removed. Period opening stays `carry_in` from archive.
 - **SEPA/Payout no longer needs a CSV session:** With a billing period set, Statements shows the ledger payout list without re-uploading files. The period banner also appears without session revenues.
 - **Statement cancel is not a live action:** `cancelled` stays a terminal/legacy status. Drafts are deleted. The status graph no longer allows transitions into `cancelled`.

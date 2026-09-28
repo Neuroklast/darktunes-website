@@ -168,7 +168,7 @@ External integration keys (Spotify, Discogs, Resend, YouTube, MailerLite, etc.) 
 
 | Variable | Description |
 |---|---|
-| `CRON_SECRET` | Optional secret for scheduled sync calls; mirrored into Supabase Vault as `cron_secret` (Bearer token) |
+| `CRON_SECRET` | Optional secret for scheduled sync calls; sent inline as Bearer token by the Supabase Cron HTTP jobs (see `DEPLOYMENT.md`) |
 | `CONTACT_EMAIL` | Contact form recipient (defaults to `info@darktunes.com`) |
 | `LABEL_NOTIFICATION_EMAIL` | Label inbox for portal submissions and health alerts |
 

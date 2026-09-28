@@ -16,8 +16,12 @@
 -- ---------------------------------------------------------------------------
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Scheduler extensions (Supabase: pg_cron + pg_net). Guarded so environments
--- without them (e.g. bare local Postgres) still apply the rest of the schema.
+-- Scheduler extensions (Supabase: pg_cron + pg_net). Scheduled jobs themselves
+-- are managed only in the Supabase dashboard (Integrations → Cron) as plain
+-- outbound HTTPS calls made through pg_net — this file never registers or
+-- unschedules cron jobs, it only ensures the extensions exist. Guarded so
+-- environments without them (e.g. bare local Postgres) still apply the rest
+-- of the schema.
 DO $$ BEGIN
   CREATE EXTENSION IF NOT EXISTS pg_cron;
 EXCEPTION WHEN OTHERS THEN
@@ -5097,8 +5101,8 @@ CREATE POLICY "media_files: admin delete"                ON public.media_files F
 
 -- Scheduled news: promoted to published on public cache refresh (see publishScheduledNewsPosts).
 -- Query-time visibility also allows status=scheduled when published_at <= NOW().
--- Unschedule legacy pg_cron job if it was created manually:
---   SELECT cron.unschedule('publish-scheduled-news');
+-- If a legacy 'publish-scheduled-news' cron job still exists, remove it in the
+-- Supabase dashboard (Integrations → Cron) — do not unschedule it via SQL.
 
 -- =============================================================================
 -- AUDIT TABLES: role_changes & ban_history
@@ -7416,117 +7420,31 @@ END;
 $$;
 
 -- =============================================================================
--- SCHEDULER — Supabase pg_cron → pg_net → Next.js worker (IaC, no dashboard)
+-- SCHEDULER — managed in the Supabase dashboard (Integrations → Cron), not here
 -- -----------------------------------------------------------------------------
--- Secrets (`site_url`, `cron_secret`) live in Supabase Vault and are upserted by
--- the deploy pipeline — never stored in this file. The trigger functions read
--- them at runtime, so the cron job command never contains a secret.
+-- All scheduled jobs are configured directly in the Supabase dashboard. HTTP
+-- jobs (sync worker tick, daily full enqueue, daily YouTube sync, Spotify plays)
+-- are plain outbound HTTPS calls made via pg_net, targeting
+-- the public site's canonical `www` host (see DEPLOYMENT.md) — `www` is mandatory: the apex
+-- domain 308-redirects to `www`, and pg_net/curl drops the `Authorization`
+-- header on that cross-host redirect, so an apex target silently 401s. Each
+-- job sets its own `Authorization: Bearer <CRON_SECRET>` header inline in the
+-- dashboard job definition — no Vault secret indirection, no SQL/plpgsql
+-- wrapper functions.
+--
+-- This file must NEVER register, unschedule or trigger cron jobs via SQL (no
+-- pg_cron schedule/unschedule calls), and must never define `trigger_sync_*()`
+-- / `get_vault_secret()` style wrapper functions. Drop any left over from the
+-- old IaC-managed-cron approach:
 -- =============================================================================
+DROP FUNCTION IF EXISTS public.trigger_sync_worker();
+DROP FUNCTION IF EXISTS public.trigger_sync_enqueue();
+DROP FUNCTION IF EXISTS public.trigger_sync_youtube();
+DROP FUNCTION IF EXISTS public.get_vault_secret(TEXT);
 
-CREATE OR REPLACE FUNCTION public.get_vault_secret(p_name TEXT)
-RETURNS TEXT
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-DECLARE
-  v_secret TEXT;
-BEGIN
-  SELECT decrypted_secret INTO v_secret
-    FROM vault.decrypted_secrets
-   WHERE name = p_name
-   LIMIT 1;
-  RETURN v_secret;
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.trigger_sync_worker()
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, net, pg_temp
-AS $$
-DECLARE
-  v_url    TEXT;
-  v_secret TEXT;
-BEGIN
-  v_url    := public.get_vault_secret('site_url');
-  v_secret := public.get_vault_secret('cron_secret');
-  IF v_url IS NULL OR v_url = '' OR v_secret IS NULL OR v_secret = '' THEN
-    RAISE WARNING 'trigger_sync_worker: vault secrets site_url/cron_secret not configured';
-    RETURN;
-  END IF;
-  PERFORM net.http_post(
-    rtrim(v_url, '/') || '/api/sync',
-    '{}'::jsonb,
-    '{}'::jsonb,
-    jsonb_build_object(
-      'Authorization', 'Bearer ' || v_secret,
-      'Content-Type', 'application/json'
-    ),
-    5000
-  );
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.trigger_sync_enqueue()
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, net, pg_temp
-AS $$
-DECLARE
-  v_url    TEXT;
-  v_secret TEXT;
-BEGIN
-  v_url    := public.get_vault_secret('site_url');
-  v_secret := public.get_vault_secret('cron_secret');
-  IF v_url IS NULL OR v_url = '' OR v_secret IS NULL OR v_secret = '' THEN
-    RAISE WARNING 'trigger_sync_enqueue: vault secrets site_url/cron_secret not configured';
-    RETURN;
-  END IF;
-  PERFORM net.http_post(
-    rtrim(v_url, '/') || '/api/sync/queue',
-    '{}'::jsonb,
-    '{}'::jsonb,
-    jsonb_build_object(
-      'Authorization', 'Bearer ' || v_secret,
-      'Content-Type', 'application/json'
-    ),
-    5000
-  );
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.trigger_sync_youtube()
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, net, pg_temp
-AS $$
-DECLARE
-  v_url    TEXT;
-  v_secret TEXT;
-BEGIN
-  v_url    := public.get_vault_secret('site_url');
-  v_secret := public.get_vault_secret('cron_secret');
-  IF v_url IS NULL OR v_url = '' OR v_secret IS NULL OR v_secret = '' THEN
-    RAISE WARNING 'trigger_sync_youtube: vault secrets site_url/cron_secret not configured';
-    RETURN;
-  END IF;
-  PERFORM net.http_post(
-    rtrim(v_url, '/') || '/api/sync-youtube',
-    '{}'::jsonb,
-    '{}'::jsonb,
-    jsonb_build_object(
-      'Authorization', 'Bearer ' || v_secret,
-      'Content-Type', 'application/json'
-    ),
-    5000
-  );
-END;
-$$;
-
+-- =============================================================================
+-- R2 STORAGE ACCOUNTING — usage snapshots + orphan object tracking
+-- =============================================================================
 -- ---------------------------------------------------------------------------
 -- TABLE: r2_storage_snapshots  (bucket listing totals for admin storage bar)
 -- ---------------------------------------------------------------------------
@@ -7584,54 +7502,3 @@ CREATE POLICY "r2_orphan_objects: staff read" ON public.r2_orphan_objects
 CREATE POLICY "r2_orphan_objects: admin write" ON public.r2_orphan_objects
   FOR ALL USING (public.get_my_role() = 'admin')
   WITH CHECK (public.get_my_role() = 'admin');
-
-REVOKE ALL ON FUNCTION public.get_vault_secret(TEXT) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.trigger_sync_worker() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.trigger_sync_enqueue() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.trigger_sync_youtube() FROM PUBLIC, anon, authenticated;
-
--- Register the cron jobs. Guarded: no-ops when pg_cron is unavailable.
--- cron.schedule(job_name, …) is idempotent (updates an existing job by name).
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-    -- Scheduler liveness (pure SQL, no HTTP) — proves pg_cron itself is alive.
-    PERFORM cron.schedule(
-      'scheduler-heartbeat',
-      '* * * * *',
-      $job$INSERT INTO public.cron_ticks (kind, status) VALUES ('scheduler', 'ok');$job$
-    );
-    -- Worker tick: drive the Next.js sync worker every minute.
-    PERFORM cron.schedule(
-      'sync-worker',
-      '* * * * *',
-      $job$SELECT public.trigger_sync_worker();$job$
-    );
-    -- Daily full enqueue for all artists.
-    PERFORM cron.schedule(
-      'sync-enqueue-daily',
-      '0 3 * * *',
-      $job$SELECT public.trigger_sync_enqueue();$job$
-    );
-    -- Daily YouTube channel sync.
-    PERFORM cron.schedule(
-      'sync-youtube-daily',
-      '0 6 * * *',
-      $job$SELECT public.trigger_sync_youtube();$job$
-    );
-    -- Telemetry retention: keep ticks 14d and run ledger 30d.
-    PERFORM cron.schedule(
-      'sync-telemetry-cleanup',
-      '15 4 * * *',
-      $job$DELETE FROM public.cron_ticks WHERE created_at < NOW() - INTERVAL '14 days'; DELETE FROM public.sync_runs WHERE started_at < NOW() - INTERVAL '30 days';$job$
-    );
-    -- Error-log retention: drop aggregated rows not seen for 90 days.
-    PERFORM cron.schedule(
-      'app-logs-cleanup',
-      '30 4 * * *',
-      $job$DELETE FROM public.app_logs WHERE last_seen_at < NOW() - INTERVAL '90 days';$job$
-    );
-  END IF;
-EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'sync scheduler setup skipped: %', SQLERRM;
-END $$;

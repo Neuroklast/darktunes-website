@@ -261,6 +261,8 @@
 - [ ] YouTube remains a separate channel action (Force Sync YouTube / pg_cron `sync-youtube-daily`); artist queue jobs do not write videos
 - [ ] Stuck `running` jobs recover within ~6 minutes (claim RPC visibility timeout) and stats GET unblocks re-kick
 - [ ] Admin → System → Health distinguishes a live scheduler with an unreachable worker (“Executor unreachable”) from a dead scheduler (“Scheduler offline”) using `cron_ticks`
+- [ ] Supabase dashboard → Cron: HTTP jobs (`sync-worker`, `sync-enqueue-daily`, `sync-youtube-daily`, `Spotify Playzahlen`) target `https://www.darktunes.com/...` with the Bearer header; no job calls a `trigger_sync_*()` function. After a run, `net._http_response` shows 200 (or a 5 s timeout for YouTube) and `sync_logs` gets a new `youtube` row — no 401
+- [ ] Re-applying `supabase/reset.sql` leaves the dashboard cron jobs unchanged
 - [ ] Admin → System → Health: **no** infra setup (no CRON_SECRET / Supabase Cron / Vault / Vercel / R2 operator docs); speaking issues stay product-facing (Force Sync / technical operator), never expose secrets or cron schedules
 - [ ] `vercel.json` has no `crons` key
 

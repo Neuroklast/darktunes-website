@@ -8,24 +8,32 @@ beforeAll(() => {
   sql = readFileSync(resolve(__dirname, '../../../supabase/reset.sql'), 'utf-8')
 })
 
-describe('reset.sql — pg_cron scheduler contract', () => {
-  it('registers the worker tick every minute', () => {
-    expect(sql).toMatch(/cron\.schedule\(\s*'sync-worker',\s*'\* \* \* \* \*'/)
+describe('reset.sql — cron jobs are dashboard-managed, not SQL-managed', () => {
+  it('never registers a pg_cron job', () => {
+    expect(sql).not.toMatch(/cron\.schedule\(/)
   })
 
-  it('registers the scheduler heartbeat', () => {
-    expect(sql).toMatch(/cron\.schedule\(\s*'scheduler-heartbeat'/)
+  it('never unschedules a pg_cron job', () => {
+    expect(sql).not.toMatch(/cron\.unschedule\(/)
   })
 
-  it('registers the daily enqueue and youtube jobs', () => {
-    expect(sql).toMatch(/'sync-enqueue-daily'/)
-    expect(sql).toMatch(/'sync-youtube-daily'/)
+  it('never defines a trigger_sync_* wrapper function', () => {
+    expect(sql).not.toMatch(/CREATE OR REPLACE FUNCTION public\.trigger_sync_/)
   })
 
-  it('defines the trigger functions that read secrets from Vault', () => {
-    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.trigger_sync_worker/)
-    expect(sql).toMatch(/vault\.decrypted_secrets/)
-    expect(sql).toMatch(/net\.http_post/)
+  it('never reads secrets from Vault', () => {
+    expect(sql).not.toMatch(/vault\.decrypted_secrets/)
+  })
+
+  it('never calls pg_net directly', () => {
+    expect(sql).not.toMatch(/net\.http_post/)
+  })
+
+  it('drops the legacy trigger_sync_*/get_vault_secret wrapper functions', () => {
+    expect(sql).toMatch(/DROP FUNCTION IF EXISTS public\.trigger_sync_worker\(\)/)
+    expect(sql).toMatch(/DROP FUNCTION IF EXISTS public\.trigger_sync_enqueue\(\)/)
+    expect(sql).toMatch(/DROP FUNCTION IF EXISTS public\.trigger_sync_youtube\(\)/)
+    expect(sql).toMatch(/DROP FUNCTION IF EXISTS public\.get_vault_secret\(TEXT\)/)
   })
 
   it('defines the atomic claim function using FOR UPDATE SKIP LOCKED', () => {

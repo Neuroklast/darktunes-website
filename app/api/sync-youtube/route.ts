@@ -32,7 +32,8 @@ export const maxDuration = 300
 
 /**
  * Cap channel pages so cron does not burn the full YouTube quota / hit Vercel
- * maxDuration. Newest uploads first (playlist order) — re-run picks up older pages over time.
+ * maxDuration. Newest uploads first (playlist order) — uploads beyond this
+ * cap are never synced; re-running does not reach older pages.
  */
 const MAX_YOUTUBE_CHANNEL_VIDEOS = 500
 
@@ -192,7 +193,7 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     status: truncated ? 'partial' : 'success',
     releasesSynced: videos.length,
     errors: truncated
-      ? [`Synced newest ${MAX_YOUTUBE_CHANNEL_VIDEOS} videos (channel cap); re-run to refresh.`]
+      ? [`Synced newest ${MAX_YOUTUBE_CHANNEL_VIDEOS} videos (channel cap).`]
       : [],
   })
 
@@ -202,7 +203,7 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     synced: videos.length,
     truncated,
     ...(truncated
-      ? { message: `Synced newest ${videos.length} videos (cap ${MAX_YOUTUBE_CHANNEL_VIDEOS}).` }
+      ? { message: `Synced newest ${MAX_YOUTUBE_CHANNEL_VIDEOS} videos (channel cap).` }
       : {}),
   })
 })
