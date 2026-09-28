@@ -76,20 +76,18 @@ export async function compressImage(
   }
 
   if (!blob || blob.size > maxSizeBytes) {
-    // Last resort: halve the dimensions once more and try at quality 0.7
-    canvas.width = Math.round(targetW / 2)
-    canvas.height = Math.round(targetH / 2)
-    const ctx2 = canvas.getContext('2d')
+    // Last resort: halve the dimensions once more and try at quality 0.7.
+    // Draw into a second canvas — resizing the source canvas would clear its pixels.
+    const half = document.createElement('canvas')
+    half.width = Math.round(targetW / 2)
+    half.height = Math.round(targetH / 2)
+    const ctx2 = half.getContext('2d')
     if (ctx2) {
-      // Re-draw the already-scaled bitmap from the canvas itself
-      const img = new Image()
-      img.src = canvas.toDataURL()
-      await new Promise<void>((res) => { img.onload = () => res() })
-      ctx2.drawImage(img, 0, 0, canvas.width, canvas.height)
+      ctx2.drawImage(canvas, 0, 0, half.width, half.height)
+      blob = await new Promise<Blob | null>((resolve) =>
+        half.toBlob(resolve, outputType, 0.7),
+      )
     }
-    blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, outputType, 0.7),
-    )
   }
 
   if (!blob) return file

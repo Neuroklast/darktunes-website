@@ -45,6 +45,7 @@
 - [ ] File explorer drop of a PDF above 4 MB: toast names the file, size and limit.
 - [ ] Force a 5xx (e.g. an invalid R2 key in a preview env): the toast ends with “Error ID: ERR-XXXXXXXX (send it to the label team).”, and searching that ID in Admin → System → Log Manager finds exactly one entry.
 - [ ] No toast anywhere in the upload flow says only “Something went wrong” or “Upload failed”.
+- [ ] Portal → Profile photo with a very large, detailed JPEG (well above 5 MB): the uploaded photo shows the real image, not a blank or transparent square.
 
 ## Security
 - [ ] Verify unauthenticated users are blocked or redirected from protected routes (`/admin/*`, `/portal/*`, `/press/dashboard/*`, `/promo-pool/*`)

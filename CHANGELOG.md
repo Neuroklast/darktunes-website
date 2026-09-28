@@ -11,6 +11,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 ## [Unreleased]
 
 ### Fixed
+- **Portal photo compression could produce a blank image:** When quality reduction alone could not reach the size budget, `compressImage` resized the canvas it wanted to copy from. Resizing clears a canvas, so the half-size fallback encoded an empty image (portal profile photo, onboarding photo). It now draws into a separate half-size canvas.
 - **Admin uploads above 4 MB showed “Something went wrong on our end”:** Vercel rejects request bodies above 4.5 MB with a plain-text 413 before `/api/upload` runs. The client could not parse that and fell back to the generic server error (for example a 6.5 MB PNG artist logo). Admin uploads (artist/release/news/video image buttons, Tiptap image/file dialogs, site settings, file explorer) now go through `src/lib/uploads/adminServerUpload.ts`. Files above 4 MB are refused before sending, with the file name, real size and limit. Files are never compressed or converted: the old silent client compression above 20 MB in `ImageUploadButton` is removed. A 413, a dropped connection or an unreadable response each get their own message.
 
 ### Changed
