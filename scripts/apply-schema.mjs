@@ -13,7 +13,8 @@
  * or cron.
  *
  * Required env:
- *   SUPABASE_DB_URL (or DATABASE_URL) — Postgres connection string
+ *   SUPABASE_DB_URL (or DATABASE_URL) — Postgres connection string. In CI use
+ *   the Session Pooler URI (IPv4); see DEPLOYMENT.md → Applying the schema.
  *
  * Usage: npm run db:apply
  */
@@ -48,7 +49,9 @@ function applySchema() {
 
 function main() {
   if (!dbUrl) {
-    throw new Error('SUPABASE_DB_URL (or DATABASE_URL) is required')
+    throw new Error(
+      'SUPABASE_DB_URL (or DATABASE_URL) is not set. In GitHub Actions add the repository secret SUPABASE_DB_URL (Session Pooler URI, see DEPLOYMENT.md → Applying the schema).',
+    )
   }
 
   applySchema()

@@ -1,8 +1,9 @@
 name: Deploy Supabase
 
-# Applies supabase/reset.sql (schema + pg_cron scheduler) to the production
-# database and upserts the Vault secrets the scheduler reads. Runs after the
-# CI workflow succeeds on main, or manually via workflow_dispatch.
+# Applies supabase/reset.sql (schema only — no cron jobs, no Vault) to the
+# production database. Runs after the CI workflow succeeds on main, or manually
+# via workflow_dispatch. Needs the SUPABASE_DB_URL repository secret (Session
+# Pooler URI — GitHub runners are IPv4-only); setup in DEPLOYMENT.md.
 on:
   workflow_run:
     workflows: ['CI']
@@ -16,7 +17,7 @@ concurrency:
 
 jobs:
   apply:
-    name: Apply schema + scheduler
+    name: Apply schema
     runs-on: ubuntu-latest
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -42,10 +43,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
-      - name: Apply schema + Vault secrets
+      - name: Apply schema
         run: npm run db:apply
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          SUPABASE_SITE_URL: ${{ secrets.SUPABASE_SITE_URL }}
-          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}

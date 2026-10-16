@@ -11,6 +11,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 ## [Unreleased]
 
 ### Fixed
+- **Deploy Supabase workflow failed on every run:** it only needs the `SUPABASE_DB_URL` repository secret (Session Pooler URI, IPv4); the unused `CRON_SECRET`/`SUPABASE_SITE_URL`/`NEXT_PUBLIC_SITE_URL` env lines were removed, the missing-secret error now says where to set it, and `DEPLOYMENT.md` documents the setup. Schema auto-apply after green CI on `main` is now the documented production path.
 - **R2 orphan purge aborted on the first failed S3 delete and left stale stats:** one failing `DeleteObject` threw out of the batch (no retry, snapshot untouched). The response now separates `deleted`/`skipped`/`failed`, a failed object keeps its row so the next batch retries it, and the snapshot's `orphan_count`/`orphan_bytes`/`used_bytes`/`object_count` are updated to what was actually deleted (a failed stat write never fails the purge — the next scan reconciles). The Maintenance card reports the remaining/failed counts instead of a plain success toast when work is left.
 - **A failed artist list read looked like "no artists":** `ArtistsManager` now shows the load error with a Retry instead of an empty table.
 - **A sync run with failed jobs read as a clean success:** `/api/sync` writes `status: 'partial'` to `sync_runs` (and the worker `cron_ticks`) when jobs failed but the drain did not crash.

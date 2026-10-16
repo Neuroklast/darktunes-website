@@ -289,16 +289,43 @@ and DOI confirmation emails will never be delivered.
 
 ### Applying the schema
 
-`supabase/reset.sql` is applied **by hand** in the Supabase SQL editor. It is
-idempotent and additive (`ADD COLUMN IF NOT EXISTS`, guarded `DROP … IF EXISTS`);
-`npm run check:destructive-sql` guards new destructive statements.
+`supabase/reset.sql` is idempotent and additive (`ADD COLUMN IF NOT EXISTS`,
+guarded `DROP … IF EXISTS`); `npm run check:destructive-sql` guards new
+destructive statements. It contains **no** cron jobs, no cron wrapper functions
+and no Vault secrets, so re-applying it never touches the scheduled jobs.
 
-`reset.sql` contains **no** cron jobs, no cron wrapper functions and no Vault
-secrets. Re-applying it never touches the scheduled jobs.
+**Automatic (production path):** `.github/workflows/deploy-supabase.yml` runs
+`check:destructive-sql` and then `npm run db:apply` (`scripts/apply-schema.mjs`,
+`psql -f reset.sql`) after the **CI** workflow succeeds on `main`. Manual run:
+GitHub → Actions → *Deploy Supabase* → *Run workflow*.
 
-`npm run db:apply` (`scripts/apply-schema.mjs`) is an optional local helper that
-runs `reset.sql` via `psql` (`SUPABASE_DB_URL` required). The
-`deploy-supabase.yml` workflow is not the production path.
+One-time setup — repository secret `SUPABASE_DB_URL`
+(GitHub → Settings → Secrets and variables → Actions → New repository secret):
+
+1. Supabase → Project Settings → Database → *Connection string* → **Session
+   pooler** URI: `postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`.
+   GitHub runners are IPv4-only; the direct host `db.<ref>.supabase.co:5432` is
+   IPv6-only on newer projects and `psql` cannot connect. Do not use the
+   Transaction pooler (port 6543).
+2. URL-encode special characters in the password (`@`→`%40`, `#`→`%23`,
+   `:`→`%3A`, `/`→`%2F`, `?`→`%3F`, `%`→`%25`).
+3. Append `?sslmode=require`.
+
+Without the secret every run fails with
+`[apply-schema] failed: SUPABASE_DB_URL (or DATABASE_URL) is not set …`.
+`CRON_SECRET`, `SUPABASE_SITE_URL` and `NEXT_PUBLIC_SITE_URL` are **not** needed
+by this workflow.
+
+Verify after the first successful run (SQL editor):
+
+```sql
+select proname from pg_proc where proname in ('upsert_app_log','clear_log_table');
+select column_name from information_schema.columns
+where table_name = 'app_logs' and column_name in ('fingerprint','last_seen_at','route_path');
+```
+
+**Manual fallback:** paste `reset.sql` into the Supabase SQL editor, or run
+`SUPABASE_DB_URL=… npm run db:apply` locally.
 
 ### Sync Scheduler (Supabase Cron → Next.js worker)
 
