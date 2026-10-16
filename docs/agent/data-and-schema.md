@@ -94,7 +94,7 @@ Schema change checklist:
 
 `has_permission(perm TEXT)` — one argument only. ✅ `has_permission('can_manage_releases')` — ❌ `has_permission(auth.uid(), …)`.
 
-Apply: paste `reset.sql` into Supabase SQL Editor (idempotent on live DB).
+Apply: automatic via `deploy-supabase.yml` after green CI on `main` (needs repo secret `SUPABASE_DB_URL`, Session Pooler URI — see `DEPLOYMENT.md` → Applying the schema). Fallback: paste `reset.sql` into the Supabase SQL Editor (idempotent on live DB).
 
 ## Read replica
 
