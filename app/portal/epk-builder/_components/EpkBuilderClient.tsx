@@ -105,6 +105,8 @@ function EpkBuilderWorkspace({
       const saved = await saveNow({ expectedVersion: documentVersion })
       if (saved) {
         toast.success(t('epk_editor_save_success'))
+      } else {
+        toast.error(t('epk_editor_save_error'))
       }
     } finally {
       setIsSaving(false)

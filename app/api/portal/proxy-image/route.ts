@@ -70,8 +70,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     return new NextResponse(null, { status: upstream.status })
   }
 
-  const contentLength = Number(upstream.headers.get('content-length') ?? '0')
-  if (contentLength > MAX_IMAGE_BYTES || contentLength < 0) {
+  const contentLengthHeader = upstream.headers.get('content-length')
+  const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null
+
+  if (contentLength !== null && (contentLength > MAX_IMAGE_BYTES || contentLength < 0)) {
     throw new ApiError(413, 'Image too large')
   }
 
@@ -80,7 +82,44 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     throw new ApiError(415, 'Upstream response is not an image')
   }
 
-  return new NextResponse(upstream.body, {
+  const bodyStream = upstream.body
+  if (!bodyStream) {
+    return new NextResponse(null, { status: 502 })
+  }
+
+  if (contentLength !== null) {
+    return new NextResponse(bodyStream, {
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=3600',
+        'Access-Control-Allow-Origin': '*',
+      },
+    })
+  }
+
+  // No content-length: read with a byte cap so an unbounded stream cannot
+  // exhaust memory or bandwidth through this authenticated proxy.
+  const reader = bodyStream.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) {
+        total += value.byteLength
+        if (total > MAX_IMAGE_BYTES) {
+          throw new ApiError(413, 'Image too large')
+        }
+        chunks.push(value)
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  const body = Buffer.concat(chunks)
+
+  return new NextResponse(body, {
     headers: {
       'Content-Type': contentType,
       'Cache-Control': 'public, max-age=3600',

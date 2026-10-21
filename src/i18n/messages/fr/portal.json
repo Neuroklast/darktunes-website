@@ -1291,6 +1291,8 @@
   "epk_editor_saving": "Enregistrement…",
   "epk_editor_save_success": "EPK enregistré.",
   "epk_editor_save_error": "Échec de l’enregistrement de l’EPK.",
+  "epk_document_corrupt": "Ce document EPK est corrompu et ne peut pas être ouvert. Restaurez une version enregistrée.",
+  "epk_document_load_error": "Impossible de charger le document EPK.",
   "epk_editor_unsaved": "Modifications non enregistrées",
   "epk_editor_layers_title": "Calques",
   "epk_editor_layers_count": "{count, plural, one {# calque} other {# calques}}",

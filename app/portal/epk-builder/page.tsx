@@ -112,8 +112,8 @@ async function EpkBuilderContent({ searchParams }: { searchParams: Promise<{ art
   } catch (err) {
     const message =
       err instanceof Error && err.message === 'EPK_DOCUMENT_CORRUPT'
-        ? 'This EPK document is corrupted and cannot be opened. Restore a saved version.'
-        : 'Could not load the EPK document.'
+        ? t('epk_document_corrupt')
+        : t('epk_document_load_error')
     return (
       <div className="p-8 text-center">
         <p className="text-destructive">{message}</p>

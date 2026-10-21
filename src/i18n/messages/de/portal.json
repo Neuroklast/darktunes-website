@@ -1291,6 +1291,8 @@
   "epk_editor_saving": "Speichert…",
   "epk_editor_save_success": "EPK gespeichert.",
   "epk_editor_save_error": "EPK konnte nicht gespeichert werden.",
+  "epk_document_corrupt": "Dieses EPK-Dokument ist beschädigt und kann nicht geöffnet werden. Stelle eine gespeicherte Version wieder her.",
+  "epk_document_load_error": "Das EPK-Dokument konnte nicht geladen werden.",
   "epk_editor_unsaved": "Ungespeicherte Änderungen",
   "epk_editor_layers_title": "Ebenen",
   "epk_editor_layers_count": "{count, plural, one {# Ebene} other {# Ebenen}}",

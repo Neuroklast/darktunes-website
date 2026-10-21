@@ -1291,6 +1291,8 @@
   "epk_editor_saving": "Saving…",
   "epk_editor_save_success": "EPK saved.",
   "epk_editor_save_error": "Failed to save EPK.",
+  "epk_document_corrupt": "This EPK document is corrupted and cannot be opened. Restore a saved version.",
+  "epk_document_load_error": "Could not load the EPK document.",
   "epk_editor_unsaved": "Unsaved changes",
   "epk_editor_layers_title": "Layers",
   "epk_editor_layers_count": "{count, plural, one {# layer} other {# layers}}",
