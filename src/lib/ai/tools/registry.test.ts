@@ -106,4 +106,13 @@ describe('tool registry', () => {
     )
     expect(result).toMatchObject({ ok: false, error_code: 'AI_TOOL_FORBIDDEN' })
   })
+
+  it('does not expose artist tools for an artist outside the membership list', () => {
+    const names = toolNames({
+      artistId: 'artist-2',
+      artistMembershipIds: ['artist-1'],
+    })
+    expect(names).not.toContain('get_artist_profile')
+    expect(names).not.toContain('prepare_epk_text')
+  })
 })

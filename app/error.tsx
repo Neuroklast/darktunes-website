@@ -3,15 +3,16 @@
 /**
  * app/error.tsx — Next.js error boundary for route segments.
  *
- * Catches rendering errors in the page tree below the root layout.
- * Shows a user-friendly message with a retry button.
+ * Catches rendering errors in the page tree below the root layout and shows a
+ * safe, user-facing message with a retry button. Raw exception messages are
+ * never rendered in production; the React digest is shown as a support
+ * reference only.
  *
  * Special case — ChunkLoadError:
- *   After a new Vercel deployment the old JS chunk hashes no longer exist on
- *   the CDN.  Any browser tab that was open before the deploy will hit 404s
- *   when webpack tries to lazy-load those chunks.  The only reliable fix is a
- *   hard page reload so the browser fetches the current HTML and new chunk
- *   manifest.  We detect this silently and reload without showing an error UI.
+ *   After a new deployment the old JS chunk hashes no longer exist on the CDN.
+ *   Any browser tab opened before the deploy hits 404s when webpack lazy-loads
+ *   those chunks. The only reliable fix is a hard reload, so we do that
+ *   silently instead of showing an error UI.
  */
 
 import { useEffect } from 'react'
@@ -29,9 +30,12 @@ interface ErrorPageProps {
 }
 
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
-  const tAi = useTranslations('ai')
+  const tErrors = useTranslations('errors')
   const router = useRouter()
   const pathname = usePathname()
+  const reference = error.digest ?? null
+  const canAnalyze = pathname.startsWith('/admin') || pathname.startsWith('/portal')
+
   useEffect(() => {
     const storage = typeof window !== 'undefined' ? window.sessionStorage : null
     if (shouldReloadForChunkError(error, storage)) {
@@ -58,35 +62,39 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
       <Card className="max-w-md w-full border-destructive/40">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-3">
-            <Warning size={48} weight="fill" className="text-destructive" />
+            <Warning size={48} weight="fill" className="text-destructive" aria-hidden />
           </div>
-          <CardTitle className="text-xl">Something went wrong</CardTitle>
+          <CardTitle className="text-xl">{tErrors('ERROR_BOUNDARY_TITLE')}</CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-4">
           <p className="text-muted-foreground text-sm">
             {process.env.NODE_ENV === 'development'
               ? error.message
-              : 'An unexpected error occurred. Please try again or contact support if the problem persists.'}
+              : tErrors('ERROR_BOUNDARY_BODY')}
           </p>
+          {reference && process.env.NODE_ENV !== 'development' ? (
+            <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              {tErrors('ERROR_BOUNDARY_REFERENCE', { reference })}
+            </p>
+          ) : null}
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
             <Button onClick={reset} variant="default">
-              Try again
+              {tErrors('ERROR_BOUNDARY_RETRY')}
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                const ref = error.digest ?? error.message.slice(0, 80)
-                if (pathname.startsWith('/admin')) {
-                  router.push(`/admin/ai?error_ref=${encodeURIComponent(ref)}`)
-                  return
-                }
-                if (pathname.startsWith('/portal')) {
-                  router.push(`/portal?ai_error=${encodeURIComponent(ref)}`)
-                }
-              }}
-            >
-              {tAi('analyzeError')}
-            </Button>
+            {canAnalyze && reference ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (pathname.startsWith('/admin')) {
+                    router.push(`/admin/ai?error_ref=${encodeURIComponent(reference)}`)
+                    return
+                  }
+                  router.push(`/portal?ai_error=${encodeURIComponent(reference)}`)
+                }}
+              >
+                {tErrors('ERROR_BOUNDARY_ANALYZE')}
+              </Button>
+            ) : null}
           </div>
         </CardContent>
       </Card>

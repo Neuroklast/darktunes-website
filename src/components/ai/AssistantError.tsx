@@ -4,31 +4,37 @@ import Link from 'next/link'
 import { ArrowClockwise, Warning } from '@phosphor-icons/react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { ERROR_CODES, type ErrorCode } from '@/lib/errorCodes'
+import { ERROR_CODES } from '@/lib/errorCodes'
+import {
+  assistantErrorKey,
+  type AssistantAudience,
+} from '@/lib/ai/presentation/errors'
 import type { UiError } from '@/components/ai/types'
 
 export function AssistantError({
   error,
+  audience,
   onRetry,
   onRetryFast,
   onSelectArtist,
   canSelectArtist,
   showTechnical,
-  isAdmin,
 }: {
   error: UiError
+  audience: AssistantAudience
   onRetry?: () => void
   onRetryFast?: () => void
   onSelectArtist?: () => void
   canSelectArtist?: boolean
   showTechnical?: boolean
-  isAdmin?: boolean
 }) {
   const t = useTranslations('ai')
-  const tErrors = useTranslations('errors')
-  const message = (ERROR_CODES as readonly string[]).includes(error.code)
-    ? tErrors(error.code as ErrorCode)
-    : tErrors('SERVER_ERROR')
+  const tErrorsRaw = useTranslations('errors')
+  const tErrors = tErrorsRaw as unknown as (key: string) => string
+  const messageKey = (ERROR_CODES as readonly string[]).includes(error.code)
+    ? assistantErrorKey(error.code, audience)
+    : 'SERVER_ERROR'
+  const message = tErrors(messageKey)
   const canRetry = error.retryable && Boolean(onRetry)
   const canRetryFast = error.suggestedModelRole === 'fast' && Boolean(onRetryFast)
   const showArtistAction =
@@ -37,8 +43,7 @@ export function AssistantError({
     (error.code === 'AI_ARTIST_INVALID' ||
       error.code === 'AI_ARTIST_FORBIDDEN' ||
       error.code === 'FORBIDDEN_NO_ARTIST')
-  const showAdminAction =
-    isAdmin && (error.code === 'AI_DISABLED' || error.code === 'AI_NOT_CONFIGURED')
+  const showAdminAction = audience === 'admin' && error.code === 'AI_DISABLED'
 
   return (
     <div
