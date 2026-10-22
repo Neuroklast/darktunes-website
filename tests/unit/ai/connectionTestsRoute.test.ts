@@ -33,6 +33,44 @@ async function importRoute() {
   return import('../../../app/api/admin/ai/connection-tests/route')
 }
 
+function result(ok: boolean, status: 'passed' | 'failed' | 'timed_out' = ok ? 'passed' : 'failed') {
+  return {
+    ok,
+    integration_ok: ok,
+    scope: 'all',
+    started_at: '2026-10-20T00:00:00.000Z',
+    finished_at: '2026-10-20T00:00:01.000Z',
+    total_latency_ms: 1000,
+    steps: [
+      {
+        id: 'auth',
+        step: 'auth',
+        model: null,
+        ok,
+        status,
+        latency_ms: 1,
+        http_status: null,
+        error_code: ok ? null : 'INVALID_KEY',
+        detail: ok ? 'key accepted' : 'bad key',
+        technical: null,
+      },
+    ],
+    models: {
+      'nvidia/nemotron-3.5-lightning-30b-a3b': {
+        model: 'nvidia/nemotron-3.5-lightning-30b-a3b',
+        role: 'fast',
+        ok,
+        tested_at: '2026-10-20T00:00:01.000Z',
+        steps: [],
+      },
+    },
+    discovered_capabilities: {
+      'nvidia/nemotron-3.5-lightning-30b-a3b': { supports_streaming: true, supports_tools: true },
+    },
+    usage: { fast: null, reasoning: null },
+  }
+}
+
 describe('POST /api/admin/ai/connection-tests', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -45,11 +83,14 @@ describe('POST /api/admin/ai/connection-tests', () => {
     getAiSettings.mockResolvedValue({
       modelFast: 'nvidia/nemotron-3.5-lightning-30b-a3b',
       modelReasoning: 'nvidia/nemotron-3-super-120b-a12b',
+      providerCapabilities: {},
+      lastSuccessfulConnectionTest: null,
+      lastFailedConnectionTest: null,
     })
     updateAiSettings.mockResolvedValue({})
   })
 
-  it('should reject unauthenticated callers', async () => {
+  it('rejects unauthenticated callers', async () => {
     const { ApiError } = await import('@/lib/errors')
     requireAdminWithServiceClient.mockRejectedValue(new ApiError(401, 'Unauthorized'))
     const { POST } = await importRoute()
@@ -58,7 +99,7 @@ describe('POST /api/admin/ai/connection-tests', () => {
     expect(runNvidiaConnectionTest).not.toHaveBeenCalled()
   })
 
-  it('should return AI_NOT_CONFIGURED when no key is stored or in env', async () => {
+  it('returns AI_NOT_CONFIGURED when no key is stored or in env', async () => {
     resolveNvidiaApiKey.mockResolvedValue(null)
     const { POST } = await importRoute()
     const res = await POST(
@@ -69,96 +110,75 @@ describe('POST /api/admin/ai/connection-tests', () => {
     expect(runNvidiaConnectionTest).not.toHaveBeenCalled()
   })
 
-  it('should return the probe result without retrying', async () => {
+  it('returns the full probe result even when a step failed', async () => {
     resolveNvidiaApiKey.mockResolvedValue('nvapi-test')
-    runNvidiaConnectionTest.mockResolvedValue({
-      ok: true,
-      started_at: '2026-10-20T00:00:00.000Z',
-      finished_at: '2026-10-20T00:00:01.000Z',
-      total_latency_ms: 1000,
-      steps: [{ step: 'auth', ok: true, latency_ms: 1, error_code: null, detail: null }],
-      discovered_capabilities: {},
-      usage: { fast: { input_tokens: 1, output_tokens: 1, reasoning_tokens: 0, total_tokens: 2 }, reasoning: null },
-    })
+    runNvidiaConnectionTest.mockResolvedValue(result(false, 'timed_out'))
     const { POST } = await importRoute()
     const res = await POST(
       jsonRequest('/api/admin/ai/connection-tests', { method: 'POST', body: {}, bearer: 'token' }),
     )
-    const body = await expectStatus<{ ok: boolean }>(res, 200)
-    expect(body.ok).toBe(true)
-    expect(runNvidiaConnectionTest).toHaveBeenCalledOnce()
+    const body = await expectStatus<{ ok: boolean; integration_ok: boolean; steps: unknown[] }>(res, 200)
+    expect(body.ok).toBe(false)
+    expect(body.integration_ok).toBe(false)
+    expect(body.steps).toHaveLength(1)
     expect(runNvidiaConnectionTest).toHaveBeenCalledWith({
       apiKey: 'nvapi-test',
       fastModel: 'nvidia/nemotron-3.5-lightning-30b-a3b',
       reasoningModel: 'nvidia/nemotron-3-super-120b-a12b',
+      scope: 'all',
     })
+    expect(updateAiSettings).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        last_failed_connection_test: expect.objectContaining({ ok: false }),
+        provider_capabilities: expect.objectContaining({ version: 2 }),
+      }),
+    )
   })
 
-  function failedResult(errorCode: string) {
-    return {
-      ok: false,
-      started_at: '2026-10-20T00:00:00.000Z',
-      finished_at: '2026-10-20T00:00:05.000Z',
-      total_latency_ms: 5000,
-      steps: [
-        { step: 'auth', ok: true, latency_ms: 1, error_code: null, detail: null },
-        { step: 'fast_complete', ok: false, latency_ms: 4999, error_code: errorCode, detail: 'boom' },
-      ],
-      discovered_capabilities: {},
-      usage: { fast: null, reasoning: null },
-    }
-  }
-
-  const errorCases: Array<[string, number, string]> = [
-    ['TIMEOUT', 504, 'AI_PROVIDER_TIMEOUT'],
-    ['NETWORK_ERROR', 503, 'AI_PROVIDER_NETWORK_ERROR'],
-    ['TLS_ERROR', 503, 'AI_PROVIDER_TLS_ERROR'],
-    ['RATE_LIMITED', 429, 'AI_PROVIDER_RATE_LIMITED'],
-    ['MODEL_UNAVAILABLE', 502, 'AI_PROVIDER_MODEL_UNAVAILABLE'],
-    ['PROVIDER_UNAVAILABLE', 503, 'AI_PROVIDER_UNAVAILABLE'],
-  ]
-
-  it.each(errorCases)('should map provider error %s to HTTP %s and code %s', async (code, status, apiCode) => {
+  it('passes the requested scope through', async () => {
     resolveNvidiaApiKey.mockResolvedValue('nvapi-test')
-    runNvidiaConnectionTest.mockResolvedValue(failedResult(code))
+    runNvidiaConnectionTest.mockResolvedValue(result(true))
+    const { POST } = await importRoute()
+    await POST(
+      jsonRequest('/api/admin/ai/connection-tests', {
+        method: 'POST',
+        body: { scope: 'fast' },
+        bearer: 'token',
+      }),
+    )
+    expect(runNvidiaConnectionTest).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'fast' }),
+    )
+  })
+
+  it('stores the successful test separately', async () => {
+    resolveNvidiaApiKey.mockResolvedValue('nvapi-test')
+    runNvidiaConnectionTest.mockResolvedValue(result(true))
+    const { POST } = await importRoute()
+    await POST(
+      jsonRequest('/api/admin/ai/connection-tests', { method: 'POST', body: {}, bearer: 'token' }),
+    )
+    expect(updateAiSettings).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        last_successful_connection_test: expect.objectContaining({ ok: true }),
+        provider_capabilities: expect.objectContaining({
+          health: expect.objectContaining({
+            'nvidia/nemotron-3.5-lightning-30b-a3b': expect.objectContaining({ ok: true }),
+          }),
+        }),
+      }),
+    )
+  })
+
+  it('rate-limits repeated probes', async () => {
+    checkDistributedRateLimit.mockResolvedValue({ limited: true, backend: 'memory' })
     const { POST } = await importRoute()
     const res = await POST(
       jsonRequest('/api/admin/ai/connection-tests', { method: 'POST', body: {}, bearer: 'token' }),
     )
-    const body = await expectStatus<{ code: string }>(res, status)
-    expect(body.code).toBe(apiCode)
-  })
-
-  it('should keep INVALID_KEY → 401', async () => {
-    resolveNvidiaApiKey.mockResolvedValue('nvapi-test')
-    runNvidiaConnectionTest.mockResolvedValue(failedResult('INVALID_KEY'))
-    const { POST } = await importRoute()
-    const res = await POST(
-      jsonRequest('/api/admin/ai/connection-tests', { method: 'POST', body: {}, bearer: 'token' }),
-    )
-    const body = await expectStatus<{ code: string }>(res, 401)
-    expect(body.code).toBe('AI_PROVIDER_INVALID_KEY')
-  })
-
-  it('should keep TOOL_CALL_UNSUPPORTED → 400', async () => {
-    resolveNvidiaApiKey.mockResolvedValue('nvapi-test')
-    runNvidiaConnectionTest.mockResolvedValue(failedResult('TOOL_CALL_UNSUPPORTED'))
-    const { POST } = await importRoute()
-    const res = await POST(
-      jsonRequest('/api/admin/ai/connection-tests', { method: 'POST', body: {}, bearer: 'token' }),
-    )
-    const body = await expectStatus<{ code: string }>(res, 400)
-    expect(body.code).toBe('AI_PROVIDER_TOOL_CALL_UNSUPPORTED')
-  })
-
-  it('should keep INVALID_RESPONSE → 502', async () => {
-    resolveNvidiaApiKey.mockResolvedValue('nvapi-test')
-    runNvidiaConnectionTest.mockResolvedValue(failedResult('INVALID_RESPONSE'))
-    const { POST } = await importRoute()
-    const res = await POST(
-      jsonRequest('/api/admin/ai/connection-tests', { method: 'POST', body: {}, bearer: 'token' }),
-    )
-    const body = await expectStatus<{ code: string }>(res, 502)
-    expect(body.code).toBe('AI_PROVIDER_INVALID_RESPONSE')
+    const body = await expectStatus<{ code: string }>(res, 429)
+    expect(body.code).toBe('RATE_LIMITED')
   })
 })

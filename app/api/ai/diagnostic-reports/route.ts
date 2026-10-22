@@ -15,7 +15,7 @@ const bodySchema = z.object({
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
   const actor = await requireAiActor(req)
-  if (actor.accessContext === 'artist') {
+  if (actor.role === 'artist') {
     throw new ApiError(403, 'Developer reports are limited to label staff.', 'FORBIDDEN')
   }
   let raw: unknown

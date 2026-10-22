@@ -99,6 +99,8 @@ describe('NvidiaOpenAiCompatibleProvider', () => {
       )
       const provider = new NvidiaOpenAiCompatibleProvider({ apiKey: 'nvapi-test', fetchImpl })
       const iterator = provider.stream({ ...baseRequest, timeout_ms: 25 })[Symbol.asyncIterator]()
+      const opened = await iterator.next()
+      expect(opened.value).toMatchObject({ type: 'open' })
       const pending = iterator.next()
       // Register a rejection handler before advancing fake timers.
       const check = expect(pending).rejects.toMatchObject({ code: 'TIMEOUT' })
@@ -352,7 +354,7 @@ describe('NvidiaOpenAiCompatibleProvider', () => {
       for await (const _event of provider.stream(baseRequest)) {
         // consume
       }
-    }).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+    }).rejects.toMatchObject({ code: 'EMPTY_RESPONSE' })
   })
 
   it('should backfill non-streaming content from reasoning when thinking is disabled', async () => {
@@ -371,11 +373,16 @@ describe('NvidiaOpenAiCompatibleProvider', () => {
   it('should abort an in-flight request', async () => {
     const fetchImpl = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => {
       return new Promise<Response>((_resolve, reject) => {
-        init?.signal?.addEventListener('abort', () => {
+        const abort = () => {
           const error = new Error('aborted')
           error.name = 'AbortError'
           reject(error)
-        })
+        }
+        if (init?.signal?.aborted) {
+          abort()
+          return
+        }
+        init?.signal?.addEventListener('abort', abort)
       })
     })
     const provider = new NvidiaOpenAiCompatibleProvider({ apiKey: 'nvapi-test', fetchImpl: fetchImpl as typeof fetch })
@@ -409,11 +416,16 @@ describe('NvidiaOpenAiCompatibleProvider', () => {
   it('should not retry when the outer signal is aborted', async () => {
     const fetchImpl = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => {
       return new Promise<Response>((_resolve, reject) => {
-        init?.signal?.addEventListener('abort', () => {
+        const abort = () => {
           const error = new Error('aborted')
           error.name = 'AbortError'
           reject(error)
-        })
+        }
+        if (init?.signal?.aborted) {
+          abort()
+          return
+        }
+        init?.signal?.addEventListener('abort', abort)
       })
     })
     const provider = new NvidiaOpenAiCompatibleProvider({ apiKey: 'nvapi-test', fetchImpl: fetchImpl as typeof fetch })

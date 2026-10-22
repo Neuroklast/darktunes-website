@@ -31,7 +31,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   let query = actor.serviceDb.from('app_logs').select('*').limit(1)
   if (parsed.data.fingerprint) query = query.eq('fingerprint', parsed.data.fingerprint)
   if (parsed.data.error_id) query = query.ilike('message', `%${parsed.data.error_id}%`)
-  if (actor.accessContext === 'artist') query = query.eq('user_id', actor.userId)
+  if (actor.role === 'artist') query = query.eq('user_id', actor.userId)
 
   const { data, error } = await query.maybeSingle()
   if (error) throw new ApiError(500, 'The error log could not be read.', 'DB_ERROR')

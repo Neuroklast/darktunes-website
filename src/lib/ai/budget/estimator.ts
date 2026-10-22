@@ -23,7 +23,14 @@ export function estimateMessages(messages: AiChatMessage[]): EstimateBreakdown {
   let history = 0
   let user = 0
   for (const message of messages) {
-    const tokens = estimateTokens(message.content) + MESSAGE_OVERHEAD_TOKENS
+    const tools = message.tool_calls?.length
+      ? estimateTokens(JSON.stringify(message.tool_calls))
+      : 0
+    const tokens =
+      estimateTokens(message.content) +
+      MESSAGE_OVERHEAD_TOKENS +
+      tools +
+      (message.tool_call_id ? 4 : 0)
     if (message.role === 'system') system += tokens
     else if (message.role === 'user') user += tokens
     else history += tokens

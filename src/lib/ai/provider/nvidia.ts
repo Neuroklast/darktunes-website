@@ -6,10 +6,10 @@ import {
   providerErrorFromNetwork,
 } from '@/lib/ai/provider/errors'
 import type { AiProvider } from '@/lib/ai/provider/interface'
-import { mergeToolCallDeltas, parseSseBlock, parseUsage } from '@/lib/ai/provider/sse'
+import { SseDecoder, mergeToolCallDeltas, parseUsage } from '@/lib/ai/provider/sse'
 import {
   EMPTY_AI_USAGE,
-  NVIDIA_CHAT_COMPLETIONS_URL,
+  NVIDIA_API_BASE_URL,
   type AiCompletion,
   type AiCompletionRequest,
   type AiStreamEvent,
@@ -30,10 +30,12 @@ const DEFAULT_TIMEOUT_MS = 45_000
 // A server-requested delay longer than this would hold the serverless request
 // open, so fail promptly and let the caller retry instead.
 const MAX_RETRY_DELAY_MS = 4_000
+const AUTH_TIMEOUT_MS = 10_000
 
 export class NvidiaOpenAiCompatibleProvider implements AiProvider {
   readonly id = 'nvidia' as const
   private readonly apiKey: string
+  private readonly baseUrl: string
   private readonly completionsUrl: string
   private readonly fetchImpl: typeof fetch
   private readonly discovered: Record<string, Partial<ModelCapabilities>>
@@ -43,8 +45,8 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
 
   constructor(options: NvidiaProviderOptions) {
     this.apiKey = options.apiKey
-    const base = (options.baseUrl ?? 'https://integrate.api.nvidia.com/v1').replace(/\/$/, '')
-    this.completionsUrl = `${base}/chat/completions`
+    this.baseUrl = (options.baseUrl ?? NVIDIA_API_BASE_URL).replace(/\/$/, '')
+    this.completionsUrl = `${this.baseUrl}/chat/completions`
     this.fetchImpl = options.fetchImpl ?? fetch
     this.discovered = options.discoveredCapabilities ?? {}
   }
@@ -61,11 +63,32 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
     return {
       configured: this.apiKey.trim().length > 0,
       provider: 'nvidia',
-      base_url: this.completionsUrl.replace(/\/chat\/completions$/, ''),
+      base_url: this.baseUrl,
       models: {
         fast: getModelProfile('nvidia/nemotron-3.5-lightning-30b-a3b').model_id,
         reasoning: getModelProfile('nvidia/nemotron-3-super-120b-a12b').model_id,
       },
+    }
+  }
+
+  /** Real remote key check via the models endpoint (auth step). */
+  async checkAuth(timeoutMs = AUTH_TIMEOUT_MS): Promise<void> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const response = await this.fetchImpl(`${this.baseUrl}/models`, {
+        headers: { Authorization: `Bearer ${this.apiKey}`, Accept: 'application/json' },
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        const body = await response.text().catch(() => '')
+        throw providerErrorFromHttpStatus(response.status, body, response.headers.get('retry-after'))
+      }
+    } catch (error) {
+      if (error instanceof AiProviderError) throw error
+      throw providerErrorFromNetwork(error)
+    } finally {
+      clearTimeout(timer)
     }
   }
 
@@ -82,7 +105,7 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
 
   async complete(request: AiCompletionRequest, signal?: AbortSignal): Promise<AiCompletion> {
     const started = Date.now()
-    const { response, cleanup } = await this.sendWithRetry(request, false, signal)
+    const { response, cleanup, attempts } = await this.sendWithRetry(request, false, signal)
     try {
       const text = await response.text()
       let parsed: unknown
@@ -93,17 +116,26 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
           httpStatus: response.status,
         })
       }
-      return this.completionFromResponse(request, parsed, Date.now() - started)
+      const completion = this.completionFromResponse(
+        request,
+        parsed,
+        Date.now() - started,
+        attempts - 1,
+      )
+      this.assertCompletion(completion)
+      return completion
     } finally {
       cleanup()
+      this.abortedRequests.delete(request.request_id)
     }
   }
 
   async *stream(request: AiCompletionRequest, signal?: AbortSignal): AsyncIterable<AiStreamEvent> {
     const started = Date.now()
-    const { response, cleanup } = await this.sendWithRetry(request, true, signal)
+    const { response, cleanup, attempts } = await this.sendWithRetry(request, true, signal)
     const thinkingDisabled = request.enable_thinking === false
     const contentType = (response.headers.get('content-type') ?? '').toLowerCase()
+    yield { type: 'open', retry_count: attempts - 1 }
 
     try {
       // Some NVIDIA deployments ignore stream:true and answer with a regular
@@ -118,8 +150,13 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
             httpStatus: response.status,
           })
         }
-        const completion = this.completionFromResponse(request, parsed, Date.now() - started)
-        this.assertStreamCompletion(completion)
+        const completion = this.completionFromResponse(
+          request,
+          parsed,
+          Date.now() - started,
+          attempts - 1,
+        )
+        this.assertCompletion(completion)
         if (completion.content) yield { type: 'delta', text: completion.content }
         if (completion.reasoning_content) {
           yield { type: 'reasoning_delta', text: completion.reasoning_content }
@@ -137,29 +174,22 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
       }
 
       const reader = body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
+      const decoder = new SseDecoder()
       let content = ''
       let reasoning = ''
       let toolCalls: AiToolCall[] = []
       let finishReason: AiCompletion['finish_reason'] = 'unknown'
       let usage = EMPTY_AI_USAGE
+      let sawDone = false
 
       try {
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
-          buffer += decoder.decode(value, { stream: true })
-          const frames = buffer.split(/\r?\n\r?\n/)
-          buffer = frames.pop() ?? ''
-          for (const frame of frames) {
-            const chunk = parseSseBlock(frame)
-            if (!chunk) continue
+          for (const chunk of decoder.push(value)) {
             if (chunk.done) {
-              const completion = this.buildCompletion(request, content, reasoning, toolCalls, finishReason, usage, Date.now() - started)
-              this.assertStreamCompletion(completion)
-              yield { type: 'done', completion }
-              return
+              sawDone = true
+              break
             }
             if (chunk.contentDelta) {
               content += chunk.contentDelta
@@ -193,11 +223,42 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
               finishReason = normalizeFinishReason(chunk.finishReason)
             }
           }
+          if (sawDone) break
+        }
+        if (!sawDone) {
+          for (const chunk of decoder.flush()) {
+            if (chunk.done) {
+              sawDone = true
+              break
+            }
+            if (chunk.contentDelta) {
+              content += chunk.contentDelta
+              yield { type: 'delta', text: chunk.contentDelta }
+            }
+            if (chunk.reasoningDelta) {
+              if (thinkingDisabled) {
+                if (!chunk.contentDelta) {
+                  content += chunk.reasoningDelta
+                  yield { type: 'delta', text: chunk.reasoningDelta }
+                }
+              } else {
+                reasoning += chunk.reasoningDelta
+                yield { type: 'reasoning_delta', text: chunk.reasoningDelta }
+              }
+            }
+            if (chunk.toolCallDeltas.length > 0) {
+              toolCalls = mergeToolCallDeltas(toolCalls, chunk.toolCallDeltas)
+            }
+            if (chunk.usage) usage = chunk.usage
+            if (chunk.finishReason) finishReason = normalizeFinishReason(chunk.finishReason)
+          }
         }
       } catch (error) {
         if (error instanceof AiProviderError) throw error
         throw providerErrorFromNetwork(error)
       } finally {
+        // Cancel instead of only releasing when the consumer aborted early.
+        await reader.cancel().catch(() => undefined)
         reader.releaseLock()
       }
 
@@ -209,25 +270,53 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
         finishReason,
         usage,
         Date.now() - started,
+        attempts - 1,
       )
-      this.assertStreamCompletion(completion)
+      if (!sawDone && !completion.content.trim() && completion.tool_calls.length === 0) {
+        throw new AiProviderError(
+          'STREAM_INCOMPLETE',
+          `NVIDIA ended the stream without a valid completion (finish reason: ${completion.finish_reason}).`,
+        )
+      }
+      this.assertCompletion(completion)
       yield { type: 'done', completion }
     } finally {
       cleanup()
+      this.abortedRequests.delete(request.request_id)
     }
   }
 
-  private assertStreamCompletion(completion: AiCompletion): void {
-    if (completion.content.trim().length > 0 || completion.tool_calls.length > 0) return
+  /**
+   * Classify one completion before the orchestrator can persist it. A stream
+   * without answer text, a reasoning-only answer, and a length-truncated answer
+   * are distinct failures, never a successful empty chat turn.
+   */
+  private assertCompletion(completion: AiCompletion): void {
+    const hasText = completion.content.trim().length > 0
+    if (hasText || completion.tool_calls.length > 0) {
+      if (completion.finish_reason === 'length' && !hasText && completion.tool_calls.length === 0) {
+        throw new AiProviderError(
+          'OUTPUT_TRUNCATED',
+          `The model hit the output limit before producing answer text (finish reason: ${completion.finish_reason}).`,
+        )
+      }
+      return
+    }
     if (completion.reasoning_content) {
       throw new AiProviderError(
-        'INVALID_RESPONSE',
-        `The model streamed reasoning but no answer text (finish reason: ${completion.finish_reason}). Retry or raise the output token limit.`,
+        'REASONING_ONLY',
+        `The model streamed reasoning but no answer text (finish reason: ${completion.finish_reason}). Retry with the fast model or raise the reasoning output limit.`,
+      )
+    }
+    if (completion.finish_reason === 'length') {
+      throw new AiProviderError(
+        'OUTPUT_TRUNCATED',
+        'The model hit the output limit before producing answer text.',
       )
     }
     throw new AiProviderError(
-      'INVALID_RESPONSE',
-      `The model streamed no answer text (finish reason: ${completion.finish_reason}).`,
+      'EMPTY_RESPONSE',
+      `The model returned no answer text (finish reason: ${completion.finish_reason}).`,
     )
   }
 
@@ -255,7 +344,7 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
     }
 
     try {
-      if (outerSignal?.aborted) {
+      if (outerSignal?.aborted || this.abortedRequests.has(request.request_id)) {
         controller.abort()
         throw new AiProviderError('TIMEOUT', 'The NVIDIA request was aborted before a response arrived.')
       }
@@ -289,7 +378,7 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
     request: AiCompletionRequest,
     stream: boolean,
     outerSignal?: AbortSignal,
-  ): Promise<{ response: Response; cleanup: () => void }> {
+  ): Promise<{ response: Response; cleanup: () => void; attempts: number }> {
     const maxAttempts = request.retry === false ? 1 : 3
     let lastError: AiProviderError | null = null
 
@@ -299,7 +388,8 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
           throw lastError ?? new AiProviderError('TIMEOUT', 'The NVIDIA request was aborted before a response arrived.')
         }
         try {
-          return await this.send(request, stream, outerSignal)
+          const result = await this.send(request, stream, outerSignal)
+          return { ...result, attempts: attempt + 1 }
         } catch (error) {
           if (!(error instanceof AiProviderError)) throw error
           lastError = error
@@ -358,6 +448,7 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
     request: AiCompletionRequest,
     parsed: unknown,
     latencyMs: number,
+    retryCount: number,
   ): AiCompletion {
     if (!parsed || typeof parsed !== 'object') {
       throw new AiProviderError('INVALID_RESPONSE', 'NVIDIA returned an empty completion object.')
@@ -406,6 +497,7 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
       normalizeFinishReason(typeof choice.finish_reason === 'string' ? choice.finish_reason : null),
       parseUsage(record.usage) ?? EMPTY_AI_USAGE,
       latencyMs,
+      retryCount,
     )
   }
 
@@ -417,6 +509,7 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
     finishReason: AiCompletion['finish_reason'],
     usage: AiCompletion['usage'],
     latencyMs: number,
+    retryCount: number,
   ): AiCompletion {
     return {
       request_id: request.request_id,
@@ -427,6 +520,7 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
       finish_reason: toolCalls.some((call) => call.name) ? 'tool_calls' : finishReason,
       usage,
       latency_ms: latencyMs,
+      retry_count: retryCount,
     }
   }
 }
@@ -471,6 +565,9 @@ export function buildNvidiaPayload(
     max_tokens: request.max_tokens,
     stream,
   }
+  if (stream && capabilities.supports_stream_options) {
+    payload.stream_options = { include_usage: true }
+  }
   if (request.tools && request.tools.length > 0) {
     if (request.tool_choice) payload.tool_choice = request.tool_choice
     payload.tools = request.tools.map((tool) => ({
@@ -487,11 +584,26 @@ export function buildNvidiaPayload(
   if (capabilities.supports_enable_thinking && request.enable_thinking !== undefined) {
     template.enable_thinking = request.enable_thinking
   }
-  if (capabilities.supports_low_effort && request.low_effort) {
+  if (
+    capabilities.supports_low_effort &&
+    request.low_effort &&
+    template.enable_thinking === true
+  ) {
     template.low_effort = true
+  }
+  if (
+    capabilities.supports_force_nonempty_content &&
+    request.force_nonempty_content &&
+    template.enable_thinking === false
+  ) {
+    template.force_nonempty_content = true
   }
   if (Object.keys(template).length > 0) {
     payload.chat_template_kwargs = template
+  }
+
+  if (capabilities.supports_reasoning_effort && request.reasoning_effort) {
+    payload.reasoning_effort = request.reasoning_effort
   }
 
   if (capabilities.supports_reasoning_budget && typeof request.reasoning_budget === 'number') {
@@ -518,5 +630,5 @@ function normalizeFinishReason(reason: string | null): AiCompletion['finish_reas
 }
 
 export function nvidiaCompletionsUrl(): string {
-  return NVIDIA_CHAT_COMPLETIONS_URL
+  return `${NVIDIA_API_BASE_URL}/chat/completions`
 }

@@ -1,53 +1,40 @@
 /**
  * POST /api/admin/ai/connection-tests
- * Admin-only NVIDIA probe. Never retries on failure.
+ * Independent fast/reasoning probes plus a full integration verdict.
  */
 
-import type { ErrorCode } from '@/lib/errorCodes'
 import { NextRequest, NextResponse } from 'next/server'
-import { buildApiError, withErrorHandler } from '@/lib/errors'
+import { z } from 'zod'
+import { ApiError, buildApiError, withErrorHandler } from '@/lib/errors'
 import { requireAdminWithServiceClient } from '@/lib/adminAuth'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
 import { resolveNvidiaApiKey } from '@/lib/ai/provider/resolveKey'
 import { runNvidiaConnectionTest } from '@/lib/ai/provider/connectionTest'
-import type { ConnectionTestStepId } from '@/lib/ai/provider/connectionTest'
 import { getAiSettings, updateAiSettings } from '@/lib/api/aiSettings'
+import { parseStoredCapabilities } from '@/lib/ai/models/capabilities'
 
 export const maxDuration = 120
 
-function stepErrorToApi(
-  code: string | null,
-): { apiCode: ErrorCode; status: number } {
-  switch (code) {
-    case 'INVALID_KEY':
-      return { apiCode: 'AI_PROVIDER_INVALID_KEY', status: 401 }
-    case 'MODEL_UNAVAILABLE':
-      return { apiCode: 'AI_PROVIDER_MODEL_UNAVAILABLE', status: 502 }
-    case 'RATE_LIMITED':
-      return { apiCode: 'AI_PROVIDER_RATE_LIMITED', status: 429 }
-    case 'TIMEOUT':
-      return { apiCode: 'AI_PROVIDER_TIMEOUT', status: 504 }
-    case 'NETWORK_ERROR':
-      return { apiCode: 'AI_PROVIDER_NETWORK_ERROR', status: 503 }
-    case 'TLS_ERROR':
-      return { apiCode: 'AI_PROVIDER_TLS_ERROR', status: 503 }
-    case 'INVALID_RESPONSE':
-      return { apiCode: 'AI_PROVIDER_INVALID_RESPONSE', status: 502 }
-    case 'TOOL_CALL_UNSUPPORTED':
-      return { apiCode: 'AI_PROVIDER_TOOL_CALL_UNSUPPORTED', status: 400 }
-    case 'PROVIDER_UNAVAILABLE':
-    default:
-      return { apiCode: 'AI_PROVIDER_UNAVAILABLE', status: 503 }
-  }
-}
+const bodySchema = z.object({
+  scope: z.enum(['fast', 'reasoning', 'all']).optional(),
+})
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
   const { userId, serviceClient } = await requireAdminWithServiceClient(req)
 
-  const limited = await checkDistributedRateLimit(`ai-connection-test:${userId}`, 4, 10 * 60 * 1000)
+  const limited = await checkDistributedRateLimit(`ai-connection-test:${userId}`, 6, 10 * 60 * 1000)
   if (limited.limited) {
     throw buildApiError('RATE_LIMITED', 429)
   }
+
+  let raw: unknown = {}
+  try {
+    raw = await req.json()
+  } catch {
+    // Empty body means the full test.
+  }
+  const parsed = bodySchema.safeParse(raw)
+  if (!parsed.success) throw new ApiError(400, 'Invalid connection test payload', 'VALIDATION_ERROR')
 
   const apiKey = await resolveNvidiaApiKey(serviceClient)
   if (!apiKey) {
@@ -59,32 +46,39 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
     apiKey,
     fastModel: settings.modelFast,
     reasoningModel: settings.modelReasoning,
+    scope: parsed.data.scope ?? 'all',
   })
-  await updateAiSettings(serviceClient, {
-    last_connection_test: {
-      ok: result.ok,
-      started_at: result.started_at,
-      finished_at: result.finished_at,
-      total_latency_ms: result.total_latency_ms,
-      steps: result.steps,
-      discovered_capabilities: result.discovered_capabilities,
-    },
-    provider_capabilities: result.discovered_capabilities,
-  }).catch(() => undefined)
-
-  if (!result.ok) {
-    const failedStep = result.steps.find((s) => !s.ok)
-    const { apiCode, status } = stepErrorToApi(failedStep?.error_code ?? null)
-    throw buildApiError(apiCode, status)
+  const previous = parseStoredCapabilities(settings.providerCapabilities)
+  const health = { ...previous.health }
+  for (const [model, modelResult] of Object.entries(result.models)) {
+    health[model] = {
+      ok: modelResult.ok,
+      tested_at: modelResult.tested_at,
+      supports_streaming: result.discovered_capabilities[model]?.supports_streaming === true,
+      supports_tools: result.discovered_capabilities[model]?.supports_tools === true,
+      supports_enable_thinking:
+        result.discovered_capabilities[model]?.supports_enable_thinking ?? null,
+      supports_low_effort:
+        result.discovered_capabilities[model]?.supports_low_effort ?? null,
+    }
   }
 
-  return NextResponse.json({
-    ok: result.ok,
-    started_at: result.started_at,
-    finished_at: result.finished_at,
-    total_latency_ms: result.total_latency_ms,
-    steps: result.steps,
-    discovered_capabilities: result.discovered_capabilities,
-    usage: result.usage,
+  await updateAiSettings(serviceClient, {
+    last_connection_test: result as unknown as Record<string, unknown>,
+    last_successful_connection_test: result.ok
+      ? (result as unknown as Record<string, unknown>)
+      : settings.lastSuccessfulConnectionTest,
+    last_failed_connection_test: result.ok
+      ? settings.lastFailedConnectionTest
+      : (result as unknown as Record<string, unknown>),
+    provider_capabilities: {
+      version: 2,
+      models: { ...previous.models, ...result.discovered_capabilities },
+      health,
+    },
+  }).catch((error) => {
+    console.warn('[ai] connection test result could not be stored:', error instanceof Error ? error.message : 'unknown')
   })
+
+  return NextResponse.json(result)
 })

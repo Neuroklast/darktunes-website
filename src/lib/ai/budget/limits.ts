@@ -1,14 +1,14 @@
 export const DEFAULT_TOKEN_LIMITS = {
   fast: {
     max_input_tokens: 6000,
-    max_output_tokens: 900,
+    max_output_tokens: 1200,
     max_turn_tokens: 10_000,
   },
   reasoning: {
     max_input_tokens: 12_000,
-    max_output_tokens: 2500,
+    max_output_tokens: 8192,
     max_turn_tokens: 25_000,
-    max_reasoning_tokens: 2500,
+    max_reasoning_tokens: 4096,
   },
   roles: {
     artist: { day: 30_000, month: 250_000 },

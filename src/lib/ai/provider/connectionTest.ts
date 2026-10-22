@@ -2,7 +2,7 @@ import { FAST_MODEL_ID, REASONING_MODEL_ID, getModelProfile, mergeDiscoveredCapa
 import { AiProviderError, isAiProviderError } from '@/lib/ai/provider/errors'
 import { NvidiaOpenAiCompatibleProvider } from '@/lib/ai/provider/nvidia'
 import type { AiProvider } from '@/lib/ai/provider/interface'
-import type { AiProviderErrorCode, AiUsage, ModelCapabilities } from '@/lib/ai/types/provider'
+import type { AiModelRole, AiProviderErrorCode, AiUsage, ModelCapabilities } from '@/lib/ai/types/provider'
 
 export const CONNECTION_TEST_ECHO_TOOL = {
   name: 'echo_test',
@@ -14,33 +14,45 @@ export const CONNECTION_TEST_ECHO_TOOL = {
   },
 } as const
 
-export type ConnectionTestStepId =
-  | 'auth'
-  | 'fast_complete'
-  | 'reasoning_complete'
-  | 'stream'
-  | 'tool_call'
-  | 'usage'
+export type ConnectionTestScope = 'fast' | 'reasoning' | 'all'
 
 export interface ConnectionTestStepResult {
-  step: ConnectionTestStepId
+  id: string
+  step: string
+  model: string | null
   ok: boolean
+  status: 'passed' | 'failed' | 'timed_out' | 'unavailable' | 'not_tested' | 'skipped'
   latency_ms: number
+  http_status: number | null
   error_code: AiProviderErrorCode | null
   detail: string | null
+  technical: Record<string, unknown> | null
+}
+
+export interface ConnectionTestModelResult {
+  model: string
+  role: AiModelRole
+  ok: boolean
+  tested_at: string
+  steps: ConnectionTestStepResult[]
 }
 
 export interface ConnectionTestResult {
   ok: boolean
+  integration_ok: boolean
+  scope: ConnectionTestScope
   started_at: string
   finished_at: string
   total_latency_ms: number
   steps: ConnectionTestStepResult[]
+  models: Record<string, ConnectionTestModelResult>
   discovered_capabilities: Record<string, Partial<ModelCapabilities>>
   usage: { fast: AiUsage | null; reasoning: AiUsage | null }
 }
 
 const HARMLESS_USER_PROMPT = 'Reply with the single word pong.'
+const STEP_TIMEOUT_MS = { fast: 20_000, reasoning: 60_000 }
+const TOTAL_BUDGET_MS = 100_000
 
 export async function runNvidiaConnectionTest(options: {
   apiKey: string
@@ -48,9 +60,11 @@ export async function runNvidiaConnectionTest(options: {
   fetchImpl?: typeof fetch
   fastModel?: string
   reasoningModel?: string
+  scope?: ConnectionTestScope
 }): Promise<ConnectionTestResult> {
   const started = Date.now()
   const startedAt = new Date(started).toISOString()
+  const scope = options.scope ?? 'all'
   const fastModel = options.fastModel?.trim() || FAST_MODEL_ID
   const reasoningModel = options.reasoningModel?.trim() || REASONING_MODEL_ID
   const provider =
@@ -58,114 +72,128 @@ export async function runNvidiaConnectionTest(options: {
     new NvidiaOpenAiCompatibleProvider({ apiKey: options.apiKey, fetchImpl: options.fetchImpl })
   const steps: ConnectionTestStepResult[] = []
   const discovered: Record<string, Partial<ModelCapabilities>> = {}
+  const models: Record<string, ConnectionTestModelResult> = {}
   const usage: ConnectionTestResult['usage'] = { fast: null, reasoning: null }
 
-  const auth = await runStep('auth', async () => {
+  const auth = await runStep('auth', null, async () => {
+    if (provider.checkAuth) {
+      await provider.checkAuth()
+      return
+    }
     const status = await provider.validateConfiguration()
     if (!status.configured) {
       throw new AiProviderError('INVALID_KEY', 'No NVIDIA API key is configured.')
     }
   })
-  // The auth step only verifies the presence of a credential, not remote validity.
-  // The first live completion verifies whether NVIDIA accepts the key.
-  if (auth.ok) auth.detail = 'API key is configured locally. NVIDIA validation occurs during fast_complete.'
+  if (auth.ok) {
+    auth.detail = 'NVIDIA accepted the API key on GET /v1/models.'
+  }
   steps.push(auth)
-  if (!auth.ok) return finish(false)
+  if (!auth.ok) {
+    pushSkippedRemaining('auth failed')
+    return finish(false)
+  }
 
-  const fast = await runStep('fast_complete', async () => {
-    const completion = await provider.complete({
-      request_id: 'connection-test-fast',
-      model: fastModel,
-      messages: [{ role: 'user', content: HARMLESS_USER_PROMPT }],
-      max_tokens: 32,
-      enable_thinking: false,
-      timeout_ms: 20_000,
-      retry: false,
-    })
-    usage.fast = completion.usage
-    if (!completion.content.trim()) {
-      throw new AiProviderError('INVALID_RESPONSE', 'The fast model returned an empty answer.')
-    }
-    discovered[fastModel] = {
-      supports_enable_thinking: true,
-    }
-  })
-  steps.push(fast)
-  if (!fast.ok) return finish(false)
+  const selected: Array<{ id: string; role: AiModelRole }> = []
+  if (scope === 'fast' || scope === 'all') selected.push({ id: fastModel, role: 'fast' })
+  if (scope === 'reasoning' || scope === 'all') selected.push({ id: reasoningModel, role: 'reasoning' })
 
-  const reasoning = await runStep('reasoning_complete', async () => {
-    try {
+  for (const entry of selected) {
+    if (Date.now() - started > TOTAL_BUDGET_MS) {
+      pushSkipped(entry.id, entry.role, 'Total test budget exhausted before this model.')
+      continue
+    }
+    const modelSteps = await testModel(entry.id, entry.role)
+    models[entry.id] = {
+      model: entry.id,
+      role: entry.role,
+      ok: modelSteps.every((step) => step.ok || step.status === 'skipped'),
+      tested_at: new Date().toISOString(),
+      steps: modelSteps,
+    }
+    steps.push(...modelSteps)
+  }
+
+  const required = steps.filter((step) => step.id !== 'integration')
+  const integration = runStepSync(
+    'integration',
+    null,
+    required.every((step) => step.ok),
+    required.every((step) => step.ok)
+      ? 'Every requested capability passed.'
+      : `One or more required checks failed: ${required
+          .filter((step) => !step.ok)
+          .map((step) => step.id)
+          .join(', ')}.`,
+  )
+  steps.push(integration)
+
+  const integrationOk = integration.ok
+  return finish(integrationOk)
+
+  async function testModel(model: string, role: AiModelRole): Promise<ConnectionTestStepResult[]> {
+    const out: ConnectionTestStepResult[] = []
+    const timeoutMs = STEP_TIMEOUT_MS[role]
+    const completeId = `${role}_complete`
+    const streamId = `${role}_stream`
+    const toolId = `${role}_tool`
+    const thinking = role === 'reasoning'
+    const lowEffort = role === 'reasoning'
+
+    const complete = await runStep(completeId, model, async () => {
       const completion = await provider.complete({
-        request_id: 'connection-test-reasoning',
-        model: reasoningModel,
+        request_id: `connection-test-${role}-complete`,
+        model,
         messages: [{ role: 'user', content: HARMLESS_USER_PROMPT }],
-        max_tokens: 512,
-        enable_thinking: true,
-        low_effort: true,
-        timeout_ms: 40_000,
+        max_tokens: role === 'reasoning' ? 1024 : 32,
+        enable_thinking: thinking,
+        low_effort: lowEffort,
+        force_nonempty_content: !thinking,
+        timeout_ms: timeoutMs,
         retry: false,
       })
-      usage.reasoning = completion.usage
-      discovered[reasoningModel] = {
-        supports_enable_thinking: true,
-        supports_low_effort: true,
+      usage[role] = completion.usage
+      discovered[model] = {
+        ...(discovered[model] ?? {}),
+        ...(thinking ? { supports_enable_thinking: true } : {}),
+        ...(thinking && lowEffort ? { supports_low_effort: true } : {}),
       }
-      if (!completion.content.trim() && !completion.reasoning_content) {
-        throw new AiProviderError('INVALID_RESPONSE', 'The reasoning model returned an empty answer.')
-      }
-    } catch (error) {
-      if (isAiProviderError(error) && error.code === 'INVALID_RESPONSE') {
-        const retry = await provider.complete({
-          request_id: 'connection-test-reasoning-plain',
-          model: reasoningModel,
-          messages: [{ role: 'user', content: HARMLESS_USER_PROMPT }],
-          max_tokens: 256,
-          enable_thinking: false,
-          timeout_ms: 40_000,
-          retry: false,
-        })
-        usage.reasoning = retry.usage
-        discovered[reasoningModel] = {
-          ...(discovered[reasoningModel] ?? {}),
-          supports_low_effort: false,
-        }
-        return
-      }
-      throw error
+    })
+    out.push(complete)
+    if (!complete.ok) {
+      out.push(skippedStep(streamId, model, 'complete failed'))
+      out.push(skippedStep(toolId, model, 'complete failed'))
+      return out
     }
-  })
-  steps.push(reasoning)
-  if (!reasoning.ok) return finish(false)
 
-  const stream = await runStep('stream', async () => {
-    let sawDelta = false
-    for await (const event of provider.stream({
-      request_id: 'connection-test-stream',
-      model: fastModel,
-      messages: [{ role: 'user', content: HARMLESS_USER_PROMPT }],
-      max_tokens: 24,
-      enable_thinking: false,
-      timeout_ms: 20_000,
-      retry: false,
-    })) {
-      if (event.type === 'delta' && event.text.length > 0) sawDelta = true
-    }
-    discovered[fastModel] = {
-      ...(discovered[fastModel] ?? {}),
-      supports_streaming: sawDelta,
-    }
-    if (!sawDelta) {
-      throw new AiProviderError('INVALID_RESPONSE', 'The streaming test produced no text deltas.')
-    }
-  })
-  steps.push(stream)
-  if (!stream.ok) return finish(false)
+    const stream = await runStep(streamId, model, async () => {
+      let sawDelta = false
+      for await (const event of provider.stream({
+        request_id: `connection-test-${role}-stream`,
+        model,
+        messages: [{ role: 'user', content: HARMLESS_USER_PROMPT }],
+        max_tokens: 24,
+        enable_thinking: false,
+        force_nonempty_content: true,
+        timeout_ms: timeoutMs,
+        retry: false,
+      })) {
+        if (event.type === 'delta' && event.text.length > 0) sawDelta = true
+      }
+      discovered[model] = {
+        ...(discovered[model] ?? {}),
+        supports_streaming: sawDelta,
+      }
+      if (!sawDelta) {
+        throw new AiProviderError('EMPTY_RESPONSE', 'The streaming test produced no text deltas.')
+      }
+    })
+    out.push(stream)
 
-  const tool = await runStep('tool_call', async () => {
-    try {
+    const tool = await runStep(toolId, model, async () => {
       const completion = await provider.complete({
-        request_id: 'connection-test-tool',
-        model: fastModel,
+        request_id: `connection-test-${role}-tool`,
+        model,
         messages: [
           {
             role: 'user',
@@ -176,54 +204,56 @@ export async function runNvidiaConnectionTest(options: {
         tool_choice: 'required',
         max_tokens: 128,
         enable_thinking: false,
-        timeout_ms: 20_000,
+        force_nonempty_content: true,
+        timeout_ms: timeoutMs,
         retry: false,
       })
       const supported = completion.tool_calls.some((call) => call.name === 'echo_test')
-      discovered[fastModel] = {
-        ...(discovered[fastModel] ?? {}),
+      discovered[model] = {
+        ...(discovered[model] ?? {}),
         supports_tools: supported,
       }
       if (!supported) {
         throw new AiProviderError(
           'TOOL_CALL_UNSUPPORTED',
-          'The fast model did not emit the echo_test tool call.',
+          'The model did not emit the echo_test tool call.',
         )
       }
-    } catch (error) {
-      if (isAiProviderError(error) && error.httpStatus === 400) {
-        throw new AiProviderError('TOOL_CALL_UNSUPPORTED', 'NVIDIA rejected the tool-calling request.', {
-          httpStatus: 400,
-          cause: error,
-        })
-      }
-      throw error
-    }
-  })
-  steps.push(tool)
-
-  const usageStep: ConnectionTestStepResult = {
-    step: 'usage',
-    ok: Boolean(usage.fast && usage.fast.total_tokens > 0),
-    latency_ms: 0,
-    error_code: usage.fast && usage.fast.total_tokens > 0 ? null : 'INVALID_RESPONSE',
-    detail:
-      usage.fast && usage.fast.total_tokens > 0
-        ? null
-        : 'NVIDIA did not return usage metadata on the fast-model call.',
+    })
+    out.push(tool)
+    return out
   }
-  steps.push(usageStep)
 
-  const ok = steps.every((step) => step.ok)
-  return finish(ok)
+  function pushSkipped(model: string, role: AiModelRole, reason: string): void {
+    const ids = [`${role}_complete`, `${role}_stream`, `${role}_tool`]
+    for (const id of ids) steps.push(skippedStep(id, model, reason))
+    models[model] = {
+      model,
+      role,
+      ok: false,
+      tested_at: new Date().toISOString(),
+      steps: steps.filter((step) => step.model === model),
+    }
+  }
 
-  function finish(ok: boolean): ConnectionTestResult {
+  function pushSkippedRemaining(reason: string): void {
+    const entries: Array<{ id: string; role: AiModelRole }> = []
+    if (scope === 'fast' || scope === 'all') entries.push({ id: fastModel, role: 'fast' })
+    if (scope === 'reasoning' || scope === 'all') entries.push({ id: reasoningModel, role: 'reasoning' })
+    for (const entry of entries) pushSkipped(entry.id, entry.role, reason)
+  }
+
+  function finish(integrationOk: boolean): ConnectionTestResult {
+    const selectedSteps = steps.filter((step) => step.id !== 'integration')
     return {
-      ok,
+      ok: integrationOk && selectedSteps.every((step) => step.ok || step.status === 'skipped'),
+      integration_ok: integrationOk,
+      scope,
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       total_latency_ms: Date.now() - started,
       steps,
+      models,
       discovered_capabilities: discovered,
       usage,
     }
@@ -231,33 +261,100 @@ export async function runNvidiaConnectionTest(options: {
 }
 
 async function runStep(
-  step: ConnectionTestStepId,
+  id: string,
+  model: string | null,
   work: () => Promise<void>,
 ): Promise<ConnectionTestStepResult> {
   const started = Date.now()
   try {
     await work()
-    return {
-      step,
-      ok: true,
-      latency_ms: Date.now() - started,
-      error_code: null,
-      detail: null,
-    }
+    return stepResult(id, model, true, 'passed', started, null)
   } catch (error) {
     const providerError = isAiProviderError(error)
       ? error
       : new AiProviderError('PROVIDER_UNAVAILABLE', 'The connection test failed unexpectedly.', {
           cause: error,
         })
-    return {
-      step,
-      ok: false,
-      latency_ms: Date.now() - started,
-      error_code: providerError.code,
-      detail: providerError.message,
-    }
+    const status = statusForError(providerError)
+    return stepResult(id, model, false, status, started, providerError)
   }
+}
+
+function runStepSync(
+  id: string,
+  model: string | null,
+  ok: boolean,
+  detail: string,
+): ConnectionTestStepResult {
+  return {
+    id,
+    step: id,
+    model,
+    ok,
+    status: ok ? 'passed' : 'failed',
+    latency_ms: 0,
+    http_status: null,
+    error_code: ok ? null : 'INVALID_RESPONSE',
+    detail,
+    technical: null,
+  }
+}
+
+function skippedStep(id: string, model: string, reason: string): ConnectionTestStepResult {
+  return {
+    id,
+    step: id,
+    model,
+    ok: false,
+    status: 'skipped',
+    latency_ms: 0,
+    http_status: null,
+    error_code: null,
+    detail: reason,
+    technical: null,
+  }
+}
+
+function stepResult(
+  id: string,
+  model: string | null,
+  ok: boolean,
+  status: ConnectionTestStepResult['status'],
+  started: number,
+  error: AiProviderError | null,
+): ConnectionTestStepResult {
+  return {
+    id,
+    step: id,
+    model,
+    ok,
+    status,
+    latency_ms: Date.now() - started,
+    http_status: error?.httpStatus ?? null,
+    error_code: error?.code ?? null,
+    detail: error?.message ?? null,
+    technical: error
+      ? {
+          code: error.code,
+          http_status: error.httpStatus,
+          retryable: error.retryable,
+        }
+      : null,
+  }
+}
+
+function statusForError(error: AiProviderError): ConnectionTestStepResult['status'] {
+  if (error.code === 'TIMEOUT') return 'timed_out'
+  if (
+    error.code === 'PROVIDER_UNAVAILABLE' ||
+    error.code === 'MODEL_UNAVAILABLE' ||
+    error.code === 'NETWORK_ERROR' ||
+    error.code === 'TLS_ERROR' ||
+    error.code === 'RATE_LIMITED'
+  ) {
+    return 'unavailable'
+  }
+  return 'failed'
 }
 
 export function capabilitiesAfterConnectionTest(

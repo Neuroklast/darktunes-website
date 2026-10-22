@@ -7,6 +7,10 @@ import {
 export const FAST_MODEL_ID = DEFAULT_AI_MODELS.fast
 export const REASONING_MODEL_ID = DEFAULT_AI_MODELS.reasoning
 
+/**
+ * Known profiles are conservative. Optional payload extras are only sent when
+ * the profile or a successful connection test says the endpoint accepts them.
+ */
 const FAST_PROFILE: ModelCapabilities = {
   model_id: FAST_MODEL_ID,
   role: 'fast',
@@ -17,9 +21,12 @@ const FAST_PROFILE: ModelCapabilities = {
   supports_low_effort: false,
   supports_reasoning_budget: false,
   reasoning_budget_path: 'none',
+  supports_reasoning_effort: false,
+  supports_force_nonempty_content: true,
+  supports_stream_options: true,
   default_temperature: 1,
   default_top_p: 0.95,
-  max_output_tokens: 900,
+  max_output_tokens: 1200,
 }
 
 const REASONING_PROFILE: ModelCapabilities = {
@@ -30,11 +37,30 @@ const REASONING_PROFILE: ModelCapabilities = {
   supports_tools_with_streaming: true,
   supports_enable_thinking: true,
   supports_low_effort: true,
-  supports_reasoning_budget: false,
-  reasoning_budget_path: 'none',
+  supports_reasoning_budget: true,
+  reasoning_budget_path: 'top_level',
+  supports_reasoning_effort: true,
+  supports_force_nonempty_content: true,
+  supports_stream_options: true,
   default_temperature: 1,
   default_top_p: 0.95,
-  max_output_tokens: 2500,
+  max_output_tokens: 8192,
+}
+
+const CONSERVATIVE_PROFILE: Omit<ModelCapabilities, 'model_id' | 'role'> = {
+  supports_streaming: true,
+  supports_tools: false,
+  supports_tools_with_streaming: false,
+  supports_enable_thinking: false,
+  supports_low_effort: false,
+  supports_reasoning_budget: false,
+  reasoning_budget_path: 'none',
+  supports_reasoning_effort: false,
+  supports_force_nonempty_content: false,
+  supports_stream_options: true,
+  default_temperature: 1,
+  default_top_p: 0.95,
+  max_output_tokens: 1200,
 }
 
 const PROFILES_BY_ID: Record<string, ModelCapabilities> = {
@@ -45,10 +71,12 @@ const PROFILES_BY_ID: Record<string, ModelCapabilities> = {
 export function getModelProfile(modelId: string): ModelCapabilities {
   const known = PROFILES_BY_ID[modelId]
   if (known) return { ...known }
+  const role = inferRoleFromModelId(modelId)
   return {
-    ...FAST_PROFILE,
+    ...CONSERVATIVE_PROFILE,
     model_id: modelId,
-    role: inferRoleFromModelId(modelId),
+    role,
+    max_output_tokens: role === 'reasoning' ? 8192 : CONSERVATIVE_PROFILE.max_output_tokens,
   }
 }
 
@@ -57,8 +85,7 @@ export function getModelProfileForRole(role: AiModelRole): ModelCapabilities {
 }
 
 export function inferRoleFromModelId(modelId: string): AiModelRole {
-  if (modelId.includes('super') || modelId.includes('reasoning')) return 'reasoning'
-  return 'fast'
+  return /(?:super|ultra|reasoning|think)/i.test(modelId) ? 'reasoning' : 'fast'
 }
 
 export function mergeDiscoveredCapabilities(
@@ -71,6 +98,9 @@ export function mergeDiscoveredCapabilities(
     | 'supports_low_effort'
     | 'supports_reasoning_budget'
     | 'reasoning_budget_path'
+    | 'supports_reasoning_effort'
+    | 'supports_force_nonempty_content'
+    | 'supports_stream_options'
     | 'supports_streaming'
   >>,
 ): ModelCapabilities {
@@ -78,7 +108,12 @@ export function mergeDiscoveredCapabilities(
 }
 
 /** Fast-model simple turns keep thinking off so output tokens stay on the answer. */
-export function shouldEnableThinking(role: AiModelRole, task: 'simple' | 'complex'): boolean {
+export function shouldEnableThinking(
+  role: AiModelRole,
+  task: 'simple' | 'complex',
+  capabilities?: ModelCapabilities,
+): boolean {
+  if (capabilities && !capabilities.supports_enable_thinking) return false
   if (role === 'reasoning') return true
   return task === 'complex'
 }

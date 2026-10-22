@@ -59,6 +59,16 @@ export const ERROR_CODES = [
   'AI_TOOL_FORBIDDEN',
   'AI_CONFIRMATION_EXPIRED',
   'AI_CONVERSATION_NOT_FOUND',
+  'AI_EMPTY_RESPONSE',
+  'AI_OUTPUT_TRUNCATED',
+  'AI_REASONING_EXHAUSTED',
+  'AI_STREAM_INCOMPLETE',
+  'AI_CANCELLED',
+  'AI_TURN_IN_PROGRESS',
+  'AI_DISABLED_FOR_ROLE',
+  'AI_ARTIST_INVALID',
+  'AI_ARTIST_FORBIDDEN',
+  'AI_TURN_INCOMPLETE',
 ] as const
 
 export type ErrorCode = (typeof ERROR_CODES)[number]
@@ -133,4 +143,22 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
     'The confirmation for this assistant action expired. Ask the assistant to prepare it again.',
   AI_CONVERSATION_NOT_FOUND:
     'That assistant conversation was not found or belongs to another account.',
+  AI_EMPTY_RESPONSE:
+    'The model returned no visible answer. Retry; if it repeats, switch to the fast model or raise the output limit.',
+  AI_OUTPUT_TRUNCATED:
+    'The answer was cut off at the output limit. Retry with the fast model or raise the output limit in Admin -> AI Assistant -> Models.',
+  AI_REASONING_EXHAUSTED:
+    'The reasoning model spent its whole output budget on reasoning and produced no answer. Retry with the fast model or raise the reasoning output limit.',
+  AI_STREAM_INCOMPLETE:
+    'The model connection ended before the answer was complete. Retry the question.',
+  AI_CANCELLED: 'The answer was stopped.',
+  AI_TURN_IN_PROGRESS:
+    'Another answer is already running in this conversation. Stop it before sending a new question.',
+  AI_DISABLED_FOR_ROLE:
+    'The assistant is turned off for this dashboard. An admin can enable it under Admin -> AI Assistant.',
+  AI_ARTIST_INVALID: 'That artist was not found. Select an existing artist.',
+  AI_ARTIST_FORBIDDEN:
+    'You cannot use that artist context. Select an artist linked to your account.',
+  AI_TURN_INCOMPLETE:
+    'The answer was interrupted before it finished. Retry the question to continue.',
 }

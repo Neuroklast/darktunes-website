@@ -237,6 +237,74 @@ export async function getArtistByUserId(db: DbClient, userId: string): Promise<A
   return data ? rowToArtist(data as ArtistRow) : null
 }
 
+export interface ArtistOption {
+  id: string
+  name: string
+  slug: string
+}
+
+/** Lightweight artist list for the assistant context selector. */
+export async function listArtistOptions(db: DbClient): Promise<ArtistOption[]> {
+  const { data, error } = await db
+    .from('artists')
+    .select('id, name, slug')
+    .order('name', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => ({ id: row.id, name: row.name, slug: row.slug ?? '' }))
+}
+
+/** Lightweight artist search (admin/editor with manage capability). */
+export async function searchArtistOptions(
+  db: DbClient,
+  query: string,
+  limit = 20,
+): Promise<ArtistOption[]> {
+  const trimmed = query.trim()
+  if (!trimmed) return []
+  const { data, error } = await db
+    .from('artists')
+    .select('id, name, slug')
+    .ilike('name', `%${trimmed}%`)
+    .order('name', { ascending: true })
+    .limit(Math.min(Math.max(limit, 1), 50))
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => ({ id: row.id, name: row.name, slug: row.slug ?? '' }))
+}
+
+export async function getArtistOptionById(
+  db: DbClient,
+  artistId: string,
+): Promise<ArtistOption | null> {
+  const { data, error } = await db
+    .from('artists')
+    .select('id, name, slug')
+    .eq('id', artistId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data ? { id: data.id, name: data.name, slug: data.slug ?? '' } : null
+}
+
+/** All artist memberships for a user, without loading full artist rows. */
+export async function listArtistMemberships(
+  db: DbClient,
+  userId: string,
+): Promise<ArtistOption[]> {
+  const { data: memberships, error: memberError } = await db
+    .from('artist_members')
+    .select('artist_id')
+    .eq('user_id', userId)
+  if (memberError) throw new Error(memberError.message)
+  const ids = (memberships ?? []).map((row) => row.artist_id)
+  if (ids.length === 0) return []
+  const { data, error } = await db
+    .from('artists')
+    .select('id, name, slug')
+    .in('id', ids)
+    .order('name', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => ({ id: row.id, name: row.name, slug: row.slug ?? '' }))
+}
+
 /**
  * Resolves the active artist for a portal request.
  *

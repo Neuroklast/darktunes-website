@@ -1,5 +1,9 @@
 /**
  * Parse OpenAI-compatible SSE chat.completion.chunk frames.
+ *
+ * The decoder is stateful: network chunks may split frames, UTF-8 sequences,
+ * or CRLF pairs. `flush()` must be called at end-of-stream so the final frame
+ * and decoder remainder are not lost.
  */
 
 import { AiProviderError } from '@/lib/ai/provider/errors'
@@ -14,16 +18,63 @@ export interface SseChunk {
   done: boolean
 }
 
-export function parseSseBlock(block: string): SseChunk | null {
-  const lines = block.split(/\r?\n/)
-  let data = ''
-  for (const line of lines) {
-    if (line.startsWith('data:')) {
-      data += line.slice(5).trim()
-    }
+interface ParsedFrame {
+  data: string
+  event: string
+}
+
+export class SseDecoder {
+  private readonly decoder = new TextDecoder()
+  private buffer = ''
+
+  push(chunk: Uint8Array): SseChunk[] {
+    this.buffer += this.decoder.decode(chunk, { stream: true })
+    return this.drain(false)
   }
-  if (!data) return null
-  if (data === '[DONE]') {
+
+  /** Flush decoder remainder and the final buffered frame. */
+  flush(): SseChunk[] {
+    this.buffer += this.decoder.decode()
+    return this.drain(true)
+  }
+
+  private drain(final: boolean): SseChunk[] {
+    const normalized = this.buffer.replace(/\r\n/g, '\n')
+    const parts = normalized.split('\n\n')
+    this.buffer = parts.pop() ?? ''
+    const out: SseChunk[] = []
+    for (const part of parts) {
+      const chunk = parseFrame(part)
+      if (chunk) out.push(chunk)
+    }
+    if (final && this.buffer.trim().length > 0) {
+      const chunk = parseFrame(this.buffer)
+      this.buffer = ''
+      if (chunk) out.push(chunk)
+    }
+    return out
+  }
+}
+
+export function parseSseBlock(block: string): SseChunk | null {
+  return parseFrame(block)
+}
+
+function parseFrame(block: string): SseChunk | null {
+  const frame: ParsedFrame = { data: '', event: '' }
+  for (const rawLine of block.split(/\r?\n/)) {
+    const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
+    if (line.startsWith(':')) continue
+    if (line.startsWith('event:')) {
+      frame.event = line.slice(6).trim()
+      continue
+    }
+    if (!line.startsWith('data:')) continue
+    const value = line.slice(5)
+    frame.data += (frame.data ? '\n' : '') + (value.startsWith(' ') ? value.slice(1) : value)
+  }
+  if (!frame.data) return null
+  if (frame.data.trim() === '[DONE]') {
     return {
       contentDelta: '',
       reasoningDelta: '',
@@ -35,11 +86,31 @@ export function parseSseBlock(block: string): SseChunk | null {
   }
   let parsed: unknown
   try {
-    parsed = JSON.parse(data)
+    parsed = JSON.parse(frame.data)
   } catch {
     throw new AiProviderError('INVALID_RESPONSE', 'NVIDIA streamed a non-JSON SSE frame.')
   }
+  if (frame.event === 'error' || isErrorPayload(parsed)) {
+    throw new AiProviderError('PROVIDER_UNAVAILABLE', summarizeStreamError(parsed))
+  }
   return parseCompletionChunk(parsed)
+}
+
+function isErrorPayload(parsed: unknown): boolean {
+  if (!parsed || typeof parsed !== 'object') return false
+  const record = parsed as { error?: unknown; choices?: unknown }
+  return record.error !== undefined && !Array.isArray(record.choices)
+}
+
+function summarizeStreamError(parsed: unknown): string {
+  if (!parsed || typeof parsed !== 'object') return 'NVIDIA streamed an error event.'
+  const record = parsed as { error?: unknown; message?: unknown }
+  const nested =
+    record.error && typeof record.error === 'object'
+      ? (record.error as { message?: unknown }).message
+      : record.error
+  const message = typeof nested === 'string' ? nested : typeof record.message === 'string' ? record.message : null
+  return message ? `NVIDIA streamed an error: ${message.slice(0, 200)}` : 'NVIDIA streamed an error event.'
 }
 
 export function parseCompletionChunk(parsed: unknown): SseChunk {

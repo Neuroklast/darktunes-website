@@ -1,25 +1,31 @@
 # Pre-Release QA Checklist
 
 ## AI assistant
-- [ ] Admin → API Keys shows NVIDIA; saving a key does not echo plaintext on GET
-- [ ] Admin → AI Assistant → Test Connection reports each step (fast, reasoning, stream, tools) without retrying on failure
-- [ ] Enabling the assistant + key lets an artist open the panel (`Ctrl+J`), ask about their own releases, and see streamed text
-- [ ] Switching artist in the portal header does not reuse the previous artist’s conversation
-- [ ] An artist cannot obtain another artist’s data by sending a different `artist_id`
-- [ ] Admin can ask system health / pending submissions; editor cannot use admin-only tools
-- [ ] Token budget exhaustion shows a specific remaining-vs-needed message and stops further model calls
-- [ ] Desktop: collapsible right panel; mobile: full-screen sheet; composer stays above the keyboard
-- [ ] Closing the browser mid-stream leaves no infinite spinner on reopen
-- [ ] NVIDIA unreachable: assistant shows a provider error; the rest of the dashboard still works
-- [ ] A 429 with Retry-After is retried; Stop mid-stream does not keep retrying; Delete conversation succeeds while signed in
-- [ ] A tool-using turn does not exceed Fast/Reasoning `max_tool_rounds`; the last assistant text is still stored
-- [ ] NVIDIA connection test shows the specific cause per failure: timeout → "The NVIDIA request timed out.", network → "The NVIDIA endpoint could not be reached.", TLS → "The NVIDIA TLS connection failed.", rate limit → "NVIDIA rate-limited this request.", model unavailable → "The requested NVIDIA model is not available.", each with its `error_id`
-- [ ] Artist asks to change EPK text: preview appears, Confirm saves, a second Confirm (or a double-click) is rejected
-- [ ] `POST /api/ai/diagnostic-reports` with `error_id` containing `%` returns 400; a real `ERR-` id returns the newest matching log
-- [ ] Admin → AI Assistant → Models: list loads from NVIDIA, Fast/Reasoning can be changed and saved; Test Connection and chat use the saved IDs
-- [ ] Admin → AI Assistant: enable, Test Connection, token counts, diagnostics list load
-- [ ] Fast model set to a Nemotron reasoning model: Test Connection passes `stream`, chat streams text (no empty bubble), and a tool question still answers after the tool round
-- [ ] Error boundary Analyze opens the assistant with the error reference on admin/portal routes
+- [ ] Admin -> API Keys shows NVIDIA; saving a key does not echo plaintext on GET
+- [ ] Admin -> AI Assistant -> Overview separates "Configured" from "Verified"; a key alone does not show a green verified state
+- [ ] Connection Health: Test fast and Test reasoning run independently; a reasoning timeout still shows fast/stream/tool results
+- [ ] Admin -> AI Assistant -> Models: Fast/Reasoning/Fallback load from NVIDIA, save, and chat/Test Connection use the saved IDs
+- [ ] An admin without an `artist_members` row can select an artist and ask artist data questions (no "No artist linked")
+- [ ] An invalid `artistId` URL is rejected with a clear context error; it does not silently switch to label context
+- [ ] Artist A cannot read or change Artist B data by sending a different `artist_id`
+- [ ] Editor sees editor-capable label tools only; admin-only tools are absent/denied
+- [ ] Artist portal: one membership uses that artist; multiple memberships show a selector; the header shows "Context: Artist / Name"
+- [ ] Admin label context shows "Context: Label Administration"; selecting an artist updates the header and starts a context-bound conversation
+- [ ] Conversation history lists, resumes, renames and deletes conversations; a reload restores the last conversation for the same context
+- [ ] Switching context does not mix conversations; an old context conversation is not reopened in the new context
+- [ ] Streaming: deltas are throttled (no per-token React update); auto-scroll follows only while the user is near the bottom; "Jump to latest" appears when scrolled up
+- [ ] Stop during streaming/tool call stops the answer, keeps partial text, marks it cancelled, and does not append later tokens
+- [ ] Empty, reasoning-only and length-truncated answers show a specific error/warning card, not an empty assistant bubble
+- [ ] Reasoning failure offers "Retry with fast model"; Retry reuses the last user message instead of duplicating it
+- [ ] A 429/503 with Retry-After is retried within bounds; Stop during backoff does not send another request
+- [ ] Tool activity shows friendly labels, Completed/No data/Failed and duration; raw tool payloads are not shown to artists
+- [ ] A multi-round tool turn keeps assistant tool calls paired with tool replies; a failed read tool does not kill the chat
+- [ ] Token budget exhaustion shows remaining-vs-needed and stops further model calls; failed turns appear in usage/diagnostics
+- [ ] Admin -> AI Assistant -> Usage shows input/output/reasoning, per model, per role, reserved vs. used, failed calls and daily trend
+- [ ] Admin -> AI Assistant -> Diagnostics filters by time/model/error code and copies a report; repeated failures are grouped
+- [ ] Desktop: floating launcher + wide workspace + maximize; mobile: full-screen, safe-area composer, no horizontal overflow
+- [ ] Error boundary Analyze opens the assistant with the error reference on admin/portal/editor routes
+- [ ] Closing the browser mid-stream leaves no infinite spinner on reopen; a stale turn is marked interrupted
 
 ## Personal Artist Page / band news
 - [ ] Fan-page builder: News block is insertable; public `/@{slug}` shows that artist’s label news and published band news only

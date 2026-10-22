@@ -48,5 +48,15 @@
   "AI_PROVIDER_UNAVAILABLE": "NVIDIA is currently unavailable. Retry later; the rest of the site still works.",
   "AI_TOOL_FORBIDDEN": "That assistant action is not allowed for this account. Ask an admin if you need access.",
   "AI_CONFIRMATION_EXPIRED": "The confirmation for this assistant action expired. Ask the assistant to prepare it again.",
-  "AI_CONVERSATION_NOT_FOUND": "That assistant conversation was not found or belongs to another account."
+  "AI_CONVERSATION_NOT_FOUND": "That assistant conversation was not found or belongs to another account.",
+  "AI_EMPTY_RESPONSE": "The model returned no visible answer. Retry; if it repeats, switch to the fast model or raise the output limit.",
+  "AI_OUTPUT_TRUNCATED": "The answer was cut off at the output limit. Retry with the fast model or raise the output limit in Admin -> AI Assistant -> Models.",
+  "AI_REASONING_EXHAUSTED": "The reasoning model spent its whole output budget on reasoning and produced no answer. Retry with the fast model or raise the reasoning output limit.",
+  "AI_STREAM_INCOMPLETE": "The model connection ended before the answer was complete. Retry the question.",
+  "AI_CANCELLED": "The answer was stopped.",
+  "AI_TURN_IN_PROGRESS": "Another answer is already running in this conversation. Stop it before sending a new question.",
+  "AI_DISABLED_FOR_ROLE": "The assistant is turned off for this dashboard. An admin can enable it under Admin -> AI Assistant.",
+  "AI_ARTIST_INVALID": "That artist was not found. Select an existing artist.",
+  "AI_ARTIST_FORBIDDEN": "You cannot use that artist context. Select an artist linked to your account.",
+  "AI_TURN_INCOMPLETE": "The answer was interrupted before it finished. Retry the question to continue."
 }

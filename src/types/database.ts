@@ -5361,6 +5361,9 @@ export interface Database {
           access_context: 'artist' | 'editor' | 'admin'
           title: string
           status: 'active' | 'archived' | 'deleted'
+          active_request_id: string | null
+          active_request_started_at: string | null
+          cancel_requested_at: string | null
           created_at: string
           updated_at: string
         }
@@ -5371,6 +5374,9 @@ export interface Database {
           access_context: 'artist' | 'editor' | 'admin'
           title?: string
           status?: 'active' | 'archived' | 'deleted'
+          active_request_id?: string | null
+          active_request_started_at?: string | null
+          cancel_requested_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -5381,6 +5387,9 @@ export interface Database {
           access_context?: 'artist' | 'editor' | 'admin'
           title?: string
           status?: 'active' | 'archived' | 'deleted'
+          active_request_id?: string | null
+          active_request_started_at?: string | null
+          cancel_requested_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -5394,7 +5403,10 @@ export interface Database {
           content: string
           model: string | null
           token_usage: Record<string, unknown>
-          status: 'pending' | 'streaming' | 'complete' | 'cancelled' | 'failed'
+          status: 'pending' | 'streaming' | 'complete' | 'cancelled' | 'failed' | 'incomplete'
+          tool_calls: unknown[]
+          tool_call_id: string | null
+          metadata: Record<string, unknown>
           created_at: string
         }
         Insert: {
@@ -5404,7 +5416,10 @@ export interface Database {
           content?: string
           model?: string | null
           token_usage?: Record<string, unknown>
-          status?: 'pending' | 'streaming' | 'complete' | 'cancelled' | 'failed'
+          status?: 'pending' | 'streaming' | 'complete' | 'cancelled' | 'failed' | 'incomplete'
+          tool_calls?: unknown[]
+          tool_call_id?: string | null
+          metadata?: Record<string, unknown>
           created_at?: string
         }
         Update: {
@@ -5414,7 +5429,10 @@ export interface Database {
           content?: string
           model?: string | null
           token_usage?: Record<string, unknown>
-          status?: 'pending' | 'streaming' | 'complete' | 'cancelled' | 'failed'
+          status?: 'pending' | 'streaming' | 'complete' | 'cancelled' | 'failed' | 'incomplete'
+          tool_calls?: unknown[]
+          tool_call_id?: string | null
+          metadata?: Record<string, unknown>
           created_at?: string
         }
         Relationships: []
@@ -5433,6 +5451,12 @@ export interface Database {
           total_tokens: number
           usage_source: 'provider' | 'estimate' | 'settlement'
           operation_type: string
+          success: boolean
+          error_code: string | null
+          latency_ms: number | null
+          ttft_ms: number | null
+          rounds: number
+          metadata: Record<string, unknown>
           created_at: string
         }
         Insert: {
@@ -5448,6 +5472,12 @@ export interface Database {
           total_tokens?: number
           usage_source?: 'provider' | 'estimate' | 'settlement'
           operation_type?: string
+          success?: boolean
+          error_code?: string | null
+          latency_ms?: number | null
+          ttft_ms?: number | null
+          rounds?: number
+          metadata?: Record<string, unknown>
           created_at?: string
         }
         Update: {
@@ -5463,6 +5493,12 @@ export interface Database {
           total_tokens?: number
           usage_source?: 'provider' | 'estimate' | 'settlement'
           operation_type?: string
+          success?: boolean
+          error_code?: string | null
+          latency_ms?: number | null
+          ttft_ms?: number | null
+          rounds?: number
+          metadata?: Record<string, unknown>
           created_at?: string
         }
         Relationships: []
@@ -5547,6 +5583,7 @@ export interface Database {
           provider: string
           model_fast: string
           model_reasoning: string
+          fallback_model: string
           default_streaming: boolean
           token_limits: Record<string, unknown>
           reasoning_settings: Record<string, unknown>
@@ -5555,6 +5592,8 @@ export interface Database {
           max_tool_rounds: number
           provider_capabilities: Record<string, unknown>
           last_connection_test: Record<string, unknown> | null
+          last_successful_connection_test: Record<string, unknown> | null
+          last_failed_connection_test: Record<string, unknown> | null
           updated_at: string
           updated_by: string | null
         }
@@ -5565,6 +5604,7 @@ export interface Database {
           provider?: string
           model_fast?: string
           model_reasoning?: string
+          fallback_model?: string
           default_streaming?: boolean
           token_limits?: Record<string, unknown>
           reasoning_settings?: Record<string, unknown>
@@ -5573,6 +5613,8 @@ export interface Database {
           max_tool_rounds?: number
           provider_capabilities?: Record<string, unknown>
           last_connection_test?: Record<string, unknown> | null
+          last_successful_connection_test?: Record<string, unknown> | null
+          last_failed_connection_test?: Record<string, unknown> | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -5583,6 +5625,7 @@ export interface Database {
           provider?: string
           model_fast?: string
           model_reasoning?: string
+          fallback_model?: string
           default_streaming?: boolean
           token_limits?: Record<string, unknown>
           reasoning_settings?: Record<string, unknown>
@@ -5591,6 +5634,8 @@ export interface Database {
           max_tool_rounds?: number
           provider_capabilities?: Record<string, unknown>
           last_connection_test?: Record<string, unknown> | null
+          last_successful_connection_test?: Record<string, unknown> | null
+          last_failed_connection_test?: Record<string, unknown> | null
           updated_at?: string
           updated_by?: string | null
         }

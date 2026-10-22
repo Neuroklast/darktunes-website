@@ -3309,11 +3309,21 @@ CREATE TABLE IF NOT EXISTS public.ai_conversations (
   access_context  TEXT        NOT NULL CHECK (access_context IN ('artist', 'editor', 'admin')),
   title           TEXT        NOT NULL DEFAULT '',
   status          TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived', 'deleted')),
+  active_request_id          TEXT,
+  active_request_started_at  TIMESTAMPTZ,
+  cancel_requested_at        TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_ai_conversations_user ON public.ai_conversations (user_id, updated_at DESC);
+-- Existing databases: additive columns only.
+ALTER TABLE public.ai_conversations
+  ADD COLUMN IF NOT EXISTS active_request_id TEXT,
+  ADD COLUMN IF NOT EXISTS active_request_started_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS cancel_requested_at TIMESTAMPTZ;
+
+DROP INDEX IF EXISTS idx_ai_conversations_user;
+CREATE INDEX IF NOT EXISTS idx_ai_conversations_user_v2 ON public.ai_conversations (user_id, access_context, updated_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_ai_conversations_artist ON public.ai_conversations (artist_id, updated_at DESC)
   WHERE artist_id IS NOT NULL;
 
@@ -3324,11 +3334,24 @@ CREATE TABLE IF NOT EXISTS public.ai_messages (
   content          TEXT        NOT NULL DEFAULT '',
   model            TEXT,
   token_usage      JSONB       NOT NULL DEFAULT '{}',
-  status           TEXT        NOT NULL DEFAULT 'complete' CHECK (status IN ('pending', 'streaming', 'complete', 'cancelled', 'failed')),
+  status           TEXT        NOT NULL DEFAULT 'complete' CHECK (status IN ('pending', 'streaming', 'complete', 'cancelled', 'failed', 'incomplete')),
+  tool_calls       JSONB       NOT NULL DEFAULT '[]',
+  tool_call_id     TEXT,
+  metadata         JSONB       NOT NULL DEFAULT '{}',
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON public.ai_messages (conversation_id, created_at);
+ALTER TABLE public.ai_messages
+  ADD COLUMN IF NOT EXISTS tool_calls JSONB NOT NULL DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS tool_call_id TEXT,
+  ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}';
+
+ALTER TABLE public.ai_messages DROP CONSTRAINT IF EXISTS ai_messages_status_check;
+ALTER TABLE public.ai_messages ADD CONSTRAINT ai_messages_status_check
+  CHECK (status IN ('pending', 'streaming', 'complete', 'cancelled', 'failed', 'incomplete'));
+
+DROP INDEX IF EXISTS idx_ai_messages_conversation;
+CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation_v2 ON public.ai_messages (conversation_id, created_at DESC, id DESC);
 
 CREATE TABLE IF NOT EXISTS public.ai_usage_events (
   id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -3343,11 +3366,27 @@ CREATE TABLE IF NOT EXISTS public.ai_usage_events (
   total_tokens     INTEGER     NOT NULL DEFAULT 0 CHECK (total_tokens >= 0),
   usage_source     TEXT        NOT NULL DEFAULT 'provider' CHECK (usage_source IN ('provider', 'estimate', 'settlement')),
   operation_type   TEXT        NOT NULL DEFAULT 'chat',
+  success          BOOLEAN     NOT NULL DEFAULT TRUE,
+  error_code       TEXT,
+  latency_ms       INTEGER,
+  ttft_ms          INTEGER,
+  rounds           INTEGER     NOT NULL DEFAULT 1,
+  metadata         JSONB       NOT NULL DEFAULT '{}',
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE public.ai_usage_events
+  ADD COLUMN IF NOT EXISTS success BOOLEAN NOT NULL DEFAULT TRUE,
+  ADD COLUMN IF NOT EXISTS error_code TEXT,
+  ADD COLUMN IF NOT EXISTS latency_ms INTEGER,
+  ADD COLUMN IF NOT EXISTS ttft_ms INTEGER,
+  ADD COLUMN IF NOT EXISTS rounds INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}';
+
 CREATE INDEX IF NOT EXISTS idx_ai_usage_events_user_created ON public.ai_usage_events (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ai_usage_events_request ON public.ai_usage_events (request_id);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_events_failures ON public.ai_usage_events (created_at DESC, error_code)
+  WHERE success = FALSE;
 
 CREATE TABLE IF NOT EXISTS public.ai_token_budgets (
   id              UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -3386,6 +3425,7 @@ CREATE TABLE IF NOT EXISTS public.ai_settings (
   provider                 TEXT        NOT NULL DEFAULT 'nvidia',
   model_fast               TEXT        NOT NULL DEFAULT 'nvidia/nemotron-3.5-lightning-30b-a3b',
   model_reasoning          TEXT        NOT NULL DEFAULT 'nvidia/nemotron-3-super-120b-a12b',
+  fallback_model           TEXT        NOT NULL DEFAULT '',
   default_streaming        BOOLEAN     NOT NULL DEFAULT TRUE,
   token_limits             JSONB       NOT NULL DEFAULT '{}',
   reasoning_settings       JSONB       NOT NULL DEFAULT '{}',
@@ -3394,16 +3434,23 @@ CREATE TABLE IF NOT EXISTS public.ai_settings (
   max_tool_rounds          INTEGER     NOT NULL DEFAULT 4,
   provider_capabilities    JSONB       NOT NULL DEFAULT '{}',
   last_connection_test     JSONB,
+  last_successful_connection_test JSONB,
+  last_failed_connection_test JSONB,
   updated_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by               UUID        REFERENCES public.users (id) ON DELETE SET NULL
 );
+
+ALTER TABLE public.ai_settings
+  ADD COLUMN IF NOT EXISTS fallback_model TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS last_successful_connection_test JSONB,
+  ADD COLUMN IF NOT EXISTS last_failed_connection_test JSONB;
 
 INSERT INTO public.ai_settings (label_id, token_limits, reasoning_settings, feature_flags, timeouts)
 VALUES (
   '00000000-0000-0000-0000-000000000000',
   '{
-    "fast": {"max_input_tokens": 6000, "max_output_tokens": 900, "max_turn_tokens": 10000},
-    "reasoning": {"max_input_tokens": 12000, "max_output_tokens": 2500, "max_turn_tokens": 25000, "max_reasoning_tokens": 2500},
+    "fast": {"max_input_tokens": 6000, "max_output_tokens": 1200, "max_turn_tokens": 10000},
+    "reasoning": {"max_input_tokens": 12000, "max_output_tokens": 8192, "max_turn_tokens": 25000, "max_reasoning_tokens": 4096},
     "roles": {
       "artist": {"day": 30000, "month": 250000},
       "editor": {"day": 50000, "month": 400000},
@@ -3414,7 +3461,7 @@ VALUES (
   }'::jsonb,
   '{"fast_default": false, "reasoning_default": true, "low_effort": true}'::jsonb,
   '{"artist": true, "editor": true, "admin": true}'::jsonb,
-  '{"complete_ms": 45000, "stream_ms": 120000}'::jsonb
+  '{"complete_ms": 45000, "stream_ms": 120000, "reasoning_ms": 75000}'::jsonb
 )
 ON CONFLICT (label_id) DO NOTHING;
 
