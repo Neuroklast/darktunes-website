@@ -64,6 +64,37 @@ describe('mapApiMessages', () => {
     })
   })
 
+  it('keeps a streaming row live when the conversation has an active request', () => {
+    const messages = mapApiMessages(
+      [
+        row({ id: 'u1', role: 'user', content: 'Hello' }),
+        row({ id: 'a1', content: 'Partial', status: 'streaming' }),
+      ],
+      'req-active',
+    )
+    expect(messages[1]).toMatchObject({ status: 'streaming', error: null })
+  })
+
+  it('keeps the incomplete status even when metadata says failed', () => {
+    const messages = mapApiMessages([
+      row({
+        id: 'u1',
+        role: 'user',
+        content: 'Hello',
+      }),
+      row({
+        id: 'a1',
+        content: 'Partial answer',
+        status: 'incomplete',
+        metadata: { turn_status: 'failed', error_code: 'AI_OUTPUT_TRUNCATED' },
+      }),
+    ])
+    expect(messages[1]).toMatchObject({
+      status: 'incomplete',
+      error: { code: 'AI_OUTPUT_TRUNCATED' },
+    })
+  })
+
   it('does not merge across a new user message', () => {
     const messages = mapApiMessages([
       row({ id: 'u1', role: 'user', content: 'First' }),

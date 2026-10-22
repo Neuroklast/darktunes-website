@@ -155,8 +155,8 @@ export async function runNvidiaConnectionTest(options: {
       usage[role] = completion.usage
       discovered[model] = {
         ...(discovered[model] ?? {}),
-        supports_enable_thinking: thinking,
-        ...(thinking ? { supports_low_effort: true } : {}),
+        ...(thinking ? { supports_enable_thinking: true } : {}),
+        ...(thinking && lowEffort ? { supports_low_effort: true } : {}),
       }
     })
     out.push(complete)

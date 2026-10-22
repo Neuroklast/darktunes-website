@@ -235,5 +235,12 @@
     "notConfigured": "No API key",
     "notConfiguredHint": "Add the NVIDIA API key under Admin ? API Keys."
   },
-  "turnInProgress": "Another answer is still running. Stop it before sending a new question."
+  "turnInProgress": "Another answer is still running. Stop it before sending a new question.",
+  "confirmSummary": {
+    "save_epk_text": "Replace the EPK short bio with the prepared text.",
+    "save_profile_update": "Update the press quote on the artist profile.",
+    "save_release_draft": "Save a release wizard draft.",
+    "create_support_ticket": "Create the prepared support ticket.",
+    "save_error_report": "Save the prepared error report."
+  }
 }

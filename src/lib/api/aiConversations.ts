@@ -121,6 +121,7 @@ export function decodeMessageCursor(raw: string | null | undefined): AiMessageCu
   try {
     const parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')) as Partial<AiMessageCursor>
     if (typeof parsed.createdAt !== 'string' || typeof parsed.id !== 'string') return null
+    if (!/^[0-9T:.Z+-]+$/.test(parsed.createdAt) || !/^[0-9a-f-]{36}$/i.test(parsed.id)) return null
     return { createdAt: parsed.createdAt, id: parsed.id }
   } catch {
     return null

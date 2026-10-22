@@ -107,8 +107,8 @@ interface ModelHealth {
   tested_at: string | null
   supports_streaming: boolean
   supports_tools: boolean
-  supports_enable_thinking: boolean
-  supports_low_effort: boolean
+  supports_enable_thinking: boolean | null
+  supports_low_effort: boolean | null
 }
 
 interface ModelsPayload {

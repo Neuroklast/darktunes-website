@@ -168,10 +168,13 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
     [headers, input.dashboard],
   )
 
-  const applyRawMessages = useCallback((rows: ApiMessage[]) => {
-    rawMessagesRef.current = rows
-    setMessages(mapApiMessages(rows))
-  }, [])
+  const applyRawMessages = useCallback(
+    (rows: ApiMessage[], activeRequestId: string | null = null) => {
+      rawMessagesRef.current = rows
+      setMessages(mapApiMessages(rows, activeRequestId))
+    },
+    [],
+  )
 
   const loadConversation = useCallback(
     async (id: string, nextArtistId = artistIdRef.current): Promise<boolean> => {
@@ -184,6 +187,7 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
       abortRef.current = null
       setPhase('idle')
       setBusy(false)
+      setActiveRequestId(null)
       setPending(null)
       setWarning(null)
       setUsage(null)
@@ -205,7 +209,7 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
         conversationIdRef.current = body.id
         setMessagesCursor(body.next_cursor ?? null)
         setActiveRequestId(body.active_request_id ?? null)
-        applyRawMessages(body.messages ?? [])
+        applyRawMessages(body.messages ?? [], body.active_request_id ?? null)
         rememberConversation(input.dashboard, capabilities?.context.access_context ?? null, nextArtistId, body.id)
         return true
       } catch {
@@ -268,6 +272,7 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
       conversationIdRef.current = null
       applyRawMessages([])
       setMessagesCursor(null)
+      setActiveRequestId(null)
       setPending(null)
       setWarning(null)
       setUsage(null)
@@ -486,6 +491,7 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
       setWarning(null)
       setUsage(null)
       setBusy(true)
+      setActiveRequestId(null)
       setPhase('connecting')
       const assistantId = crypto.randomUUID()
       assistantIdRef.current = assistantId
@@ -629,6 +635,7 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
     updateAssistant((message) => ({ ...message, status: 'cancelled' }))
     setPhase('idle')
     setBusy(false)
+    setActiveRequestId(null)
     const id = conversationIdRef.current
     if (id) {
       void headers().then((auth) =>
@@ -730,7 +737,12 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
     setWarning(null)
     setUsage(null)
     setActiveRequestId(null)
-  }, [applyRawMessages, stopInternal])
+    forgetConversation(
+      input.dashboard,
+      capabilities?.context.access_context ?? null,
+      artistIdRef.current,
+    )
+  }, [applyRawMessages, capabilities?.context.access_context, input.dashboard, stopInternal])
 
   const deleteConversation = useCallback(
     async (id: string) => {
@@ -818,7 +830,7 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
       setMessagesCursor(body.next_cursor ?? null)
       const combined = [...(body.messages ?? []), ...rawMessagesRef.current]
       rawMessagesRef.current = combined
-      setMessages(mapApiMessages(combined))
+      setMessages(mapApiMessages(combined, activeRequestId))
     } catch {
       setConversationsError({
         code: 'AI_PROVIDER_NETWORK_ERROR',
@@ -829,7 +841,7 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
     } finally {
       setLoadingOlder(false)
     }
-  }, [headers, input.dashboard, loadingOlder, messagesCursor])
+  }, [activeRequestId, headers, input.dashboard, loadingOlder, messagesCursor])
 
   const searchArtists = useCallback(
     async (query: string): Promise<void> => {

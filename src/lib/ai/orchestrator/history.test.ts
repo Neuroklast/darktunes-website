@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  buildProviderHistory,
-  groupMessagesForDisplay,
-  type StoredAiMessage,
-} from '@/lib/ai/orchestrator/history'
+import { buildProviderHistory, type StoredAiMessage } from '@/lib/ai/orchestrator/history'
 
 function message(
   role: StoredAiMessage['role'],
@@ -60,6 +56,22 @@ describe('buildProviderHistory', () => {
     expect(history.at(-1)).toEqual({ role: 'assistant', content: 'Here is the answer.' })
   })
 
+  it('drops extra or duplicate tool rows from a complete group', () => {
+    const history = buildProviderHistory([
+      message('user', 'Find my artist'),
+      message('assistant', '', {
+        toolCalls: [{ id: 'call_1', name: 'get_artist_profile', arguments: '{}' }],
+      }),
+      message('tool', '{"one":1}', { toolCallId: 'call_1' }),
+      message('tool', '{"two":2}', { toolCallId: 'call_2' }),
+      message('tool', '{"three":3}', { toolCallId: 'call_1' }),
+      message('assistant', 'Here is the answer.'),
+    ])
+    const toolRows = history.filter((entry) => entry.role === 'tool')
+    expect(toolRows).toHaveLength(1)
+    expect(toolRows[0]).toMatchObject({ tool_call_id: 'call_1', content: '{"one":1}' })
+  })
+
   it('drops orphan tool rows and empty assistant rows', () => {
     const history = buildProviderHistory([
       message('user', 'Hello'),
@@ -71,39 +83,5 @@ describe('buildProviderHistory', () => {
       { role: 'user', content: 'Hello' },
       { role: 'assistant', content: 'Hi' },
     ])
-  })
-})
-
-describe('groupMessagesForDisplay', () => {
-  it('merges assistant rounds and attaches tool activities', () => {
-    const display = groupMessagesForDisplay([
-      message('user', 'Find my artist'),
-      message('assistant', 'Checking.', {
-        toolCalls: [{ id: 'call_1', name: 'get_artist_profile', arguments: '{}' }],
-        metadata: { turn_status: 'tool_running' },
-      }),
-      message('tool', '{"available":true}', {
-        toolCallId: 'call_1',
-        metadata: { tool_name: 'get_artist_profile', ok: true, duration_ms: 12, available: true },
-      }),
-      message('assistant', 'Here is the answer.', {
-        metadata: { turn_status: 'completed' },
-      }),
-    ])
-    expect(display).toHaveLength(2)
-    expect(display[1]).toMatchObject({
-      role: 'assistant',
-      content: 'Checking.\n\nHere is the answer.',
-      status: 'completed',
-      activities: [
-        {
-          toolCallId: 'call_1',
-          toolName: 'get_artist_profile',
-          ok: true,
-          durationMs: 12,
-          available: true,
-        },
-      ],
-    })
   })
 })

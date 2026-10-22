@@ -12,6 +12,7 @@ export function buildSystemPrompt(input: {
   artistName?: string | null
   page?: PromptPageContext | null
   locale: 'en' | 'de' | 'fr'
+  toolsAvailable?: boolean
 }): string {
   const language =
     input.locale === 'de' ? 'German' : input.locale === 'fr' ? 'French' : 'English'
@@ -25,6 +26,11 @@ export function buildSystemPrompt(input: {
     'Never reveal API keys, tokens, internal environment names, or another account\'s data.',
     'When a write action is prepared, explain that the user must confirm it before it is saved.',
   ]
+  if (input.toolsAvailable === false) {
+    lines.push(
+      'No data tools are available for this model. If the user asks for live label data, say that the data cannot be read with this model and suggest the fast model.',
+    )
+  }
   if (input.accessContext === 'artist') {
     lines.push(
       input.artistName

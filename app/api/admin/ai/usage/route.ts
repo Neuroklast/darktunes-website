@@ -25,7 +25,8 @@ interface UsageRow {
   created_at: string
 }
 
-const MAX_EVENTS = 20_000
+// shortcut: JS aggregation is capped at 5000 month events; move to an SQL aggregate when monthly volume grows beyond that.
+const MAX_EVENTS = 5_000
 
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
   const { serviceClient } = await requireAdminWithServiceClient(req)
@@ -166,17 +167,19 @@ function budgetRow(
   scope: 'global' | 'user',
   fallbackLimit: number,
 ) {
-  return rows
-    .filter((row) => row.scope === scope)
-    .reduce(
-      (acc, row) => {
-        acc.token_limit += row.token_limit
-        acc.used_tokens += row.used_tokens
-        acc.reserved_tokens += row.reserved_tokens
-        return acc
-      },
-      { token_limit: fallbackLimit, used_tokens: 0, reserved_tokens: 0 },
-    )
+  const filtered = rows.filter((row) => row.scope === scope)
+  if (filtered.length === 0) {
+    return { token_limit: fallbackLimit, used_tokens: 0, reserved_tokens: 0 }
+  }
+  return filtered.reduce(
+    (acc, row) => {
+      acc.token_limit += row.token_limit
+      acc.used_tokens += row.used_tokens
+      acc.reserved_tokens += row.reserved_tokens
+      return acc
+    },
+    { token_limit: 0, used_tokens: 0, reserved_tokens: 0 },
+  )
 }
 
 async function loadRoles(

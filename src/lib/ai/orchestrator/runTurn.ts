@@ -116,13 +116,23 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
   )
 
   const history = await listAiMessages(actor.serviceDb, conversation.id, RECENT_MESSAGE_LIMIT)
+  const reuseIndex = input.reuseLastUser ? findLastUserIndex(history) : -1
+  const trailing = reuseIndex >= 0 ? history.slice(reuseIndex + 1) : []
   const reuseLastUser = Boolean(
     input.reuseLastUser &&
-      history.at(-1)?.role === 'user' &&
-      history.at(-1)?.content.trim() === input.userText.trim(),
+      reuseIndex >= 0 &&
+      history[reuseIndex]?.content.trim() === input.userText.trim() &&
+      trailing.every(isRetryableTailMessage),
   )
-  const historyForProvider = reuseLastUser ? trimAfterLastUser(history) : history
+  const historyForProvider = reuseLastUser ? history.slice(0, reuseIndex + 1) : history
   const providerHistory = buildProviderHistory(historyForProvider)
+
+  let currentModel = initialRole === 'reasoning' ? settings.modelReasoning : settings.modelFast
+  let currentRole: AiModelRole = initialRole
+  let caps = provider.getCapabilities(currentModel)
+  let useTools = caps.supports_tools && (!settings.defaultStreaming || caps.supports_tools_with_streaming)
+  const allToolDefinitions = listToolDefinitionsForActor(actor)
+  let tools = useTools ? allToolDefinitions : []
 
   const systemPrompt = buildSystemPrompt({
     accessContext: actor.accessContext,
@@ -132,25 +142,14 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
       : null,
     page: input.page,
     locale: input.locale,
+    toolsAvailable: useTools,
   })
 
-  let currentModel = initialRole === 'reasoning' ? settings.modelReasoning : settings.modelFast
-  let currentRole: AiModelRole = initialRole
-  let caps = provider.getCapabilities(currentModel)
-  let useTools = caps.supports_tools && (!settings.defaultStreaming || caps.supports_tools_with_streaming)
-  let tools = useTools ? listToolDefinitionsForActor(actor) : []
   const messages: AiChatMessage[] = [
     { role: 'system', content: systemPrompt },
     ...slideConversationWindow(providerHistory, settings.tokenLimits.max_conversation_context_tokens),
   ]
   if (!reuseLastUser) messages.push({ role: 'user', content: input.userText })
-  if (!useTools) {
-    messages.push({
-      role: 'system',
-      content:
-        'Data tools are not available for this model. If the user asks for live label data, say that the data cannot be read with this model and suggest the fast model.',
-    })
-  }
 
   const maxToolRounds = Math.max(
     1,
@@ -167,6 +166,11 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
   const onAbort = () => controller.abort()
   input.signal?.addEventListener('abort', onAbort)
   if (input.signal?.aborted) controller.abort()
+  let deadlineHit = false
+  const deadlineTimer = setTimeout(() => {
+    deadlineHit = true
+    controller.abort()
+  }, TURN_DEADLINE_MS)
 
   const metrics = createMetrics(startedAt)
   let activeReservation: string | null = null
@@ -235,7 +239,7 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
 
       caps = provider.getCapabilities(currentModel)
       useTools = caps.supports_tools && (!settings.defaultStreaming || caps.supports_tools_with_streaming) && !forceFinal
-      tools = useTools ? listToolDefinitionsForActor(actor) : []
+      tools = useTools ? allToolDefinitions : []
       const outputCap = outputCapFor(currentRole, settings.tokenLimits)
       const roundEstimate = estimateInputTokens(messages, tools)
       if (rounds > 0) {
@@ -490,9 +494,9 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
         if (toolRounds >= maxToolRounds) {
           forceFinal = true
           messages.push({
-            role: 'system',
+            role: 'user',
             content:
-              'You have reached the tool limit. Answer now with the information already gathered. Do not request more tools.',
+              'Instruction: you have reached the tool limit. Answer now with the information already gathered. Do not request more tools.',
           })
         }
         rounds += 1
@@ -520,9 +524,9 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
           repairAttempted = true
           forceFinal = true
           messages.push({
-            role: 'system',
+            role: 'user',
             content:
-              'Return a visible answer now. Do not call tools. If the data is unavailable, say so and explain what the user can do next.',
+              'Instruction: return a visible answer now. Do not call tools. If the data is unavailable, say so and explain what the user can do next.',
           })
           rounds += 1
           continue
@@ -597,7 +601,8 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
       return
     }
   } catch (error) {
-    const cancelled = controller.signal.aborted || Boolean(input.signal?.aborted)
+    const cancelled =
+      !deadlineHit && (controller.signal.aborted || Boolean(input.signal?.aborted))
     const providerError = normalizeError(error)
     const apiError = cancelled
       ? buildApiError('AI_CANCELLED', 499)
@@ -676,6 +681,7 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
     }
     return
   } finally {
+    clearTimeout(deadlineTimer)
     input.signal?.removeEventListener('abort', onAbort)
     endAiTurn(conversationTurnKey(conversation.id))
     await releaseAiConversationTurn(actor.serviceDb, conversation.id, input.requestId).catch(
@@ -743,11 +749,16 @@ function outputCapFor(
     : limits.fast.max_output_tokens
 }
 
-function trimAfterLastUser(history: AiMessageRecord[]): AiMessageRecord[] {
+function findLastUserIndex(history: AiMessageRecord[]): number {
   for (let index = history.length - 1; index >= 0; index -= 1) {
-    if (history[index]?.role === 'user') return history.slice(0, index + 1)
+    if (history[index]?.role === 'user') return index
   }
-  return history
+  return -1
+}
+
+function isRetryableTailMessage(message: AiMessageRecord): boolean {
+  if (message.role === 'tool') return true
+  return message.role === 'assistant' && (message.status === 'failed' || message.status === 'cancelled')
 }
 
 function createMetrics(startedAt: number): {

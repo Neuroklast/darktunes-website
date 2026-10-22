@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { DotsThree, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { useTranslations } from 'next-intl'
+import { ERROR_CODES, type ErrorCode } from '@/lib/errorCodes'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -58,6 +59,7 @@ export function ConversationList({
   disabled?: boolean
 }) {
   const t = useTranslations('ai')
+  const tErrors = useTranslations('errors')
   const [renaming, setRenaming] = useState<ConversationSummary | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [deleting, setDeleting] = useState<ConversationSummary | null>(null)
@@ -83,8 +85,8 @@ export function ConversationList({
       </div>
       {error ? (
         <p className="border-b border-border px-3 py-2 text-xs text-destructive">
-          {error.code === 'AI_PROVIDER_NETWORK_ERROR'
-            ? t('historyLoadFailed')
+          {(ERROR_CODES as readonly string[]).includes(error.code)
+            ? tErrors(error.code as ErrorCode)
             : t('historyLoadFailed')}
         </p>
       ) : null}

@@ -52,7 +52,7 @@ export const GET = withErrorHandler(async (req: NextRequest): Promise<NextRespon
     active_request_started_at: conversation.activeRequestStartedAt,
     created_at: conversation.createdAt,
     updated_at: conversation.updatedAt,
-    messages: page.items.map(serializeMessage),
+    messages: [...page.items].reverse().map(serializeMessage),
     next_cursor: page.next_cursor,
   })
 })

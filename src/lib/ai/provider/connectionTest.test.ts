@@ -112,6 +112,14 @@ describe('runNvidiaConnectionTest', () => {
     expect(result.discovered_capabilities).toMatchObject({
       'nvidia/nemotron-3.5-lightning-30b-a3b': { supports_tools: true, supports_streaming: true },
     })
+    expect(
+      result.discovered_capabilities['nvidia/nemotron-3.5-lightning-30b-a3b']
+        ?.supports_enable_thinking,
+    ).toBeUndefined()
+    expect(
+      result.discovered_capabilities['nvidia/nemotron-3-super-120b-a12b']
+        ?.supports_enable_thinking,
+    ).toBe(true)
   })
 
   it('keeps the reasoning tests running when fast completion fails', async () => {

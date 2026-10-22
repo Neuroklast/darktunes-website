@@ -5,8 +5,8 @@ export interface ModelHealth {
   tested_at: string | null
   supports_streaming: boolean
   supports_tools: boolean
-  supports_enable_thinking: boolean
-  supports_low_effort: boolean
+  supports_enable_thinking: boolean | null
+  supports_low_effort: boolean | null
 }
 
 export interface StoredCapabilities {
@@ -84,8 +84,14 @@ function sanitizeHealthMap(raw: unknown): Record<string, ModelHealth> {
       tested_at: typeof candidate.tested_at === 'string' ? candidate.tested_at : null,
       supports_streaming: candidate.supports_streaming === true,
       supports_tools: candidate.supports_tools === true,
-      supports_enable_thinking: candidate.supports_enable_thinking === true,
-      supports_low_effort: candidate.supports_low_effort === true,
+      supports_enable_thinking:
+        typeof candidate.supports_enable_thinking === 'boolean'
+          ? candidate.supports_enable_thinking
+          : null,
+      supports_low_effort:
+        typeof candidate.supports_low_effort === 'boolean'
+          ? candidate.supports_low_effort
+          : null,
     }
   }
   return out

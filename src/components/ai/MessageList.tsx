@@ -165,7 +165,14 @@ function MessageBlock({
 }) {
   const t = useTranslations('ai')
   const [copied, setCopied] = useState(false)
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const streaming = message.status === 'streaming' && busy
+
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current) clearTimeout(copyTimer.current)
+    }
+  }, [])
 
   if (message.role === 'user') {
     return (
@@ -185,7 +192,8 @@ function MessageBlock({
     try {
       await navigator.clipboard.writeText(message.content)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      if (copyTimer.current) clearTimeout(copyTimer.current)
+      copyTimer.current = setTimeout(() => setCopied(false), 2000)
     } catch {
       setCopied(false)
     }

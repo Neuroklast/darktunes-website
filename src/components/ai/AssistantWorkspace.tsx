@@ -29,6 +29,14 @@ import type { AiMode } from '@/components/ai/types'
 
 type Session = ReturnType<typeof useAssistantSession>
 
+const CONFIRM_SUMMARY_KEYS = {
+  save_epk_text: 'confirmSummary.save_epk_text',
+  save_profile_update: 'confirmSummary.save_profile_update',
+  save_release_draft: 'confirmSummary.save_release_draft',
+  create_support_ticket: 'confirmSummary.create_support_ticket',
+  save_error_report: 'confirmSummary.save_error_report',
+} as const
+
 export function AssistantWorkspace({
   session,
   onClose,
@@ -342,13 +350,29 @@ export function AssistantWorkspace({
 
           {warning ? (
             <div className="border-t border-amber-500/25 bg-amber-500/5 px-4 py-2 text-xs text-amber-200">
-              {warning.detail || t('incompleteAnswer')}
+              <p>{t('incompleteAnswer')}</p>
+              {isAdmin && warning.detail ? (
+                <details className="mt-1 text-[11px] text-amber-100/70">
+                  <summary className="cursor-pointer select-none">{t('technicalDetails')}</summary>
+                  <p className="mt-1">{warning.detail}</p>
+                </details>
+              ) : null}
             </div>
           ) : null}
 
           {pending ? (
             <div className="border-t border-border bg-card/60 px-4 py-3">
-              <p className="text-sm text-foreground">{pending.summary}</p>
+              <p className="text-sm text-foreground">
+                {pending.action in CONFIRM_SUMMARY_KEYS
+                  ? t(CONFIRM_SUMMARY_KEYS[pending.action as keyof typeof CONFIRM_SUMMARY_KEYS])
+                  : t('confirmPending')}
+              </p>
+              {isAdmin ? (
+                <details className="mt-1 text-xs text-muted-foreground">
+                  <summary className="cursor-pointer select-none">{t('technicalDetails')}</summary>
+                  <p className="mt-1">{pending.summary}</p>
+                </details>
+              ) : null}
               <p className="mt-1 text-xs text-muted-foreground">{t('confirmPending')}</p>
               <div className="mt-2 flex gap-2">
                 <Button

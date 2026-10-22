@@ -15,7 +15,13 @@ const state = vi.hoisted(() => ({
   settings: {} as Record<string, unknown>,
   reserve: vi.fn(async () => undefined),
   settle: vi.fn(async () => undefined),
-  execute: vi.fn(async () => ({ ok: true as const, result: { available: true } })),
+  requests: [] as Array<Record<string, unknown>>,
+  execute: vi.fn(
+    async (): Promise<{ ok: boolean; result?: unknown; error?: string }> => ({
+      ok: true,
+      result: { available: true },
+    }),
+  ),
   tools: [{ name: 'get_artist_profile', description: 'profile', parameters: { type: 'object' } }],
 }))
 
@@ -135,9 +141,11 @@ function mockProvider(turns: Array<Record<string, unknown>>): AiProvider {
     }),
     abort: () => undefined,
     async complete(request): Promise<AiCompletion> {
+      state.requests.push(request as unknown as Record<string, unknown>)
       return completionFromTurn(request, next())
     },
     async *stream(request): AsyncIterable<AiStreamEvent> {
+      state.requests.push(request as unknown as Record<string, unknown>)
       const turn = next()
       yield { type: 'open', retry_count: 0 }
       const content = typeof turn.content === 'string' ? turn.content : ''
@@ -174,6 +182,7 @@ function completionFromTurn(
 describe('runAiTurn', () => {
   beforeEach(() => {
     state.inserted = []
+    state.requests = []
     state.updated = []
     state.usageEvents = []
     state.history = []
@@ -333,5 +342,134 @@ describe('runAiTurn', () => {
       model: 'fallback-model',
       fallback_used: true,
     })
+  })
+
+  it('reuses the last user message when retrying a failed turn', async () => {
+    state.history = [
+      {
+        id: 'u1',
+        conversationId: 'conv-1',
+        role: 'user',
+        content: 'Hello',
+        model: null,
+        tokenUsage: {},
+        status: 'complete',
+        toolCalls: [],
+        toolCallId: null,
+        metadata: {},
+        createdAt: '2026-10-20T00:00:00.000Z',
+      },
+      {
+        id: 'a1',
+        conversationId: 'conv-1',
+        role: 'assistant',
+        content: 'partial',
+        model: 'fast-model',
+        tokenUsage: {},
+        status: 'failed',
+        toolCalls: [],
+        toolCallId: null,
+        metadata: { turn_status: 'failed', error_code: 'AI_PROVIDER_TIMEOUT' },
+        createdAt: '2026-10-20T00:00:01.000Z',
+      },
+    ]
+    const provider = mockProvider([{ content: 'Recovered' }])
+    const events = await collect(
+      runAiTurn({
+        actor,
+        conversationId: 'conv-1',
+        userText: 'Hello',
+        locale: 'en',
+        requestId: 'req-retry',
+        reuseLastUser: true,
+        providerOverride: provider,
+      }),
+    )
+    expect(events.at(-1)).toMatchObject({ type: 'done', status: 'complete' })
+    expect(state.inserted.some((row) => row.role === 'user')).toBe(false)
+    const messages = state.requests[0]?.messages as Array<Record<string, unknown>>
+    expect(messages.filter((message) => message.role === 'user')).toHaveLength(1)
+    expect(messages.some((message) => message.content === 'partial')).toBe(false)
+  })
+
+  it('keeps the chat alive when a read tool fails', async () => {
+    state.execute.mockResolvedValueOnce({ ok: false, error: 'No data.' })
+    const provider = mockProvider([
+      { content: '', tool_calls: [{ id: 'call_1', name: 'get_artist_profile', arguments: '{}' }] },
+      { content: 'The data is unavailable.' },
+    ])
+    const events = await collect(
+      runAiTurn({
+        actor,
+        conversationId: 'conv-1',
+        userText: 'Is my profile complete?',
+        locale: 'en',
+        requestId: 'req-tool-fail',
+        providerOverride: provider,
+      }),
+    )
+    expect(events.some((event) => event.type === 'tool_result' && event.ok === false)).toBe(true)
+    expect(events.at(-1)).toMatchObject({ type: 'done', status: 'complete' })
+    expect(state.updated.at(-1)?.patch).toMatchObject({ content: 'The data is unavailable.' })
+  })
+
+  it('aborts the turn at the overall deadline', async () => {
+    vi.useFakeTimers()
+    try {
+      const base = mockProvider([{ content: 'never' }])
+      const provider: AiProvider = {
+        ...base,
+        async *stream(request, signal): AsyncIterable<AiStreamEvent> {
+          yield { type: 'open', retry_count: 0 }
+          await new Promise<never>((_resolve, reject) => {
+            signal?.addEventListener('abort', () =>
+              reject(new AiProviderError('TIMEOUT', 'aborted by deadline')),
+            )
+          })
+        },
+      }
+      const events: Array<Record<string, unknown>> = []
+      const consumed = (async () => {
+        for await (const event of runAiTurn({
+          actor,
+          conversationId: 'conv-1',
+          userText: 'Hello',
+          locale: 'en',
+          requestId: 'req-deadline',
+          providerOverride: provider,
+        })) {
+          events.push(event as Record<string, unknown>)
+        }
+      })()
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(105_000)
+      await consumed
+      expect(events.find((event) => event.type === 'error')).toMatchObject({
+        code: 'AI_PROVIDER_TIMEOUT',
+      })
+      expect(state.updated.at(-1)?.patch).toMatchObject({ status: 'failed' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('removes tools on the final call after the tool-round limit', async () => {
+    state.settings = baseSettings({ maxToolRounds: 1 })
+    const provider = mockProvider([
+      { content: '', tool_calls: [{ id: 'call_1', name: 'get_artist_profile', arguments: '{}' }] },
+      { content: 'Final answer.' },
+    ])
+    await collect(
+      runAiTurn({
+        actor,
+        conversationId: 'conv-1',
+        userText: 'Find my profile',
+        locale: 'en',
+        requestId: 'req-limit',
+        providerOverride: provider,
+      }),
+    )
+    expect(state.requests).toHaveLength(2)
+    expect(state.requests[1]?.tools).toBeUndefined()
   })
 })

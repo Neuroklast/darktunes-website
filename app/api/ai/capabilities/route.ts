@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic'
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
   const artistId = req.nextUrl.searchParams.get('artist_id')
   const dashboard = parseDashboard(req.nextUrl.searchParams.get('dashboard'))
-  const actor = await requireAiActor(req, { artistId, dashboard })
+  const actor = await requireAiActor(req, { artistId, dashboard, includeArtists: true })
   const settings = await getAiSettings(actor.serviceDb)
   const key = await resolveNvidiaApiKey(actor.serviceDb)
   const stored = parseStoredCapabilities(settings.providerCapabilities)
@@ -32,10 +32,11 @@ export const GET = withErrorHandler(async (req: NextRequest): Promise<NextRespon
     availableArtists.find((artist) => artist.id === actor.artistId) ??
     null
 
+  const mockEnabled = settings.testMode && process.env.NODE_ENV !== 'production'
   return NextResponse.json({
-    enabled: (settings.enabled || process.env.AI_ENABLED === 'true') && (Boolean(key) || settings.testMode),
+    enabled: (settings.enabled || process.env.AI_ENABLED === 'true') && (Boolean(key) || mockEnabled),
     provider: settings.provider,
-    verified: settings.lastConnectionTest?.ok === true,
+    verified: settings.lastSuccessfulConnectionTest?.ok === true,
     streaming: settings.defaultStreaming,
     models: {
       fast: settings.modelFast || FAST_MODEL_ID,

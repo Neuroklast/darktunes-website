@@ -73,7 +73,10 @@ export function ToolActivity({ activity }: { activity: UiToolActivity }) {
       role="status"
     >
       {activity.status === 'running' ? (
-        <CircleNotch className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+        <CircleNotch
+          className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none"
+          aria-hidden
+        />
       ) : activity.status === 'ok' ? (
         <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" aria-hidden />
       ) : activity.status === 'no_data' ? (

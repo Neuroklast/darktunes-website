@@ -39,6 +39,8 @@ export interface RequireAiActorOptions {
   artistId?: string | null
   dashboard?: AiDashboard
   requireArtist?: boolean
+  /** Load the full artist option list (context selector). Off by default. */
+  includeArtists?: boolean
 }
 
 const MANAGE_ARTISTS: Capability = 'cms.artists.manage'
@@ -61,9 +63,10 @@ export async function requireAiActor(
     return listArtistMemberships(userDb, user.id)
   })
   const canInspectAnyArtist = role === 'admin' || (role === 'editor' && access.capabilities.has(MANAGE_ARTISTS))
-  const allArtists = canInspectAnyArtist
-    ? await listArtistOptions(serviceDb).catch(() => [] as ArtistOption[])
-    : null
+  const allArtists =
+    canInspectAnyArtist && options?.includeArtists === true
+      ? await listArtistOptions(serviceDb).catch(() => [] as ArtistOption[])
+      : null
 
   const requestedArtistId = options?.artistId?.trim() || null
   const requestedIsMember = requestedArtistId

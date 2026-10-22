@@ -3322,7 +3322,8 @@ ALTER TABLE public.ai_conversations
   ADD COLUMN IF NOT EXISTS active_request_started_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS cancel_requested_at TIMESTAMPTZ;
 
-CREATE INDEX IF NOT EXISTS idx_ai_conversations_user ON public.ai_conversations (user_id, access_context, updated_at DESC, id DESC);
+DROP INDEX IF EXISTS idx_ai_conversations_user;
+CREATE INDEX IF NOT EXISTS idx_ai_conversations_user_v2 ON public.ai_conversations (user_id, access_context, updated_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_ai_conversations_artist ON public.ai_conversations (artist_id, updated_at DESC)
   WHERE artist_id IS NOT NULL;
 
@@ -3349,7 +3350,8 @@ ALTER TABLE public.ai_messages DROP CONSTRAINT IF EXISTS ai_messages_status_chec
 ALTER TABLE public.ai_messages ADD CONSTRAINT ai_messages_status_check
   CHECK (status IN ('pending', 'streaming', 'complete', 'cancelled', 'failed', 'incomplete'));
 
-CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON public.ai_messages (conversation_id, created_at DESC, id DESC);
+DROP INDEX IF EXISTS idx_ai_messages_conversation;
+CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation_v2 ON public.ai_messages (conversation_id, created_at DESC, id DESC);
 
 CREATE TABLE IF NOT EXISTS public.ai_usage_events (
   id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),

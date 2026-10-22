@@ -63,8 +63,11 @@ Hosted NVIDIA inference can return HTTP 503 `ResourceExhausted: Worker local tot
 - A conversation turn lock (`ai_conversations.active_request_id`) rejects concurrent turns with `AI_TURN_IN_PROGRESS`. Stale locks recover after 2 minutes.
 - The assistant placeholder is inserted before the model call (`ai_messages.status='streaming'`), updated at the end, and marked `cancelled`/`failed` on abort/error. Empty failed placeholders render as an error card, not a bubble.
 - Tool rounds persist as an assistant message with `tool_calls`, followed by `tool` messages with `tool_call_id` and safe metadata. `buildProviderHistory()` drops incomplete/orphan tool groups so NVIDIA never receives an invalid transcript.
-- The newest 80 messages are loaded (newest-first query, reversed for the model). The conversation API paginates newest pages with a `before` cursor. `slideConversationWindow()` treats an assistant tool-call group and its tool replies as one atomic unit.
+- The newest 80 messages are loaded (newest-first query, reversed for the model). The conversation API paginates newest pages with a `before` cursor and returns each page in chronological order for the UI. `slideConversationWindow()` treats an assistant tool-call group and its tool replies as one atomic unit.
+- A retry reuses the last user message only when every row after it is a failed/cancelled assistant or tool row; the failed answer is trimmed from the model context so retries do not duplicate the user question.
 - Cancellation: the same serverless instance aborts immediately via `AbortSignal`; other instances observe `cancel_requested_at` at the next round/tool checkpoint. The UI stop button also aborts its fetch and marks the partial answer cancelled.
+- A 105 s turn timer aborts the controller, so provider retry attempts cannot run past the route budget. Timeout, overload and user cancellation remain distinct.
+- Connection Health leaves an untested capability (`supports_enable_thinking` / `supports_low_effort`) as `null`, not `false`; configuration discovery never downgrades a known model capability without evidence.
 - Usage is settled per round. Provider usage is authoritative; estimates are marked `usage_source='estimate'`. Failed/aborted turns settle the known partial usage and write a `success=false` event. `ai_usage_events` stores latency, TTFT, rounds, retry/fallback metadata and error code (no message content or tool payloads).
 
 ## API

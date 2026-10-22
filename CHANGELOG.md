@@ -35,8 +35,10 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 
 ### Fixed
 - **"No artist linked to this account" for admins:** the AI auth resolver no longer requires an artist membership for admin/editor artist inspection, and only sends tools the actor can execute.
-- **Wrong history window:** conversations load the newest 80 messages (and paginate older pages) instead of the oldest 80.
-- **Tool history loss:** tool calls and results are paired and persisted; incomplete tool groups are never sent to NVIDIA.
+- **Wrong history window:** conversations load the newest 80 messages (and paginate older pages) instead of the oldest 80. Message pages are returned chronologically, not newest-first.
+- **Retry duplicated the user question:** a retry now reuses the last user message when only failed/cancelled assistant/tool rows follow it, and trims the failed answer from the model context.
+- **Provider retries could outlive the route:** a 105 s turn timer aborts the controller, so 3× long provider timeouts cannot exceed the serverless budget.
+- **Tool history loss:** tool calls and results are paired and persisted; incomplete tool groups and extra/duplicate tool replies are never sent to NVIDIA.
 - **Empty assistant bubbles:** failed/empty turns render a specific error card and are persisted as failed/cancelled.
 - **Stop did not stop the server:** the request signal, provider abort and DB cancellation flag now stop the turn and persist the partial answer.
 - **Usage undercount:** failed/aborted turns now write usage events with partial or settled tokens.

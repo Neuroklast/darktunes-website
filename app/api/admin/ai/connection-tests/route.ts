@@ -57,8 +57,9 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
       supports_streaming: result.discovered_capabilities[model]?.supports_streaming === true,
       supports_tools: result.discovered_capabilities[model]?.supports_tools === true,
       supports_enable_thinking:
-        result.discovered_capabilities[model]?.supports_enable_thinking === true,
-      supports_low_effort: result.discovered_capabilities[model]?.supports_low_effort === true,
+        result.discovered_capabilities[model]?.supports_enable_thinking ?? null,
+      supports_low_effort:
+        result.discovered_capabilities[model]?.supports_low_effort ?? null,
     }
   }
 

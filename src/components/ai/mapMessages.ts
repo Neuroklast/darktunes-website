@@ -1,6 +1,9 @@
 import type { ApiMessage, UiError, UiMessage } from '@/components/ai/types'
 
-export function mapApiMessages(rows: ApiMessage[]): UiMessage[] {
+export function mapApiMessages(
+  rows: ApiMessage[],
+  activeRequestId: string | null = null,
+): UiMessage[] {
   const out: UiMessage[] = []
   let currentAssistant: UiMessage | null = null
   for (const row of rows) {
@@ -35,13 +38,16 @@ export function mapApiMessages(rows: ApiMessage[]): UiMessage[] {
       continue
     }
     if (row.role !== 'assistant') continue
-    const status = normalizeStatus(row.status, row.metadata)
+    const activeStreaming = row.status === 'streaming' && Boolean(activeRequestId)
+    const status = activeStreaming ? 'streaming' : normalizeStatus(row.status, row.metadata)
     const errorCode =
-      typeof row.metadata.error_code === 'string'
-        ? row.metadata.error_code
-        : row.status === 'streaming' || row.status === 'failed'
-          ? 'AI_TURN_INCOMPLETE'
-          : null
+      activeStreaming
+        ? null
+        : typeof row.metadata.error_code === 'string'
+          ? row.metadata.error_code
+          : row.status === 'streaming' || row.status === 'failed'
+            ? 'AI_TURN_INCOMPLETE'
+            : null
     const error = errorCode ? uiErrorForCode(errorCode) : null
     if (currentAssistant) {
       if (row.content.trim()) {
@@ -75,8 +81,8 @@ export function normalizeStatus(
 ): UiMessage['status'] {
   const turnStatus = typeof metadata.turn_status === 'string' ? metadata.turn_status : status
   if (turnStatus === 'cancelled' || status === 'cancelled') return 'cancelled'
-  if (turnStatus === 'failed' || status === 'failed') return 'failed'
   if (status === 'incomplete') return 'incomplete'
+  if (turnStatus === 'failed' || status === 'failed') return 'failed'
   if (status === 'streaming') return 'failed'
   return 'complete'
 }

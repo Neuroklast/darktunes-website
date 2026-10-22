@@ -235,5 +235,12 @@
     "notConfigured": "Kein API-Schl?ssel",
     "notConfiguredHint": "Lege den NVIDIA-API-Schl?ssel unter Admin ? API Keys an."
   },
-  "turnInProgress": "Eine andere Antwort l?uft noch. Stoppe sie, bevor du eine neue Frage sendest."
+  "turnInProgress": "Eine andere Antwort l?uft noch. Stoppe sie, bevor du eine neue Frage sendest.",
+  "confirmSummary": {
+    "save_epk_text": "Die EPK-Kurzbio durch den vorbereiteten Text ersetzen.",
+    "save_profile_update": "Das Press-Zitat im Artist-Profil aktualisieren.",
+    "save_release_draft": "Einen Release-Wizard-Entwurf speichern.",
+    "create_support_ticket": "Das vorbereitete Support-Ticket erstellen.",
+    "save_error_report": "Den vorbereiteten Fehlerbericht speichern."
+  }
 }

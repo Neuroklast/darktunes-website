@@ -235,5 +235,12 @@
     "notConfigured": "Aucune cl? API",
     "notConfiguredHint": "Ajoutez la cl? API NVIDIA sous Admin ? Cl?s API."
   },
-  "turnInProgress": "Une autre r?ponse est encore en cours. Arr?tez-la avant d?envoyer une nouvelle question."
+  "turnInProgress": "Une autre r?ponse est encore en cours. Arr?tez-la avant d?envoyer une nouvelle question.",
+  "confirmSummary": {
+    "save_epk_text": "Remplacer la biographie courte EPK par le texte pr?par?.",
+    "save_profile_update": "Mettre ? jour la citation presse du profil artiste.",
+    "save_release_draft": "Enregistrer un brouillon de sortie.",
+    "create_support_ticket": "Cr?er le ticket support pr?par?.",
+    "save_error_report": "Enregistrer le rapport d?erreur pr?par?."
+  }
 }
