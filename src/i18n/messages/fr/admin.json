@@ -4,6 +4,11 @@
   "brand_admin_dashboard": "Système de gestion de contenu",
   "brand_editor_dashboard": "Tableau de bord éditeur",
   "nav": {
+    "group_communication": "Communication",
+    "group_finance": "Finances",
+    "group_people": "Utilisateurs et droits",
+    "group_settings": "Paramètres",
+    "group_operations": "Exploitation technique",
     "dashboard": "Tableau de bord",
     "group_content": "Contenu",
     "group_submissions": "Soumissions",
@@ -1521,4 +1526,60 @@
   "submission_download_cover": "Télécharger la pochette",
   "submission_files_expire_today": "L’audio et la pochette expirent aujourd’hui et seront supprimés. Téléchargez-les maintenant.",
   "submission_files_expire_in": "L’audio et la pochette seront supprimés automatiquement dans {days} jours. Téléchargez-les maintenant."
+,
+  "overview": {
+    "title": "Vue d’ensemble",
+    "introAdmin": "Ce qui demande votre attention aujourd’hui et ce qui a changé récemment.",
+    "introEditor": "Vos tâches éditoriales et les changements récents.",
+    "actionManageArtists": "Gérer les artistes",
+    "actionNewRelease": "Nouvelle sortie",
+    "actionAccounting": "Comptabilité",
+    "tasksHeading": "Tâches ouvertes",
+    "tasksClear": "Tout est traité",
+    "tasksOpen": "{count, plural, one {# domaine demande votre attention} other {# domaines demandent votre attention}}",
+    "tasksEmpty": "Rien n’attend de validation pour le moment.",
+    "task": {
+      "releaseSubmissions": {
+        "title": "Soumissions de sorties",
+        "hint": "En attente de décision"
+      },
+      "videoSubmissions": {
+        "title": "Soumissions de vidéos",
+        "hint": "En attente de décision"
+      },
+      "fanPageReviews": {
+        "title": "Pages artistes à valider",
+        "hint": "En attente d’approbation"
+      },
+      "unreadMessages": { "title": "Messages non lus", "hint": "Nouveaux depuis votre dernière consultation" },
+      "statementsToReview": {
+        "title": "Relevés à vérifier",
+        "hint": "Brouillon ou approuvé, pas encore envoyé"
+      },
+      "overdueInvoices": {
+        "title": "Factures en retard",
+        "hint": "Date d’échéance dépassée"
+      }
+    },
+    "activityHeading": "Activité récente",
+    "activityEmpty": "Aucun changement récent.",
+    "activityFanPage": "Page artiste mise à jour",
+    "activityKind": {
+      "release": "Soumission de sortie",
+      "video": "Soumission de vidéo",
+      "message": "Message",
+      "fanPage": "Page artiste",
+      "news": "Actualité"
+    },
+    "metricsHeading": "Contenus en un coup d’œil",
+    "metric": {
+      "artists": "Artistes",
+      "releases": "Sorties",
+      "news": "Actualités",
+      "videos": "Vidéos"
+    },
+    "systemHeading": "Avis système",
+    "systemErrors": "{count, plural, one {# erreur non résolue affecte la plateforme.} other {# erreurs non résolues affectent la plateforme.}}",
+    "systemOpen": "Ouvrir l’état du système"
+  }
 }

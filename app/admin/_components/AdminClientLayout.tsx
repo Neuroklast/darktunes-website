@@ -49,7 +49,7 @@ export function AdminClientLayout({ children }: AdminClientLayoutProps) {
           lockScroll={lockScroll}
           sidebar={
             // useSearchParams in AdminSidebarNav requires a Suspense boundary
-            <Suspense fallback={<div className="hidden h-full w-56 shrink-0 border-r border-border bg-card md:block" aria-hidden="true" />}>
+            <Suspense fallback={<div className="hidden h-full w-64 shrink-0 border-r border-border bg-card md:block" aria-hidden="true" />}>
               <AdminSidebarNav />
             </Suspense>
           }

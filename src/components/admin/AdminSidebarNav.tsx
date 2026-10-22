@@ -110,9 +110,12 @@ type NavItemKey =
 type NavGroupKey =
   | 'group_content'
   | 'group_submissions'
+  | 'group_communication'
+  | 'group_finance'
   | 'group_press'
-  | 'group_management'
-  | 'group_system'
+  | 'group_people'
+  | 'group_settings'
+  | 'group_operations'
 
 interface NavItem {
   labelKey: NavItemKey
@@ -147,6 +150,8 @@ const NAV_GROUPS: NavGroup[] = [
       { labelKey: 'videos', href: '/admin/videos', editorHref: getCmsTabPath('editor', 'videos'), icon: FilmStrip, adminOnly: false },
       { labelKey: 'events', href: '/admin/events', editorHref: getCmsTabPath('editor', 'events'), icon: CalendarBlank, adminOnly: false },
       { labelKey: 'tourProduction', href: '/admin/tour-planner', icon: MapTrifold, adminOnly: true },
+      { labelKey: 'assets', href: '/admin/assets', icon: FolderOpen, adminOnly: true },
+      { labelKey: 'genres', href: '/admin/genres', icon: Tag, adminOnly: true },
     ],
   },
   {
@@ -160,6 +165,22 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    labelKey: 'group_communication',
+    items: [
+      { labelKey: 'messages', href: '/admin/messages', icon: ChatCircle, adminOnly: true, badgeKey: 'messages' },
+      { labelKey: 'promotionActivity', href: '/admin/promo-log', editorHref: getCmsPromoLogPath('editor'), icon: MegaphoneSimple, adminOnly: false },
+    ],
+  },
+  {
+    labelKey: 'group_finance',
+    items: [
+      { labelKey: 'accounting', href: '/admin/accounting', icon: Wallet, adminOnly: true },
+      { labelKey: 'statements', href: '/admin/statements', icon: Receipt, adminOnly: true },
+      { labelKey: 'invoices', href: '/admin/invoices', icon: FileText, adminOnly: true },
+      { labelKey: 'labelIntelligence', href: '/admin/analytics', icon: ChartLine, adminOnly: true },
+    ],
+  },
+  {
     labelKey: 'group_press',
     items: [
       { labelKey: 'pressAccreditations', href: '/admin/accreditations', icon: IdentificationCard, adminOnly: true },
@@ -167,29 +188,26 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    labelKey: 'group_management',
+    labelKey: 'group_people',
     items: [
-      { labelKey: 'assets', href: '/admin/assets', icon: FolderOpen, adminOnly: true },
-      { labelKey: 'genres', href: '/admin/genres', icon: Tag, adminOnly: true },
-      { labelKey: 'accounting', href: '/admin/accounting', icon: Wallet, adminOnly: true },
-      { labelKey: 'labelIntelligence', href: '/admin/analytics', icon: ChartLine, adminOnly: true },
-      { labelKey: 'statements', href: '/admin/statements', icon: Receipt, adminOnly: true },
-      { labelKey: 'invoices', href: '/admin/invoices', icon: FileText, adminOnly: true },
-      { labelKey: 'messages', href: '/admin/messages', icon: ChatCircle, adminOnly: true, badgeKey: 'messages' },
-      { labelKey: 'promotionActivity', href: '/admin/promo-log', editorHref: getCmsPromoLogPath('editor'), icon: MegaphoneSimple, adminOnly: false },
       { labelKey: 'users', href: '/admin/users', icon: UsersThree, adminOnly: true },
     ],
   },
   {
-    labelKey: 'group_system',
+    labelKey: 'group_settings',
     items: [
       { labelKey: 'portalFaq', href: '/admin/portal-faq', icon: Question, adminOnly: true },
       { labelKey: 'featureFlags', href: '/admin/features', icon: ToggleRight, adminOnly: true },
       { labelKey: 'colors', href: '/admin/colors', icon: Palette, adminOnly: true },
       { labelKey: 'settings', href: '/admin/settings', icon: Gear, adminOnly: true },
-      { labelKey: 'apiKeys', href: '/admin/api-keys', icon: Key, adminOnly: true },
+    ],
+  },
+  {
+    labelKey: 'group_operations',
+    items: [
       { labelKey: 'aiAssistant', href: '/admin/ai', icon: Sparkle, adminOnly: true },
       { labelKey: 'support', href: '/admin/support', icon: Lifebuoy, adminOnly: true },
+      { labelKey: 'apiKeys', href: '/admin/api-keys', icon: Key, adminOnly: true },
       { labelKey: 'system', href: '/admin/system', icon: Cpu, adminOnly: true },
     ],
   },
@@ -291,7 +309,7 @@ export function AdminSidebarNav() {
         if (visibleItems.length === 0) return null
         return (
           <div key={group.labelKey}>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/50 px-3 pt-4 pb-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 px-3 pt-5 pb-1.5">
               {tNav(group.labelKey)}
             </p>
             <ul className="space-y-0.5">
@@ -348,7 +366,7 @@ export function AdminSidebarNav() {
                 <List size={20} aria-hidden="true" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-56 p-0">
+            <SheetContent side="left" className="w-64 p-0">
               <SheetTitle className="sr-only">{tNav('navigationTitle')}</SheetTitle>
               <div className="flex h-full flex-col bg-card">
                 <div className="px-4 py-5 border-b border-border">
@@ -365,7 +383,7 @@ export function AdminSidebarNav() {
 
       {/* Desktop sidebar — hidden below md */}
       <aside
-        className="hidden h-full min-h-0 w-56 shrink-0 flex-col border-r border-border bg-card md:flex"
+        className="hidden h-full min-h-0 w-64 shrink-0 flex-col border-r border-border bg-card md:flex"
         aria-label={tNav('navigationAria')}
       >
         {/* Brand header */}
