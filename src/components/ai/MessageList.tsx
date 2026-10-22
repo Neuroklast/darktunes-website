@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils'
 import { AssistantError } from '@/components/ai/AssistantError'
 import { AssistantMarkdown } from '@/components/ai/AssistantMarkdown'
 import { ToolActivity } from '@/components/ai/ToolActivity'
+import type { AssistantAudience } from '@/lib/ai/presentation/errors'
+import type { AssistantSuggestionId } from '@/lib/ai/presentation/suggestions'
 import type { UiError, UiMessage } from '@/components/ai/types'
 
 export function MessageList({
@@ -21,8 +23,10 @@ export function MessageList({
   onRetryFast,
   onSelectArtist,
   canSelectArtist,
-  isAdmin,
+  audience,
   capabilityError,
+  suggestions,
+  onSuggestion,
 }: {
   messages: UiMessage[]
   busy: boolean
@@ -33,8 +37,10 @@ export function MessageList({
   onRetryFast: () => void
   onSelectArtist: () => void
   canSelectArtist: boolean
-  isAdmin: boolean
+  audience: AssistantAudience
   capabilityError: UiError | null
+  suggestions: AssistantSuggestionId[]
+  onSuggestion: (prompt: string) => void
 }) {
   const t = useTranslations('ai')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -92,10 +98,10 @@ export function MessageList({
           {capabilityError ? (
             <AssistantError
               error={capabilityError}
+              audience={audience}
               canSelectArtist={canSelectArtist}
               onSelectArtist={onSelectArtist}
-              showTechnical={isAdmin}
-              isAdmin={isAdmin}
+              showTechnical={audience === 'admin'}
             />
           ) : null}
           {messages.length === 0 && !capabilityError ? (
@@ -105,6 +111,20 @@ export function MessageList({
               </div>
               <p className="text-sm font-medium text-foreground">{t('emptyTitle')}</p>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t('empty')}</p>
+              {suggestions.length > 0 ? (
+                <div className="mt-4 grid gap-2 text-left">
+                  {suggestions.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => onSuggestion(t(`suggestions.${id}.prompt`))}
+                      className="rounded-lg border border-border bg-card/60 px-3 py-2 text-sm text-foreground transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    >
+                      {t(`suggestions.${id}.label`)}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : null}
           {messages.map((message) => (
@@ -116,7 +136,7 @@ export function MessageList({
               onRetryFast={onRetryFast}
               onSelectArtist={onSelectArtist}
               canSelectArtist={canSelectArtist}
-              isAdmin={isAdmin}
+              audience={audience}
             />
           ))}
           {busy ? (
@@ -153,7 +173,7 @@ function MessageBlock({
   onRetryFast,
   onSelectArtist,
   canSelectArtist,
-  isAdmin,
+  audience,
 }: {
   message: UiMessage
   busy: boolean
@@ -161,7 +181,7 @@ function MessageBlock({
   onRetryFast: () => void
   onSelectArtist: () => void
   canSelectArtist: boolean
-  isAdmin: boolean
+  audience: AssistantAudience
 }) {
   const t = useTranslations('ai')
   const [copied, setCopied] = useState(false)
@@ -210,11 +230,6 @@ function MessageBlock({
         <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
           <Sparkle className="h-3.5 w-3.5 text-primary" aria-hidden />
           <span>{t('assistantName')}</span>
-          {message.model ? (
-            <span className="truncate normal-case tracking-normal text-muted-foreground/70">
-              · {shortModel(message.model)}
-            </span>
-          ) : null}
         </div>
         {message.content.trim() ? (
           <Button
@@ -259,20 +274,15 @@ function MessageBlock({
         <div className="mt-2.5">
           <AssistantError
             error={message.error}
+            audience={audience}
             onRetry={onRetry}
             onRetryFast={onRetryFast}
             onSelectArtist={onSelectArtist}
             canSelectArtist={canSelectArtist}
-            showTechnical={isAdmin}
-            isAdmin={isAdmin}
+            showTechnical={audience === 'admin'}
           />
         </div>
       ) : null}
     </article>
   )
-}
-
-function shortModel(model: string): string {
-  const parts = model.split('/')
-  return parts[parts.length - 1] ?? model
 }

@@ -82,7 +82,11 @@ export function AssistantShell({ dashboard }: AssistantShellProps) {
           )}
           aria-label={t('title')}
         >
-          <AssistantWorkspace session={session} onClose={() => session.setOpen(false)} />
+          <AssistantWorkspace
+            session={session}
+            onClose={() => session.setOpen(false)}
+            pathname={pathname}
+          />
         </SheetContent>
       </Sheet>
     </>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ArrowsInSimple,
   ArrowsOutSimple,
@@ -26,6 +26,7 @@ import { Composer } from '@/components/ai/Composer'
 import { MessageList } from '@/components/ai/MessageList'
 import type { useAssistantSession } from '@/components/ai/useAssistantSession'
 import type { AiMode } from '@/components/ai/types'
+import { buildAssistantSuggestions } from '@/lib/ai/presentation/suggestions'
 
 type Session = ReturnType<typeof useAssistantSession>
 
@@ -40,9 +41,11 @@ const CONFIRM_SUMMARY_KEYS = {
 export function AssistantWorkspace({
   session,
   onClose,
+  pathname,
 }: {
   session: Session
   onClose: () => void
+  pathname: string
 }) {
   const t = useTranslations('ai')
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -64,10 +67,8 @@ export function AssistantWorkspace({
     activeRequestId,
     pending,
     warning,
-    usage,
     draft,
     setDraft,
-    lastModel,
     fallbackUsed,
     busy,
     send,
@@ -90,7 +91,17 @@ export function AssistantWorkspace({
   } = session
 
   const enabled = capabilities?.enabled === true && capabilities.feature_enabled !== false
-  const isAdmin = capabilities?.context.access_context === 'admin'
+  const audience = capabilities?.context.access_context ?? 'artist'
+  const suggestions = useMemo(
+    () =>
+      buildAssistantSuggestions({
+        audience,
+        path: pathname,
+        tools: capabilities?.tools ?? [],
+      }),
+    [audience, capabilities?.tools, pathname],
+  )
+  const isAdmin = audience === 'admin'
   const canSwitchLabel = capabilities
     ? capabilities.context.access_context !== 'artist'
     : false
@@ -245,14 +256,6 @@ export function AssistantWorkspace({
                 <SelectItem value="deep">{t('modeDeep')}</SelectItem>
               </SelectContent>
             </Select>
-            {lastModel ? (
-              <span
-                className="hidden max-w-[10rem] truncate text-[11px] text-muted-foreground sm:inline"
-                title={lastModel}
-              >
-                {shortModel(lastModel)}
-              </span>
-            ) : null}
           </div>
         </div>
       </header>
@@ -344,8 +347,10 @@ export function AssistantWorkspace({
             onRetryFast={() => void retryWithFast()}
             onSelectArtist={() => setContextOpen(true)}
             canSelectArtist={(capabilities?.available_artists.length ?? 0) > 0}
-            isAdmin={isAdmin}
+            audience={audience}
             capabilityError={capabilityError}
+            suggestions={suggestions}
+            onSuggestion={setDraft}
           />
 
           {warning ? (
@@ -367,12 +372,7 @@ export function AssistantWorkspace({
                   ? t(CONFIRM_SUMMARY_KEYS[pending.action as keyof typeof CONFIRM_SUMMARY_KEYS])
                   : t('confirmPending')}
               </p>
-              {isAdmin ? (
-                <details className="mt-1 text-xs text-muted-foreground">
-                  <summary className="cursor-pointer select-none">{t('technicalDetails')}</summary>
-                  <p className="mt-1">{pending.summary}</p>
-                </details>
-              ) : null}
+              <p className="mt-1 text-xs text-muted-foreground">{pending.summary}</p>
               <p className="mt-1 text-xs text-muted-foreground">{t('confirmPending')}</p>
               <div className="mt-2 flex gap-2">
                 <Button
@@ -402,7 +402,6 @@ export function AssistantWorkspace({
             <span role="status" aria-live="polite" className="truncate">
               {statusLabel}
             </span>
-            {usage ? <span className="shrink-0 tabular-nums">{t('tokens', { total: usage.total })}</span> : null}
           </div>
 
           <Composer
@@ -418,9 +417,4 @@ export function AssistantWorkspace({
       </div>
     </div>
   )
-}
-
-function shortModel(model: string): string {
-  const parts = model.split('/')
-  return parts[parts.length - 1] ?? model
 }

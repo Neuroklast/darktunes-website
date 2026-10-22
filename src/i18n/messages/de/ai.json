@@ -40,23 +40,23 @@
   "working": "Arbeitet…",
   "jumpToLatest": "Zur neuesten Nachricht",
   "statusReady": "Bereit",
-  "statusConnecting": "Verbindung zum Modell…",
+  "statusConnecting": "Verbindung zum Assistenten wird hergestellt.",
   "statusWaiting": "Warte auf Antwort…",
   "statusThinking": "Denkt nach…",
   "statusStreaming": "Antwort wird erzeugt…",
   "statusTool": "Daten werden gelesen…",
-  "statusFallback": "Wechsel zum schnellen Modell…",
+  "statusFallback": "Kürzere Antwort wird versucht.",
   "statusFinishing": "Antwort wird abgeschlossen…",
   "statusFailed": "Der Assistent konnte nicht fertigstellen.",
   "statusConnectingShort": "Verbinden…",
   "retry": "Erneut versuchen",
-  "retryWithFast": "Mit schnellem Modell erneut versuchen",
+  "retryWithFast": "Mit kürzerer Antwort erneut versuchen",
   "selectArtist": "Artist auswählen",
   "openAdminAi": "Admin → KI-Assistent öffnen",
   "keepPending": "Nicht jetzt",
   "confirmAction": "Bestätigen",
   "confirmPending": "Der Assistent hat eine Änderung vorbereitet. Bestätige, um sie zu speichern.",
-  "incompleteAnswer": "Die Antwort wurde am Ausgabelimit abgeschnitten. Mit dem schnellen Modell erneut versuchen oder das Limit erhöhen.",
+  "incompleteAnswer": "Die Antwort wurde abgeschnitten. Versuche es erneut oder stelle eine engere Frage.",
   "answerStopped": "Du hast diese Antwort gestoppt.",
   "technicalDetails": "Technische Details",
   "fallbackBadge": "Fallback",
@@ -69,16 +69,16 @@
   "searchArtist": "Artists suchen…",
   "noArtistMatch": "Kein passender Artist.",
   "labelWide": "Labelweite Administration",
-  "modeLabel": "Modellmodus",
+  "modeLabel": "Antwortstil",
   "modeAuto": "Auto",
-  "modeFast": "Schnell",
-  "modeDeep": "Tief",
-  "connectionVerified": "NVIDIA verifiziert",
-  "connectionUnverified": "Konfiguriert, nicht verifiziert",
+  "modeFast": "Kurz",
+  "modeDeep": "Ausführlich",
+  "connectionVerified": "Bereit",
+  "connectionUnverified": "Verfügbar",
   "connectionDisabled": "Assistent deaktiviert",
   "disabled": "Der KI-Assistent ist ausgeschaltet.",
   "featureDisabled": "Der Assistent ist für dieses Dashboard ausgeschaltet.",
-  "notConfigured": "Der NVIDIA-API-Schlüssel fehlt. Ein Admin kann ihn unter Admin → API Keys anlegen.",
+  "notConfigured": "Der Assistent ist noch nicht eingerichtet.",
   "analyzeError": "Diesen Fehler analysieren",
   "shortcutHint": "Strg+J",
   "toolRunning": "Läuft…",
@@ -242,5 +242,56 @@
     "save_release_draft": "Einen Release-Wizard-Entwurf speichern.",
     "create_support_ticket": "Das vorbereitete Support-Ticket erstellen.",
     "save_error_report": "Den vorbereiteten Fehlerbericht speichern."
+  }
+,
+  "suggestions": {
+    "releaseStatus": {
+      "label": "Welchen Status hat meine Einreichung?",
+      "prompt": "Welchen Status hat meine Release-Einreichung?"
+    },
+    "releaseMissing": {
+      "label": "Welche Angaben fehlen noch?",
+      "prompt": "Welche Angaben fehlen noch für meine Release-Einreichung?"
+    },
+    "artworkChange": {
+      "label": "Wie kann ich das Artwork ändern?",
+      "prompt": "Wie kann ich das Artwork für mein Release ändern?"
+    },
+    "statementExplain": {
+      "label": "Erkläre mir diese Abrechnung",
+      "prompt": "Bitte erkläre mir meine letzte Abrechnung."
+    },
+    "statementIncome": {
+      "label": "Welche Einnahmen sind enthalten?",
+      "prompt": "Welche Einnahmequellen sind in meiner Abrechnung enthalten?"
+    },
+    "invoiceWhere": {
+      "label": "Wo finde ich meine Rechnung?",
+      "prompt": "Wo finde ich meine Rechnung?"
+    },
+    "pendingSubmissions": {
+      "label": "Welche Einreichungen sind offen?",
+      "prompt": "Welche Einreichungen warten derzeit auf eine Entscheidung?"
+    },
+    "labelOverview": {
+      "label": "Gib mir einen Label-Überblick",
+      "prompt": "Gib mir einen aktuellen Überblick über das Label."
+    },
+    "systemHealth": {
+      "label": "Läuft alles?",
+      "prompt": "Ist die Plattform derzeit stabil?"
+    },
+    "recentErrors": {
+      "label": "Welche Fehler treten auf?",
+      "prompt": "Welche Fehler treten derzeit gehäuft auf?"
+    },
+    "integrations": {
+      "label": "Welche Verbindungen funktionieren nicht?",
+      "prompt": "Welche Verbindungen funktionieren derzeit nicht?"
+    },
+    "help": {
+      "label": "Wie funktioniert diese Seite?",
+      "prompt": "Wie funktioniert diese Seite?"
+    }
   }
 }
