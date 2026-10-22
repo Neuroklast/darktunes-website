@@ -33,30 +33,25 @@
   "copy": "Copy answer",
   "copied": "Copied",
   "emptyTitle": "How can I help?",
-  "empty": "Ask about your releases, statements, system status, or this page.",
-  "model": "Model: {model}",
-  "tokens": "{total} tokens",
-  "messageLog": "Assistant conversation",
+  "empty": "Ask about your releases, statements, system status, or this page.",  "messageLog": "Assistant conversation",
   "working": "Working…",
   "jumpToLatest": "Jump to latest",
   "statusReady": "Ready",
-  "statusConnecting": "Connecting to model…",
+  "statusConnecting": "Connecting to the assistant.",
   "statusWaiting": "Waiting for response…",
   "statusThinking": "Thinking…",
   "statusStreaming": "Generating response…",
   "statusTool": "Reading data…",
-  "statusFallback": "Switching to fast model…",
+  "statusFallback": "Switching to a shorter answer.",
   "statusFinishing": "Finishing response…",
-  "statusFailed": "The assistant could not finish.",
-  "statusConnectingShort": "Connecting…",
-  "retry": "Retry",
-  "retryWithFast": "Retry with fast model",
+  "statusFailed": "The assistant could not finish.",  "retry": "Retry",
+  "retryWithFast": "Retry with a shorter answer",
   "selectArtist": "Select artist",
   "openAdminAi": "Open Admin → AI Assistant",
   "keepPending": "Not now",
   "confirmAction": "Confirm",
   "confirmPending": "The assistant prepared a change. Confirm to apply it.",
-  "incompleteAnswer": "The answer was cut off at the output limit. Retry with the fast model or raise the limit.",
+  "incompleteAnswer": "The answer was cut off. Retry, or ask a narrower question.",
   "answerStopped": "You stopped this answer.",
   "technicalDetails": "Technical details",
   "fallbackBadge": "Fallback",
@@ -69,18 +64,16 @@
   "searchArtist": "Search artists…",
   "noArtistMatch": "No matching artist.",
   "labelWide": "Label-wide administration",
-  "modeLabel": "Model mode",
+  "modeLabel": "Answer style",
   "modeAuto": "Auto",
   "modeFast": "Fast",
-  "modeDeep": "Deep",
-  "connectionVerified": "NVIDIA verified",
-  "connectionUnverified": "Configured, not verified",
+  "modeDeep": "Detailed",
+  "connectionVerified": "Ready",
+  "connectionUnverified": "Available",
   "connectionDisabled": "Assistant disabled",
   "disabled": "The AI assistant is turned off.",
   "featureDisabled": "The assistant is disabled for this dashboard.",
-  "notConfigured": "The NVIDIA API key is missing. An admin can add it under Admin → API Keys.",
-  "analyzeError": "Analyze this error",
-  "shortcutHint": "Ctrl+J",
+  "notConfigured": "The assistant is not configured yet.",  "shortcutHint": "Ctrl+J",
   "toolRunning": "Running…",
   "toolCompleted": "Completed",
   "toolNoData": "No data available",
@@ -242,5 +235,56 @@
     "save_release_draft": "Save a release wizard draft.",
     "create_support_ticket": "Create the prepared support ticket.",
     "save_error_report": "Save the prepared error report."
+  }
+,
+  "suggestions": {
+    "releaseStatus": {
+      "label": "What is the status of my submission?",
+      "prompt": "What is the current status of my release submission?"
+    },
+    "releaseMissing": {
+      "label": "What is still missing?",
+      "prompt": "Which details are still missing for my release submission?"
+    },
+    "artworkChange": {
+      "label": "How can I change the artwork?",
+      "prompt": "How can I change the artwork for my release?"
+    },
+    "statementExplain": {
+      "label": "Explain this statement",
+      "prompt": "Please explain my latest statement."
+    },
+    "statementIncome": {
+      "label": "Which income is included?",
+      "prompt": "Which income sources are included in my statement?"
+    },
+    "invoiceWhere": {
+      "label": "Where do I find my invoice?",
+      "prompt": "Where can I find my invoice?"
+    },
+    "pendingSubmissions": {
+      "label": "Which submissions are open?",
+      "prompt": "Which submissions are currently waiting for a decision?"
+    },
+    "labelOverview": {
+      "label": "Give me a label overview",
+      "prompt": "Give me an overview of the label right now."
+    },
+    "systemHealth": {
+      "label": "Is everything running?",
+      "prompt": "Is the platform currently healthy?"
+    },
+    "recentErrors": {
+      "label": "Which errors are occurring?",
+      "prompt": "Which errors are currently occurring more often?"
+    },
+    "integrations": {
+      "label": "Which connections are failing?",
+      "prompt": "Which integrations are currently not working?"
+    },
+    "help": {
+      "label": "How does this page work?",
+      "prompt": "How does this page work?"
+    }
   }
 }

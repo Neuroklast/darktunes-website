@@ -27,6 +27,9 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Per-token React state updates | Buffer stream deltas and flush per animation frame; otherwise long answers make the dashboard janky |
 | `catch {}` around a stream reader | Always cancel/release the reader and clean abort/timeout listeners; an aborted request ID must not leak |
 | Reporting a configured key as authenticated | Configuration is local. Only a live `GET /v1/models` (or a completion) proves authentication; label the two states separately |
+| Rendering `error.message` in an error boundary | Production messages can contain SQL, URLs, tokens or stack details. Show a safe explanation plus the React `digest`; keep details in protected logs |
+| One error string for every role | Artists must not be told to open Admin → API Keys. Project failures centrally per audience (`assistantErrorKey`), and keep raw codes for technical diagnostics only |
+| Letting an admin dashboard show every queue to editors | Query finance/system queues only after a server-side role check; render `0` on denial instead of placeholder data |
 
 ## Observability & logs
 

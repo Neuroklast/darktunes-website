@@ -33,30 +33,25 @@
   "copy": "Copier la réponse",
   "copied": "Copié",
   "emptyTitle": "Comment puis-je aider ?",
-  "empty": "Posez une question sur vos sorties, relevés, l’état du système ou cette page.",
-  "model": "Modèle : {model}",
-  "tokens": "{total} jetons",
-  "messageLog": "Conversation de l’assistant",
+  "empty": "Posez une question sur vos sorties, relevés, l’état du système ou cette page.",  "messageLog": "Conversation de l’assistant",
   "working": "En cours…",
   "jumpToLatest": "Aller au plus récent",
   "statusReady": "Prêt",
-  "statusConnecting": "Connexion au modèle…",
+  "statusConnecting": "Connexion à l’assistant.",
   "statusWaiting": "En attente de la réponse…",
   "statusThinking": "Réflexion…",
   "statusStreaming": "Génération de la réponse…",
   "statusTool": "Lecture des données…",
-  "statusFallback": "Passage au modèle rapide…",
+  "statusFallback": "Passage à une réponse plus courte.",
   "statusFinishing": "Finalisation de la réponse…",
-  "statusFailed": "L’assistant n’a pas pu terminer.",
-  "statusConnectingShort": "Connexion…",
-  "retry": "Réessayer",
-  "retryWithFast": "Réessayer avec le modèle rapide",
+  "statusFailed": "L’assistant n’a pas pu terminer.",  "retry": "Réessayer",
+  "retryWithFast": "Réessayer avec une réponse plus courte",
   "selectArtist": "Sélectionner un artiste",
   "openAdminAi": "Ouvrir Admin → Assistant IA",
   "keepPending": "Plus tard",
   "confirmAction": "Confirmer",
   "confirmPending": "L’assistant a préparé une modification. Confirmez pour l’appliquer.",
-  "incompleteAnswer": "La réponse a été coupée à la limite de sortie. Réessayez avec le modèle rapide ou augmentez la limite.",
+  "incompleteAnswer": "La réponse a été coupée. Réessayez ou posez une question plus précise.",
   "answerStopped": "Vous avez arrêté cette réponse.",
   "technicalDetails": "Détails techniques",
   "fallbackBadge": "Repli",
@@ -69,18 +64,16 @@
   "searchArtist": "Rechercher des artistes…",
   "noArtistMatch": "Aucun artiste correspondant.",
   "labelWide": "Administration à l’échelle du label",
-  "modeLabel": "Mode du modèle",
+  "modeLabel": "Style de réponse",
   "modeAuto": "Auto",
-  "modeFast": "Rapide",
-  "modeDeep": "Approfondi",
-  "connectionVerified": "NVIDIA vérifié",
-  "connectionUnverified": "Configuré, non vérifié",
+  "modeFast": "Court",
+  "modeDeep": "Détaillé",
+  "connectionVerified": "Prêt",
+  "connectionUnverified": "Disponible",
   "connectionDisabled": "Assistant désactivé",
   "disabled": "L’assistant IA est désactivé.",
   "featureDisabled": "L’assistant est désactivé pour ce tableau de bord.",
-  "notConfigured": "La clé API NVIDIA est absente. Un admin peut l’ajouter sous Admin → Clés API.",
-  "analyzeError": "Analyser cette erreur",
-  "shortcutHint": "Ctrl+J",
+  "notConfigured": "L’assistant n’est pas encore configuré.",  "shortcutHint": "Ctrl+J",
   "toolRunning": "En cours…",
   "toolCompleted": "Terminé",
   "toolNoData": "Aucune donnée disponible",
@@ -242,5 +235,56 @@
     "save_release_draft": "Enregistrer un brouillon de sortie.",
     "create_support_ticket": "Cr?er le ticket support pr?par?.",
     "save_error_report": "Enregistrer le rapport d?erreur pr?par?."
+  }
+,
+  "suggestions": {
+    "releaseStatus": {
+      "label": "Quel est le statut de ma soumission ?",
+      "prompt": "Quel est le statut actuel de ma soumission de sortie ?"
+    },
+    "releaseMissing": {
+      "label": "Que manque-t-il encore ?",
+      "prompt": "Quelles informations manquent encore pour ma soumission de sortie ?"
+    },
+    "artworkChange": {
+      "label": "Comment modifier la pochette ?",
+      "prompt": "Comment puis-je modifier la pochette de ma sortie ?"
+    },
+    "statementExplain": {
+      "label": "Explique-moi ce relevé",
+      "prompt": "Peux-tu expliquer mon dernier relevé ?"
+    },
+    "statementIncome": {
+      "label": "Quels revenus sont inclus ?",
+      "prompt": "Quelles sources de revenus sont incluses dans mon relevé ?"
+    },
+    "invoiceWhere": {
+      "label": "Où trouver ma facture ?",
+      "prompt": "Où puis-je trouver ma facture ?"
+    },
+    "pendingSubmissions": {
+      "label": "Quelles soumissions sont ouvertes ?",
+      "prompt": "Quelles soumissions attendent actuellement une décision ?"
+    },
+    "labelOverview": {
+      "label": "Donne-moi une vue du label",
+      "prompt": "Donne-moi une vue d’ensemble actuelle du label."
+    },
+    "systemHealth": {
+      "label": "Tout fonctionne ?",
+      "prompt": "La plateforme est-elle stable actuellement ?"
+    },
+    "recentErrors": {
+      "label": "Quelles erreurs se produisent ?",
+      "prompt": "Quelles erreurs se produisent actuellement plus souvent ?"
+    },
+    "integrations": {
+      "label": "Quelles connexions échouent ?",
+      "prompt": "Quelles intégrations ne fonctionnent pas actuellement ?"
+    },
+    "help": {
+      "label": "Comment fonctionne cette page ?",
+      "prompt": "Comment fonctionne cette page ?"
+    }
   }
 }

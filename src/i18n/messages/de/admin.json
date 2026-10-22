@@ -4,13 +4,15 @@
   "brand_admin_dashboard": "Content-Management-System",
   "brand_editor_dashboard": "Editor-Dashboard",
   "nav": {
+    "group_communication": "Kommunikation",
+    "group_finance": "Finanzen",
+    "group_people": "Benutzer und Berechtigungen",
+    "group_settings": "Einstellungen",
+    "group_operations": "Technischer Betrieb",
     "dashboard": "Dashboard",
     "group_content": "Inhalte",
     "group_submissions": "Einreichungen",
-    "group_press": "Presse",
-    "group_management": "Verwaltung",
-    "group_system": "System",
-    "artists": "Künstler",
+    "group_press": "Presse",    "artists": "Künstler",
     "releases": "Releases",
     "news": "News",
     "videos": "Videos",
@@ -1521,4 +1523,66 @@
   "submission_download_cover": "Cover herunterladen",
   "submission_files_expire_today": "Audio und Cover laufen heute ab und werden gelöscht. Jetzt herunterladen.",
   "submission_files_expire_in": "Audio und Cover werden in {days} Tagen automatisch gelöscht. Jetzt herunterladen."
+,
+  "overview": {
+    "title": "Übersicht",
+    "introAdmin": "Was heute Aufmerksamkeit braucht und was sich zuletzt geändert hat.",
+    "introEditor": "Deine redaktionellen Aufgaben und die letzten Änderungen.",
+    "actionManageArtists": "Künstler verwalten",
+    "actionNewRelease": "Neue Veröffentlichung",
+    "actionAccounting": "Abrechnung",
+    "tasksHeading": "Offene Aufgaben",
+    "tasksClear": "Alles erledigt",
+    "tasksOpen": "{count, plural, one {# Bereich braucht Aufmerksamkeit} other {# Bereiche brauchen Aufmerksamkeit}}",
+    "tasksEmpty": "Derzeit wartet nichts auf Prüfung.",
+    "task": {
+      "releaseSubmissions": {
+        "title": "Release-Einreichungen",
+        "hint": "Warten auf eine Entscheidung"
+      },
+      "videoSubmissions": {
+        "title": "Video-Einreichungen",
+        "hint": "Warten auf eine Entscheidung"
+      },
+      "fanPageReviews": {
+        "title": "Artist-Seiten prüfen",
+        "hint": "Warten auf Freigabe"
+      },
+      "unreadMessages": { "title": "Ungelesene Nachrichten", "hint": "Neu seit deiner letzten Prüfung" },
+      "statementsToReview": {
+        "title": "Abrechnungen prüfen",
+        "hint": "Entwurf oder freigegeben, noch nicht versendet"
+      },
+      "overdueInvoices": {
+        "title": "Überfällige Rechnungen",
+        "hint": "Fälligkeitsdatum überschritten"
+      }
+    },
+    "activityHeading": "Letzte Aktivitäten",
+    "activityEmpty": "Keine aktuellen Änderungen.",
+    "activityFanPage": "Artist-Seite aktualisiert",
+    "activityKind": {
+      "release": "Release-Einreichung",
+      "video": "Video-Einreichung",
+      "message": "Nachricht",
+      "fanPage": "Artist-Seite",
+      "news": "News"
+    },
+    "metricsHeading": "Inhalte im Überblick",
+    "metric": {
+      "artists": "Künstler",
+      "releases": "Releases",
+      "news": "News",
+      "videos": "Videos"
+    },
+    "systemHeading": "Systemhinweis",
+    "systemErrors": "{count, plural, one {# ungelöster Fehler beeinträchtigt die Plattform.} other {# ungelöste Fehler beeinträchtigen die Plattform.}}",
+    "loadWarningTitle": "Einige Daten konnten nicht geladen werden",
+    "loadWarningBody": "Die Werte unten sind unvollständig. Lade die Seite neu; wenn es bleibt, prüfe den Systemstatus.",
+    "tasksIncomplete": "Unvollständig",
+    "tasksUnavailable": "Offene Aufgaben konnten nicht geladen werden.",
+    "activityUnavailable": "Letzte Aktivitäten konnten nicht geladen werden.",
+    "metricsUnavailable": "Inhaltszahlen konnten nicht geladen werden.",
+    "systemOpen": "Systemstatus öffnen"
+  }
 }

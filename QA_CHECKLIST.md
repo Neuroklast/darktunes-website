@@ -26,6 +26,28 @@
 - [ ] Desktop: floating launcher + wide workspace + maximize; mobile: full-screen, safe-area composer, no horizontal overflow
 - [ ] Error boundary Analyze opens the assistant with the error reference on admin/portal/editor routes
 - [ ] Closing the browser mid-stream leaves no infinite spinner on reopen; a stale turn is marked interrupted
+- [ ] Normal chat shows no model name, provider label or token counter; Technical Operations still shows them in Admin → AI Assistant
+- [ ] Assistant empty state offers 3–4 suggestions that match the page and the role; every suggestion can be answered with an available tool
+- [ ] Deleting a conversation is visually distinct from starting a new one; destructive confirmation names the conversation
+- [ ] A write action preview states what changes, which record is affected, which fields change and whether it can be undone
+
+## Admin dashboard and errors
+- [ ] `/admin` shows real open queues (submissions, artist pages, unread messages, statements, overdue invoices) with correct counts
+- [ ] Release/video queues include `reviewed` submissions that still need a final decision
+- [ ] An editor sees content/submission queues only; finance and system queues are neither shown nor queried
+- [ ] Zero queues show a clear "nothing waiting" state; no made-up numbers or placeholder cards
+- [ ] Simulate a failed queue query (or RLS denial): the page shows an incomplete-data warning and never says "all clear" for that queue
+- [ ] Overdue invoices use the label time zone, not UTC (check an invoice due yesterday late in the Berlin evening)
+- [ ] Recent activity timestamps use the label time zone
+- [ ] Recent activity only lists real rows and dates; no fake events
+- [ ] A system notice appears only when non-ignored unresolved errors exist in the last 24 hours; it links to System status for admins
+- [ ] Sidebar groups are readable on desktop and mobile, scroll independently, and keep active/focus states
+- [ ] A forced rendering error on a public page shows no raw exception message, SQL, URL or stack trace
+- [ ] A forced rendering error with a digest shows the reference; "Analyze this error" appears only on admin/portal routes
+- [ ] Artist sees "assistant unavailable" wording for a provider failure and no admin/API-key instructions
+- [ ] Admin sees an actionable configuration hint; Technical Operations can still read the raw code and detail
+- [ ] A missing assistant key shows "not configured" with the settings shortcut, not "assistant is turned off"
+- [ ] Portal help shows no feature-flag, presigned-URL, service-worker, Dexie or 409/HTTP-status jargon (EN/DE/FR)
 
 ## Personal Artist Page / band news
 - [ ] Fan-page builder: News block is insertable; public `/@{slug}` shows that artist’s label news and published band news only

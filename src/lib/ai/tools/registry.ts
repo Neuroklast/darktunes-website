@@ -132,16 +132,25 @@ export function isToolAllowed(
   actor: AiActor,
 ): boolean {
   if (tool.dataScope === 'label') {
-    if (actor.accessContext === 'artist') return false
-    return tool.capabilities.every((capability) => actor.capabilities.has(capability))
+    if (actor.accessContext === 'artist' || actor.role === 'artist') return false
+    return (
+      (actor.role === 'admin' || actor.role === 'editor') &&
+      tool.capabilities.every((capability) => actor.capabilities.has(capability))
+    )
   }
   if (tool.dataScope === 'self_artist') {
     if (!actor.artistId) return false
-    if (actor.accessContext === 'artist') return true
-    if (actor.capabilities.has('cms.artists.manage' as Capability)) return true
-    return actor.artistMembershipIds.includes(actor.artistId)
+    // Bound to the server-resolved artist, not to a client-supplied id.
+    if (actor.role === 'artist') return actor.artistMembershipIds.includes(actor.artistId)
+    if (actor.role === 'admin' || actor.role === 'editor') {
+      return (
+        actor.capabilities.has('cms.artists.manage' as Capability) ||
+        actor.artistMembershipIds.includes(actor.artistId)
+      )
+    }
+    return false
   }
-  return true
+  return actor.role === 'artist' || actor.role === 'editor' || actor.role === 'admin'
 }
 
 async function recordToolExecution(

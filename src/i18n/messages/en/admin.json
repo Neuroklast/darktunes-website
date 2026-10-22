@@ -4,13 +4,15 @@
   "brand_admin_dashboard": "Content Management System",
   "brand_editor_dashboard": "Editor Dashboard",
   "nav": {
+    "group_communication": "Communication",
+    "group_finance": "Finance",
+    "group_people": "Users & permissions",
+    "group_settings": "Settings",
+    "group_operations": "Technical operations",
     "dashboard": "Dashboard",
     "group_content": "Content",
     "group_submissions": "Submissions",
-    "group_press": "Press",
-    "group_management": "Management",
-    "group_system": "System",
-    "artists": "Artists",
+    "group_press": "Press",    "artists": "Artists",
     "releases": "Releases",
     "news": "News",
     "videos": "Videos",
@@ -1521,4 +1523,66 @@
   "submission_download_cover": "Download cover",
   "submission_files_expire_today": "Audio and cover files expire today and will be deleted. Download them now.",
   "submission_files_expire_in": "Audio and cover files are deleted automatically in {days} days. Download them now."
+,
+  "overview": {
+    "title": "Overview",
+    "introAdmin": "What needs attention today, and what changed recently.",
+    "introEditor": "Your editorial tasks and recent changes.",
+    "actionManageArtists": "Manage artists",
+    "actionNewRelease": "New release",
+    "actionAccounting": "Accounting",
+    "tasksHeading": "Open tasks",
+    "tasksClear": "All clear",
+    "tasksOpen": "{count, plural, one {# area needs attention} other {# areas need attention}}",
+    "tasksEmpty": "Nothing is waiting for review right now.",
+    "task": {
+      "releaseSubmissions": {
+        "title": "Release submissions",
+        "hint": "Waiting for a decision"
+      },
+      "videoSubmissions": {
+        "title": "Video submissions",
+        "hint": "Waiting for a decision"
+      },
+      "fanPageReviews": {
+        "title": "Artist page reviews",
+        "hint": "Waiting for approval"
+      },
+      "unreadMessages": { "title": "Unread messages", "hint": "New since your last check" },
+      "statementsToReview": {
+        "title": "Statements to review",
+        "hint": "Draft or approved, not yet sent"
+      },
+      "overdueInvoices": {
+        "title": "Overdue invoices",
+        "hint": "Past their due date"
+      }
+    },
+    "activityHeading": "Recent activity",
+    "activityEmpty": "No recent changes.",
+    "activityFanPage": "Artist page updated",
+    "activityKind": {
+      "release": "Release submission",
+      "video": "Video submission",
+      "message": "Message",
+      "fanPage": "Artist page",
+      "news": "News"
+    },
+    "metricsHeading": "Content at a glance",
+    "metric": {
+      "artists": "Artists",
+      "releases": "Releases",
+      "news": "News",
+      "videos": "Videos"
+    },
+    "systemHeading": "System notice",
+    "systemErrors": "{count, plural, one {# unresolved error affects the platform.} other {# unresolved errors affect the platform.}}",
+    "loadWarningTitle": "Some data could not be loaded",
+    "loadWarningBody": "The values below are incomplete. Reload the page; if it keeps happening, check System status.",
+    "tasksIncomplete": "Incomplete",
+    "tasksUnavailable": "Open tasks could not be loaded.",
+    "activityUnavailable": "Recent activity could not be loaded.",
+    "metricsUnavailable": "Content counts could not be loaded.",
+    "systemOpen": "Open system status"
+  }
 }
