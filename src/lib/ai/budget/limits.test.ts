@@ -7,7 +7,7 @@ describe('token limit defaults', () => {
   it('should match the seeded JSON in reset.sql', () => {
     const sql = readFileSync(resolve(__dirname, '../../../../supabase/reset.sql'), 'utf8')
     expect(sql).toContain('"max_input_tokens": 6000')
-    expect(sql).toContain('"max_output_tokens": 900')
+    expect(sql).toContain('"max_output_tokens": 1200')
     expect(sql).toContain('"max_turn_tokens": 10000')
     expect(sql).toContain('"day": 30000')
     expect(sql).toContain('"month": 3000000')
@@ -17,7 +17,7 @@ describe('token limit defaults', () => {
   it('should fill missing keys from defaults', () => {
     const parsed = parseTokenLimits({ fast: { max_input_tokens: 100 } })
     expect(parsed.fast.max_input_tokens).toBe(100)
-    expect(parsed.fast.max_output_tokens).toBe(900)
+    expect(parsed.fast.max_output_tokens).toBe(1200)
     expect(parsed.roles.artist.day).toBe(30_000)
   })
 })

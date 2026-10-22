@@ -10,24 +10,34 @@ import { requireAiActor } from '@/lib/ai/auth/requireAiActor'
 import { createAiConversation, listAiConversations } from '@/lib/api/aiConversations'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
 
+export const dynamic = 'force-dynamic'
+
+const dashboardSchema = z.enum(['portal', 'editor', 'admin'])
 const createSchema = z.object({
   artist_id: z.string().uuid().nullable().optional(),
+  dashboard: dashboardSchema.optional(),
   title: z.string().max(120).optional(),
 })
 
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
   const artistId = req.nextUrl.searchParams.get('artist_id')
-  const actor = await requireAiActor(req, {
-    artistId,
-    requireArtist: Boolean(artistId),
-  })
+  const dashboard = parseDashboard(req.nextUrl.searchParams.get('dashboard'))
+  const actor = await requireAiActor(req, { artistId, dashboard })
   const listed = await listAiConversations(actor.serviceDb, {
     userId: actor.userId,
     artistId: actor.artistId,
+    accessContext: actor.accessContext,
     cursor: req.nextUrl.searchParams.get('cursor'),
-    limit: Number(req.nextUrl.searchParams.get('page_size') ?? 50) || 50,
+    limit: Number(req.nextUrl.searchParams.get('page_size') ?? 40) || 40,
   })
-  return NextResponse.json(listed)
+  return NextResponse.json({
+    ...listed,
+    context: {
+      access_context: actor.accessContext,
+      artist_id: actor.artistId,
+      dashboard: actor.dashboard,
+    },
+  })
 })
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
@@ -42,7 +52,7 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
 
   const actor = await requireAiActor(req, {
     artistId: parsed.data.artist_id,
-    requireArtist: Boolean(parsed.data.artist_id),
+    dashboard: parsed.data.dashboard,
   })
   const limited = await checkDistributedRateLimit(`ai-conversations:${actor.userId}`, 30, 10 * 60 * 1000)
   if (limited.limited) throw buildApiError('RATE_LIMITED', 429)
@@ -67,3 +77,8 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
     { status: 201, headers: { Location: `/api/ai/conversations/${conversation.id}` } },
   )
 })
+
+function parseDashboard(value: string | null): 'portal' | 'editor' | 'admin' | undefined {
+  if (value === 'portal' || value === 'editor' || value === 'admin') return value
+  return undefined
+}

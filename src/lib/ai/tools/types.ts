@@ -8,6 +8,7 @@ export type ToolDataScope = 'self_artist' | 'label' | 'none'
 export interface ToolContext {
   actor: AiActor
   requestId: string
+  signal?: AbortSignal
 }
 
 export interface RegisteredTool<TIn extends z.ZodType, TOut extends z.ZodType> {

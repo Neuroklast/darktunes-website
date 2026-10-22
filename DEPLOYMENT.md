@@ -24,10 +24,11 @@
 
 ### NVIDIA AI assistant (optional)
 
-1. Apply schema (`npm run db:apply` / `supabase/reset.sql`) so `ai_*` tables and `reserve_ai_tokens` exist.
-2. In Admin → API Keys, add **NVIDIA API Key**, or set `NVIDIA_API_KEY` on the server.
-3. Open Admin → AI Assistant, run **Test Connection**, then enable the assistant.
-4. Live smoke tests are not part of PR CI: `NVIDIA_API_KEY=… AI_LIVE_TESTS=1 npm run test:ai:live`.
+1. Apply schema (`npm run db:apply` / `supabase/reset.sql`) so `ai_*` tables, `reserve_ai_tokens` and the additive columns for turn locks, tool history and telemetry exist. `CREATE TABLE IF NOT EXISTS` does not alter live tables; the `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` statements do.
+2. In Admin -> API Keys, add **NVIDIA API Key**, or set `NVIDIA_API_KEY` on the server.
+3. Open Admin -> AI Assistant -> Connection Health. Run **Test fast** and **Test reasoning** independently, then **Run full test**. Enable the assistant only after the required checks pass. A configured key alone is not an authentication result.
+4. Optional: choose a **Fallback model** under Models. It is used once when the reasoning model times out or returns no answer before any tool round, and only when that model has a passed connection test.
+5. Live smoke tests are not part of PR CI: `NVIDIA_API_KEY=... AI_LIVE_TESTS=1 npm run test:ai:live`.
 
 Do not create AI cron jobs in SQL. Optional outbox drain can be a dashboard HTTPS job later.
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mergeToolCallDeltas, parseSseBlock, parseUsage } from '@/lib/ai/provider/sse'
+import { SseDecoder, mergeToolCallDeltas, parseSseBlock, parseUsage } from '@/lib/ai/provider/sse'
 import { AiProviderError } from '@/lib/ai/provider/errors'
 
 describe('SSE parser', () => {
@@ -52,5 +52,62 @@ describe('SSE parser', () => {
       reasoning_tokens: 7,
       total_tokens: 30,
     })
+  })
+})
+
+describe('SseDecoder', () => {
+  const encoder = new TextEncoder()
+
+  it('reassembles a frame split across network chunks', () => {
+    const decoder = new SseDecoder()
+    expect(decoder.push(encoder.encode('data: {"choices":[{"delta":{"content":"po'))).toEqual([])
+    const chunks = decoder.push(encoder.encode('ng"}}]}\n\n'))
+    expect(chunks).toHaveLength(1)
+    expect(chunks[0]?.contentDelta).toBe('pong')
+  })
+
+  it('handles UTF-8 characters split across chunks', () => {
+    const decoder = new SseDecoder()
+    const frame = 'data: {"choices":[{"delta":{"content":"Grüße"}}]}\n\n'
+    const bytes = encoder.encode(frame)
+    const split = encoder.encode(frame.slice(0, frame.indexOf('ü'))).length
+    const result = [
+      ...decoder.push(bytes.slice(0, split)),
+      ...decoder.push(bytes.slice(split)),
+      ...decoder.flush(),
+    ]
+    expect(result.map((chunk) => chunk.contentDelta).join('')).toBe('Grüße')
+  })
+
+  it('parses multiple frames in one chunk and CRLF endings', () => {
+    const decoder = new SseDecoder()
+    const chunks = decoder.push(
+      encoder.encode(
+        'data: {"choices":[{"delta":{"content":"a"}}]}\r\n\r\ndata: {"choices":[{"delta":{"content":"b"}}]}\r\n\r\n',
+      ),
+    )
+    expect(chunks.map((chunk) => chunk.contentDelta)).toEqual(['a', 'b'])
+  })
+
+  it('flushes a final frame without a trailing blank line', () => {
+    const decoder = new SseDecoder()
+    expect(decoder.push(encoder.encode('data: {"choices":[{"delta":{"content":"last"}}]}'))).toEqual([])
+    const chunks = decoder.flush()
+    expect(chunks[0]?.contentDelta).toBe('last')
+  })
+
+  it('reports an error event as a provider failure', () => {
+    const decoder = new SseDecoder()
+    expect(() =>
+      decoder.push(encoder.encode('event: error\ndata: {"error":{"message":"busy"}}\n\n')),
+    ).toThrow(AiProviderError)
+  })
+
+  it('joins multi-line data fields before parsing JSON', () => {
+    const decoder = new SseDecoder()
+    const chunks = decoder.push(
+      encoder.encode('data: {"choices":[{"delta":\ndata: {"content":"x"}}]}\n\n'),
+    )
+    expect(chunks[0]?.contentDelta).toBe('x')
   })
 })

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, it, vi } from 'vitest'
 import { jsonRequest, expectUnauthorized } from '../../helpers/api/routeTestkit'
 import { ApiError } from '@/lib/errors'
 

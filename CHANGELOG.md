@@ -11,6 +11,13 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 ## [Unreleased]
 
 ### Added
+- **AI Assistant 2.0:** context-aware assistant workspace with conversation history, rename/delete, reload restore, Markdown answers, throttled streaming, tool activity rows, auto-scroll and a mobile full-screen layout. The editor dashboard now mounts the assistant too.
+- **AI context selector:** artist memberships, admin artist search and label-wide context; the active context is always visible in the header.
+- **AI Admin Control Center:** Overview, Models (Fast/Reasoning/Fallback), independent Connection Health probes, token usage charts (input/output/reasoning, model, role, budget, failures) and filtered Diagnostics with a copyable report.
+- **AI turn lifecycle:** per-conversation turn lock, persisted `active_request_id`, cancellation flag, structured tool history, `incomplete` message status and `AI_TURN_IN_PROGRESS` / `AI_CANCELLED` / `AI_ARTIST_*` error codes.
+- **AI usage telemetry:** success/failure, error code, latency, TTFT, rounds, retry/fallback metadata per turn.
+
+
 - **Admin → AI Assistant → Models:** pick Fast and Reasoning from the live NVIDIA `/v1/models` list and save them to `ai_settings`. Chat and Test Connection use the saved IDs (defaults stay `nvidia/nemotron-3.5-lightning-30b-a3b` / `nvidia/nemotron-3-super-120b-a12b`).
 - **Personal Artist Page NEWS block** showing that band’s label news plus band-authored posts. Artists write posts at Portal → Band news (`artist_news_posts`); they never appear on `/news`.
 - **Hero band logo toggle** on the Personal Artist Page (uses `artists.logo_url`).
@@ -18,6 +25,24 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Release submission files on R2:** artists upload audio (one ZIP/WAV/FLAC/AIFF/MP3, 32 MB) and JPEG cover (5 MB, 3000×3000) directly to private R2. Admin downloads via presigned links. Files auto-delete 30 days after submit (`POST /api/purge-release-submission-assets` — create the Cron job in the Supabase dashboard).
 - **Rejected submissions can be edited** and resubmitted on the same row, with a required message from the label.
 - **Admin → Assets: “All R2 objects” view** — toggle between the DB-tracked catalog and a full listing of every object in Cloudflare R2, with prefix/folder sizes, token search on object keys, and delete-selected to free storage.
+
+### Changed
+- AI chat defaults to the fast model; deterministic task classification (or explicit Auto/Fast/Deep) selects reasoning. Reasoning uses low effort when supported and has a larger output budget.
+- Connection tests run fast and reasoning independently; a reasoning timeout no longer hides fast/stream/tool success.
+- The assistant prompt, tools and conversations are strictly bound to the resolved role/artist context. Admins can inspect an artist without an `artist_members` row; invalid artist IDs are rejected instead of silently falling back.
+- Empty, reasoning-only and length-truncated answers are classified and are never stored as successful empty chat turns.
+- SSE parsing now handles split frames, split UTF-8, CRLF, multiple frames, `[DONE]`, error events and decoder flush.
+
+### Fixed
+- **"No artist linked to this account" for admins:** the AI auth resolver no longer requires an artist membership for admin/editor artist inspection, and only sends tools the actor can execute.
+- **Wrong history window:** conversations load the newest 80 messages (and paginate older pages) instead of the oldest 80.
+- **Tool history loss:** tool calls and results are paired and persisted; incomplete tool groups are never sent to NVIDIA.
+- **Empty assistant bubbles:** failed/empty turns render a specific error card and are persisted as failed/cancelled.
+- **Stop did not stop the server:** the request signal, provider abort and DB cancellation flag now stop the turn and persist the partial answer.
+- **Usage undercount:** failed/aborted turns now write usage events with partial or settled tokens.
+- **Streaming performance:** deltas are batched per animation frame instead of one React update per token.
+- **NVIDIA reasoning-only / length answers** are reported as `AI_REASONING_EXHAUSTED` / `AI_OUTPUT_TRUNCATED` with a fast-model retry action.
+- **Abort memory leak:** aborted request IDs are cleaned after the stream/body completes.
 
 ### Changed
 - Personal Artist Page gallery reads Portal → Profile → Gallery (`epk_gallery_photos`); per-block gallery uploads are gone.

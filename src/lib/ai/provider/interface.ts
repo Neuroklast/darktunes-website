@@ -15,5 +15,7 @@ export interface AiProvider {
   getCapabilities(modelId: string): ModelCapabilities
   getUsage(completion: AiCompletion): AiUsage
   validateConfiguration(): Promise<ProviderConfigStatus>
+  /** Remote credential check when the provider supports it. */
+  checkAuth?(timeoutMs?: number): Promise<void>
   abort(requestId: string): void
 }

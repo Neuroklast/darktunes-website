@@ -671,6 +671,207 @@ lines.push('            required: [model, total_tokens]');
 lines.push('            properties:');
 lines.push('              model: { type: string }');
 lines.push('              total_tokens: { type: integer, minimum: 0 }');
+lines.push('    AiConversationCreateRequest:');
+lines.push('      type: object');
+lines.push('      properties:');
+lines.push('        artist_id: { type: string, format: uuid, nullable: true }');
+lines.push('        dashboard: { type: string, enum: [portal, editor, admin] }');
+lines.push('        title: { type: string, maxLength: 120 }');
+lines.push('    AiConversationUpdateRequest:');
+lines.push('      type: object');
+lines.push('      required: [title]');
+lines.push('      properties:');
+lines.push('        title: { type: string, minLength: 1, maxLength: 120 }');
+lines.push('    AiConversation:');
+lines.push('      type: object');
+lines.push('      required: [id, user_id, access_context, title, status, created_at, updated_at]');
+lines.push('      properties:');
+lines.push('        id: { type: string, format: uuid }');
+lines.push('        user_id: { type: string, format: uuid }');
+lines.push('        artist_id: { type: string, format: uuid, nullable: true }');
+lines.push('        access_context: { type: string, enum: [artist, editor, admin] }');
+lines.push('        title: { type: string }');
+lines.push('        status: { type: string, enum: [active, archived, deleted] }');
+lines.push('        created_at: { type: string, format: date-time }');
+lines.push('        updated_at: { type: string, format: date-time }');
+lines.push('    AiConversationList:');
+lines.push('      type: object');
+lines.push('      required: [items, next_cursor, context]');
+lines.push('      properties:');
+lines.push('        items:');
+lines.push('          type: array');
+lines.push('          items: { $ref: "#/components/schemas/AiConversation" }');
+lines.push('        next_cursor: { type: string, nullable: true }');
+lines.push('        context: { type: object, additionalProperties: true }');
+lines.push('    AiMessage:');
+lines.push('      type: object');
+lines.push('      required: [id, role, content, status, created_at]');
+lines.push('      properties:');
+lines.push('        id: { type: string, format: uuid }');
+lines.push('        role: { type: string, enum: [user, assistant, system, tool] }');
+lines.push('        content: { type: string }');
+lines.push('        model: { type: string, nullable: true }');
+lines.push('        status: { type: string, enum: [pending, streaming, complete, cancelled, failed, incomplete] }');
+lines.push('        tool_calls: { type: array, items: { type: object, additionalProperties: true } }');
+lines.push('        tool_call_id: { type: string, nullable: true }');
+lines.push('        metadata: { type: object, additionalProperties: true }');
+lines.push('        created_at: { type: string, format: date-time }');
+lines.push('    AiConversationDetail:');
+lines.push('      type: object');
+lines.push('      required: [id, title, messages, next_cursor]');
+lines.push('      properties:');
+lines.push('        id: { type: string, format: uuid }');
+lines.push('        title: { type: string }');
+lines.push('        access_context: { type: string, enum: [artist, editor, admin] }');
+lines.push('        artist_id: { type: string, format: uuid, nullable: true }');
+lines.push('        active_request_id: { type: string, nullable: true }');
+lines.push('        active_request_started_at: { type: string, format: date-time, nullable: true }');
+lines.push('        messages:');
+lines.push('          type: array');
+lines.push('          items: { $ref: "#/components/schemas/AiMessage" }');
+lines.push('        next_cursor: { type: string, nullable: true }');
+lines.push('    AiChatTurnRequest:');
+lines.push('      type: object');
+lines.push('      required: [content]');
+lines.push('      properties:');
+lines.push('        content: { type: string, minLength: 1, maxLength: 8000 }');
+lines.push('        artist_id: { type: string, format: uuid, nullable: true }');
+lines.push('        dashboard: { type: string, enum: [portal, editor, admin] }');
+lines.push('        mode: { type: string, enum: [auto, fast, deep] }');
+lines.push('        reuse_last_user: { type: boolean }');
+lines.push('        locale: { type: string, enum: [en, de, fr] }');
+lines.push('    AiCapabilities:');
+lines.push('      type: object');
+lines.push('      required: [enabled, provider, models, streaming, modes, context, available_artists, tools]');
+lines.push('      properties:');
+lines.push('        enabled: { type: boolean }');
+lines.push('        provider: { type: string }');
+lines.push('        verified: { type: boolean }');
+lines.push('        streaming: { type: boolean }');
+lines.push('        models:');
+lines.push('          type: object');
+lines.push('          properties:');
+lines.push('            fast: { type: string }');
+lines.push('            reasoning: { type: string }');
+lines.push('            fallback: { type: string, nullable: true }');
+lines.push('        modes: { type: array, items: { type: string, enum: [auto, fast, deep] } }');
+lines.push('        context: { type: object, additionalProperties: true }');
+lines.push('        available_artists:');
+lines.push('          type: array');
+lines.push('          items:');
+lines.push('            type: object');
+lines.push('            properties:');
+lines.push('              id: { type: string, format: uuid }');
+lines.push('              name: { type: string }');
+lines.push('              slug: { type: string }');
+lines.push('        tools: { type: array, items: { type: string } }');
+lines.push('    AdminAiSettings:');
+lines.push('      type: object');
+lines.push('      required: [enabled, model_fast, model_reasoning]');
+lines.push('      properties:');
+lines.push('        enabled: { type: boolean }');
+lines.push('        provider_configured: { type: boolean }');
+lines.push('        test_mode: { type: boolean }');
+lines.push('        provider: { type: string }');
+lines.push('        model_fast: { type: string }');
+lines.push('        model_reasoning: { type: string }');
+lines.push('        fallback_model: { type: string }');
+lines.push('        default_streaming: { type: boolean }');
+lines.push('        token_limits: { type: object, additionalProperties: true }');
+lines.push('        max_tool_rounds: { type: integer }');
+lines.push('        feature_flags: { type: object, additionalProperties: true }');
+lines.push('        reasoning_settings: { type: object, additionalProperties: true }');
+lines.push('        timeouts: { type: object, additionalProperties: true }');
+lines.push('        provider_capabilities: { type: object, additionalProperties: true }');
+lines.push('        last_connection_test: { type: object, additionalProperties: true, nullable: true }');
+lines.push('        last_successful_connection_test: { type: object, additionalProperties: true, nullable: true }');
+lines.push('        last_failed_connection_test: { type: object, additionalProperties: true, nullable: true }');
+lines.push('    AdminAiSettingsPatch:');
+lines.push('      type: object');
+lines.push('      properties:');
+lines.push('        enabled: { type: boolean }');
+lines.push('        test_mode: { type: boolean }');
+lines.push('        default_streaming: { type: boolean }');
+lines.push('        model_fast: { type: string }');
+lines.push('        model_reasoning: { type: string }');
+lines.push('        fallback_model: { type: string }');
+lines.push('        max_tool_rounds: { type: integer, minimum: 1, maximum: 12 }');
+lines.push('        token_limits: { type: object, additionalProperties: true }');
+lines.push('        feature_flags: { type: object, additionalProperties: true }');
+lines.push('        reasoning_settings: { type: object, additionalProperties: true }');
+lines.push('        timeouts: { type: object, additionalProperties: true }');
+lines.push('    AdminAiModels:');
+lines.push('      type: object');
+lines.push('      required: [models, configured, capabilities, health]');
+lines.push('      properties:');
+lines.push('        models:');
+lines.push('          type: array');
+lines.push('          items:');
+lines.push('            type: object');
+lines.push('            properties:');
+lines.push('              id: { type: string }');
+lines.push('              name: { type: string }');
+lines.push('        configured:');
+lines.push('          type: object');
+lines.push('          properties:');
+lines.push('            fast: { type: string }');
+lines.push('            reasoning: { type: string }');
+lines.push('            fallback: { type: string, nullable: true }');
+lines.push('        capabilities: { type: object, additionalProperties: true }');
+lines.push('        health: { type: object, additionalProperties: true }');
+lines.push('    AdminAiConnectionTestRequest:');
+lines.push('      type: object');
+lines.push('      properties:');
+lines.push('        scope: { type: string, enum: [fast, reasoning, all] }');
+lines.push('    AdminAiConnectionTestStep:');
+lines.push('      type: object');
+lines.push('      required: [id, step, ok, status, latency_ms]');
+lines.push('      properties:');
+lines.push('        id: { type: string }');
+lines.push('        step: { type: string }');
+lines.push('        model: { type: string, nullable: true }');
+lines.push('        ok: { type: boolean }');
+lines.push('        status: { type: string, enum: [passed, failed, timed_out, unavailable, not_tested, skipped] }');
+lines.push('        latency_ms: { type: integer }');
+lines.push('        http_status: { type: integer, nullable: true }');
+lines.push('        error_code: { type: string, nullable: true }');
+lines.push('        detail: { type: string, nullable: true }');
+lines.push('        technical: { type: object, additionalProperties: true, nullable: true }');
+lines.push('    AdminAiConnectionTestResult:');
+lines.push('      type: object');
+lines.push('      required: [ok, integration_ok, scope, steps, models]');
+lines.push('      properties:');
+lines.push('        ok: { type: boolean }');
+lines.push('        integration_ok: { type: boolean }');
+lines.push('        scope: { type: string, enum: [fast, reasoning, all] }');
+lines.push('        started_at: { type: string, format: date-time }');
+lines.push('        finished_at: { type: string, format: date-time }');
+lines.push('        total_latency_ms: { type: integer }');
+lines.push('        steps:');
+lines.push('          type: array');
+lines.push('          items: { $ref: "#/components/schemas/AdminAiConnectionTestStep" }');
+lines.push('        models: { type: object, additionalProperties: true }');
+lines.push('        discovered_capabilities: { type: object, additionalProperties: true }');
+lines.push('        usage: { type: object, additionalProperties: true }');
+lines.push('    AdminAiUsageV2:');
+lines.push('      type: object');
+lines.push('      required: [today, month, by_model, by_role, by_day, budget, failures]');
+lines.push('      properties:');
+lines.push('        today: { type: object, additionalProperties: true }');
+lines.push('        month: { type: object, additionalProperties: true }');
+lines.push('        by_model: { type: array, items: { type: object, additionalProperties: true } }');
+lines.push('        by_role: { type: array, items: { type: object, additionalProperties: true } }');
+lines.push('        by_day: { type: array, items: { type: object, additionalProperties: true } }');
+lines.push('        budget: { type: object, additionalProperties: true }');
+lines.push('        failures: { type: object, additionalProperties: true }');
+lines.push('    AdminAiDiagnostics:');
+lines.push('      type: object');
+lines.push('      required: [items, next_cursor, repeated]');
+lines.push('      properties:');
+lines.push('        items: { type: array, items: { type: object, additionalProperties: true } }');
+lines.push('        next_cursor: { type: string, nullable: true }');
+lines.push('        repeated: { type: array, items: { type: object, additionalProperties: true } }');
+lines.push('        saved_analyses: { type: array, items: { type: object, additionalProperties: true } }');
 lines.push('');
 lines.push('  responses:');
 lines.push('    BadRequest:');
@@ -1069,6 +1270,85 @@ const schemaOverrides = {
       },
     },
   },
+  '/api/ai/capabilities': {
+    GET: {
+      summary: 'Assistant context, models, tools and artist options for the caller',
+      parameters: [
+        { name: 'dashboard', in: 'query', schema: { type: 'string', enum: ['portal', 'editor', 'admin'] } },
+        { name: 'artist_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        { name: 'artist_query', in: 'query', schema: { type: 'string', maxLength: 120 } },
+      ],
+      responses: { 200: { schema: 'AiCapabilities' } },
+    },
+  },
+  '/api/ai/conversations': {
+    GET: {
+      summary: "List the caller's conversations for one dashboard and artist context",
+      parameters: [
+        { name: 'dashboard', in: 'query', schema: { type: 'string', enum: ['portal', 'editor', 'admin'] } },
+        { name: 'artist_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        { name: 'cursor', in: 'query', schema: { type: 'string' } },
+        { name: 'page_size', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 40 } },
+      ],
+      responses: { 200: { schema: 'AiConversationList' } },
+    },
+    POST: {
+      summary: 'Create a conversation bound to the current dashboard and artist context',
+      requestBody: { schema: 'AiConversationCreateRequest' },
+      responses: {
+        201: { schema: 'AiConversation' },
+        403: { description: 'The requested artist context is not allowed for this account.' },
+        429: { description: 'Too many conversations were created in a short time.' },
+      },
+    },
+  },
+  '/api/ai/conversations/{id}': {
+    GET: {
+      summary: 'Load a conversation and one page of messages for the current context',
+      parameters: [
+        { name: 'dashboard', in: 'query', schema: { type: 'string', enum: ['portal', 'editor', 'admin'] } },
+        { name: 'artist_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        { name: 'before', in: 'query', schema: { type: 'string' } },
+        { name: 'page_size', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 40 } },
+      ],
+      responses: {
+        200: { schema: 'AiConversationDetail' },
+        404: { description: 'Conversation not found or bound to another context.' },
+      },
+    },
+    PATCH: {
+      summary: 'Rename a conversation',
+      requestBody: { schema: 'AiConversationUpdateRequest' },
+      responses: { 200: { schema: 'AiConversation' } },
+    },
+    DELETE: {
+      summary: 'Soft-delete a conversation',
+      responses: { 204: { description: 'Conversation deleted.' } },
+    },
+  },
+  '/api/ai/conversations/{id}/messages': {
+    POST: {
+      summary: 'Run one assistant turn and stream SSE events',
+      requestBody: { schema: 'AiChatTurnRequest' },
+      responses: {
+        200: {
+          contentType: 'text/event-stream',
+          schema: { type: 'string' },
+          description:
+            'SSE events: status, delta, tool_start, tool_result, usage, warning, confirmation_required, error, done.',
+        },
+        409: { description: 'Another turn is already running in this conversation.' },
+        429: { description: 'Too many assistant turns in a short time.' },
+        503: { description: 'Assistant disabled or NVIDIA is not configured.' },
+      },
+    },
+  },
+  '/api/ai/conversations/{id}/cancellations': {
+    POST: {
+      summary: 'Request cancellation of the active turn',
+      responses: { 202: { description: 'Cancellation requested.' } },
+    },
+  },
   '/api/ai/action-confirmations': {
     POST: {
       summary: 'Confirm a prepared assistant write after a second authz check',
@@ -1090,16 +1370,53 @@ const schemaOverrides = {
       },
     },
   },
+  '/api/admin/ai/connection-tests': {
+    POST: {
+      summary: 'Test fast, reasoning, streaming and tools independently (or all)',
+      requestBody: { schema: 'AdminAiConnectionTestRequest' },
+      responses: {
+        200: { schema: 'AdminAiConnectionTestResult' },
+        429: { description: 'Too many connection tests in a short time.' },
+        503: { description: 'NVIDIA is not configured.' },
+      },
+    },
+  },
+  '/api/admin/ai/settings': {
+    GET: {
+      summary: 'Read AI settings, capabilities and connection-test history',
+      responses: { 200: { schema: 'AdminAiSettings' } },
+    },
+    PATCH: {
+      summary: 'Update AI settings, fallback model, feature flags and timeouts',
+      requestBody: { schema: 'AdminAiSettingsPatch' },
+      responses: { 200: { schema: 'AdminAiSettings' } },
+    },
+  },
+  '/api/admin/ai/models': {
+    GET: {
+      summary: 'List NVIDIA models plus locally configured and tested capabilities',
+      parameters: [{ name: 'refresh', in: 'query', schema: { type: 'string', enum: ['1'] } }],
+      responses: { 200: { schema: 'AdminAiModels' } },
+    },
+  },
   '/api/admin/ai/diagnostics': {
     GET: {
-      summary: 'List recent AI diagnostic rows',
-      responses: { 200: { schema: 'AdminAiDiagnosticsList' } },
+      summary: 'List failed/aborted assistant turns with filters and tool failures',
+      parameters: [
+        { name: 'since', in: 'query', schema: { type: 'string' } },
+        { name: 'status', in: 'query', schema: { type: 'string', enum: ['failed', 'all'] } },
+        { name: 'model', in: 'query', schema: { type: 'string' } },
+        { name: 'error_code', in: 'query', schema: { type: 'string' } },
+        { name: 'cursor', in: 'query', schema: { type: 'string' } },
+        { name: 'page_size', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
+      ],
+      responses: { 200: { schema: 'AdminAiDiagnostics' } },
     },
   },
   '/api/admin/ai/usage': {
     GET: {
-      summary: 'Sum AI token usage for today and this month',
-      responses: { 200: { schema: 'AdminAiUsage' } },
+      summary: 'Token usage split by input/output/reasoning, model, role, day, budget and failures',
+      responses: { 200: { schema: 'AdminAiUsageV2' } },
     },
   },
 };

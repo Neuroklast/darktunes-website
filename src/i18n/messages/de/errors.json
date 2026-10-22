@@ -48,5 +48,15 @@
   "AI_PROVIDER_UNAVAILABLE": "NVIDIA ist derzeit nicht erreichbar. Später erneut versuchen; die restliche Website funktioniert weiter.",
   "AI_TOOL_FORBIDDEN": "Diese Assistenten-Aktion ist für dieses Konto nicht erlaubt. Frage einen Admin, wenn du Zugriff brauchst.",
   "AI_CONFIRMATION_EXPIRED": "Die Bestätigung für diese Assistenten-Aktion ist abgelaufen. Lass den Assistenten sie erneut vorbereiten.",
-  "AI_CONVERSATION_NOT_FOUND": "Diese Assistenten-Unterhaltung wurde nicht gefunden oder gehört zu einem anderen Konto."
+  "AI_CONVERSATION_NOT_FOUND": "Diese Assistenten-Unterhaltung wurde nicht gefunden oder gehört zu einem anderen Konto.",
+  "AI_EMPTY_RESPONSE": "Das Modell hat keine sichtbare Antwort geliefert. Erneut versuchen; wenn es bleibt, das schnelle Modell wählen oder das Ausgabelimit erhöhen.",
+  "AI_OUTPUT_TRUNCATED": "Die Antwort wurde am Ausgabelimit abgeschnitten. Mit dem schnellen Modell erneut versuchen oder das Limit unter Admin -> KI-Assistent -> Modelle erhöhen.",
+  "AI_REASONING_EXHAUSTED": "Das Reasoning-Modell hat sein gesamtes Ausgabebudget für Reasoning verbraucht und keine Antwort geliefert. Mit dem schnellen Modell erneut versuchen oder das Reasoning-Limit erhöhen.",
+  "AI_STREAM_INCOMPLETE": "Die Modellverbindung endete, bevor die Antwort vollständig war. Die Frage erneut senden.",
+  "AI_CANCELLED": "Die Antwort wurde gestoppt.",
+  "AI_TURN_IN_PROGRESS": "In dieser Unterhaltung läuft bereits eine Antwort. Stoppe sie, bevor du eine neue Frage sendest.",
+  "AI_DISABLED_FOR_ROLE": "Der Assistent ist für dieses Dashboard ausgeschaltet. Ein Admin kann ihn unter Admin -> KI-Assistent aktivieren.",
+  "AI_ARTIST_INVALID": "Dieser Artist wurde nicht gefunden. Wähle einen vorhandenen Artist.",
+  "AI_ARTIST_FORBIDDEN": "Dieser Artist-Kontext ist nicht erlaubt. Wähle einen Artist, der mit deinem Konto verknüpft ist.",
+  "AI_TURN_INCOMPLETE": "Die Antwort wurde unterbrochen, bevor sie fertig war. Sende die Frage erneut, um fortzufahren."
 }

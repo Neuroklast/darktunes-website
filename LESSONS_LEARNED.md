@@ -15,6 +15,19 @@ Distilled anti-patterns from project history. **Append session findings before o
 | `has_permission(auth.uid(), …)` | ✅ `has_permission('can_manage_releases')` — one arg only |
 | `CREATE TYPE IF NOT EXISTS` in Supabase SQL Editor | Use `DO $$ … IF NOT EXISTS (pg_type) …` blocks |
 
+## AI assistant
+
+| Anti-pattern | Rule |
+|--------------|------|
+| Loading history `ORDER BY created_at ASC LIMIT n` | Long chats then send the oldest messages to the model. Load newest-first, reverse, and paginate older pages with a keyset cursor |
+| Persisting only user/assistant text | Tool calls and tool replies must be stored with `tool_calls` / `tool_call_id` and paired; never send an incomplete tool group to NVIDIA |
+| Treating a stream without visible text as success | Empty, reasoning-only and length-truncated completions are distinct failures. Classify them before persisting and never store an empty `complete` message |
+| Trusting an `artist_id` URL parameter | Authorization comes from `artist_members` / capabilities. Resolve the context server-side and reject invalid artist IDs instead of silently falling back |
+| Offering every tool to every model | Only send tools the actor can execute (role + capabilities + artist scope); re-check at execution |
+| Per-token React state updates | Buffer stream deltas and flush per animation frame; otherwise long answers make the dashboard janky |
+| `catch {}` around a stream reader | Always cancel/release the reader and clean abort/timeout listeners; an aborted request ID must not leak |
+| Reporting a configured key as authenticated | Configuration is local. Only a live `GET /v1/models` (or a completion) proves authentication; label the two states separately |
+
 ## Observability & logs
 
 | Anti-pattern | Rule |

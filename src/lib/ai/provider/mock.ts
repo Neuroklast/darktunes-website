@@ -54,6 +54,10 @@ export class MockAiProvider implements AiProvider {
     }
   }
 
+  async checkAuth(): Promise<void> {
+    return
+  }
+
   abort(requestId: string): void {
     this.aborted.add(requestId)
   }
@@ -69,6 +73,7 @@ export class MockAiProvider implements AiProvider {
     this.throwIfAborted(request.request_id, signal)
     const turn = this.nextTurn()
     if (turn.error) throw new AiProviderError(turn.error, `Mock provider error: ${turn.error}`)
+    yield { type: 'open', retry_count: 0 }
     const chunks = turn.chunks ?? splitContent(turn.content ?? '')
     for (const chunk of chunks) {
       this.throwIfAborted(request.request_id, signal)
@@ -103,6 +108,7 @@ export class MockAiProvider implements AiProvider {
         total_tokens: Math.max(1, Math.ceil(content.length / 4)),
       },
       latency_ms: 1,
+      retry_count: 0,
     }
   }
 

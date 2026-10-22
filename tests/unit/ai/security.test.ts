@@ -10,16 +10,30 @@ const artistActor = {
   userId: 'user-a',
   role: 'artist',
   accessContext: 'artist',
+  dashboard: 'portal',
   artistId: 'artist-a',
+  artistMembershipIds: ['artist-a'],
+  capabilities: new Set<string>(),
+  availableArtists: [{ id: 'artist-a', name: 'Artist A', slug: 'artist-a' }],
   serviceDb: {} as AiActor['serviceDb'],
   userDb: {} as AiActor['userDb'],
 } satisfies AiActor
 
 describe('AI security', () => {
-  it('should hide label tools from artists', async () => {
-    await expect(
-      executeRegisteredTool('get_system_health', {}, { actor: artistActor, requestId: 'r1' }),
-    ).rejects.toMatchObject({ code: 'AI_TOOL_FORBIDDEN', status: 403 })
+  it('should hide label tools from artists and deny execution', async () => {
+    const result = await executeRegisteredTool(
+      'get_system_health',
+      {},
+      { actor: artistActor, requestId: 'r1' },
+    )
+    expect(result).toMatchObject({ ok: false, error_code: 'AI_TOOL_FORBIDDEN' })
+  })
+
+  it('should not offer label tools to an artist without an artist membership', async () => {
+    const { listToolDefinitionsForActor } = await import('@/lib/ai/tools/registry')
+    const names = listToolDefinitionsForActor(artistActor).map((tool) => tool.name)
+    expect(names).not.toContain('get_system_health')
+    expect(names).not.toContain('get_label_analytics')
   })
 
   it('should refuse unknown tools instead of executing them', async () => {

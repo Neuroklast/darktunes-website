@@ -48,5 +48,15 @@
   "AI_PROVIDER_UNAVAILABLE": "NVIDIA est indisponible pour le moment. Réessayez plus tard ; le reste du site fonctionne.",
   "AI_TOOL_FORBIDDEN": "Cette action de l’assistant n’est pas autorisée pour ce compte. Demandez l’accès à un admin.",
   "AI_CONFIRMATION_EXPIRED": "La confirmation de cette action a expiré. Demandez à l’assistant de la préparer à nouveau.",
-  "AI_CONVERSATION_NOT_FOUND": "Cette conversation de l’assistant est introuvable ou appartient à un autre compte."
+  "AI_CONVERSATION_NOT_FOUND": "Cette conversation de l’assistant est introuvable ou appartient à un autre compte.",
+  "AI_EMPTY_RESPONSE": "Le modèle n’a renvoyé aucune réponse visible. Réessayez ; si cela persiste, utilisez le modèle rapide ou augmentez la limite de sortie.",
+  "AI_OUTPUT_TRUNCATED": "La réponse a été coupée à la limite de sortie. Réessayez avec le modèle rapide ou augmentez la limite dans Admin -> Assistant IA -> Modèles.",
+  "AI_REASONING_EXHAUSTED": "Le modèle de raisonnement a utilisé tout son budget de sortie pour le raisonnement sans produire de réponse. Réessayez avec le modèle rapide ou augmentez la limite de raisonnement.",
+  "AI_STREAM_INCOMPLETE": "La connexion au modèle s’est terminée avant la fin de la réponse. Renvoyez la question.",
+  "AI_CANCELLED": "La réponse a été arrêtée.",
+  "AI_TURN_IN_PROGRESS": "Une réponse est déjà en cours dans cette conversation. Arrêtez-la avant d’envoyer une nouvelle question.",
+  "AI_DISABLED_FOR_ROLE": "L’assistant est désactivé pour ce tableau de bord. Un admin peut l’activer sous Admin -> Assistant IA.",
+  "AI_ARTIST_INVALID": "Cet artiste est introuvable. Sélectionnez un artiste existant.",
+  "AI_ARTIST_FORBIDDEN": "Ce contexte artiste n’est pas autorisé. Sélectionnez un artiste lié à votre compte.",
+  "AI_TURN_INCOMPLETE": "La réponse a été interrompue avant la fin. Renvoyez la question pour continuer."
 }

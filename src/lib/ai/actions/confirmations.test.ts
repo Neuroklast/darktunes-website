@@ -10,7 +10,11 @@ const actor = {
   userId: 'user-1',
   role: 'artist',
   accessContext: 'artist',
+  dashboard: 'portal',
   artistId: 'artist-1',
+  artistMembershipIds: ['artist-1'],
+  capabilities: new Set<string>(),
+  availableArtists: [{ id: 'artist-1', name: 'Artist 1', slug: 'artist-1' }],
   serviceDb: {} as AiActor['serviceDb'],
   userDb: {} as AiActor['userDb'],
 } satisfies AiActor
