@@ -1,5 +1,16 @@
 # Portal, Press & Product Features
 
+## Admin landing page (`/admin`)
+
+`app/admin/page.tsx` verifies the role on the server (`getUserRoleWithClient`) before querying. `getAdminDashboardData()` (`src/lib/api/adminDashboard.ts`) returns real work queues: pending release/video submissions, artist pages in `pending_review`, unread `portal_messages` addressed to the label, statements in `draft`/`label_approved`, and overdue invoices. Finance and `app_logs` error counts are queried only when the role is `admin`; editors receive `0` and cannot see the system notice. Missing rows or RLS denials become `0`, never placeholder data. The overview is task-first: queues, recent activity, compact content metrics, optional system notice. Do not add navigation tiles that only repeat sidebar links.
+
+## Assistant presentation rules
+
+- Normal chat never shows model IDs, provider names, token counts or reasoning configuration. Keep those in `/admin/ai` (Technical Operations).
+- `assistantErrorKey()` (`src/lib/ai/presentation/errors.ts`) is the only place that maps provider/configuration failures to role wording. Artists/editors must never receive Admin/API-key instructions.
+- Empty-state suggestions (`src/lib/ai/presentation/suggestions.ts`) must be derived from the current page and the actor's available tools; never offer a question the role cannot answer.
+- `app/error.tsx` / `src/ErrorFallback.tsx` never render raw exception messages in production. Only the React digest is exposed as a support reference.
+
 ## Artist Portal (`/portal/*`)
 
 | Topic | Rule |

@@ -16,6 +16,10 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **AI Admin Control Center:** Overview, Models (Fast/Reasoning/Fallback), independent Connection Health probes, token usage charts (input/output/reasoning, model, role, budget, failures) and filtered Diagnostics with a copyable report.
 - **AI turn lifecycle:** per-conversation turn lock, persisted `active_request_id`, cancellation flag, structured tool history, `incomplete` message status and `AI_TURN_IN_PROGRESS` / `AI_CANCELLED` / `AI_ARTIST_*` error codes.
 - **AI usage telemetry:** success/failure, error code, latency, TTFT, rounds, retry/fallback metadata per turn.
+- **Task-oriented admin overview:** `/admin` now shows real work queues (release/video submissions, artist-page reviews, unread artist messages, statements to review, overdue invoices), recent activity and compact content metrics, gated on the server by role. Editors no longer query finance or diagnostic queues.
+- **Role-aware assistant errors:** one central projection maps provider/configuration failures to artist, editor and admin wording. Artists and editors never receive "Admin → API Keys" instructions; raw codes stay available only in protected diagnostics.
+- **Contextual assistant suggestions:** the empty state offers 3–4 questions tied to the current page and to tools the signed-in role can actually call.
+- **Technical operations navigation:** system, AI, API-key and support entries are grouped separately from label business functions.
 
 
 - **Admin → AI Assistant → Models:** pick Fast and Reasoning from the live NVIDIA `/v1/models` list and save them to `ai_settings`. Chat and Test Connection use the saved IDs (defaults stay `nvidia/nemotron-3.5-lightning-30b-a3b` / `nvidia/nemotron-3-super-120b-a12b`).
@@ -31,7 +35,11 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - Connection tests run fast and reasoning independently; a reasoning timeout no longer hides fast/stream/tool success.
 - The assistant prompt, tools and conversations are strictly bound to the resolved role/artist context. Admins can inspect an artist without an `artist_members` row; invalid artist IDs are rejected instead of silently falling back.
 - Empty, reasoning-only and length-truncated answers are classified and are never stored as successful empty chat turns.
-- SSE parsing now handles split frames, split UTF-8, CRLF, multiple frames, `[DONE]`, error events and decoder flush.
+  - SSE parsing now handles split frames, split UTF-8, CRLF, multiple frames, `[DONE]`, error events and decoder flush.
+  - Admin sidebar navigation is grouped by activity (content, submissions, communication, finance, press, people, settings, technical operations) and widened to 64 units; group labels have stronger contrast and spacing.
+  - Assistant chat no longer shows model names, provider labels or token counts. These remain in the protected AI management area. Mode labels read Fast/Detailed instead of model jargon.
+  - Portal help rewrites feature-flag, offline, download-link, conflict and sync wording into artist tasks while keeping the same topics and routes (EN/DE/FR).
+
 
 ### Fixed
 - **"No artist linked to this account" for admins:** the AI auth resolver no longer requires an artist membership for admin/editor artist inspection, and only sends tools the actor can execute.
@@ -39,7 +47,12 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 - **Retry duplicated the user question:** a retry now reuses the last user message when only failed/cancelled assistant/tool rows follow it, and trims the failed answer from the model context.
 - **Provider retries could outlive the route:** a 105 s turn timer aborts the controller, so 3× long provider timeouts cannot exceed the serverless budget.
 - **Tool history loss:** tool calls and results are paired and persisted; incomplete tool groups and extra/duplicate tool replies are never sent to NVIDIA.
-- **Empty assistant bubbles:** failed/empty turns render a specific error card and are persisted as failed/cancelled.
+  - **Empty assistant bubbles:** failed/empty turns render a specific error card and are persisted as failed/cancelled.
+  - **Raw exception text in the client error boundary:** `ErrorFallback` no longer renders `error.message`; production shows a safe explanation and an optional digest reference. The "Analyze this error" action appears only on admin/portal routes and only when a reference exists.
+  - **Role-inappropriate error instructions:** artists no longer see provider names, API-key setup paths or "go to Admin" advice. Provider and configuration failures map to role-specific wording.
+  - **Artist tools bound to the wrong artist:** self-artist tools now require the server-resolved artist to be in the actor's membership list (or staff with `cms.artists.manage`), even if a caller constructs an actor manually.
+
+
 - **Stop did not stop the server:** the request signal, provider abort and DB cancellation flag now stop the turn and persist the partial answer.
 - **Usage undercount:** failed/aborted turns now write usage events with partial or settled tokens.
 - **Streaming performance:** deltas are batched per animation frame instead of one React update per token.
