@@ -12,10 +12,7 @@
     "dashboard": "Tableau de bord",
     "group_content": "Contenu",
     "group_submissions": "Soumissions",
-    "group_press": "Presse",
-    "group_management": "Gestion",
-    "group_system": "Système",
-    "artists": "Artistes",
+    "group_press": "Presse",    "artists": "Artistes",
     "releases": "Sorties",
     "news": "Actualités",
     "videos": "Vidéos",
@@ -1580,6 +1577,12 @@
     },
     "systemHeading": "Avis système",
     "systemErrors": "{count, plural, one {# erreur non résolue affecte la plateforme.} other {# erreurs non résolues affectent la plateforme.}}",
+    "loadWarningTitle": "Certaines données n’ont pas pu être chargées",
+    "loadWarningBody": "Les valeurs ci-dessous sont incomplètes. Rechargez la page ; si cela persiste, vérifiez l’état du système.",
+    "tasksIncomplete": "Incomplet",
+    "tasksUnavailable": "Les tâches ouvertes n’ont pas pu être chargées.",
+    "activityUnavailable": "L’activité récente n’a pas pu être chargée.",
+    "metricsUnavailable": "Les chiffres de contenu n’ont pas pu être chargés.",
     "systemOpen": "Ouvrir l’état du système"
   }
 }

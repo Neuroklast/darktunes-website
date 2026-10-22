@@ -2,44 +2,69 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
 const createServerSupabaseClientMock = vi.fn()
-const getUserRoleWithClientMock = vi.fn()
+const resolveEffectiveAccessMock = vi.fn()
 const getAdminDashboardDataMock = vi.fn()
+const redirectMock = vi.fn(() => {
+  throw new Error('NEXT_REDIRECT')
+})
 
 const adminOverviewSpy = vi.fn(
   ({
     counts,
     isEditor,
+    metricsError,
   }: {
     counts: { artists: number; releases: number; news: number; videos: number }
     isEditor: boolean
-  }) => <div data-testid="counts">{JSON.stringify({ ...counts, isEditor })}</div>,
+    metricsError: boolean
+  }) => <div data-testid="counts">{JSON.stringify({ ...counts, isEditor, metricsError })}</div>,
 )
 
 vi.mock('@/lib/supabase/server', () => ({
   createServerSupabaseClient: createServerSupabaseClientMock,
 }))
 
+vi.mock('next/navigation', () => ({
+  redirect: redirectMock,
+}))
+
 vi.mock('@/components/admin/AdminOverview', () => ({
   AdminOverview: adminOverviewSpy,
 }))
 
-vi.mock('@/lib/getUserRole', () => ({
-  getUserRoleWithClient: getUserRoleWithClientMock,
+vi.mock('@/lib/rbac/resolveAccess', () => ({
+  resolveEffectiveAccess: resolveEffectiveAccessMock,
+}))
+
+vi.mock('@/lib/cache/publicQueries', () => ({
+  getCachedSiteSettings: vi.fn().mockResolvedValue(null),
 }))
 
 vi.mock('@/lib/api/adminDashboard', () => ({
   getAdminDashboardData: getAdminDashboardDataMock,
 }))
 
-function createCountQuery(count: number) {
+function createCountQuery(count: number, error: unknown = null) {
   return {
-    select: vi.fn().mockResolvedValue({ count, error: null }),
+    select: vi.fn().mockResolvedValue({ count, error }),
   }
 }
 
 function session() {
   return {
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) },
+  }
+}
+
+function access(overrides: Record<string, unknown> = {}) {
+  return {
+    primaryRole: 'admin',
+    allRoles: ['admin'],
+    permissions: new Set<string>(),
+    capabilities: new Set<string>(['admin.panel.full', 'admin.panel.editor']),
+    customRoleNames: [],
+    isAdmin: true,
+    ...overrides,
   }
 }
 
@@ -55,13 +80,14 @@ function emptyDashboard() {
       recentErrors: 0,
     },
     activity: [],
+    failures: [],
   }
 }
 
 describe('app/admin/page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    getUserRoleWithClientMock.mockResolvedValue('admin')
+    resolveEffectiveAccessMock.mockResolvedValue(access())
     getAdminDashboardDataMock.mockResolvedValue(emptyDashboard())
   })
 
@@ -106,7 +132,10 @@ describe('app/admin/page', () => {
     expect(releasesQuery.select).toHaveBeenCalledWith('id', { count: 'exact', head: true })
     expect(newsQuery.select).toHaveBeenCalledWith('id', { count: 'exact', head: true })
     expect(videosQuery.select).toHaveBeenCalledWith('id', { count: 'exact', head: true })
-    expect(getAdminDashboardDataMock).toHaveBeenCalledWith(expect.anything(), { isAdmin: true })
+    expect(getAdminDashboardDataMock).toHaveBeenCalledWith(expect.anything(), {
+      isAdmin: true,
+      timeZone: 'Europe/Berlin',
+    })
     expect(screen.getByTestId('counts')).toHaveTextContent(
       JSON.stringify({
         artists: 12,
@@ -114,6 +143,7 @@ describe('app/admin/page', () => {
         news: 5,
         videos: 9,
         isEditor: false,
+        metricsError: false,
       }),
     )
   })
@@ -140,12 +170,33 @@ describe('app/admin/page', () => {
         news: 1,
         videos: 1,
         isEditor: false,
+        metricsError: false,
       }),
     )
   })
 
+  it('flags a failed metric query instead of showing a false zero', async () => {
+    createServerSupabaseClientMock.mockResolvedValue({
+      ...session(),
+      from: vi.fn(() => createCountQuery(0, { message: 'denied' })),
+    })
+
+    const { default: AdminPage } = await import('../../../app/admin/page')
+
+    render(await AdminPage())
+
+    expect(screen.getByTestId('counts')).toHaveTextContent('"metricsError":true')
+  })
+
   it('marks editors and skips staff-only dashboard queues', async () => {
-    getUserRoleWithClientMock.mockResolvedValue('editor')
+    resolveEffectiveAccessMock.mockResolvedValue(
+      access({
+        primaryRole: 'editor',
+        allRoles: ['editor'],
+        isAdmin: false,
+        capabilities: new Set<string>(['admin.panel.editor']),
+      }),
+    )
     createServerSupabaseClientMock.mockResolvedValue({
       ...session(),
       from: vi.fn(() => createCountQuery(3)),
@@ -155,7 +206,25 @@ describe('app/admin/page', () => {
 
     render(await AdminPage())
 
-    expect(getAdminDashboardDataMock).toHaveBeenCalledWith(expect.anything(), { isAdmin: false })
+    expect(getAdminDashboardDataMock).toHaveBeenCalledWith(expect.anything(), {
+      isAdmin: false,
+      timeZone: 'Europe/Berlin',
+    })
     expect(screen.getByTestId('counts')).toHaveTextContent('"isEditor":true')
+  })
+
+  it('redirects users without admin panel access', async () => {
+    resolveEffectiveAccessMock.mockResolvedValue(
+      access({ isAdmin: false, capabilities: new Set<string>() }),
+    )
+    createServerSupabaseClientMock.mockResolvedValue({
+      ...session(),
+      from: vi.fn(() => createCountQuery(0)),
+    })
+
+    const { default: AdminPage } = await import('../../../app/admin/page')
+
+    await expect(AdminPage()).rejects.toThrow('NEXT_REDIRECT')
+    expect(redirectMock).toHaveBeenCalledWith('/login?error=unauthorized')
   })
 })

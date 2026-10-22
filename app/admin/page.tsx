@@ -2,7 +2,7 @@
  * app/admin/page.tsx — Admin dashboard overview (Server Component)
  *
  * The middleware guarantees only authenticated users reach this route; this
- * page additionally verifies the role on the server before querying queues and
+ * page additionally resolves effective capabilities before querying queues and
  * before showing staff-only financial or technical data.
  */
 
@@ -11,8 +11,11 @@ export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import { AdminOverview } from '@/components/admin/AdminOverview'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getUserRoleWithClient } from '@/lib/getUserRole'
+import { resolveEffectiveAccess } from '@/lib/rbac/resolveAccess'
+import { hasAdminPanelAccess, hasFullAdminAccess } from '@/lib/rbac/guards'
 import { getAdminDashboardData } from '@/lib/api/adminDashboard'
+import { getCachedSiteSettings } from '@/lib/cache/publicQueries'
+import { resolveOperatorTimezone } from '@/lib/operator/defaultTimezone'
 
 export default async function AdminPage() {
   const supabase = await createServerSupabaseClient()
@@ -22,17 +25,22 @@ export default async function AdminPage() {
 
   if (!user) redirect('/login?returnTo=/admin')
 
-  const role = await getUserRoleWithClient(supabase, user.id)
-  if (role !== 'admin' && role !== 'editor') redirect('/login?error=unauthorized')
+  const [access, settings] = await Promise.all([
+    resolveEffectiveAccess(supabase, user.id),
+    getCachedSiteSettings().catch(() => null),
+  ])
+  if (!hasAdminPanelAccess(access)) redirect('/login?error=unauthorized')
 
-  const isEditor = role === 'editor'
+  const isEditor = !hasFullAdminAccess(access)
+  const timeZone = resolveOperatorTimezone(settings)
   const [artists, releases, news, videos, dashboard] = await Promise.all([
     supabase.from('artists').select('id', { count: 'exact', head: true }),
     supabase.from('releases').select('id', { count: 'exact', head: true }),
     supabase.from('news_posts').select('id', { count: 'exact', head: true }),
     supabase.from('videos').select('id', { count: 'exact', head: true }),
-    getAdminDashboardData(supabase, { isAdmin: !isEditor }),
+    getAdminDashboardData(supabase, { isAdmin: !isEditor, timeZone }),
   ])
+  const metricsError = [artists, releases, news, videos].some((result) => Boolean(result.error))
 
   return (
     <AdminOverview
@@ -44,6 +52,8 @@ export default async function AdminPage() {
       }}
       data={dashboard}
       isEditor={isEditor}
+      metricsError={metricsError}
+      timeZone={timeZone}
     />
   )
 }

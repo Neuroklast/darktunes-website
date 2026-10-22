@@ -25,19 +25,19 @@ interface GlobalErrorProps {
 const COPY = {
   en: {
     title: 'This page could not be loaded',
-    body: 'Your data is safe. Reload the page to try again. If it keeps happening, send the reference below to the label team.',
+    body: "Your data is safe. Reload the page to try again. If it keeps happening, contact your label team.",
     button: 'Reload page',
     reference: 'Reference for support:',
   },
   de: {
     title: 'Diese Seite konnte nicht geladen werden',
-    body: 'Deine Daten sind sicher. Lade die Seite neu, um es erneut zu versuchen. Wenn das Problem bleibt, sende die Referenz unten an dein Label.',
+    body: "Deine Daten sind sicher. Lade die Seite neu, um es erneut zu versuchen. Wenn das Problem bleibt, wende dich an dein Label.",
     button: 'Seite neu laden',
     reference: 'Referenz für den Support:',
   },
   fr: {
     title: 'Cette page n’a pas pu être chargée',
-    body: 'Vos données sont en sécurité. Rechargez la page pour réessayer. Si le problème persiste, envoyez la référence ci-dessous à votre label.',
+    body: "Vos données sont en sécurité. Rechargez la page pour réessayer. Si le problème persiste, contactez votre label.",
     button: 'Recharger la page',
     reference: 'Référence pour le support :',
   },

@@ -27,7 +27,16 @@ describe('assistant suggestions', () => {
       path: '/portal/releases/abc',
       tools: ['search_portal_help'],
     })
-    expect(withoutTools).toEqual(['help'])
+    expect(withoutTools).toEqual(['artworkChange', 'help'])
+  })
+
+  it('does not offer the artwork question without a help tool', () => {
+    const ids = buildAssistantSuggestions({
+      audience: 'artist',
+      path: '/portal/releases/abc',
+      tools: ['get_release_submission_status', 'get_artist_profile'],
+    })
+    expect(ids).not.toContain('artworkChange')
   })
 
   it('offers label tasks to admins without requiring an artist link', () => {

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
@@ -47,9 +47,7 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null)
   const [pending, setPending] = useState<PendingConfirmation | null>(null)
   const [warning, setWarning] = useState<{ code: string; detail: string } | null>(null)
-  const [usage, setUsage] = useState<{ total: number; input: number; output: number; reasoning: number } | null>(null)
   const [draft, setDraft] = useState('')
-  const [lastModel, setLastModel] = useState<string | null>(null)
   const [fallbackUsed, setFallbackUsed] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -190,7 +188,6 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
       setActiveRequestId(null)
       setPending(null)
       setWarning(null)
-      setUsage(null)
       const params = new URLSearchParams({ dashboard: input.dashboard, page_size: '30' })
       if (nextArtistId) params.set('artist_id', nextArtistId)
       try {
@@ -275,7 +272,6 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
       setActiveRequestId(null)
       setPending(null)
       setWarning(null)
-      setUsage(null)
       setCapabilityError(null)
       await refreshInitial(nextArtistId)
     },
@@ -366,7 +362,6 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
             setPhase('fallback')
             setFallbackUsed(true)
           } else if (state === 'finishing') setPhase('finishing')
-          if (typeof event.model === 'string') setLastModel(event.model)
           break
         }
         case 'delta': {
@@ -411,15 +406,6 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
           }))
           break
         }
-        case 'usage': {
-          setUsage({
-            input: Number(event.input_tokens ?? 0),
-            output: Number(event.output_tokens ?? 0),
-            reasoning: Number(event.reasoning_tokens ?? 0),
-            total: Number(event.total_tokens ?? 0),
-          })
-          break
-        }
         case 'warning': {
           setWarning({
             code: String(event.code ?? 'AI_OUTPUT_TRUNCATED'),
@@ -459,7 +445,6 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
           flushPendingText()
           const status = event.status === 'incomplete' ? 'incomplete' : 'complete'
           updateAssistant((message) => ({ ...message, status, error: null }))
-          setLastModel(typeof event.model === 'string' ? event.model : null)
           setFallbackUsed(event.fallback_used === true)
           setPhase('idle')
           setBusy(false)
@@ -489,7 +474,6 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
       pendingTextRef.current = ''
       setDraft('')
       setWarning(null)
-      setUsage(null)
       setBusy(true)
       setActiveRequestId(null)
       setPhase('connecting')
@@ -735,7 +719,6 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
     setMessagesCursor(null)
     setPending(null)
     setWarning(null)
-    setUsage(null)
     setActiveRequestId(null)
     forgetConversation(
       input.dashboard,
@@ -888,10 +871,8 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
     loadingOlder,
     pending,
     warning,
-    usage,
     draft,
     setDraft,
-    lastModel,
     fallbackUsed,
     busy,
     errorRef: input.errorRef,

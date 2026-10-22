@@ -51,6 +51,15 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
   - **Raw exception text in the client error boundary:** `ErrorFallback` no longer renders `error.message`; production shows a safe explanation and an optional digest reference. The "Analyze this error" action appears only on admin/portal routes and only when a reference exists.
   - **Role-inappropriate error instructions:** artists no longer see provider names, API-key setup paths or "go to Admin" advice. Provider and configuration failures map to role-specific wording.
   - **Artist tools bound to the wrong artist:** self-artist tools now require the server-resolved artist to be in the actor's membership list (or staff with `cms.artists.manage`), even if a caller constructs an actor manually.
+  - **Dashboard hid read failures as “all clear”:** `getAdminDashboardData` now reports which queues or the activity feed could not be read, and `/admin` shows an incomplete-data warning instead of a false empty state. Metric counts that fail are shown as `—`.
+  - **Reviewed submissions were missing from the work queue:** release and video queues now count `received` and `reviewed` because both still need a final decision.
+  - **Ignored errors raised the system notice:** the dashboard error count now excludes `ignored` rows, matching System Health.
+  - **Overdue cutoff and activity times used UTC:** the dashboard now resolves the operator time zone from site settings for the invoice cutoff and the activity formatter.
+  - **`/admin` used the primary role instead of capabilities:** the page now resolves effective access (`admin.panel.full` / `admin.panel.editor`), so custom roles are treated consistently with middleware.
+  - **Assistant “not configured” was reported as “turned off”:** `AI_NOT_CONFIGURED` now has its own role wording and the admin shortcut appears for not-configured, disabled and role-disabled states.
+  - **Artwork suggestion was not backed by a tool:** the release-page suggestion now requires the help tool, so the assistant can actually answer it.
+  - **Error copy promised a reference that could be absent:** the boundary body no longer tells users to send a reference; the reference is shown when a digest exists.
+  - **New dashboard query code had no direct test:** added a DAL test for status filters, ignored errors, time zone cutoff and failed reads.
 
 
 - **Stop did not stop the server:** the request signal, provider abort and DB cancellation flag now stop the turn and persist the partial answer.

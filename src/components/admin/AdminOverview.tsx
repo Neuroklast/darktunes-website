@@ -39,6 +39,8 @@ interface AdminOverviewProps {
   counts: StatCounts
   data: AdminDashboardData
   isEditor: boolean
+  metricsError: boolean
+  timeZone: string
 }
 
 type TaskKey =
@@ -74,13 +76,34 @@ function taskHref(key: TaskKey, isEditor: boolean): string {
   }
 }
 
-export async function AdminOverview({ counts, data, isEditor }: AdminOverviewProps) {
+export async function AdminOverview({
+  counts,
+  data,
+  isEditor,
+  metricsError,
+  timeZone,
+}: AdminOverviewProps) {
   const t = await getTranslations('admin.overview')
   const locale = await getLocale()
   const dateFormat = new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone,
   })
+
+  const failedLabels = [
+    ...data.failures.map((section) => {
+      if (section === 'activity') return t('activityHeading')
+      if (section === 'recentErrors') return t('systemHeading')
+      return t(`task.${section}.title`)
+    }),
+    ...(metricsError ? [t('metricsHeading')] : []),
+  ]
+  const hasQueueFailure = data.failures.some(
+    (section) => section !== 'activity' && section !== 'recentErrors',
+  )
+  const hasActivityFailure = data.failures.includes('activity')
+  const hasLoadFailure = failedLabels.length > 0
 
   const tasks: TaskDef[] = [
     { key: 'releaseSubmissions', count: data.counts.releaseSubmissions, href: taskHref('releaseSubmissions', isEditor), icon: UploadSimple },
@@ -126,19 +149,43 @@ export async function AdminOverview({ counts, data, isEditor }: AdminOverviewPro
         </div>
       </header>
 
+      {hasLoadFailure ? (
+        <section
+          role="status"
+          className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4"
+        >
+          <div className="flex items-start gap-3">
+            <Warning size={20} className="mt-0.5 shrink-0 text-amber-400" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-semibold text-foreground">{t('loadWarningTitle')}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{t('loadWarningBody')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{failedLabels.join(' · ')}</p>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <section aria-labelledby="admin-tasks-heading" className="space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <h2 id="admin-tasks-heading" className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             {t('tasksHeading')}
           </h2>
           <span className="text-xs text-muted-foreground">
-            {openTasks.length === 0 ? t('tasksClear') : t('tasksOpen', { count: openTasks.length })}
+            {hasQueueFailure
+              ? t('tasksIncomplete')
+              : openTasks.length === 0
+                ? t('tasksClear')
+                : t('tasksOpen', { count: openTasks.length })}
           </span>
         </div>
         {openTasks.length === 0 ? (
           <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
-            <CheckCircle size={20} className="shrink-0 text-emerald-500" aria-hidden />
-            <p>{t('tasksEmpty')}</p>
+            {hasQueueFailure ? (
+              <Warning size={20} className="shrink-0 text-amber-400" aria-hidden />
+            ) : (
+              <CheckCircle size={20} className="shrink-0 text-emerald-500" aria-hidden />
+            )}
+            <p>{hasQueueFailure ? t('tasksUnavailable') : t('tasksEmpty')}</p>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -177,7 +224,9 @@ export async function AdminOverview({ counts, data, isEditor }: AdminOverviewPro
             {t('activityHeading')}
           </h2>
           <div className="rounded-lg border border-border bg-card">
-            {data.activity.length === 0 ? (
+            {hasActivityFailure ? (
+              <p className="p-4 text-sm text-muted-foreground">{t('activityUnavailable')}</p>
+            ) : data.activity.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">{t('activityEmpty')}</p>
             ) : (
               <ul className="divide-y divide-border">
@@ -218,11 +267,14 @@ export async function AdminOverview({ counts, data, isEditor }: AdminOverviewPro
             {t('metricsHeading')}
           </h2>
           <div className="grid grid-cols-2 gap-2.5">
-            <Metric label={t('metric.artists')} value={counts.artists} icon={User} href={isEditor ? getCmsTabPath('editor', 'artists') : '/admin/artists'} />
-            <Metric label={t('metric.releases')} value={counts.releases} icon={MusicNotes} href={isEditor ? getCmsTabPath('editor', 'releases') : '/admin/releases'} />
-            <Metric label={t('metric.news')} value={counts.news} icon={Newspaper} href={isEditor ? getCmsTabPath('editor', 'news') : '/admin/news'} />
-            <Metric label={t('metric.videos')} value={counts.videos} icon={VideoCamera} href={isEditor ? getCmsTabPath('editor', 'videos') : '/admin/videos'} />
+            <Metric unavailable={metricsError} label={t('metric.artists')} value={counts.artists} icon={User} href={isEditor ? getCmsTabPath('editor', 'artists') : '/admin/artists'} />
+            <Metric unavailable={metricsError} label={t('metric.releases')} value={counts.releases} icon={MusicNotes} href={isEditor ? getCmsTabPath('editor', 'releases') : '/admin/releases'} />
+            <Metric unavailable={metricsError} label={t('metric.news')} value={counts.news} icon={Newspaper} href={isEditor ? getCmsTabPath('editor', 'news') : '/admin/news'} />
+            <Metric unavailable={metricsError} label={t('metric.videos')} value={counts.videos} icon={VideoCamera} href={isEditor ? getCmsTabPath('editor', 'videos') : '/admin/videos'} />
           </div>
+          {metricsError ? (
+            <p className="text-xs text-muted-foreground">{t('metricsUnavailable')}</p>
+          ) : null}
         </section>
       </div>
 
@@ -273,11 +325,13 @@ function Metric({
   value,
   icon: Icon,
   href,
+  unavailable,
 }: {
   label: string
   value: number
   icon: React.ElementType
   href: string
+  unavailable?: boolean
 }) {
   return (
     <Link
@@ -288,7 +342,9 @@ function Metric({
         <Icon size={14} aria-hidden />
         <span className="truncate">{label}</span>
       </div>
-      <p className="mt-1 text-xl font-bold tabular-nums text-foreground">{value.toLocaleString()}</p>
+      <p className="mt-1 text-xl font-bold tabular-nums text-foreground">
+        {unavailable ? '—' : value.toLocaleString()}
+      </p>
     </Link>
   )
 }

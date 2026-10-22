@@ -2,7 +2,7 @@
 
 ## Admin landing page (`/admin`)
 
-`app/admin/page.tsx` verifies the role on the server (`getUserRoleWithClient`) before querying. `getAdminDashboardData()` (`src/lib/api/adminDashboard.ts`) returns real work queues: pending release/video submissions, artist pages in `pending_review`, unread `portal_messages` addressed to the label, statements in `draft`/`label_approved`, and overdue invoices. Finance and `app_logs` error counts are queried only when the role is `admin`; editors receive `0` and cannot see the system notice. Missing rows or RLS denials become `0`, never placeholder data. The overview is task-first: queues, recent activity, compact content metrics, optional system notice. Do not add navigation tiles that only repeat sidebar links.
+`app/admin/page.tsx` resolves effective access (`resolveEffectiveAccess` + `admin.panel.full` / `admin.panel.editor`) on the server before querying. `getAdminDashboardData()` (`src/lib/api/adminDashboard.ts`) returns real work queues: release/video submissions in `received` or `reviewed`, artist pages in `pending_review`, unread `portal_messages` addressed to the label, statements in `draft`/`label_approved`, and overdue invoices. Finance, message and `app_logs` error counts are queried only for full admins; editors receive `0` and cannot see the system notice. Failed reads are returned in `failures` and rendered as an incomplete-data warning, never as a confirmed empty queue. The overdue cutoff and activity timestamps use the operator time zone from site settings. The overview is task-first: queues, recent activity, compact content metrics, optional system notice. Do not add navigation tiles that only repeat sidebar links.
 
 ## Assistant presentation rules
 

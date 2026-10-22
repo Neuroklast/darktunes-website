@@ -33,15 +33,20 @@
 
 ## Admin dashboard and errors
 - [ ] `/admin` shows real open queues (submissions, artist pages, unread messages, statements, overdue invoices) with correct counts
+- [ ] Release/video queues include `reviewed` submissions that still need a final decision
 - [ ] An editor sees content/submission queues only; finance and system queues are neither shown nor queried
 - [ ] Zero queues show a clear "nothing waiting" state; no made-up numbers or placeholder cards
+- [ ] Simulate a failed queue query (or RLS denial): the page shows an incomplete-data warning and never says "all clear" for that queue
+- [ ] Overdue invoices use the label time zone, not UTC (check an invoice due yesterday late in the Berlin evening)
+- [ ] Recent activity timestamps use the label time zone
 - [ ] Recent activity only lists real rows and dates; no fake events
-- [ ] A system notice appears only when unresolved errors exist in the last 24 hours; it links to System status for admins
+- [ ] A system notice appears only when non-ignored unresolved errors exist in the last 24 hours; it links to System status for admins
 - [ ] Sidebar groups are readable on desktop and mobile, scroll independently, and keep active/focus states
 - [ ] A forced rendering error on a public page shows no raw exception message, SQL, URL or stack trace
 - [ ] A forced rendering error with a digest shows the reference; "Analyze this error" appears only on admin/portal routes
 - [ ] Artist sees "assistant unavailable" wording for a provider failure and no admin/API-key instructions
 - [ ] Admin sees an actionable configuration hint; Technical Operations can still read the raw code and detail
+- [ ] A missing assistant key shows "not configured" with the settings shortcut, not "assistant is turned off"
 - [ ] Portal help shows no feature-flag, presigned-URL, service-worker, Dexie or 409/HTTP-status jargon (EN/DE/FR)
 
 ## Personal Artist Page / band news

@@ -12,10 +12,7 @@
     "dashboard": "Dashboard",
     "group_content": "Inhalte",
     "group_submissions": "Einreichungen",
-    "group_press": "Presse",
-    "group_management": "Verwaltung",
-    "group_system": "System",
-    "artists": "Künstler",
+    "group_press": "Presse",    "artists": "Künstler",
     "releases": "Releases",
     "news": "News",
     "videos": "Videos",
@@ -1580,6 +1577,12 @@
     },
     "systemHeading": "Systemhinweis",
     "systemErrors": "{count, plural, one {# ungelöster Fehler beeinträchtigt die Plattform.} other {# ungelöste Fehler beeinträchtigen die Plattform.}}",
+    "loadWarningTitle": "Einige Daten konnten nicht geladen werden",
+    "loadWarningBody": "Die Werte unten sind unvollständig. Lade die Seite neu; wenn es bleibt, prüfe den Systemstatus.",
+    "tasksIncomplete": "Unvollständig",
+    "tasksUnavailable": "Offene Aufgaben konnten nicht geladen werden.",
+    "activityUnavailable": "Letzte Aktivitäten konnten nicht geladen werden.",
+    "metricsUnavailable": "Inhaltszahlen konnten nicht geladen werden.",
     "systemOpen": "Systemstatus öffnen"
   }
 }

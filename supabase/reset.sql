@@ -3171,6 +3171,9 @@ CREATE INDEX IF NOT EXISTS idx_app_logs_source     ON public.app_logs (source);
 CREATE INDEX IF NOT EXISTS idx_app_logs_level      ON public.app_logs (level);
 CREATE INDEX IF NOT EXISTS idx_app_logs_created_at ON public.app_logs (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_app_logs_last_seen  ON public.app_logs (last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_app_logs_unresolved_recent
+  ON public.app_logs (last_seen_at DESC)
+  WHERE level = 'error' AND resolved = false AND ignored = false;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_app_logs_fingerprint ON public.app_logs (fingerprint);
 
 -- Best-effort aggregated write used by src/lib/appLog.ts. Same fingerprint →
@@ -7505,6 +7508,9 @@ CREATE INDEX IF NOT EXISTS idx_portal_messages_assignee
 CREATE INDEX IF NOT EXISTS idx_portal_msg_from    ON public.portal_messages (from_artist_id, sent_at DESC);
 CREATE INDEX IF NOT EXISTS idx_portal_msg_to      ON public.portal_messages (to_artist_id,   sent_at DESC);
 CREATE INDEX IF NOT EXISTS idx_portal_msg_search  ON public.portal_messages USING GIN(search_vector);
+CREATE INDEX IF NOT EXISTS idx_portal_messages_unread_to_label
+  ON public.portal_messages (sent_at DESC)
+  WHERE to_label AND read_at IS NULL AND deleted_at IS NULL;
 
 ALTER TABLE public.portal_messages ENABLE ROW LEVEL SECURITY;
 

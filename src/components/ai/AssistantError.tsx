@@ -43,7 +43,11 @@ export function AssistantError({
     (error.code === 'AI_ARTIST_INVALID' ||
       error.code === 'AI_ARTIST_FORBIDDEN' ||
       error.code === 'FORBIDDEN_NO_ARTIST')
-  const showAdminAction = audience === 'admin' && error.code === 'AI_DISABLED'
+  const showAdminAction =
+    audience === 'admin' &&
+    (error.code === 'AI_DISABLED' ||
+      error.code === 'AI_NOT_CONFIGURED' ||
+      error.code === 'AI_DISABLED_FOR_ROLE')
 
   return (
     <div

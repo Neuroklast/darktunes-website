@@ -4,8 +4,14 @@ import { assistantErrorKey } from '@/lib/ai/presentation/errors'
 describe('assistant error presentation', () => {
   it('never sends an artist to admin settings for provider failures', () => {
     expect(assistantErrorKey('AI_PROVIDER_INVALID_KEY', 'artist')).toBe('AI_UNAVAILABLE_ARTIST')
-    expect(assistantErrorKey('AI_NOT_CONFIGURED', 'artist')).toBe('AI_DISABLED_ARTIST')
+    expect(assistantErrorKey('AI_NOT_CONFIGURED', 'artist')).toBe('AI_NOT_CONFIGURED_ARTIST')
     expect(assistantErrorKey('AI_TOOL_FORBIDDEN', 'artist')).toBe('AI_ACCESS_ARTIST')
+  })
+
+  it('keeps "not configured" separate from a disabled assistant', () => {
+    expect(assistantErrorKey('AI_NOT_CONFIGURED', 'admin')).toBe('AI_NOT_CONFIGURED_ADMIN')
+    expect(assistantErrorKey('AI_DISABLED', 'admin')).toBe('AI_DISABLED_ADMIN')
+    expect(assistantErrorKey('AI_DISABLED_FOR_ROLE', 'editor')).toBe('AI_DISABLED_STAFF')
   })
 
   it('gives admins an actionable configuration hint without provider internals', () => {

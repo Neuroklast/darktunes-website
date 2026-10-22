@@ -74,8 +74,11 @@
   "AI_LIMIT_STAFF": "The usage limit for this request is reached. Try again later.",
   "AI_LIMIT_ADMIN": "The usage limit for this request is reached. Wait or adjust the limit in the technical AI settings.",
   "ERROR_BOUNDARY_TITLE": "This part of the page could not be loaded",
-  "ERROR_BOUNDARY_BODY": "Your data is safe. Reload the page to try again. If it keeps happening, send the reference below to the label team.",
+  "ERROR_BOUNDARY_BODY": "Your data is safe. Reload the page to try again. If it keeps happening, contact your label team.",
   "ERROR_BOUNDARY_RETRY": "Reload page",
   "ERROR_BOUNDARY_REFERENCE": "Reference for support: {reference}",
-  "ERROR_BOUNDARY_ANALYZE": "Analyze this error"
+  "ERROR_BOUNDARY_ANALYZE": "Analyze this error",
+  "AI_NOT_CONFIGURED_ARTIST": "The assistant is not set up yet. Your label needs to finish setting it up.",
+  "AI_NOT_CONFIGURED_STAFF": "The assistant is not set up yet. Ask an admin to finish the setup.",
+  "AI_NOT_CONFIGURED_ADMIN": "The assistant is not configured yet. Open the technical AI settings and add the required connection."
 }

@@ -74,8 +74,11 @@
   "AI_LIMIT_STAFF": "La limite d’utilisation de cette requête est atteinte. Réessayez plus tard.",
   "AI_LIMIT_ADMIN": "La limite d’utilisation de cette requête est atteinte. Attendez ou ajustez la limite dans les réglages techniques de l’IA.",
   "ERROR_BOUNDARY_TITLE": "Cette partie de la page n’a pas pu être chargée",
-  "ERROR_BOUNDARY_BODY": "Vos données sont en sécurité. Rechargez la page pour réessayer. Si le problème persiste, envoyez la référence ci-dessous à votre label.",
+  "ERROR_BOUNDARY_BODY": "Vos données sont en sécurité. Rechargez la page pour réessayer. Si le problème persiste, contactez votre label.",
   "ERROR_BOUNDARY_RETRY": "Recharger la page",
   "ERROR_BOUNDARY_REFERENCE": "Référence pour le support : {reference}",
-  "ERROR_BOUNDARY_ANALYZE": "Analyser cette erreur"
+  "ERROR_BOUNDARY_ANALYZE": "Analyser cette erreur",
+  "AI_NOT_CONFIGURED_ARTIST": "L’assistant n’est pas encore configuré. Votre label doit terminer la configuration.",
+  "AI_NOT_CONFIGURED_STAFF": "L’assistant n’est pas encore configuré. Un admin doit terminer la configuration.",
+  "AI_NOT_CONFIGURED_ADMIN": "L’assistant n’est pas encore configuré. Ouvrez les réglages techniques de l’IA et ajoutez la connexion requise."
 }

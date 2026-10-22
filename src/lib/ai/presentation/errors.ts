@@ -14,7 +14,7 @@ const PROVIDER_FAILURES = new Set<string>([
   'AI_PROVIDER_UNAVAILABLE',
 ])
 
-const DISABLED_CODES = new Set<string>(['AI_DISABLED', 'AI_NOT_CONFIGURED', 'AI_DISABLED_FOR_ROLE'])
+const DISABLED_CODES = new Set<string>(['AI_DISABLED', 'AI_DISABLED_FOR_ROLE'])
 
 const RETRY_CODES = new Set<string>([
   'AI_EMPTY_RESPONSE',
@@ -41,6 +41,7 @@ export function assistantErrorKey(code: string, audience: AssistantAudience): st
   const suffix = audienceSuffix(audience)
 
   if (PROVIDER_FAILURES.has(code)) return `AI_UNAVAILABLE_${suffix}`
+  if (code === 'AI_NOT_CONFIGURED') return `AI_NOT_CONFIGURED_${suffix}`
   if (DISABLED_CODES.has(code)) return `AI_DISABLED_${suffix}`
   if (RETRY_CODES.has(code)) return `AI_RETRY_${suffix}`
   if (code === 'AI_BUDGET_EXCEEDED') return `AI_LIMIT_${suffix}`

@@ -38,7 +38,7 @@ export function buildAssistantSuggestions({
     }
     if (on('/portal/releases')) {
       if (has('get_release_submission_status')) suggestions.push('releaseStatus', 'releaseMissing')
-      if (has('get_artist_profile')) suggestions.push('artworkChange')
+      if (has('search_portal_help')) suggestions.push('artworkChange')
     }
     if (has('get_artist_releases')) suggestions.push('releaseStatus')
     if (has('get_artist_statements')) suggestions.push('statementExplain')

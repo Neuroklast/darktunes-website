@@ -12,10 +12,7 @@
     "dashboard": "Dashboard",
     "group_content": "Content",
     "group_submissions": "Submissions",
-    "group_press": "Press",
-    "group_management": "Management",
-    "group_system": "System",
-    "artists": "Artists",
+    "group_press": "Press",    "artists": "Artists",
     "releases": "Releases",
     "news": "News",
     "videos": "Videos",
@@ -1580,6 +1577,12 @@
     },
     "systemHeading": "System notice",
     "systemErrors": "{count, plural, one {# unresolved error affects the platform.} other {# unresolved errors affect the platform.}}",
+    "loadWarningTitle": "Some data could not be loaded",
+    "loadWarningBody": "The values below are incomplete. Reload the page; if it keeps happening, check System status.",
+    "tasksIncomplete": "Incomplete",
+    "tasksUnavailable": "Open tasks could not be loaded.",
+    "activityUnavailable": "Recent activity could not be loaded.",
+    "metricsUnavailable": "Content counts could not be loaded.",
     "systemOpen": "Open system status"
   }
 }
