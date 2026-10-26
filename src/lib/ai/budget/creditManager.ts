@@ -24,7 +24,7 @@ export class CreditBudgetManager {
     // not an invitation to bypass an enabled limit.
     const { data, error } = await db.from('ai_credit_settings').select('*').eq('id', true).single()
     if (error || !data) throw new ApiError(503, 'AI credit accounting database is not installed.', 'AI_CREDITS_UNAVAILABLE')
-    return new CreditBudgetManager(db, data as CreditSettings)
+    return new CreditBudgetManager(db, data as unknown as CreditSettings)
   }
 
   get enabled(): boolean { return this.settings.enabled }
@@ -51,7 +51,9 @@ export class CreditBudgetManager {
     if (!this.enabled) return
     const scope: CreditScope = artistId ? 'artist' : role
     const scopeId = artistId ?? (role === 'admin' ? 'label' : userId)
-    const credits = this.charge({ input_tokens: estimatedInput, output_tokens: maxOutput, reasoning_tokens: 0 }, model)
+    const rate = this.price(model)
+    const worstCaseOutputRate = Math.max(rate.outputPerMillionEur, rate.reasoningPerMillionEur ?? 0)
+    const credits = calculateCredits({ input_tokens: estimatedInput, output_tokens: maxOutput, reasoning_tokens: 0 }, { ...rate, outputPerMillionEur: worstCaseOutputRate }, { buffer: this.settings.buffer_percent / 100 })
     const { data, error } = await this.db.rpc('reserve_ai_credits', {
       p_request_id: requestId, p_scope: scope, p_scope_id: scopeId,
       p_user_id: userId, p_model: model, p_allowance: this.allowance(scope),
