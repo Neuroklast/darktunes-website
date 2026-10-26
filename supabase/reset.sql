@@ -8560,7 +8560,7 @@ CREATE OR REPLACE FUNCTION public.refund_ai_credit_turn(p_turn_id TEXT)
 RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE v_row public.ai_credit_reservations%ROWTYPE;
-DECLARE v_refunded BIGINT := 0;
+  v_refunded BIGINT := 0;
 BEGIN
   IF NULLIF(p_turn_id, '') IS NULL THEN RAISE EXCEPTION 'Missing turn ID'; END IF;
   FOR v_row IN
