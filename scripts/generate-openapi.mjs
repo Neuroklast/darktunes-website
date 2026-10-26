@@ -1413,6 +1413,17 @@ const schemaOverrides = {
       responses: { 200: { schema: 'AdminAiDiagnostics' } },
     },
   },
+  '/api/admin/ai/credits': {
+    GET: {
+      summary: 'Read AI credit settings, artist allowances and financial summaries',
+      responses: { 200: { schema: { type: 'object', additionalProperties: true } } },
+    },
+    PATCH: {
+      summary: 'Atomically update AI credit limits and per-model prices',
+      requestBody: { schema: { type: 'object', additionalProperties: true } },
+      responses: { 200: { schema: { type: 'object', additionalProperties: true } } },
+    },
+  },
   '/api/admin/ai/usage': {
     GET: {
       summary: 'Token usage split by input/output/reasoning, model, role, day, budget and failures',
