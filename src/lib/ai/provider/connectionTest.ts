@@ -138,6 +138,7 @@ export async function runNvidiaConnectionTest(options: {
     const streamId = `${role}_stream`
     const toolId = `${role}_tool`
     const toolStreamId = `${role}_tool_stream`
+    const roundTripId = `${role}_tool_roundtrip`
     const thinking = role === 'reasoning'
     const lowEffort = role === 'reasoning'
 
@@ -166,6 +167,7 @@ export async function runNvidiaConnectionTest(options: {
       out.push(skippedStep(streamId, model, 'complete failed'))
       out.push(skippedStep(toolId, model, 'complete failed'))
       out.push(skippedStep(toolStreamId, model, 'complete failed'))
+      out.push(skippedStep(roundTripId, model, 'complete failed'))
       return out
     }
 
@@ -193,6 +195,7 @@ export async function runNvidiaConnectionTest(options: {
     })
     out.push(stream)
 
+    let sampleToolCall: AiToolCall | null = null
     const tool = await runStep(toolId, model, async () => {
       const completion = await provider.complete({
         request_id: `connection-test-${role}-tool`,
@@ -211,7 +214,9 @@ export async function runNvidiaConnectionTest(options: {
         timeout_ms: timeoutMs,
         retry: false,
       })
-      const supported = completion.tool_calls.some((call) => call.name === 'echo_test')
+      const matched = completion.tool_calls.find((call) => call.name === 'echo_test')
+      const supported = Boolean(matched)
+      if (matched) sampleToolCall = matched
       discovered[model] = {
         ...(discovered[model] ?? {}),
         supports_tools: supported,
@@ -226,6 +231,7 @@ export async function runNvidiaConnectionTest(options: {
     out.push(tool)
     if (!tool.ok || !stream.ok) {
       out.push(skippedStep(toolStreamId, model, 'tool or streaming test failed'))
+      out.push(skippedStep(roundTripId, model, 'tool or streaming test failed'))
       return out
     }
     // A model might support tools and streaming separately, yet fail when
@@ -251,11 +257,35 @@ export async function runNvidiaConnectionTest(options: {
       if (!validCall) throw new AiProviderError('TOOL_CALL_UNSUPPORTED', 'Streaming tool calls were not supported.')
     })
     out.push(toolStream)
+    if (!toolStream.ok || !sampleToolCall) {
+      out.push(skippedStep(roundTripId, model, 'streamed tool calls not supported'))
+      return out
+    }
+    const actualCall: AiToolCall = sampleToolCall
+    const roundTrip = await runStep(roundTripId, model, async () => {
+      const answer = await provider.complete({
+        request_id: `connection-test-${role}-tool-roundtrip`,
+        model,
+        messages: [
+          { role: 'user', content: 'Call echo_test with ping pong, then confirm its result.' },
+          { role: 'assistant', content: '', tool_calls: [actualCall] },
+          { role: 'tool', name: 'echo_test', tool_call_id: actualCall.id, content: '{"ping":"pong"}' },
+        ],
+        max_tokens: 96,
+        enable_thinking: false,
+        timeout_ms: timeoutMs,
+        retry: false,
+      })
+      if (!answer.content.trim()) {
+        throw new AiProviderError('EMPTY_RESPONSE', 'The model did not produce a visible answer after a tool result.')
+      }
+    })
+    out.push(roundTrip)
     return out
   }
 
   function pushSkipped(model: string, role: AiModelRole, reason: string): void {
-    const ids = [`${role}_complete`, `${role}_stream`, `${role}_tool`, `${role}_tool_stream`]
+    const ids = [`${role}_complete`, `${role}_stream`, `${role}_tool`, `${role}_tool_stream`, `${role}_tool_roundtrip`]
     for (const id of ids) steps.push(skippedStep(id, model, reason))
     models[model] = {
       model,
