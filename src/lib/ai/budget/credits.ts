@@ -17,5 +17,5 @@ export function calculateCredits(
   const output = reasoningIncludedInOutput ? Math.max(0, usage.output_tokens - reasoning) : usage.output_tokens
   const reasoningRate = price.reasoningPerMillionEur ?? price.outputPerMillionEur
   const eur = (usage.input_tokens * price.inputPerMillionEur + output * price.outputPerMillionEur + reasoning * reasoningRate) / 1_000_000
-  return Math.ceil(eur * (1 + buffer) / CREDIT_EUR)
+  return Math.max(0, Math.ceil(eur * (1 + buffer) / CREDIT_EUR - 1e-9))
 }
