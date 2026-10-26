@@ -7,3 +7,5 @@ export {
   runNvidiaConnectionTest,
   CONNECTION_TEST_ECHO_TOOL,
 } from '@/lib/ai/provider/connectionTest'
+export { AiProviderRouter, resolveAiProviderKey } from '@/lib/ai/provider/router'
+export { AI_CHAT_MODELS, AI_PROVIDERS, getCatalogModel } from '@/lib/ai/models/catalog'
