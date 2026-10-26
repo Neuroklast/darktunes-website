@@ -44,7 +44,7 @@ export function assistantErrorKey(code: string, audience: AssistantAudience): st
   if (code === 'AI_NOT_CONFIGURED') return `AI_NOT_CONFIGURED_${suffix}`
   if (DISABLED_CODES.has(code)) return `AI_DISABLED_${suffix}`
   if (RETRY_CODES.has(code)) return `AI_RETRY_${suffix}`
-  if (code === 'AI_BUDGET_EXCEEDED') return `AI_LIMIT_${suffix}`
+  if (code === 'AI_BUDGET_EXCEEDED' || code === 'AI_CREDITS_EXCEEDED') return `AI_LIMIT_${suffix}`
   if (ACCESS_CODES.has(code)) return audience === 'admin' ? code : `AI_ACCESS_${suffix}`
 
   return (code as ErrorCode)
