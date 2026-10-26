@@ -568,7 +568,7 @@ export function AdminAiDashboard() {
       </TabsContent>
 
       <TabsContent value="credits" className="space-y-4">
-        <AdminCreditPanel models={[settings.model_fast, settings.model_reasoning, settings.fallback_model]} />
+        <AdminCreditPanel models={[settings.model_fast, settings.model_reasoning, settings.fallback_model]} availableModels={modelsData?.models ?? []} />
       </TabsContent>
 
       <TabsContent value="diagnostics" className="space-y-4">
