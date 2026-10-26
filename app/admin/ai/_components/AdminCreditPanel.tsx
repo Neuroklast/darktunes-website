@@ -20,7 +20,7 @@ interface CostSummary {
   calls: number
   by_model: Array<{ model: string; provider_cost_eur: number; charged_credits: number; calls: number }>
 }
-interface Transaction { request_id: string; model: string; scope: string; scope_id: string; charged_credits: number | null; provider_cost_eur: number | null; created_at: string; settled_at: string | null }
+interface Transaction { request_id: string; model: string; scope: string; scope_id: string; charged_credits: number | null; original_charged_credits: number | null; refunded_at: string | null; provider_cost_eur: number | null; created_at: string; settled_at: string | null }
 interface Account { scope: string; scope_id: string; period_start: string; monthly_allowance: number; used_credits: number; reserved_credits: number }
 async function headers() {
   const { data } = await createBrowserSupabaseClient().auth.getSession()
@@ -137,7 +137,7 @@ export function AdminCreditPanel({ models }: { models: string[] }) {
           <td className="whitespace-nowrap p-2">{new Date(row.created_at).toLocaleString('de-DE')}</td>
           <td className="p-2">{row.scope}: {row.scope_id}</td>
           <td className="break-all p-2">{row.model}</td>
-          <td className="p-2">{row.settled_at ? row.charged_credits : 'reserviert'}</td>
+          <td className="p-2">{row.refunded_at ? `0 (erstattet: ${row.original_charged_credits ?? 0})` : row.settled_at ? row.charged_credits : 'reserviert'}</td>
           <td className="p-2">{row.provider_cost_eur === null ? '–' : Number(row.provider_cost_eur).toFixed(6)}</td>
         </tr>)}</tbody>
       </table>
