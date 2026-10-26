@@ -8288,10 +8288,13 @@ CREATE TABLE IF NOT EXISTS public.ai_credit_accounts (
   scope_id TEXT NOT NULL,
   period_start DATE NOT NULL,
   monthly_allowance BIGINT NOT NULL CHECK (monthly_allowance >= 0),
+  adjustment_credits BIGINT NOT NULL DEFAULT 0,
   used_credits BIGINT NOT NULL DEFAULT 0 CHECK (used_credits >= 0),
   reserved_credits BIGINT NOT NULL DEFAULT 0 CHECK (reserved_credits >= 0),
   PRIMARY KEY (scope, scope_id, period_start)
 );
+ALTER TABLE public.ai_credit_accounts
+  ADD COLUMN IF NOT EXISTS adjustment_credits BIGINT NOT NULL DEFAULT 0;
 CREATE TABLE IF NOT EXISTS public.ai_credit_reservations (
   request_id TEXT PRIMARY KEY,
   scope TEXT NOT NULL,
@@ -8467,10 +8470,10 @@ BEGIN
       updated_at = NOW()
   WHERE id = TRUE;
   UPDATE public.ai_credit_accounts
-  SET monthly_allowance = CASE scope
+  SET monthly_allowance = (CASE scope
     WHEN 'artist' THEN p_artist_monthly
     WHEN 'editor' THEN p_editor_monthly
-    ELSE p_admin_monthly END
+    ELSE p_admin_monthly END) + adjustment_credits
   WHERE period_start = date_trunc('month', NOW() AT TIME ZONE 'UTC')::date;
   SELECT to_jsonb(s) INTO v_settings FROM public.ai_credit_settings s WHERE id = TRUE;
   RETURN v_settings;
@@ -8587,3 +8590,82 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.refund_ai_credit_turn(TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.refund_ai_credit_turn(TEXT) TO service_role;
+
+-- Audit trail for administrator-issued credit adjustments. Immutable after insertion.
+CREATE TABLE IF NOT EXISTS public.ai_credit_adjustments (
+  id UUID PRIMARY KEY,
+  actor_id UUID NOT NULL,
+  scope TEXT NOT NULL CHECK (scope IN ('artist', 'editor', 'admin')),
+  scope_id TEXT NOT NULL,
+  period_start DATE NOT NULL,
+  delta_credits BIGINT NOT NULL CHECK (delta_credits <> 0),
+  reason TEXT NOT NULL CHECK (LENGTH(TRIM(reason)) BETWEEN 3 AND 500),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ai_credit_adjustments_account
+  ON public.ai_credit_adjustments(scope, scope_id, period_start, created_at DESC);
+ALTER TABLE public.ai_credit_adjustments ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.ai_credit_adjustments FROM anon, authenticated;
+GRANT ALL ON public.ai_credit_adjustments TO service_role;
+
+CREATE OR REPLACE FUNCTION public.adjust_ai_credits(
+  p_id UUID, p_actor_id UUID, p_scope TEXT, p_scope_id TEXT, p_delta BIGINT, p_reason TEXT
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_period DATE := date_trunc('month', NOW() AT TIME ZONE 'UTC')::date;
+  v_base BIGINT;
+  v_account public.ai_credit_accounts%ROWTYPE;
+  v_old public.ai_credit_adjustments%ROWTYPE;
+BEGIN
+  IF p_scope NOT IN ('artist', 'editor', 'admin') OR NULLIF(p_scope_id,'') IS NULL OR
+     p_delta = 0 OR ABS(p_delta) > 1000000 OR LENGTH(TRIM(p_reason)) NOT BETWEEN 3 AND 500 THEN
+    RAISE EXCEPTION 'Invalid credit adjustment';
+  END IF;
+  SELECT * INTO v_old FROM public.ai_credit_adjustments WHERE id = p_id;
+  IF FOUND THEN
+    IF v_old.scope <> p_scope OR v_old.scope_id <> p_scope_id OR
+       v_old.delta_credits <> p_delta OR v_old.actor_id <> p_actor_id OR v_old.reason <> p_reason THEN
+      RAISE EXCEPTION 'Credit adjustment ID conflict';
+    END IF;
+    RETURN jsonb_build_object('ok', true, 'duplicate', true);
+  END IF;
+  SELECT CASE p_scope WHEN 'artist' THEN artist_monthly
+    WHEN 'editor' THEN editor_monthly ELSE admin_monthly END
+  INTO v_base FROM public.ai_credit_settings WHERE id = TRUE;
+  IF v_base IS NULL THEN RAISE EXCEPTION 'Missing credit settings'; END IF;
+
+  INSERT INTO public.ai_credit_accounts(scope, scope_id, period_start, monthly_allowance)
+  VALUES (p_scope, p_scope_id, v_period, v_base)
+  ON CONFLICT DO NOTHING;
+  SELECT * INTO v_account FROM public.ai_credit_accounts
+  WHERE scope = p_scope AND scope_id = p_scope_id AND period_start = v_period FOR UPDATE;
+  -- Recheck the idempotency key after acquiring the account lock.
+  SELECT * INTO v_old FROM public.ai_credit_adjustments WHERE id = p_id;
+  IF FOUND THEN
+    IF v_old.scope <> p_scope OR v_old.scope_id <> p_scope_id OR
+       v_old.delta_credits <> p_delta OR v_old.actor_id <> p_actor_id OR v_old.reason <> p_reason THEN
+      RAISE EXCEPTION 'Credit adjustment ID conflict';
+    END IF;
+    RETURN jsonb_build_object('ok', true, 'duplicate', true);
+  END IF;
+  IF v_account.monthly_allowance + p_delta <
+     v_account.used_credits + v_account.reserved_credits OR
+     v_account.monthly_allowance + p_delta < 0 THEN
+    RETURN jsonb_build_object('ok', false, 'code', 'AI_CREDITS_ADJUSTMENT_REJECTED');
+  END IF;
+  UPDATE public.ai_credit_accounts
+  SET monthly_allowance = monthly_allowance + p_delta,
+      adjustment_credits = adjustment_credits + p_delta
+  WHERE scope = p_scope AND scope_id = p_scope_id AND period_start = v_period;
+  INSERT INTO public.ai_credit_adjustments
+    (id, actor_id, scope, scope_id, period_start, delta_credits, reason)
+  VALUES (p_id, p_actor_id, p_scope, p_scope_id, v_period, p_delta, TRIM(p_reason));
+  RETURN jsonb_build_object('ok', true,
+    'monthly_allowance', v_account.monthly_allowance + p_delta);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.adjust_ai_credits(UUID,UUID,TEXT,TEXT,BIGINT,TEXT)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.adjust_ai_credits(UUID,UUID,TEXT,TEXT,BIGINT,TEXT)
+  TO service_role;
