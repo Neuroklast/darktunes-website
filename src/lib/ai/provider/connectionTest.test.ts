@@ -80,7 +80,7 @@ function fakeProvider(options: FakeOptions = {}): AiProvider {
       yield { type: 'open', retry_count: 0 }
       yield { type: 'delta', text: 'po' }
       yield { type: 'delta', text: 'ng' }
-      const result = completion(request, 'pong')
+      const result = completion(request, request.request_id.endsWith('-tool-stream') ? '' : 'pong', request.request_id.endsWith('-tool-stream'))
       yield { type: 'usage', usage: result.usage }
       yield { type: 'done', completion: result }
     },
@@ -101,9 +101,11 @@ describe('runNvidiaConnectionTest', () => {
       'fast_complete',
       'fast_stream',
       'fast_tool',
+      'fast_tool_stream',
       'reasoning_complete',
       'reasoning_stream',
       'reasoning_tool',
+      'reasoning_tool_stream',
       'integration',
     ])
     expect(result.steps.every((step) => step.ok)).toBe(true)
@@ -177,7 +179,7 @@ describe('runNvidiaConnectionTest', () => {
     })
     expect(result.ok).toBe(false)
     expect(result.steps.find((step) => step.id === 'auth')?.status).toBe('failed')
-    expect(result.steps.filter((step) => step.status === 'skipped').length).toBe(6)
+    expect(result.steps.filter((step) => step.status === 'skipped').length).toBe(8)
   })
 
   it('only runs the requested scope', async () => {
