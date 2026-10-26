@@ -924,6 +924,32 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/ai/credits/adjustments:
+    post:
+      operationId: postadmin_ai_credits_adjustments
+      tags: [Admin]
+      summary: "Apply an audited credit adjustment to a monthly account"
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/admin/ai/credits:
     get:
       operationId: getadmin_ai_credits
