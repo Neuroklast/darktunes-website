@@ -37,13 +37,13 @@ change or have zero-cost promotional allowances.
 3. Every model round has a unique `request_id:round` key.
 4. `settle_ai_credits` records provider fees, observed token counts, and
    chargeable credits. Failed/aborted rounds carry zero charge; incomplete
-   final output is not billed. Previously successful tool rounds are still
-   billable if a later round fails.
+   final output is not billed. If a later model round fails, a dedicated transactional refund reverses
+   all successful intermediate charges for that turn. Provider fees remain logged.
 5. Leftover reservation capacity is released. Reservations older than three
    minutes with no settlement are reclaimed on the next reservation for that
    account. If provider usage exceeds the estimate, the credit charge is
    capped at the reserved ceiling, while the real provider cost remains stored.
-6. Retrying a settlement is idempotent. Stale or duplicate request IDs cannot
+6. Retrying settlements and turn refunds is idempotent. Stale or duplicate request IDs cannot
    result in double charging.
 
 The available credit balance appears in the assistant, and the Admin panel
