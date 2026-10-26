@@ -27,7 +27,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     serviceClient.from('ai_credit_accounts').select('scope, scope_id, period_start, monthly_allowance, used_credits, reserved_credits').order('period_start', { ascending: false }).limit(200),
     serviceClient.rpc('ai_credit_cost_summary'),
     serviceClient.from('ai_credit_reservations')
-      .select('request_id, model, scope, scope_id, reserved_credits, charged_credits, provider_cost_eur, created_at, settled_at')
+      .select('request_id, model, scope, scope_id, reserved_credits, charged_credits, original_charged_credits, refunded_at, provider_cost_eur, price_snapshot, created_at, settled_at')
       .order('created_at', { ascending: false }).limit(30),
   ])
   if (error || accountsError || summaryError || recentError || !config) throw new ApiError(503, 'AI credits schema has not been installed.', 'AI_CREDITS_UNAVAILABLE')
