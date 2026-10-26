@@ -18,6 +18,11 @@ export type CredentialGroup =
   | 'mailerlite'
   | 'health_alerts'
   | 'nvidia'
+  | 'groq'
+  | 'gemini'
+  | 'openrouter'
+  | 'cerebras'
+  | 'cloudflare'
 
 export interface CredentialKeyDefinition {
   key: string
@@ -174,6 +179,48 @@ export const CREDENTIAL_KEY_DEFINITIONS: readonly CredentialKeyDefinition[] = [
     isSecret: true,
   },
   {
+    key: 'groq_api_key',
+    label: 'Groq API Key',
+    description: 'Chat- und Tool-Calling-Zugang über Groq (Free-Tier-Limits beachten).',
+    category: 'ai', group: 'groq', isSecret: true,
+    docsUrl: 'https://console.groq.com/keys',
+  },
+  {
+    key: 'gemini_api_key',
+    label: 'Google Gemini API Key',
+    description: 'Google AI Studio API für Textchat und Funktionsaufrufe.',
+    category: 'ai', group: 'gemini', isSecret: true,
+    docsUrl: 'https://aistudio.google.com/apikey',
+  },
+  {
+    key: 'openrouter_api_key',
+    label: 'OpenRouter API Key',
+    description: 'Providerübergreifender Chat-Zugang; Free-Modelle sind verfügbarkeitsabhängig.',
+    category: 'ai', group: 'openrouter', isSecret: true,
+    docsUrl: 'https://openrouter.ai/settings/keys',
+  },
+  {
+    key: 'cerebras_api_key',
+    label: 'Cerebras API Key',
+    description: 'Schnelle Chat-Inferenz über Cerebras.',
+    category: 'ai', group: 'cerebras', isSecret: true,
+    docsUrl: 'https://cloud.cerebras.ai/',
+  },
+  {
+    key: 'cloudflare_ai_api_key',
+    label: 'Cloudflare Workers AI Token',
+    description: 'Cloudflare API-Token mit Workers AI Berechtigung.',
+    category: 'ai', group: 'cloudflare', isSecret: true,
+    docsUrl: 'https://dash.cloudflare.com/',
+  },
+  {
+    key: 'cloudflare_ai_account_id',
+    label: 'Cloudflare Account ID',
+    description: 'Die Cloudflare Konto-ID für den Workers AI Endpunkt.',
+    category: 'ai', group: 'cloudflare', isSecret: false,
+    docsUrl: 'https://dash.cloudflare.com/',
+  },
+  {
     key: 'nvidia_api_key',
     label: 'NVIDIA API Key',
     description:
@@ -229,6 +276,11 @@ export const GROUP_LABELS: Record<CredentialGroup, string> = {
   mailerlite: 'MailerLite',
   health_alerts: 'Health Alerts',
   nvidia: 'NVIDIA',
+  groq: 'Groq',
+  gemini: 'Google Gemini',
+  openrouter: 'OpenRouter',
+  cerebras: 'Cerebras',
+  cloudflare: 'Cloudflare Workers AI',
 }
 
 /** Display order of provider groups within each category. */
@@ -247,5 +299,5 @@ export const GROUP_ORDER_BY_CATEGORY: Record<CredentialCategory, readonly Creden
   email: ['resend'],
   newsletter: ['mailerlite'],
   monitoring: ['health_alerts'],
-  ai: ['nvidia'],
+  ai: ['nvidia', 'groq', 'gemini', 'openrouter', 'cerebras', 'cloudflare'],
 }
