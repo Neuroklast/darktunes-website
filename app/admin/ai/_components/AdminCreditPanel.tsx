@@ -121,7 +121,7 @@ export function AdminCreditPanel({ models }: { models: string[] }) {
             {numberField('buffer_percent', 'Puffer %')}
           </div>
           {Array.from(new Set(models.filter(Boolean))).map(model => {
-            const p = settings.model_prices[model] ?? { input_per_million_eur: 0, output_per_million_eur: 0 }
+            const p: Price = settings.model_prices[model] ?? { input_per_million_eur: 0, output_per_million_eur: 0 }
             const change = (key: keyof Price, value: number) => setSettings(old => old && ({
               ...old, model_prices: { ...old.model_prices, [model]: { ...p, [key]: Math.max(0, value) } },
             }))
