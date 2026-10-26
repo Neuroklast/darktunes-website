@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requireAdminWithServiceClient } from '@/lib/adminAuth'
 import { withErrorHandler, ApiError } from '@/lib/errors'
 import { getAiSettings } from '@/lib/api/aiSettings'
+import type { Json } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
 const price = z.object({
@@ -40,7 +41,8 @@ export const PATCH = withErrorHandler(async (req: NextRequest) => {
   const ai = await getAiSettings(serviceClient)
   if (parsed.data.enabled) {
     for (const model of [ai.modelFast, ai.modelReasoning, ...(ai.fallbackModel ? [ai.fallbackModel] : [])]) {
-      if (!parsed.data.model_prices[model]) {
+      if (!parsed.data.model_prices[model] ||
+          parsed.data.model_prices[model].input_per_million_eur + parsed.data.model_prices[model].output_per_million_eur <= 0) {
         throw new ApiError(400, `Missing pricing for configured model: ${model}`, 'VALIDATION_ERROR')
       }
     }
@@ -51,7 +53,7 @@ export const PATCH = withErrorHandler(async (req: NextRequest) => {
     p_artist_monthly: parsed.data.artist_monthly,
     p_editor_monthly: parsed.data.editor_monthly,
     p_admin_monthly: parsed.data.admin_monthly,
-    p_model_prices: parsed.data.model_prices,
+    p_model_prices: parsed.data.model_prices as unknown as Json,
   })
   if (error || !data) throw new ApiError(503, 'Could not save credit settings.', 'AI_CREDITS_UNAVAILABLE')
   return NextResponse.json({ settings: data })
