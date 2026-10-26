@@ -144,7 +144,7 @@ export function AdminAiModelSetup({
         <CardTitle>Anbieter & API-Zugänge</CardTitle>
         <CardDescription>
           Zugangsdaten sind zentral in der verschlüsselten API-Pflege hinterlegt.
-          Ein Free-Tier ist konten- und modellabhängig und keine Kostengarantie.
+          Ein Free-Tier ist konten- und modellabhängig und keine Kostengarantie. Vor Nutzung mit Künstler- und Personendaten sind Datenschutzbedingungen und möglicher Datentransfer in Drittländer zu prüfen.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
