@@ -8509,3 +8509,27 @@ SELECT jsonb_build_object(
 $$;
 REVOKE ALL ON FUNCTION public.ai_usage_month_summary() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.ai_usage_month_summary() TO service_role;
+
+-- Exact financial totals come from settled reservations, not a limited event list.
+CREATE OR REPLACE FUNCTION public.ai_credit_cost_summary()
+RETURNS JSONB LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+WITH settled AS (
+  SELECT model, charged_credits, provider_cost_eur
+  FROM public.ai_credit_reservations
+  WHERE period_start = date_trunc('month', NOW() AT TIME ZONE 'UTC')::date
+    AND settled_at IS NOT NULL
+)
+SELECT jsonb_build_object(
+  'provider_cost_eur', COALESCE((SELECT SUM(provider_cost_eur) FROM settled), 0),
+  'charged_credits', COALESCE((SELECT SUM(charged_credits) FROM settled), 0),
+  'calls', (SELECT COUNT(*) FROM settled),
+  'by_model', (SELECT COALESCE(jsonb_agg(to_jsonb(x)), '[]'::jsonb) FROM (
+    SELECT model, COALESCE(SUM(provider_cost_eur),0) AS provider_cost_eur,
+      COALESCE(SUM(charged_credits),0) AS charged_credits, COUNT(*) AS calls
+    FROM settled GROUP BY model ORDER BY provider_cost_eur DESC
+  ) x)
+);
+$$;
+REVOKE ALL ON FUNCTION public.ai_credit_cost_summary() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ai_credit_cost_summary() TO service_role;
