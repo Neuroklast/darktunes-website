@@ -10,6 +10,7 @@ const price = z.object({
   input_per_million_eur: z.number().finite().nonnegative(),
   output_per_million_eur: z.number().finite().nonnegative(),
   reasoning_per_million_eur: z.number().finite().nonnegative().optional(),
+  free_tier_confirmed: z.boolean().optional(),
 }).strict()
 const patch = z.object({
   enabled: z.boolean(),
@@ -44,9 +45,10 @@ export const PATCH = withErrorHandler(async (req: NextRequest) => {
   const ai = await getAiSettings(serviceClient)
   if (parsed.data.enabled) {
     for (const model of [ai.modelFast, ai.modelReasoning, ...(ai.fallbackModel ? [ai.fallbackModel] : [])]) {
-      if (!parsed.data.model_prices[model] ||
-          parsed.data.model_prices[model].input_per_million_eur + parsed.data.model_prices[model].output_per_million_eur <= 0) {
-        throw new ApiError(400, `Missing pricing for configured model: ${model}`, 'VALIDATION_ERROR')
+      const rate = parsed.data.model_prices[model]
+      if (!rate || ((rate.input_per_million_eur + rate.output_per_million_eur) === 0 &&
+          rate.free_tier_confirmed !== true)) {
+        throw new ApiError(400, `Set verified prices or explicitly confirm a zero-cost tariff for: ${model}`, 'VALIDATION_ERROR')
       }
     }
   }
