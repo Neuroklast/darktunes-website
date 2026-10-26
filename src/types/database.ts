@@ -5516,8 +5516,8 @@ export interface Database {
         Relationships: []
       }
       ai_credit_reservations: {
-        Row: { request_id: string; scope: string; scope_id: string; period_start: string; model: string; user_id: string; reserved_credits: number; charged_credits: number | null; provider_cost_eur: number | null; usage: Record<string, unknown> | null; created_at: string; settled_at: string | null }
-        Insert: { request_id: string; scope: string; scope_id: string; period_start: string; model: string; user_id: string; reserved_credits: number; charged_credits?: number | null; provider_cost_eur?: number | null; usage?: Record<string, unknown> | null; created_at?: string; settled_at?: string | null }
+        Row: { request_id: string; scope: string; scope_id: string; period_start: string; model: string; user_id: string; reserved_credits: number; charged_credits: number | null; provider_cost_eur: number | null; usage: Record<string, unknown> | null; price_snapshot: Record<string, unknown>; expires_at: string; created_at: string; settled_at: string | null }
+        Insert: { request_id: string; scope: string; scope_id: string; period_start: string; model: string; user_id: string; reserved_credits: number; charged_credits?: number | null; provider_cost_eur?: number | null; usage?: Record<string, unknown> | null; price_snapshot?: Record<string, unknown>; expires_at?: string; created_at?: string; settled_at?: string | null }
         Update: { request_id?: string; scope?: string; scope_id?: string; period_start?: string; model?: string; user_id?: string; reserved_credits?: number; charged_credits?: number | null; provider_cost_eur?: number | null; usage?: Record<string, unknown> | null; created_at?: string; settled_at?: string | null }
         Relationships: []
       }
