@@ -578,6 +578,8 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
       metrics.mark('message_persisted')
 
       if (incomplete) {
+        // A failed final answer must not leave charges from earlier tool rounds.
+        await credits.refundTurn(input.requestId)
         yield {
           type: 'warning',
           code: 'AI_OUTPUT_TRUNCATED',
@@ -629,6 +631,11 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
       await settleRound(activeReservation, partial, false)
       activeReservation = null
     }
+    // The provider can have charged for earlier tool rounds even if this
+    // turn ends unsuccessfully. Reverse those user credits once.
+    await credits.refundTurn(input.requestId).catch((refundError) => {
+      console.error('[ai] credit refund failed:', refundError instanceof Error ? refundError.message : 'unknown')
+    })
     if (assistantMessageId) {
       await updateAiMessage(actor.serviceDb, assistantMessageId, {
         content: currentRoundContent,
