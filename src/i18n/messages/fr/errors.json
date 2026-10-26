@@ -37,6 +37,7 @@
   "AI_DISABLED": "L’assistant IA est désactivé. Un admin peut l’activer sous Admin → Assistant IA.",
   "AI_NOT_CONFIGURED": "La clé API NVIDIA est absente. Ajoutez-la sous Admin → Clés API, puis lancez Test Connection.",
   "AI_CREDITS_EXCEEDED": "Votre quota de crédits IA est épuisé. Il sera renouvelé au début du mois prochain.",
+  "AI_CREDITS_ADJUSTMENT_REJECTED": "Cet ajustement dépasserait le solde de crédits disponible.",
   "AI_CREDITS_UNAVAILABLE": "La facturation des crédits IA est indisponible. Contactez un administrateur.",
   "AI_BUDGET_EXCEEDED": "Le budget de jetons pour cette demande est épuisé. Attendez la période suivante ou demandez à un admin d’augmenter la limite.",
   "AI_PROVIDER_INVALID_KEY": "NVIDIA a rejeté la clé API. Remplacez-la sous Admin → Clés API et lancez Test Connection.",
