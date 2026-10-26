@@ -319,6 +319,7 @@ exports[`RLS Policies – supabase/reset.sql > snapshot: all tables with RLS ena
   "ai_action_confirmations",
   "ai_conversations",
   "ai_credit_accounts",
+  "ai_credit_adjustments",
   "ai_credit_reservations",
   "ai_credit_settings",
   "ai_diagnostics",
