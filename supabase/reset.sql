@@ -8335,6 +8335,8 @@ ALTER TABLE public.ai_credit_reservations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.ai_credit_settings FROM anon, authenticated;
 REVOKE ALL ON public.ai_credit_accounts FROM anon, authenticated;
 REVOKE ALL ON public.ai_credit_reservations FROM anon, authenticated;
+GRANT ALL ON TABLE public.ai_credit_settings, public.ai_credit_accounts,
+  public.ai_credit_reservations TO service_role;
 
 CREATE OR REPLACE FUNCTION public.reserve_ai_credits(
   p_request_id TEXT, p_scope TEXT, p_scope_id TEXT, p_user_id UUID,
