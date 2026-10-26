@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AdminCreditPanel } from './AdminCreditPanel'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
@@ -396,6 +397,7 @@ export function AdminAiDashboard() {
         <TabsTrigger value="models">{t('tabModels')}</TabsTrigger>
         <TabsTrigger value="health">{t('tabHealth')}</TabsTrigger>
         <TabsTrigger value="usage">{t('tabTokens')}</TabsTrigger>
+        <TabsTrigger value="credits">KI-Credits</TabsTrigger>
         <TabsTrigger value="diagnostics">{t('tabDiagnostics')}</TabsTrigger>
         <TabsTrigger value="settings">{t('tabGeneral')}</TabsTrigger>
       </TabsList>
@@ -617,6 +619,10 @@ export function AdminAiDashboard() {
 
       <TabsContent value="usage" className="space-y-4">
         <UsagePanel usage={usage} error={errors.usage} />
+      </TabsContent>
+
+      <TabsContent value="credits" className="space-y-4">
+        <AdminCreditPanel models={[settings.model_fast, settings.model_reasoning, settings.fallback_model]} />
       </TabsContent>
 
       <TabsContent value="diagnostics" className="space-y-4">
