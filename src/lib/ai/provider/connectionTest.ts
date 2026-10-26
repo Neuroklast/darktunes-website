@@ -86,7 +86,7 @@ export async function runNvidiaConnectionTest(options: {
     }
   })
   if (auth.ok) {
-    auth.detail = 'NVIDIA accepted the API key on GET /v1/models.'
+    auth.detail = options.provider ? 'Local provider credentials present; remote access is verified by each live model probe.' : 'NVIDIA accepted the API key on GET /v1/models.'
   }
   steps.push(auth)
   if (!auth.ok) {
@@ -137,6 +137,7 @@ export async function runNvidiaConnectionTest(options: {
     const completeId = `${role}_complete`
     const streamId = `${role}_stream`
     const toolId = `${role}_tool`
+    const toolStreamId = `${role}_tool_stream`
     const thinking = role === 'reasoning'
     const lowEffort = role === 'reasoning'
 
@@ -163,6 +164,7 @@ export async function runNvidiaConnectionTest(options: {
     if (!complete.ok) {
       out.push(skippedStep(streamId, model, 'complete failed'))
       out.push(skippedStep(toolId, model, 'complete failed'))
+      out.push(skippedStep(toolStreamId, model, 'complete failed'))
       return out
     }
 
@@ -221,11 +223,38 @@ export async function runNvidiaConnectionTest(options: {
       }
     })
     out.push(tool)
+    if (!tool.ok || !stream.ok) {
+      out.push(skippedStep(toolStreamId, model, 'tool or streaming test failed'))
+      return out
+    }
+    // A model might support tools and streaming separately, yet fail when
+    // both are combined. This is the actual production agent request mode.
+    const toolStream = await runStep(toolStreamId, model, async () => {
+      let validCall = false
+      for await (const event of provider.stream({
+        request_id: `connection-test-${role}-tool-stream`,
+        model,
+        messages: [{ role: 'user', content: 'Call echo_test with ping set to pong. No prose.' }],
+        tools: [CONNECTION_TEST_ECHO_TOOL],
+        tool_choice: 'required',
+        max_tokens: 256,
+        enable_thinking: false,
+        timeout_ms: timeoutMs,
+        retry: false,
+      })) {
+        if (event.type === 'done') {
+          validCall = event.completion.tool_calls.some((call) => call.name === 'echo_test')
+        }
+      }
+      discovered[model] = { ...(discovered[model] ?? {}), supports_tools_with_streaming: validCall }
+      if (!validCall) throw new AiProviderError('TOOL_CALL_UNSUPPORTED', 'Streaming tool calls were not supported.')
+    })
+    out.push(toolStream)
     return out
   }
 
   function pushSkipped(model: string, role: AiModelRole, reason: string): void {
-    const ids = [`${role}_complete`, `${role}_stream`, `${role}_tool`]
+    const ids = [`${role}_complete`, `${role}_stream`, `${role}_tool`, `${role}_tool_stream`]
     for (const id of ids) steps.push(skippedStep(id, model, reason))
     models[model] = {
       model,
