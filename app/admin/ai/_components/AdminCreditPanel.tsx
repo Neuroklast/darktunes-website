@@ -127,7 +127,7 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
             <select id="credit-extra-model" value={extraModel} onChange={e => setExtraModel(e.target.value)}
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
               <option value="">Modell auswählen…</option>
-              {availableModels.filter(m => !tariffModels.includes(m.id)).map(m =>
+              {availableModels.filter(m => !tariffModels.includes(m.id) || m.id === extraModel).map(m =>
                 <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
           </div>
