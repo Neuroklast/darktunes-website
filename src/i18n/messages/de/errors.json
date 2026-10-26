@@ -35,6 +35,7 @@
   "RESPONSE_UNREADABLE": "Der Server antwortete mit HTTP {status} ohne Fehlerdetails. Schick dem Label-Team die Uhrzeit der Anfrage.",
   "ARTISTS_LOAD_FAILED": "Die Künstlerliste konnte nicht aus der Datenbank geladen werden. Erneut versuchen; wenn es weiter fehlschlägt, unter Admin → System → Log Manager prüfen.",
   "AI_DISABLED": "Der KI-Assistent ist ausgeschaltet. Ein Admin kann ihn unter Admin → KI-Assistent einschalten.",
+  "AI_MODEL_UNVERIFIED": "Das ausgewählte KI-Chatmodell ist noch nicht für den Agenten getestet. Bitte unter Admin → KI-Assistent → Modelle einen erfolgreichen Chat-, Streaming- und Tool-Test durchführen.",
   "AI_NOT_CONFIGURED": "Der NVIDIA-API-Schlüssel fehlt. Lege ihn unter Admin → API Keys an und starte Test Connection.",
   "AI_CREDITS_EXCEEDED": "Dein KI-Creditkontingent ist aufgebraucht. Es wird zum nächsten Monatsbeginn erneuert.",
   "AI_CREDITS_ADJUSTMENT_REJECTED": "Diese Korrektur würde das verfügbare Creditlimit unterschreiten.",
