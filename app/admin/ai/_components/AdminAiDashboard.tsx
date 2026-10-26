@@ -692,56 +692,75 @@ export function AdminAiDashboard() {
               checked={settings.default_streaming}
               onChange={(default_streaming) => setSettings({ ...settings, default_streaming })}
             />
-            <ToggleRow
-              id="ai-low-effort"
-              label={t('admin.lowEffort')}
-              checked={settings.reasoning_settings.lowEffort}
-              onChange={(lowEffort) =>
-                setSettings({
-                  ...settings,
-                  reasoning_settings: { ...settings.reasoning_settings, lowEffort },
-                })
-              }
-            />
-            <div className="grid gap-2 sm:grid-cols-3">
-              {(['artist', 'editor', 'admin'] as const).map((role) => (
+            <div className="space-y-2">
+              <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+                <p className="text-xs font-medium">Zugriff auf den Assistenten</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Wähle, welche Benutzergruppen den KI-Assistenten verwenden dürfen.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {(['artist', 'editor', 'admin'] as const).map((role) => (
+                  <ToggleRow
+                    key={role}
+                    id={`ai-role-${role}`}
+                    label={t(`admin.role_${role}`)}
+                    checked={settings.feature_flags[role] !== false}
+                    onChange={(enabled) =>
+                      setSettings({
+                        ...settings,
+                        feature_flags: { ...settings.feature_flags, [role]: enabled },
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+            <details className="group rounded-lg border border-border bg-muted/10">
+              <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">
+                Erweiterte Einstellungen · Performance, Reasoning und Timeouts
+              </summary>
+              <div className="space-y-4 border-t border-border p-4">
+                <p className="text-xs text-muted-foreground">
+                  Diese Parameter verändern die Zuverlässigkeit der Agenten.
+                  Die Standardeinstellungen sind für die meisten Anfragen ausreichend.
+                </p>
                 <ToggleRow
-                  key={role}
-                  id={`ai-role-${role}`}
-                  label={t(`admin.role_${role}`)}
-                  checked={settings.feature_flags[role] !== false}
-                  onChange={(enabled) =>
+                  id="ai-low-effort"
+                  label={t('admin.lowEffort')}
+                  checked={settings.reasoning_settings.lowEffort}
+                  onChange={(lowEffort) =>
                     setSettings({
                       ...settings,
-                      feature_flags: { ...settings.feature_flags, [role]: enabled },
+                      reasoning_settings: { ...settings.reasoning_settings, lowEffort },
                     })
                   }
                 />
-              ))}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <NumberField
-                label={t('admin.completeTimeout')}
-                value={settings.timeouts.completeMs}
-                onChange={(completeMs) =>
-                  setSettings({ ...settings, timeouts: { ...settings.timeouts, completeMs } })
-                }
-              />
-              <NumberField
-                label={t('admin.streamTimeout')}
-                value={settings.timeouts.streamMs}
-                onChange={(streamMs) =>
-                  setSettings({ ...settings, timeouts: { ...settings.timeouts, streamMs } })
-                }
-              />
-              <NumberField
-                label={t('admin.reasoningTimeout')}
-                value={settings.timeouts.reasoningMs}
-                onChange={(reasoningMs) =>
-                  setSettings({ ...settings, timeouts: { ...settings.timeouts, reasoningMs } })
-                }
-              />
-            </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <NumberField
+                    label={t('admin.completeTimeout')}
+                    value={settings.timeouts.completeMs}
+                    onChange={(completeMs) =>
+                      setSettings({ ...settings, timeouts: { ...settings.timeouts, completeMs } })
+                    }
+                  />
+                  <NumberField
+                    label={t('admin.streamTimeout')}
+                    value={settings.timeouts.streamMs}
+                    onChange={(streamMs) =>
+                      setSettings({ ...settings, timeouts: { ...settings.timeouts, streamMs } })
+                    }
+                  />
+                  <NumberField
+                    label={t('admin.reasoningTimeout')}
+                    value={settings.timeouts.reasoningMs}
+                    onChange={(reasoningMs) =>
+                      setSettings({ ...settings, timeouts: { ...settings.timeouts, reasoningMs } })
+                    }
+                  />
+                </div>
+              </div>
+            </details>
             <div className="flex flex-wrap gap-2">
               <Button type="button" onClick={() => void save()} disabled={saving}>
                 {saving ? t('saving') : t('saveSettings')}
