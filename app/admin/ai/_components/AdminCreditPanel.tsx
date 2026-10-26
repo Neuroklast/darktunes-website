@@ -28,8 +28,9 @@ async function headers() {
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` }
 }
 
-export function AdminCreditPanel({ models }: { models: string[] }) {
+export function AdminCreditPanel({ models, availableModels = [] }: { models: string[]; availableModels?: Array<{ id: string; name: string }> }) {
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [extraModel, setExtraModel] = useState('')
   const [accounts, setAccounts] = useState<Account[]>([])
   const [summary, setSummary] = useState<CostSummary | null>(null)
   const [recent, setRecent] = useState<Transaction[]>([])
@@ -102,6 +103,7 @@ export function AdminCreditPanel({ models }: { models: string[] }) {
         onChange={e => setSettings(old => old && ({ ...old, [field]: Math.max(0, Number(e.target.value) || 0) }))} />
     </div>
   }
+  const tariffModels = Array.from(new Set([...models.filter(Boolean), ...Object.keys(settings?.model_prices ?? {}), extraModel].filter(Boolean)))
   return <div className="space-y-4">
     <Card>
       <CardHeader><CardTitle>KI-Credits</CardTitle>
@@ -120,7 +122,16 @@ export function AdminCreditPanel({ models }: { models: string[] }) {
             {numberField('admin_monthly', 'Admin pro Monat')}
             {numberField('buffer_percent', 'Puffer %')}
           </div>
-          {Array.from(new Set(models.filter(Boolean))).map(model => {
+          <div className="space-y-1">
+            <Label htmlFor="credit-extra-model">Zusätzliches Chatmodell für einen Anbieterwechsel bepreisen</Label>
+            <select id="credit-extra-model" value={extraModel} onChange={e => setExtraModel(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <option value="">Modell auswählen…</option>
+              {availableModels.filter(m => !tariffModels.includes(m.id)).map(m =>
+                <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+          {tariffModels.map(model => {
             const p: Price = settings.model_prices[model] ?? { input_per_million_eur: 0, output_per_million_eur: 0 }
             const change = (key: keyof Price, value: number) => setSettings(old => old && ({
               ...old, model_prices: { ...old.model_prices, [model]: { ...p, [key]: Math.max(0, value) } },
