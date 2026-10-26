@@ -5509,10 +5509,16 @@ export interface Database {
         Update: { id?: boolean; enabled?: boolean; buffer_percent?: number; artist_monthly?: number; editor_monthly?: number; admin_monthly?: number; model_prices?: Record<string, unknown>; updated_at?: string }
         Relationships: []
       }
+      ai_credit_adjustments: {
+        Row: { id: string; actor_id: string; scope: string; scope_id: string; period_start: string; delta_credits: number; reason: string; created_at: string }
+        Insert: { id: string; actor_id: string; scope: string; scope_id: string; period_start: string; delta_credits: number; reason: string; created_at?: string }
+        Update: { id?: string; actor_id?: string; scope?: string; scope_id?: string; period_start?: string; delta_credits?: number; reason?: string; created_at?: string }
+        Relationships: []
+      }
       ai_credit_accounts: {
-        Row: { scope: string; scope_id: string; period_start: string; monthly_allowance: number; used_credits: number; reserved_credits: number }
-        Insert: { scope: string; scope_id: string; period_start: string; monthly_allowance: number; used_credits?: number; reserved_credits?: number }
-        Update: { scope?: string; scope_id?: string; period_start?: string; monthly_allowance?: number; used_credits?: number; reserved_credits?: number }
+        Row: { scope: string; scope_id: string; period_start: string; monthly_allowance: number; adjustment_credits: number; used_credits: number; reserved_credits: number }
+        Insert: { scope: string; scope_id: string; period_start: string; monthly_allowance: number; adjustment_credits?: number; used_credits?: number; reserved_credits?: number }
+        Update: { scope?: string; scope_id?: string; period_start?: string; monthly_allowance?: number; adjustment_credits?: number; used_credits?: number; reserved_credits?: number }
         Relationships: []
       }
       ai_credit_reservations: {
@@ -6180,6 +6186,10 @@ export interface Database {
           p_table: string
         }
         Returns: number
+      }
+      adjust_ai_credits: {
+        Args: { p_id: string; p_actor_id: string; p_scope: string; p_scope_id: string; p_delta: number; p_reason: string }
+        Returns: Json
       }
       refund_ai_credit_turn: {
         Args: { p_turn_id: string }
