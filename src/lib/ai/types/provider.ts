@@ -2,7 +2,7 @@
  * Provider-agnostic AI types. Domain code must not import NVIDIA-specific shapes.
  */
 
-export const AI_PROVIDER_IDS = ['nvidia', 'openai_compatible', 'mock'] as const
+export const AI_PROVIDER_IDS = ['nvidia', 'groq', 'gemini', 'openrouter', 'cerebras', 'cloudflare', 'openai_compatible', 'mock'] as const
 export type AiProviderId = (typeof AI_PROVIDER_IDS)[number]
 
 export const AI_MODEL_ROLES = ['fast', 'reasoning'] as const
