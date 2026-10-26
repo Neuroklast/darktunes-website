@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 
-interface Price { input_per_million_eur: number; output_per_million_eur: number; reasoning_per_million_eur?: number }
+interface Price { input_per_million_eur: number; output_per_million_eur: number; reasoning_per_million_eur?: number; free_tier_confirmed?: boolean }
 interface Settings {
   enabled: boolean; buffer_percent: number
   artist_monthly: number; editor_monthly: number; admin_monthly: number
@@ -135,6 +135,13 @@ export function AdminCreditPanel({ models }: { models: string[] }) {
                       onChange={e => change(key, Number(e.target.value) || 0)} />
                   </div>)}
               </div>
+              <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                <input type="checkbox" checked={p.free_tier_confirmed === true}
+                  onChange={e => setSettings(old => old && ({
+                    ...old, model_prices: { ...old.model_prices, [model]: { ...p, free_tier_confirmed: e.target.checked } },
+                  }))} />
+                Nulltarif von diesem Anbieter/Konto ausdrücklich bestätigt
+              </label>
             </div>
           })}
           <Button onClick={() => void save()} disabled={busy}>{busy ? 'Speichern…' : 'Credits speichern'}</Button>
