@@ -1413,6 +1413,13 @@ const schemaOverrides = {
       responses: { 200: { schema: 'AdminAiDiagnostics' } },
     },
   },
+  '/api/admin/ai/credits/adjustments': {
+    POST: {
+      summary: 'Grant or correct monthly AI credits with an audited idempotency key',
+      requestBody: { schema: { type: 'object', additionalProperties: true } },
+      responses: { 200: { schema: { type: 'object', additionalProperties: true } } },
+    },
+  },
   '/api/admin/ai/credits': {
     GET: {
       summary: 'Read AI credit settings, artist allowances and financial summaries',
