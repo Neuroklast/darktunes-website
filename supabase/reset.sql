@@ -8458,3 +8458,54 @@ REVOKE ALL ON FUNCTION public.update_ai_credit_settings(BOOLEAN,INTEGER,INTEGER,
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.update_ai_credit_settings(BOOLEAN,INTEGER,INTEGER,INTEGER,INTEGER,JSONB)
   TO service_role;
+
+-- Monthly usage summaries are computed inside PostgreSQL, without row caps.
+CREATE OR REPLACE FUNCTION public.ai_usage_month_summary()
+RETURNS JSONB LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+WITH month_events AS (
+  SELECT e.*, COALESCE(u.role::TEXT, 'unknown') AS user_role
+  FROM public.ai_usage_events e
+  LEFT JOIN public.users u ON u.id = e.user_id
+  WHERE e.created_at >= date_trunc('month', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+),
+today_events AS (
+  SELECT * FROM month_events
+  WHERE created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+)
+SELECT jsonb_build_object(
+  'today', (SELECT jsonb_build_object(
+    'input_tokens', COALESCE(SUM(input_tokens),0), 'output_tokens', COALESCE(SUM(output_tokens),0),
+    'reasoning_tokens', COALESCE(SUM(reasoning_tokens),0), 'total_tokens', COALESCE(SUM(total_tokens),0),
+    'calls', COUNT(*), 'failed', COUNT(*) FILTER (WHERE NOT success)) FROM today_events),
+  'month', (SELECT jsonb_build_object(
+    'input_tokens', COALESCE(SUM(input_tokens),0), 'output_tokens', COALESCE(SUM(output_tokens),0),
+    'reasoning_tokens', COALESCE(SUM(reasoning_tokens),0), 'total_tokens', COALESCE(SUM(total_tokens),0),
+    'calls', COUNT(*), 'failed', COUNT(*) FILTER (WHERE NOT success)) FROM month_events),
+  'by_model', (SELECT COALESCE(jsonb_agg(to_jsonb(x)), '[]'::jsonb) FROM (
+    SELECT model, SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens,
+      SUM(reasoning_tokens) AS reasoning_tokens, SUM(total_tokens) AS total_tokens,
+      COUNT(*) AS calls, COUNT(*) FILTER (WHERE NOT success) AS failures
+    FROM month_events GROUP BY model ORDER BY total_tokens DESC
+  ) x),
+  'by_role', (SELECT COALESCE(jsonb_agg(to_jsonb(x)), '[]'::jsonb) FROM (
+    SELECT user_role AS role, SUM(total_tokens) AS total_tokens, COUNT(*) AS calls
+    FROM month_events GROUP BY user_role ORDER BY total_tokens DESC
+  ) x),
+  'by_day', (SELECT COALESCE(jsonb_agg(to_jsonb(x)), '[]'::jsonb) FROM (
+    SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date,
+      SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens,
+      SUM(reasoning_tokens) AS reasoning_tokens, SUM(total_tokens) AS total_tokens,
+      COUNT(*) FILTER (WHERE NOT success) AS failures
+    FROM month_events GROUP BY 1 ORDER BY 1
+  ) x),
+  'failures', (SELECT jsonb_build_object(
+    'count', (SELECT COUNT(*) FROM month_events WHERE NOT success),
+    'by_code', (SELECT COALESCE(jsonb_agg(to_jsonb(x)), '[]'::jsonb) FROM (
+      SELECT COALESCE(error_code, 'UNKNOWN') AS code, COUNT(*) AS count
+      FROM month_events WHERE NOT success GROUP BY 1 ORDER BY count DESC
+    ) x)))
+);
+$$;
+REVOKE ALL ON FUNCTION public.ai_usage_month_summary() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ai_usage_month_summary() TO service_role;
