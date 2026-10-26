@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { ConversationList } from '@/components/ai/ConversationList'
+import { CreditBalance } from '@/components/ai/CreditBalance'
 import { ContextSelector } from '@/components/ai/ContextSelector'
 import { Composer } from '@/components/ai/Composer'
 import { MessageList } from '@/components/ai/MessageList'
@@ -258,6 +259,7 @@ export function AssistantWorkspace({
             </Select>
           </div>
         </div>
+        <CreditBalance artistId={artistId} refreshKey={`${conversationId ?? ""}:${busy}`} />
       </header>
 
       {activeRequestId && !busy ? (
