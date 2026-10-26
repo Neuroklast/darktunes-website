@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +21,7 @@ interface CostSummary {
   by_model: Array<{ model: string; provider_cost_eur: number; charged_credits: number; calls: number }>
 }
 interface Transaction { request_id: string; model: string; scope: string; scope_id: string; charged_credits: number | null; original_charged_credits: number | null; refunded_at: string | null; provider_cost_eur: number | null; created_at: string; settled_at: string | null }
+interface Adjustment { id: string; actor_id: string; scope: string; scope_id: string; delta_credits: number; reason: string; created_at: string }
 interface Account { scope: string; scope_id: string; period_start: string; monthly_allowance: number; used_credits: number; reserved_credits: number }
 async function headers() {
   const { data } = await createBrowserSupabaseClient().auth.getSession()
@@ -32,6 +33,12 @@ export function AdminCreditPanel({ models }: { models: string[] }) {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [summary, setSummary] = useState<CostSummary | null>(null)
   const [recent, setRecent] = useState<Transaction[]>([])
+  const [adjustments, setAdjustments] = useState<Adjustment[]>([])
+  const [adjustScope, setAdjustScope] = useState<'artist' | 'editor' | 'admin'>('artist')
+  const [adjustId, setAdjustId] = useState('')
+  const [adjustDelta, setAdjustDelta] = useState('100')
+  const [adjustReason, setAdjustReason] = useState('')
+  const adjustmentRequestId = useRef<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -40,11 +47,12 @@ export function AdminCreditPanel({ models }: { models: string[] }) {
     try {
       const response = await fetch('/api/admin/ai/credits', { headers: await headers(), cache: 'no-store' })
       if (!response.ok) throw new Error('Credit database unavailable. Apply supabase/reset.sql first.')
-      const result = await response.json() as { settings: Settings; accounts: Account[]; summary: CostSummary; recent: Transaction[] }
+      const result = await response.json() as { settings: Settings; accounts: Account[]; summary: CostSummary; recent: Transaction[]; adjustments: Adjustment[] }
       setSettings(result.settings)
       setAccounts(result.accounts)
       setSummary(result.summary)
       setRecent(result.recent)
+      setAdjustments(result.adjustments)
       setError('')
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to load credits') }
   }, [])
@@ -65,6 +73,27 @@ export function AdminCreditPanel({ models }: { models: string[] }) {
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not save credits') }
     finally { setBusy(false) }
   }
+  const submitAdjustment = async () => {
+    setBusy(true); setError(''); setNotice('')
+    try {
+      const id = adjustmentRequestId.current ?? crypto.randomUUID()
+      adjustmentRequestId.current = id
+      const response = await fetch('/api/admin/ai/credits/adjustments', {
+        method: 'POST', headers: await headers(),
+        body: JSON.stringify({ id, scope: adjustScope,
+          scope_id: adjustScope === 'admin' ? 'label' : adjustId.trim(),
+          delta_credits: Number(adjustDelta), reason: adjustReason.trim() }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message ?? data.error ?? 'Credit adjustment failed')
+      adjustmentRequestId.current = null
+      await load()
+      setNotice('Creditbuchung gespeichert.')
+      setAdjustReason('')
+    } catch (err) { setError(err instanceof Error ? err.message : 'Credit adjustment failed') }
+    finally { setBusy(false) }
+  }
+
   function numberField(field: 'artist_monthly' | 'editor_monthly' | 'admin_monthly' | 'buffer_percent', label: string) {
     return <div className="space-y-1" key={field}>
       <Label htmlFor={field}>{label}</Label>
@@ -142,6 +171,35 @@ export function AdminCreditPanel({ models }: { models: string[] }) {
         </tr>)}</tbody>
       </table>
     </CardContent></Card>
+    <Card><CardHeader><CardTitle>Credits manuell anpassen</CardTitle>
+      <CardDescription>Gutschriften und Korrekturen gelten für den laufenden UTC-Monat und werden mit Grund und Admin-ID protokolliert.</CardDescription>
+    </CardHeader><CardContent className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-4">
+        <div className="space-y-1"><Label>Kontotyp</Label>
+          <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={adjustScope} onChange={e => { setAdjustScope(e.target.value as 'artist' | 'editor' | 'admin'); adjustmentRequestId.current = null }}>
+            <option value="artist">Artist</option><option value="editor">Editor</option><option value="admin">Label / Admin</option>
+          </select></div>
+        <div className="space-y-1"><Label>Artist- oder Nutzer-ID</Label>
+          <Input value={adjustScope === 'admin' ? 'label' : adjustId}
+            disabled={adjustScope === 'admin'} placeholder="UUID" onChange={e => { setAdjustId(e.target.value); adjustmentRequestId.current = null }} /></div>
+        <div className="space-y-1"><Label>Credits (+/-)</Label>
+          <Input type="number" step="1" value={adjustDelta} onChange={e => { setAdjustDelta(e.target.value); adjustmentRequestId.current = null }} /></div>
+        <div className="space-y-1"><Label>Begründung</Label>
+          <Input value={adjustReason} maxLength={500} onChange={e => { setAdjustReason(e.target.value); adjustmentRequestId.current = null }} /></div>
+      </div>
+      <Button disabled={busy || adjustReason.trim().length < 3 || Number(adjustDelta) === 0}
+        onClick={() => void submitAdjustment()}>Creditbuchung speichern</Button>
+    </CardContent></Card>
+    <Card><CardHeader><CardTitle>Letzte Admin-Korrekturen</CardTitle></CardHeader>
+      <CardContent className="overflow-auto"><table className="w-full text-left text-sm">
+        <thead><tr><th className="p-2">Datum</th><th className="p-2">Konto</th><th className="p-2">Credits</th><th className="p-2">Grund</th></tr></thead>
+        <tbody>{adjustments.map(a => <tr key={a.id} className="border-t">
+          <td className="whitespace-nowrap p-2">{new Date(a.created_at).toLocaleString('de-DE')}</td>
+          <td className="p-2">{a.scope}: {a.scope_id}</td><td className="p-2">{a.delta_credits > 0 ? '+' : ''}{a.delta_credits}</td>
+          <td className="p-2">{a.reason}</td>
+        </tr>)}</tbody>
+      </table></CardContent></Card>
     <Card><CardHeader><CardTitle>Creditkonten</CardTitle>
       <CardDescription>Verbrauch inklusive laufender Reservierungen. Die Auswertung basiert auf Kontosalden und ist nicht auf 5.000 Events beschränkt.</CardDescription>
     </CardHeader><CardContent>
