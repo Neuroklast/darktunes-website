@@ -21,8 +21,8 @@ import {
   sumAiUsage,
   usageFromEstimate,
 } from '@/lib/ai/budget/estimator'
-import { resolveNvidiaApiKey } from '@/lib/ai/provider/resolveKey'
-import { NvidiaOpenAiCompatibleProvider } from '@/lib/ai/provider/nvidia'
+import { AiProviderRouter } from '@/lib/ai/provider/router'
+import { getCatalogModel } from '@/lib/ai/models/catalog'
 import { MockAiProvider } from '@/lib/ai/provider/mock'
 import { AiProviderError, isAiProviderError, isRetryableProviderError } from '@/lib/ai/provider/errors'
 import { apiErrorFromProvider } from '@/lib/ai/provider/mapToApiError'
@@ -81,18 +81,12 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
   )
   assertConversationContext(conversation, actor)
 
-  const apiKey = await resolveNvidiaApiKey(actor.serviceDb)
   const stored = parseStoredCapabilities(settings.providerCapabilities)
-  const provider: AiProvider | null =
-    input.providerOverride ??
-    (apiKey
-      ? new NvidiaOpenAiCompatibleProvider({
-          apiKey,
-          discoveredCapabilities: stored.models,
-        })
-      : allowMock
-        ? new MockAiProvider()
-        : null)
+  const providerRouter = input.providerOverride
+    ? null : await AiProviderRouter.create(actor.serviceDb, stored)
+  const provider: AiProvider | null = input.providerOverride ??
+    (providerRouter?.hasConfiguredProvider ? providerRouter
+      : allowMock ? new MockAiProvider() : null)
   if (!provider) throw buildApiError('AI_NOT_CONFIGURED', 503)
 
   const classification = classifyTurn({
@@ -108,13 +102,28 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
     stored.health[settings.modelReasoning]?.ok === false
       ? 'fast'
       : classification.role
+  const primaryModel = initialRole === 'reasoning' ? settings.modelReasoning : settings.modelFast
   const fallbackModel = settings.fallbackModel.trim()
+  // Only tested, explicitly configured fallback models can be used; no blind
+  // paid-provider switching on model errors or rate limits.
   const canFallback = Boolean(
-    initialRole === 'reasoning' &&
-      fallbackModel &&
-      fallbackModel !== settings.modelFast &&
+    fallbackModel && fallbackModel !== primaryModel &&
+      getCatalogModel(fallbackModel) &&
+      (!providerRouter || providerRouter.hasKeyForModel(fallbackModel)) &&
       isModelVerified(stored.health, fallbackModel, ['supports_streaming', 'supports_tools']),
   )
+  // Legacy NVIDIA setup remains functional. New providers must pass an
+  // actual text/stream/tool probe before being used with customer data.
+  if (!input.providerOverride && !allowMock) {
+    for (const model of [primaryModel]) {
+      const entry = getCatalogModel(model)
+      if (!entry || (entry.provider !== 'nvidia' &&
+          !isModelVerified(stored.health, model, ['supports_streaming', 'supports_tools']))) {
+        throw new ApiError(503, 'Test the selected chat model in Admin → AI → Models before using it.', 'AI_MODEL_UNVERIFIED')
+      }
+      if (!providerRouter?.hasKeyForModel(model)) throw buildApiError('AI_NOT_CONFIGURED', 503)
+    }
+  }
 
   const history = await listAiMessages(actor.serviceDb, conversation.id, RECENT_MESSAGE_LIMIT)
   const reuseIndex = input.reuseLastUser ? findLastUserIndex(history) : -1
@@ -128,7 +137,7 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
   const historyForProvider = reuseLastUser ? history.slice(0, reuseIndex + 1) : history
   const providerHistory = buildProviderHistory(historyForProvider)
 
-  let currentModel = initialRole === 'reasoning' ? settings.modelReasoning : settings.modelFast
+  let currentModel = primaryModel
   let currentRole: AiModelRole = initialRole
   let caps = provider.getCapabilities(currentModel)
   let useTools = caps.supports_tools && (!settings.defaultStreaming || caps.supports_tools_with_streaming)
