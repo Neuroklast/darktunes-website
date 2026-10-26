@@ -26,6 +26,9 @@ change or have zero-cost promotional allowances.
 * Admin in label context: shared label account.
 * UTC calendar months. Existing accounts are updated when an admin edits limits.
 * Defaults: Artist 1000, editor 2000, admin/label 10000 credits monthly.
+* Admins can grant or subtract individual monthly credits with a reason and a
+  stable idempotency key. Each change is stored in `ai_credit_adjustments`.
+  An account's adjustment is preserved when the default role quota changes.
 * Token limits still enforce daily caps and per-turn input/output caps.
 
 ## Request lifecycle
