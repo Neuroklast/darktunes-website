@@ -75,7 +75,7 @@ export class CreditBudgetManager {
       p_request_id: requestId,
       p_charge: billable ? this.charge(usage, model) : 0,
       p_provider_cost: cost,
-      p_usage: { ...usage },
+      p_usage: { ...usage, pricing: { ...price, buffer_percent: this.settings.buffer_percent, credit_eur: CREDIT_EUR } },
     })
     if (error) throw new ApiError(503, 'AI credit settlement failed.', 'AI_CREDITS_UNAVAILABLE')
   }
