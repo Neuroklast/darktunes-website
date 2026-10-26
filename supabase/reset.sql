@@ -8305,12 +8305,17 @@ CREATE TABLE IF NOT EXISTS public.ai_credit_reservations (
   usage JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   settled_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '3 minutes'),
   FOREIGN KEY (scope, scope_id, period_start)
     REFERENCES public.ai_credit_accounts(scope, scope_id, period_start),
   CHECK (charged_credits IS NULL OR charged_credits >= 0)
 );
 CREATE INDEX IF NOT EXISTS idx_ai_credit_reservations_scope
   ON public.ai_credit_reservations(scope, scope_id, period_start);
+ALTER TABLE public.ai_credit_reservations
+  ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '3 minutes');
+CREATE INDEX IF NOT EXISTS idx_ai_credit_reservations_expiry
+  ON public.ai_credit_reservations(expires_at) WHERE settled_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_ai_credit_reservations_created
   ON public.ai_credit_reservations(created_at DESC);
 
@@ -8332,6 +8337,7 @@ DECLARE
   v_period DATE := date_trunc('month', NOW() AT TIME ZONE 'UTC')::date;
   v_account public.ai_credit_accounts%ROWTYPE;
   v_existing public.ai_credit_reservations%ROWTYPE;
+  v_expired public.ai_credit_reservations%ROWTYPE;
 BEGIN
   IF p_scope NOT IN ('artist','editor','admin') OR
      NULLIF(p_scope_id, '') IS NULL OR NULLIF(p_request_id,'') IS NULL OR
@@ -8347,6 +8353,23 @@ BEGIN
     END IF;
     RETURN jsonb_build_object('ok', true, 'reserved', v_existing.reserved_credits);
   END IF;
+  -- Repair abandoned reservations after serverless timeouts. Locks match
+  -- settlement order: reservation first, then account.
+  FOR v_expired IN
+    SELECT * FROM public.ai_credit_reservations
+    WHERE scope = p_scope AND scope_id = p_scope_id AND period_start = v_period
+      AND settled_at IS NULL AND expires_at < NOW()
+    FOR UPDATE SKIP LOCKED
+  LOOP
+    UPDATE public.ai_credit_accounts
+      SET reserved_credits = reserved_credits - v_expired.reserved_credits
+      WHERE scope = v_expired.scope AND scope_id = v_expired.scope_id
+        AND period_start = v_expired.period_start;
+    UPDATE public.ai_credit_reservations
+      SET charged_credits = 0, provider_cost_eur = 0,
+          usage = '{}'::jsonb, settled_at = NOW()
+      WHERE request_id = v_expired.request_id;
+  END LOOP;
   INSERT INTO public.ai_credit_accounts(scope, scope_id, period_start, monthly_allowance)
   VALUES (p_scope, p_scope_id, v_period, p_allowance)
   ON CONFLICT DO NOTHING;
@@ -8381,10 +8404,9 @@ BEGIN
   IF v_res.settled_at IS NOT NULL THEN
     RETURN jsonb_build_object('ok', true, 'charged', v_res.charged_credits, 'duplicate', true);
   END IF;
-  -- Never allow consuming more than the reserved amount.
-  IF p_charge > v_res.reserved_credits THEN
-    RAISE EXCEPTION 'Credit settlement exceeds reservation';
-  END IF;
+  -- A provider may report more tokens than estimated. The reservation is a
+  -- hard ceiling for the user's charge; actual provider cost remains recorded.
+  p_charge := LEAST(p_charge, v_res.reserved_credits);
   UPDATE public.ai_credit_accounts
   SET reserved_credits = reserved_credits - v_res.reserved_credits,
       used_credits = used_credits + p_charge
