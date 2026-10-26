@@ -35,6 +35,7 @@
   "RESPONSE_UNREADABLE": "The server answered HTTP {status} without error details. Send the time of the request to the label team.",
   "ARTISTS_LOAD_FAILED": "The artist list could not be loaded from the database. Retry; if it keeps failing, check Admin → System → Log Manager.",
   "AI_DISABLED": "The AI assistant is turned off. An admin can enable it under Admin → AI Assistant.",
+  "AI_MODEL_UNVERIFIED": "This chat model is not yet verified. An admin must run the chat, streaming and tool tests under AI → Models.",
   "AI_NOT_CONFIGURED": "The NVIDIA API key is missing. Add it under Admin → API Keys, then run Test Connection.",
   "AI_CREDITS_EXCEEDED": "Your AI credit allowance is exhausted. It resets at the beginning of the next month.",
   "AI_CREDITS_ADJUSTMENT_REJECTED": "The adjustment would reduce the balance below already consumed or reserved credits.",
