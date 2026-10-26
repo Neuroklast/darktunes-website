@@ -64,6 +64,12 @@ export class CreditBudgetManager {
     if (!result?.ok) throw new ApiError(429, `AI credits exhausted (${result?.remaining ?? 0} remaining).`, 'AI_CREDITS_EXCEEDED')
   }
 
+  async refundTurn(turnId: string): Promise<void> {
+    if (!this.enabled) return
+    const { error } = await this.db.rpc('refund_ai_credit_turn', { p_turn_id: turnId })
+    if (error) throw new ApiError(503, 'AI credit refund failed.', 'AI_CREDITS_UNAVAILABLE')
+  }
+
   async settle(requestId: string, usage: AiUsage, model: string, billable = true): Promise<void> {
     if (!this.enabled) return
     const price = this.price(model)
