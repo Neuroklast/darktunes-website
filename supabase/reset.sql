@@ -8303,6 +8303,7 @@ CREATE TABLE IF NOT EXISTS public.ai_credit_reservations (
   charged_credits BIGINT,
   provider_cost_eur NUMERIC(18,9),
   usage JSONB,
+  price_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   settled_at TIMESTAMPTZ,
   expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '3 minutes'),
@@ -8312,6 +8313,8 @@ CREATE TABLE IF NOT EXISTS public.ai_credit_reservations (
 );
 CREATE INDEX IF NOT EXISTS idx_ai_credit_reservations_scope
   ON public.ai_credit_reservations(scope, scope_id, period_start);
+ALTER TABLE public.ai_credit_reservations
+  ADD COLUMN IF NOT EXISTS price_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE public.ai_credit_reservations
   ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '3 minutes');
 CREATE INDEX IF NOT EXISTS idx_ai_credit_reservations_expiry
@@ -8375,6 +8378,17 @@ BEGIN
   ON CONFLICT DO NOTHING;
   SELECT * INTO v_account FROM public.ai_credit_accounts
    WHERE scope = p_scope AND scope_id = p_scope_id AND period_start = v_period FOR UPDATE;
+  -- Recheck after serializing on the account row. A concurrent request may
+  -- have inserted the same id after our first optimistic lookup.
+  SELECT * INTO v_existing FROM public.ai_credit_reservations WHERE request_id = p_request_id;
+  IF FOUND THEN
+    IF v_existing.scope <> p_scope OR v_existing.scope_id <> p_scope_id OR
+       v_existing.model <> p_model OR v_existing.user_id <> p_user_id OR
+       v_existing.reserved_credits <> p_credits THEN
+      RAISE EXCEPTION 'Credit reservation ID conflict';
+    END IF;
+    RETURN jsonb_build_object('ok', true, 'reserved', v_existing.reserved_credits);
+  END IF;
   IF v_account.monthly_allowance < v_account.used_credits + v_account.reserved_credits + p_credits THEN
     RETURN jsonb_build_object('ok', false, 'code', 'AI_CREDITS_EXCEEDED',
       'remaining', GREATEST(0, v_account.monthly_allowance - v_account.used_credits - v_account.reserved_credits));
@@ -8413,7 +8427,7 @@ BEGIN
   WHERE scope = v_res.scope AND scope_id = v_res.scope_id AND period_start = v_res.period_start;
   UPDATE public.ai_credit_reservations
   SET charged_credits = p_charge, provider_cost_eur = p_provider_cost,
-      usage = p_usage, settled_at = NOW()
+      usage = p_usage - 'pricing', price_snapshot = COALESCE(p_usage->'pricing','{}'::jsonb), settled_at = NOW()
   WHERE request_id = p_request_id;
   RETURN jsonb_build_object('ok', true, 'charged', p_charge);
 END;
