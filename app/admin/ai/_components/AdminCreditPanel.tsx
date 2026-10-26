@@ -14,6 +14,13 @@ interface Settings {
   artist_monthly: number; editor_monthly: number; admin_monthly: number
   model_prices: Record<string, Price>
 }
+interface CostSummary {
+  provider_cost_eur: number
+  charged_credits: number
+  calls: number
+  by_model: Array<{ model: string; provider_cost_eur: number; charged_credits: number; calls: number }>
+}
+interface Transaction { request_id: string; model: string; scope: string; scope_id: string; charged_credits: number | null; provider_cost_eur: number | null; created_at: string; settled_at: string | null }
 interface Account { scope: string; scope_id: string; period_start: string; monthly_allowance: number; used_credits: number; reserved_credits: number }
 async function headers() {
   const { data } = await createBrowserSupabaseClient().auth.getSession()
@@ -23,6 +30,8 @@ async function headers() {
 export function AdminCreditPanel({ models }: { models: string[] }) {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [summary, setSummary] = useState<CostSummary | null>(null)
+  const [recent, setRecent] = useState<Transaction[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -31,9 +40,11 @@ export function AdminCreditPanel({ models }: { models: string[] }) {
     try {
       const response = await fetch('/api/admin/ai/credits', { headers: await headers(), cache: 'no-store' })
       if (!response.ok) throw new Error('Credit database unavailable. Apply supabase/reset.sql first.')
-      const result = await response.json() as { settings: Settings; accounts: Account[] }
+      const result = await response.json() as { settings: Settings; accounts: Account[]; summary: CostSummary; recent: Transaction[] }
       setSettings(result.settings)
       setAccounts(result.accounts)
+      setSummary(result.summary)
+      setRecent(result.recent)
       setError('')
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to load credits') }
   }, [])
@@ -101,6 +112,36 @@ export function AdminCreditPanel({ models }: { models: string[] }) {
         </>}
       </CardContent>
     </Card>
+    <Card><CardHeader><CardTitle>KI-Kosten im aktuellen Monat</CardTitle>
+      <CardDescription>Providerkosten und interne Credits aus den tatsächlich abgeschlossenen Buchungen.</CardDescription>
+    </CardHeader><CardContent className="space-y-3">
+      <div className="flex flex-wrap gap-6 text-sm">
+        <div>Providerkosten: <strong>{Number(summary?.provider_cost_eur ?? 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 4, maximumFractionDigits: 6 })}</strong></div>
+        <div>Credits: <strong>{summary?.charged_credits ?? 0}</strong></div>
+        <div>Abgerechnete Runden: <strong>{summary?.calls ?? 0}</strong></div>
+      </div>
+      <div className="overflow-auto">
+        <table className="w-full text-left text-sm"><thead><tr><th className="p-2">Modell</th><th className="p-2">Kosten €</th><th className="p-2">Credits</th><th className="p-2">Runden</th></tr></thead>
+          <tbody>{summary?.by_model.map(m => <tr key={m.model} className="border-t">
+            <td className="break-all p-2">{m.model}</td><td className="p-2">{Number(m.provider_cost_eur).toFixed(6)}</td>
+            <td className="p-2">{m.charged_credits}</td><td className="p-2">{m.calls}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+    </CardContent></Card>
+    <Card><CardHeader><CardTitle>Letzte Creditbuchungen</CardTitle>
+      <CardDescription>Die letzten 30 Reservierungen mit ihren tatsächlichen Providerkosten und berechneten Credits.</CardDescription>
+    </CardHeader><CardContent className="overflow-auto">
+      <table className="w-full text-left text-sm"><thead><tr><th className="p-2">Zeit</th><th className="p-2">Konto</th><th className="p-2">Modell</th><th className="p-2">Credits</th><th className="p-2">Kosten €</th></tr></thead>
+        <tbody>{recent.map(row => <tr key={row.request_id} className="border-t">
+          <td className="whitespace-nowrap p-2">{new Date(row.created_at).toLocaleString('de-DE')}</td>
+          <td className="p-2">{row.scope}: {row.scope_id}</td>
+          <td className="break-all p-2">{row.model}</td>
+          <td className="p-2">{row.settled_at ? row.charged_credits : 'reserviert'}</td>
+          <td className="p-2">{row.provider_cost_eur === null ? '–' : Number(row.provider_cost_eur).toFixed(6)}</td>
+        </tr>)}</tbody>
+      </table>
+    </CardContent></Card>
     <Card><CardHeader><CardTitle>Creditkonten</CardTitle>
       <CardDescription>Verbrauch inklusive laufender Reservierungen. Die Auswertung basiert auf Kontosalden und ist nicht auf 5.000 Events beschränkt.</CardDescription>
     </CardHeader><CardContent>
