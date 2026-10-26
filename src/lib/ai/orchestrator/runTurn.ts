@@ -108,8 +108,7 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
   // paid-provider switching on model errors or rate limits.
   const canFallback = Boolean(
     fallbackModel && fallbackModel !== primaryModel &&
-      getCatalogModel(fallbackModel) &&
-      (!providerRouter || providerRouter.hasKeyForModel(fallbackModel)) &&
+      (!providerRouter || (getCatalogModel(fallbackModel) && providerRouter.hasKeyForModel(fallbackModel))) &&
       isModelVerified(stored.health, fallbackModel, ['supports_streaming', 'supports_tools']),
   )
   // Legacy NVIDIA setup remains functional. New providers must pass an
