@@ -22,16 +22,19 @@ const patch = z.object({
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const { serviceClient } = await requireAdminWithServiceClient(req)
-  const [{ data: config, error }, { data: accounts, error: accountsError }, { data: summary, error: summaryError }, { data: recent, error: recentError }] = await Promise.all([
+  const [{ data: config, error }, { data: accounts, error: accountsError }, { data: summary, error: summaryError }, { data: recent, error: recentError }, { data: adjustments, error: adjustmentsError }] = await Promise.all([
     serviceClient.from('ai_credit_settings').select('*').eq('id', true).single(),
     serviceClient.from('ai_credit_accounts').select('scope, scope_id, period_start, monthly_allowance, used_credits, reserved_credits').order('period_start', { ascending: false }).limit(200),
     serviceClient.rpc('ai_credit_cost_summary'),
     serviceClient.from('ai_credit_reservations')
       .select('request_id, model, scope, scope_id, reserved_credits, charged_credits, original_charged_credits, refunded_at, provider_cost_eur, price_snapshot, created_at, settled_at')
       .order('created_at', { ascending: false }).limit(30),
+    serviceClient.from('ai_credit_adjustments')
+      .select('id, actor_id, scope, scope_id, delta_credits, reason, created_at')
+      .order('created_at', { ascending: false }).limit(30),
   ])
-  if (error || accountsError || summaryError || recentError || !config) throw new ApiError(503, 'AI credits schema has not been installed.', 'AI_CREDITS_UNAVAILABLE')
-  return NextResponse.json({ settings: config, accounts: accounts ?? [], summary, recent: recent ?? [] })
+  if (error || accountsError || summaryError || recentError || adjustmentsError || !config) throw new ApiError(503, 'AI credits schema has not been installed.', 'AI_CREDITS_UNAVAILABLE')
+  return NextResponse.json({ settings: config, accounts: accounts ?? [], summary, recent: recent ?? [], adjustments: adjustments ?? [] })
 })
 
 export const PATCH = withErrorHandler(async (req: NextRequest) => {
