@@ -8,7 +8,9 @@ import { z } from 'zod'
 import { ApiError, withErrorHandler } from '@/lib/errors'
 import { requireAdminWithServiceClient } from '@/lib/adminAuth'
 import { getAiSettings, updateAiSettings } from '@/lib/api/aiSettings'
-import { resolveNvidiaApiKey } from '@/lib/ai/provider/resolveKey'
+import { AiProviderRouter } from '@/lib/ai/provider/router'
+import { getCatalogModel, isCatalogModelForRole } from '@/lib/ai/models/catalog'
+import { parseStoredCapabilities } from '@/lib/ai/models/capabilities'
 
 const patchSchema = z.object({
   enabled: z.boolean().optional(),
@@ -45,7 +47,7 @@ const patchSchema = z.object({
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
   const { serviceClient } = await requireAdminWithServiceClient(req)
   const settings = await getAiSettings(serviceClient)
-  const providerConfigured = Boolean(await resolveNvidiaApiKey(serviceClient))
+  const providerConfigured = (await AiProviderRouter.create(serviceClient, parseStoredCapabilities(settings.providerCapabilities))).hasConfiguredProvider
   return NextResponse.json({ ...settingsPayload(settings), provider_configured: providerConfigured })
 })
 
@@ -60,6 +62,25 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
   const parsed = patchSchema.safeParse(raw)
   if (!parsed.success) throw new ApiError(400, 'Invalid AI settings payload', 'VALIDATION_ERROR')
   const current = await getAiSettings(serviceClient)
+  const fast = parsed.data.model_fast ?? current.modelFast
+  const reasoning = parsed.data.model_reasoning ?? current.modelReasoning
+  const fallback = parsed.data.fallback_model ?? current.fallbackModel
+  if (!isCatalogModelForRole(fast, 'fast') || !isCatalogModelForRole(reasoning, 'reasoning') ||
+      (fallback && !getCatalogModel(fallback)?.roles.includes('fast'))) {
+    throw new ApiError(400, 'Choose approved models suitable for each chat profile.', 'VALIDATION_ERROR')
+  }
+  // A paid/zero-credit credit setting may not silently miss newly selected models.
+  const { data: creditConfig, error: creditsError } = await serviceClient
+    .from('ai_credit_settings').select('enabled, model_prices').eq('id', true).maybeSingle()
+  if (creditsError) throw new ApiError(503, 'Install the AI credit schema before changing models.', 'AI_CREDITS_UNAVAILABLE')
+  if (creditConfig?.enabled) {
+    const prices = creditConfig.model_prices as Record<string, unknown>
+    for (const id of [fast, reasoning, ...(fallback ? [fallback] : [])]) {
+      if (!prices?.[id]) {
+        throw new ApiError(400, `Configure credit tariffs for ${id} before enabling this model.`, 'VALIDATION_ERROR')
+      }
+    }
+  }
   const settings = await updateAiSettings(serviceClient, {
     enabled: parsed.data.enabled,
     test_mode: parsed.data.test_mode,
@@ -67,6 +88,7 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
     model_fast: parsed.data.model_fast,
     model_reasoning: parsed.data.model_reasoning,
     fallback_model: parsed.data.fallback_model,
+    provider: 'multi',
     max_tool_rounds: parsed.data.max_tool_rounds,
     token_limits: parsed.data.token_limits,
     feature_flags: parsed.data.feature_flags
