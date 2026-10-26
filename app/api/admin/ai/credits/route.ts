@@ -21,12 +21,16 @@ const patch = z.object({
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const { serviceClient } = await requireAdminWithServiceClient(req)
-  const [{ data: config, error }, { data: accounts, error: accountsError }] = await Promise.all([
+  const [{ data: config, error }, { data: accounts, error: accountsError }, { data: summary, error: summaryError }, { data: recent, error: recentError }] = await Promise.all([
     serviceClient.from('ai_credit_settings').select('*').eq('id', true).single(),
     serviceClient.from('ai_credit_accounts').select('scope, scope_id, period_start, monthly_allowance, used_credits, reserved_credits').order('period_start', { ascending: false }).limit(200),
+    serviceClient.rpc('ai_credit_cost_summary'),
+    serviceClient.from('ai_credit_reservations')
+      .select('request_id, model, scope, scope_id, reserved_credits, charged_credits, provider_cost_eur, created_at, settled_at')
+      .order('created_at', { ascending: false }).limit(30),
   ])
-  if (error || accountsError || !config) throw new ApiError(503, 'AI credits schema has not been installed.', 'AI_CREDITS_UNAVAILABLE')
-  return NextResponse.json({ settings: config, accounts: accounts ?? [] })
+  if (error || accountsError || summaryError || recentError || !config) throw new ApiError(503, 'AI credits schema has not been installed.', 'AI_CREDITS_UNAVAILABLE')
+  return NextResponse.json({ settings: config, accounts: accounts ?? [], summary, recent: recent ?? [] })
 })
 
 export const PATCH = withErrorHandler(async (req: NextRequest) => {
