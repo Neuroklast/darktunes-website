@@ -59,6 +59,13 @@ describe('CreditBudgetManager', () => {
     }))
   })
 
+  it('refunds failed multi-round turns with an idempotent server RPC', async () => {
+    const { db, rpc } = dbMock()
+    const manager = await CreditBudgetManager.load(db)
+    await manager.refundTurn('turn-123')
+    expect(rpc).toHaveBeenCalledWith('refund_ai_credit_turn', { p_turn_id: 'turn-123' })
+  })
+
   it('does not invoke billing functions before an admin enables credits', async () => {
     const { db, rpc } = dbMock({ ...configured, enabled: false })
     const manager = await CreditBudgetManager.load(db)
