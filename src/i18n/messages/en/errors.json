@@ -37,6 +37,7 @@
   "AI_DISABLED": "The AI assistant is turned off. An admin can enable it under Admin → AI Assistant.",
   "AI_NOT_CONFIGURED": "The NVIDIA API key is missing. Add it under Admin → API Keys, then run Test Connection.",
   "AI_CREDITS_EXCEEDED": "Your AI credit allowance is exhausted. It resets at the beginning of the next month.",
+  "AI_CREDITS_ADJUSTMENT_REJECTED": "The adjustment would reduce the balance below already consumed or reserved credits.",
   "AI_CREDITS_UNAVAILABLE": "AI credit accounting is currently unavailable. Contact an administrator.",
   "AI_BUDGET_EXCEEDED": "The AI token budget for this request is used up. Wait for the next period or ask an admin to raise the limit.",
   "AI_PROVIDER_INVALID_KEY": "NVIDIA rejected the API key. Replace the key under Admin → API Keys and run Test Connection.",
