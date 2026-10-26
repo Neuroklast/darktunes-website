@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withErrorHandler } from '@/lib/errors'
 import { requireAiActor } from '@/lib/ai/auth/requireAiActor'
 import { getAiSettings } from '@/lib/api/aiSettings'
-import { resolveNvidiaApiKey } from '@/lib/ai/provider/resolveKey'
+import { AiProviderRouter } from '@/lib/ai/provider/router'
 import { listToolDefinitionsForActor } from '@/lib/ai/tools/registry'
 import { FAST_MODEL_ID, REASONING_MODEL_ID } from '@/lib/ai/models/profiles'
 import { parseStoredCapabilities } from '@/lib/ai/models/capabilities'
@@ -19,8 +19,8 @@ export const GET = withErrorHandler(async (req: NextRequest): Promise<NextRespon
   const dashboard = parseDashboard(req.nextUrl.searchParams.get('dashboard'))
   const actor = await requireAiActor(req, { artistId, dashboard, includeArtists: true })
   const settings = await getAiSettings(actor.serviceDb)
-  const key = await resolveNvidiaApiKey(actor.serviceDb)
   const stored = parseStoredCapabilities(settings.providerCapabilities)
+  const router = await AiProviderRouter.create(actor.serviceDb, stored)
   const query = req.nextUrl.searchParams.get('artist_query')?.trim() ?? ''
   const canSearchArtists =
     actor.role === 'admin' || actor.capabilities.has('cms.artists.manage')
@@ -34,9 +34,11 @@ export const GET = withErrorHandler(async (req: NextRequest): Promise<NextRespon
 
   const mockEnabled = settings.testMode && process.env.NODE_ENV !== 'production'
   return NextResponse.json({
-    enabled: (settings.enabled || process.env.AI_ENABLED === 'true') && (Boolean(key) || mockEnabled),
+    enabled: (settings.enabled || process.env.AI_ENABLED === 'true') && (router.hasKeyForModel(settings.modelFast) && router.hasKeyForModel(settings.modelReasoning) || mockEnabled),
     provider: settings.provider,
-    verified: settings.lastSuccessfulConnectionTest?.ok === true,
+    providers: router.availability,
+    verified: [settings.modelFast, settings.modelReasoning].every((model) =>
+      stored.health[model]?.ok === true && stored.health[model]?.supports_tools === true && stored.health[model]?.supports_streaming === true),
     streaming: settings.defaultStreaming,
     models: {
       fast: settings.modelFast || FAST_MODEL_ID,
