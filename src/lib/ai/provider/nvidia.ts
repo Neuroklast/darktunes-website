@@ -136,7 +136,7 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
   async *stream(request: AiCompletionRequest, signal?: AbortSignal): AsyncIterable<AiStreamEvent> {
     const started = Date.now()
     const { response, cleanup, attempts } = await this.sendWithRetry(request, true, signal)
-    const thinkingDisabled = request.enable_thinking === false
+    const thinkingDisabled = this.id === 'nvidia' && request.enable_thinking === false
     const contentType = (response.headers.get('content-type') ?? '').toLowerCase()
     yield { type: 'open', retry_count: attempts - 1 }
 
@@ -512,7 +512,7 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
         : typeof message.reasoning === 'string'
           ? message.reasoning
           : null
-    if (!content.trim() && request.enable_thinking === false && reasoning?.trim()) {
+    if (!content.trim() && this.id === 'nvidia' && request.enable_thinking === false && reasoning?.trim()) {
       content = reasoning
       reasoning = null
     }
