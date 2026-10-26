@@ -154,10 +154,11 @@ export async function runNvidiaConnectionTest(options: {
         retry: false,
       })
       usage[role] = completion.usage
+      const advertised = provider.getCapabilities(model)
       discovered[model] = {
         ...(discovered[model] ?? {}),
-        ...(thinking ? { supports_enable_thinking: true } : {}),
-        ...(thinking && lowEffort ? { supports_low_effort: true } : {}),
+        ...(thinking && advertised.supports_enable_thinking ? { supports_enable_thinking: true } : {}),
+        ...(thinking && lowEffort && advertised.supports_low_effort ? { supports_low_effort: true } : {}),
       }
     })
     out.push(complete)
