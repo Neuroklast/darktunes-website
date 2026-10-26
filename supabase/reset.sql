@@ -8304,6 +8304,8 @@ CREATE TABLE IF NOT EXISTS public.ai_credit_reservations (
   provider_cost_eur NUMERIC(18,9),
   usage JSONB,
   price_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+  original_charged_credits BIGINT,
+  refunded_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   settled_at TIMESTAMPTZ,
   expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '3 minutes'),
@@ -8313,6 +8315,10 @@ CREATE TABLE IF NOT EXISTS public.ai_credit_reservations (
 );
 CREATE INDEX IF NOT EXISTS idx_ai_credit_reservations_scope
   ON public.ai_credit_reservations(scope, scope_id, period_start);
+ALTER TABLE public.ai_credit_reservations
+  ADD COLUMN IF NOT EXISTS original_charged_credits BIGINT;
+ALTER TABLE public.ai_credit_reservations
+  ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMPTZ;
 ALTER TABLE public.ai_credit_reservations
   ADD COLUMN IF NOT EXISTS price_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE public.ai_credit_reservations
@@ -8547,3 +8553,35 @@ SELECT jsonb_build_object(
 $$;
 REVOKE ALL ON FUNCTION public.ai_credit_cost_summary() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.ai_credit_cost_summary() TO service_role;
+
+-- Reverse all successful model-round charges if a turn ultimately fails.
+-- Provider fees are retained for internal diagnostics. Idempotent by refunded_at.
+CREATE OR REPLACE FUNCTION public.refund_ai_credit_turn(p_turn_id TEXT)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE v_row public.ai_credit_reservations%ROWTYPE;
+DECLARE v_refunded BIGINT := 0;
+BEGIN
+  IF NULLIF(p_turn_id, '') IS NULL THEN RAISE EXCEPTION 'Missing turn ID'; END IF;
+  FOR v_row IN
+    SELECT * FROM public.ai_credit_reservations
+    WHERE LEFT(request_id, LENGTH(p_turn_id) + 1) = p_turn_id || ':'
+      AND settled_at IS NOT NULL AND refunded_at IS NULL AND charged_credits > 0
+    ORDER BY request_id FOR UPDATE
+  LOOP
+    UPDATE public.ai_credit_accounts
+    SET used_credits = used_credits - v_row.charged_credits
+    WHERE scope = v_row.scope AND scope_id = v_row.scope_id
+      AND period_start = v_row.period_start AND used_credits >= v_row.charged_credits;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Credit refund account mismatch'; END IF;
+    UPDATE public.ai_credit_reservations
+    SET original_charged_credits = v_row.charged_credits,
+        charged_credits = 0, refunded_at = NOW()
+    WHERE request_id = v_row.request_id;
+    v_refunded := v_refunded + v_row.charged_credits;
+  END LOOP;
+  RETURN jsonb_build_object('ok', true, 'refunded', v_refunded);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.refund_ai_credit_turn(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.refund_ai_credit_turn(TEXT) TO service_role;
