@@ -36,6 +36,8 @@
   "ARTISTS_LOAD_FAILED": "Die Künstlerliste konnte nicht aus der Datenbank geladen werden. Erneut versuchen; wenn es weiter fehlschlägt, unter Admin → System → Log Manager prüfen.",
   "AI_DISABLED": "Der KI-Assistent ist ausgeschaltet. Ein Admin kann ihn unter Admin → KI-Assistent einschalten.",
   "AI_NOT_CONFIGURED": "Der NVIDIA-API-Schlüssel fehlt. Lege ihn unter Admin → API Keys an und starte Test Connection.",
+  "AI_CREDITS_EXCEEDED": "Dein KI-Creditkontingent ist aufgebraucht. Es wird zum nächsten Monatsbeginn erneuert.",
+  "AI_CREDITS_UNAVAILABLE": "Die KI-Creditabrechnung ist momentan nicht verfügbar. Bitte wende dich an den Admin.",
   "AI_BUDGET_EXCEEDED": "Das Tokenbudget für diese Anfrage ist aufgebraucht. Warte auf den nächsten Zeitraum oder bitte einen Admin, das Limit zu erhöhen.",
   "AI_PROVIDER_INVALID_KEY": "NVIDIA hat den API-Schlüssel abgelehnt. Ersetze ihn unter Admin → API Keys und starte Test Connection.",
   "AI_PROVIDER_MODEL_UNAVAILABLE": "Das angeforderte NVIDIA-Modell ist nicht verfügbar. Prüfe Admin → KI-Assistent → Modelle.",
