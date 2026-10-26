@@ -5503,6 +5503,24 @@ export interface Database {
         }
         Relationships: []
       }
+      ai_credit_settings: {
+        Row: { id: boolean; enabled: boolean; buffer_percent: number; artist_monthly: number; editor_monthly: number; admin_monthly: number; model_prices: Record<string, unknown>; updated_at: string }
+        Insert: { id?: boolean; enabled?: boolean; buffer_percent?: number; artist_monthly?: number; editor_monthly?: number; admin_monthly?: number; model_prices?: Record<string, unknown>; updated_at?: string }
+        Update: { id?: boolean; enabled?: boolean; buffer_percent?: number; artist_monthly?: number; editor_monthly?: number; admin_monthly?: number; model_prices?: Record<string, unknown>; updated_at?: string }
+        Relationships: []
+      }
+      ai_credit_accounts: {
+        Row: { scope: string; scope_id: string; period_start: string; monthly_allowance: number; used_credits: number; reserved_credits: number }
+        Insert: { scope: string; scope_id: string; period_start: string; monthly_allowance: number; used_credits?: number; reserved_credits?: number }
+        Update: { scope?: string; scope_id?: string; period_start?: string; monthly_allowance?: number; used_credits?: number; reserved_credits?: number }
+        Relationships: []
+      }
+      ai_credit_reservations: {
+        Row: { request_id: string; scope: string; scope_id: string; period_start: string; model: string; user_id: string; reserved_credits: number; charged_credits: number | null; provider_cost_eur: number | null; usage: Record<string, unknown> | null; created_at: string; settled_at: string | null }
+        Insert: { request_id: string; scope: string; scope_id: string; period_start: string; model: string; user_id: string; reserved_credits: number; charged_credits?: number | null; provider_cost_eur?: number | null; usage?: Record<string, unknown> | null; created_at?: string; settled_at?: string | null }
+        Update: { request_id?: string; scope?: string; scope_id?: string; period_start?: string; model?: string; user_id?: string; reserved_credits?: number; charged_credits?: number | null; provider_cost_eur?: number | null; usage?: Record<string, unknown> | null; created_at?: string; settled_at?: string | null }
+        Relationships: []
+      }
       ai_token_budgets: {
         Row: {
           id: string
@@ -6162,6 +6180,14 @@ export interface Database {
           p_table: string
         }
         Returns: number
+      }
+      reserve_ai_credits: {
+        Args: { p_request_id: string; p_scope: string; p_scope_id: string; p_user_id: string; p_model: string; p_allowance: number; p_credits: number }
+        Returns: Json
+      }
+      settle_ai_credits: {
+        Args: { p_request_id: string; p_charge: number; p_provider_cost: number; p_usage: Json }
+        Returns: Json
       }
       reserve_ai_tokens: {
         Args: {
