@@ -6181,6 +6181,10 @@ export interface Database {
         }
         Returns: number
       }
+      ai_usage_month_summary: {
+        Args: Record<string, never>
+        Returns: Json
+      }
       update_ai_credit_settings: {
         Args: { p_enabled: boolean; p_buffer_percent: number; p_artist_monthly: number; p_editor_monthly: number; p_admin_monthly: number; p_model_prices: Json }
         Returns: Json
