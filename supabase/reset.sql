@@ -8423,3 +8423,38 @@ REVOKE ALL ON FUNCTION public.reserve_ai_credits(TEXT,TEXT,TEXT,UUID,TEXT,BIGINT
 REVOKE ALL ON FUNCTION public.settle_ai_credits(TEXT,BIGINT,NUMERIC,JSONB) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reserve_ai_credits(TEXT,TEXT,TEXT,UUID,TEXT,BIGINT,BIGINT) TO service_role;
 GRANT EXECUTE ON FUNCTION public.settle_ai_credits(TEXT,BIGINT,NUMERIC,JSONB) TO service_role;
+
+-- One atomic administrative update keeps already-open monthly accounts in sync.
+CREATE OR REPLACE FUNCTION public.update_ai_credit_settings(
+  p_enabled BOOLEAN, p_buffer_percent INTEGER, p_artist_monthly INTEGER,
+  p_editor_monthly INTEGER, p_admin_monthly INTEGER, p_model_prices JSONB
+) RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE v_settings JSONB;
+BEGIN
+  IF p_buffer_percent NOT BETWEEN 0 AND 100 OR
+     LEAST(p_artist_monthly, p_editor_monthly, p_admin_monthly) < 0 OR
+     p_model_prices IS NULL OR jsonb_typeof(p_model_prices) <> 'object' THEN
+    RAISE EXCEPTION 'Invalid credit settings';
+  END IF;
+  UPDATE public.ai_credit_settings
+  SET enabled = p_enabled, buffer_percent = p_buffer_percent,
+      artist_monthly = p_artist_monthly, editor_monthly = p_editor_monthly,
+      admin_monthly = p_admin_monthly, model_prices = p_model_prices,
+      updated_at = NOW()
+  WHERE id = TRUE;
+  UPDATE public.ai_credit_accounts
+  SET monthly_allowance = CASE scope
+    WHEN 'artist' THEN p_artist_monthly
+    WHEN 'editor' THEN p_editor_monthly
+    ELSE p_admin_monthly END
+  WHERE period_start = date_trunc('month', NOW() AT TIME ZONE 'UTC')::date;
+  SELECT to_jsonb(s) INTO v_settings FROM public.ai_credit_settings s WHERE id = TRUE;
+  RETURN v_settings;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.update_ai_credit_settings(BOOLEAN,INTEGER,INTEGER,INTEGER,INTEGER,JSONB)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_ai_credit_settings(BOOLEAN,INTEGER,INTEGER,INTEGER,INTEGER,JSONB)
+  TO service_role;
