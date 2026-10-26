@@ -11,6 +11,7 @@ import {
   EMPTY_AI_USAGE,
   NVIDIA_API_BASE_URL,
   type AiCompletion,
+  type AiProviderId,
   type AiCompletionRequest,
   type AiStreamEvent,
   type AiToolCall,
@@ -20,6 +21,7 @@ import {
 
 export interface NvidiaProviderOptions {
   apiKey: string
+  providerId?: AiProviderId
   baseUrl?: string
   fetchImpl?: typeof fetch
   discoveredCapabilities?: Record<string, Partial<ModelCapabilities>>
@@ -33,7 +35,7 @@ const MAX_RETRY_DELAY_MS = 4_000
 const AUTH_TIMEOUT_MS = 10_000
 
 export class NvidiaOpenAiCompatibleProvider implements AiProvider {
-  readonly id = 'nvidia' as const
+  readonly id: AiProviderId
   private readonly apiKey: string
   private readonly baseUrl: string
   private readonly completionsUrl: string
@@ -44,6 +46,7 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
   private readonly abortedRequests = new Set<string>()
 
   constructor(options: NvidiaProviderOptions) {
+    this.id = options.providerId ?? 'nvidia'
     this.apiKey = options.apiKey
     this.baseUrl = (options.baseUrl ?? NVIDIA_API_BASE_URL).replace(/\/$/, '')
     this.completionsUrl = `${this.baseUrl}/chat/completions`
@@ -62,7 +65,7 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
   async validateConfiguration(): Promise<ProviderConfigStatus> {
     return {
       configured: this.apiKey.trim().length > 0,
-      provider: 'nvidia',
+      provider: this.id,
       base_url: this.baseUrl,
       models: {
         fast: getModelProfile('nvidia/nemotron-3.5-lightning-30b-a3b').model_id,
@@ -320,6 +323,30 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
     )
   }
 
+  /** Generic OpenAI-compatible providers must never receive NVIDIA template kwargs. */
+  private buildPayload(request: AiCompletionRequest, stream: boolean): Record<string, unknown> {
+    const capabilities = this.getCapabilities(request.model)
+    const safe = this.id === 'nvidia' ? capabilities : {
+      ...capabilities,
+      supports_stream_options: false,
+      supports_enable_thinking: false,
+      supports_low_effort: false,
+      supports_reasoning_budget: false,
+      supports_reasoning_effort: false,
+      supports_force_nonempty_content: false,
+    }
+    const payload = buildNvidiaPayload(request, stream, safe)
+    if (this.id !== 'nvidia') {
+      delete payload.temperature
+      delete payload.top_p
+      delete payload.chat_template_kwargs
+      delete payload.custom_params
+      delete payload.reasoning_budget
+      delete payload.reasoning_effort
+    }
+    return payload
+  }
+
   private async send(
     request: AiCompletionRequest,
     stream: boolean,
@@ -355,7 +382,7 @@ export class NvidiaOpenAiCompatibleProvider implements AiProvider {
           'Content-Type': 'application/json',
           Accept: stream ? 'text/event-stream' : 'application/json',
         },
-        body: JSON.stringify(buildNvidiaPayload(request, stream, this.getCapabilities(request.model))),
+        body: JSON.stringify(this.buildPayload(request, stream)),
         signal: controller.signal,
       })
       if (!response.ok) {
