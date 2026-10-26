@@ -46,6 +46,20 @@ describe('reset.sql — required tables', () => {
   })
 })
 
+describe('reset.sql — transactional AI credits', () => {
+  it('contains additive private tables and accounting functions', () => {
+    for (const table of ['ai_credit_settings', 'ai_credit_accounts', 'ai_credit_reservations', 'ai_credit_adjustments']) {
+      expect(sql).toContain(`CREATE TABLE IF NOT EXISTS public.${table}`)
+      expect(sql).toContain(`ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`)
+    }
+    for (const fn of ['reserve_ai_credits', 'settle_ai_credits', 'refund_ai_credit_turn', 'adjust_ai_credits', 'ai_credit_cost_summary', 'ai_usage_month_summary']) {
+      expect(sql).toContain(`CREATE OR REPLACE FUNCTION public.${fn}`)
+    }
+    expect(sql).toContain('GRANT EXECUTE ON FUNCTION public.reserve_ai_credits')
+    expect(sql).toContain('FOR UPDATE SKIP LOCKED')
+  })
+})
+
 describe('reset.sql — column presence', () => {
   it('artists table has an id column of type uuid', () => {
     // Find the CREATE TABLE artists block and confirm id uuid is there
