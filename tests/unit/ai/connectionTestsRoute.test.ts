@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { jsonRequest, expectUnauthorized, expectStatus } from '../../helpers/api/routeTestkit'
 
 const requireAdminWithServiceClient = vi.fn()
-const resolveNvidiaApiKey = vi.fn()
+const createRouter = vi.fn()
 const runNvidiaConnectionTest = vi.fn()
 const checkDistributedRateLimit = vi.fn()
 const getAiSettings = vi.fn()
@@ -12,8 +12,8 @@ vi.mock('@/lib/adminAuth', () => ({
   requireAdminWithServiceClient: (...args: unknown[]) => requireAdminWithServiceClient(...args),
 }))
 
-vi.mock('@/lib/ai/provider/resolveKey', () => ({
-  resolveNvidiaApiKey: (...args: unknown[]) => resolveNvidiaApiKey(...args),
+vi.mock('@/lib/ai/provider/router', () => ({
+  AiProviderRouter: { create: (...args: unknown[]) => createRouter(...args) },
 }))
 
 vi.mock('@/lib/ai/provider/connectionTest', () => ({
@@ -88,6 +88,7 @@ describe('POST /api/admin/ai/connection-tests', () => {
       lastFailedConnectionTest: null,
     })
     updateAiSettings.mockResolvedValue({})
+    createRouter.mockResolvedValue({ hasConfiguredProvider: true, hasKeyForModel: () => true })
   })
 
   it('rejects unauthenticated callers', async () => {
@@ -100,7 +101,7 @@ describe('POST /api/admin/ai/connection-tests', () => {
   })
 
   it('returns AI_NOT_CONFIGURED when no key is stored or in env', async () => {
-    resolveNvidiaApiKey.mockResolvedValue(null)
+    createRouter.mockResolvedValue({ hasConfiguredProvider: false, hasKeyForModel: () => false })
     const { POST } = await importRoute()
     const res = await POST(
       jsonRequest('/api/admin/ai/connection-tests', { method: 'POST', body: {}, bearer: 'token' }),
@@ -111,7 +112,7 @@ describe('POST /api/admin/ai/connection-tests', () => {
   })
 
   it('returns the full probe result even when a step failed', async () => {
-    resolveNvidiaApiKey.mockResolvedValue('nvapi-test')
+    createRouter.mockResolvedValue({ hasConfiguredProvider: true, hasKeyForModel: () => true })
     runNvidiaConnectionTest.mockResolvedValue(result(false, 'timed_out'))
     const { POST } = await importRoute()
     const res = await POST(
@@ -122,7 +123,8 @@ describe('POST /api/admin/ai/connection-tests', () => {
     expect(body.integration_ok).toBe(false)
     expect(body.steps).toHaveLength(1)
     expect(runNvidiaConnectionTest).toHaveBeenCalledWith({
-      apiKey: 'nvapi-test',
+      apiKey: 'stored-per-provider',
+      provider: expect.anything(),
       fastModel: 'nvidia/nemotron-3.5-lightning-30b-a3b',
       reasoningModel: 'nvidia/nemotron-3-super-120b-a12b',
       scope: 'all',
