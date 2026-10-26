@@ -387,7 +387,7 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
         currentRoundUsage ?? (completion.usage.total_tokens > 0 ? completion.usage : null),
       )
       estimatedUsage ||= !currentRoundUsage && completion.usage.total_tokens === 0
-      await settleRound(roundReservation, roundUsage, true)
+      await settleRound(roundReservation, roundUsage, completion.finish_reason !== 'length')
       activeReservation = null
       usage = sumAiUsage(usage, roundUsage)
       yield {
