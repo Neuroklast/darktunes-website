@@ -207,7 +207,10 @@ export function AdminCreditPanel({ models }: { models: string[] }) {
         <table className="w-full text-left text-sm">
           <thead><tr><th className="p-2">Konto</th><th className="p-2">Monat</th><th className="p-2">Verbraucht</th><th className="p-2">Reserviert</th><th className="p-2">Verfügbar</th></tr></thead>
           <tbody>{accounts.map(a => <tr key={a.scope + a.scope_id + a.period_start} className="border-t">
-            <td className="p-2">{a.scope}: {a.scope_id}</td><td className="p-2">{a.period_start.slice(0,7)}</td>
+            <td className="p-2"><button type="button" className="text-left underline-offset-2 hover:underline"
+            title="Konto für Creditkorrektur auswählen"
+            onClick={() => { setAdjustScope(a.scope as 'artist' | 'editor' | 'admin'); setAdjustId(a.scope_id); adjustmentRequestId.current = null }}>
+            {a.scope}: {a.scope_id}</button></td><td className="p-2">{a.period_start.slice(0,7)}</td>
             <td className="p-2">{a.used_credits}</td><td className="p-2">{a.reserved_credits}</td>
             <td className="p-2">{Math.max(0, a.monthly_allowance-a.used_credits-a.reserved_credits)}</td>
           </tr>)}</tbody>
