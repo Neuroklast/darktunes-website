@@ -6181,6 +6181,10 @@ export interface Database {
         }
         Returns: number
       }
+      update_ai_credit_settings: {
+        Args: { p_enabled: boolean; p_buffer_percent: number; p_artist_monthly: number; p_editor_monthly: number; p_admin_monthly: number; p_model_prices: Json }
+        Returns: Json
+      }
       reserve_ai_credits: {
         Args: { p_request_id: string; p_scope: string; p_scope_id: string; p_user_id: string; p_model: string; p_allowance: number; p_credits: number }
         Returns: Json
