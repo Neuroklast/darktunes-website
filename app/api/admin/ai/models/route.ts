@@ -1,42 +1,39 @@
 /**
- * GET /api/admin/ai/models
- * Returns NVIDIA-advertised models plus locally configured/tested capabilities.
+ * GET /api/admin/ai/models — curated chat models only.
+ *
+ * Never expose the provider's raw /models list here. It contains unrelated
+ * image/audio/embedding models with no reliable agent capability metadata.
  */
-
 import { NextRequest, NextResponse } from 'next/server'
-import { buildApiError, withErrorHandler } from '@/lib/errors'
+import { withErrorHandler } from '@/lib/errors'
 import { requireAdminWithServiceClient } from '@/lib/adminAuth'
-import { resolveNvidiaApiKey } from '@/lib/ai/provider/resolveKey'
-import { NVIDIA_MODELS_URL, parseNvidiaModelsList } from '@/lib/ai/provider/nvidiaModels'
 import { getAiSettings } from '@/lib/api/aiSettings'
 import { parseStoredCapabilities } from '@/lib/ai/models/capabilities'
+import { AI_CHAT_MODELS, AI_PROVIDERS } from '@/lib/ai/models/catalog'
+import { AiProviderRouter } from '@/lib/ai/provider/router'
 
 export const dynamic = 'force-dynamic'
 
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
   const { serviceClient } = await requireAdminWithServiceClient(req)
-
-  const apiKey = await resolveNvidiaApiKey(serviceClient)
-  if (!apiKey) {
-    throw buildApiError('AI_NOT_CONFIGURED', 503)
-  }
   const settings = await getAiSettings(serviceClient)
   const stored = parseStoredCapabilities(settings.providerCapabilities)
-  const refresh = req.nextUrl.searchParams.get('refresh') === '1'
-
-  const response = await fetch(NVIDIA_MODELS_URL, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: 'application/json',
-    },
-    ...(refresh ? { cache: 'no-store' as const } : { next: { revalidate: 3600 } }),
-  })
-  if (!response.ok) {
-    throw buildApiError('AI_PROVIDER_UNAVAILABLE', 503)
-  }
+  const router = await AiProviderRouter.create(serviceClient, stored)
 
   return NextResponse.json({
-    models: parseNvidiaModelsList(await response.json()),
+    models: AI_CHAT_MODELS.map((entry) => ({
+      ...entry, provider_name: AI_PROVIDERS[entry.provider].name,
+      name: `${entry.name} (${entry.model})`,
+      configured: router.hasKeyForModel(entry.id),
+      verified: stored.health[entry.id]?.ok === true
+        && stored.health[entry.id]?.supports_tools === true
+        && stored.health[entry.id]?.supports_streaming === true,
+    })),
+    providers: router.availability.map((item) => ({
+      ...item, name: AI_PROVIDERS[item.provider].name,
+      docs: AI_PROVIDERS[item.provider].docs,
+      free_tier: AI_PROVIDERS[item.provider].freeTier,
+    })),
     configured: {
       fast: settings.modelFast,
       reasoning: settings.modelReasoning,
