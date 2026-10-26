@@ -41,9 +41,14 @@ export const PATCH = withErrorHandler(async (req: NextRequest) => {
       }
     }
   }
-  const { data, error } = await serviceClient.from('ai_credit_settings')
-    .update({ ...parsed.data, updated_at: new Date().toISOString() })
-    .eq('id', true).select('*').single()
+  const { data, error } = await serviceClient.rpc('update_ai_credit_settings', {
+    p_enabled: parsed.data.enabled,
+    p_buffer_percent: parsed.data.buffer_percent,
+    p_artist_monthly: parsed.data.artist_monthly,
+    p_editor_monthly: parsed.data.editor_monthly,
+    p_admin_monthly: parsed.data.admin_monthly,
+    p_model_prices: parsed.data.model_prices,
+  })
   if (error || !data) throw new ApiError(503, 'Could not save credit settings.', 'AI_CREDITS_UNAVAILABLE')
   return NextResponse.json({ settings: data })
 })
