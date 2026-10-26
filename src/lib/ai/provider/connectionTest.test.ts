@@ -102,10 +102,12 @@ describe('runNvidiaConnectionTest', () => {
       'fast_stream',
       'fast_tool',
       'fast_tool_stream',
+      'fast_tool_roundtrip',
       'reasoning_complete',
       'reasoning_stream',
       'reasoning_tool',
       'reasoning_tool_stream',
+      'reasoning_tool_roundtrip',
       'integration',
     ])
     expect(result.steps.every((step) => step.ok)).toBe(true)
@@ -179,7 +181,7 @@ describe('runNvidiaConnectionTest', () => {
     })
     expect(result.ok).toBe(false)
     expect(result.steps.find((step) => step.id === 'auth')?.status).toBe('failed')
-    expect(result.steps.filter((step) => step.status === 'skipped').length).toBe(8)
+    expect(result.steps.filter((step) => step.status === 'skipped').length).toBe(10)
   })
 
   it('only runs the requested scope', async () => {
