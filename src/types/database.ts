@@ -6181,6 +6181,10 @@ export interface Database {
         }
         Returns: number
       }
+      ai_credit_cost_summary: {
+        Args: Record<string, never>
+        Returns: Json
+      }
       ai_usage_month_summary: {
         Args: Record<string, never>
         Returns: Json
