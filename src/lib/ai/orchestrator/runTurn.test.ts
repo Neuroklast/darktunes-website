@@ -15,6 +15,8 @@ const state = vi.hoisted(() => ({
   settings: {} as Record<string, unknown>,
   reserve: vi.fn(async () => undefined),
   settle: vi.fn(async () => undefined),
+  creditReserve: vi.fn(async () => undefined),
+  creditSettle: vi.fn(async () => undefined),
   requests: [] as Array<Record<string, unknown>>,
   execute: vi.fn(
     async (): Promise<{ ok: boolean; result?: unknown; error?: string }> => ({
@@ -67,6 +69,12 @@ vi.mock('@/lib/api/aiUsage', () => ({
 vi.mock('@/lib/ai/budget/manager', () => ({
   TokenBudgetManager: {
     fromLimits: () => ({ reserve: state.reserve, settle: state.settle }),
+  },
+}))
+
+vi.mock('@/lib/ai/budget/creditManager', () => ({
+  CreditBudgetManager: {
+    load: vi.fn(async () => ({ enabled: false, reserve: state.creditReserve, settle: state.creditSettle })),
   },
 }))
 
@@ -189,6 +197,8 @@ describe('runAiTurn', () => {
     state.settings = baseSettings()
     state.reserve.mockClear()
     state.settle.mockClear()
+    state.creditReserve.mockClear()
+    state.creditSettle.mockClear()
     state.execute.mockClear()
   })
 
