@@ -11,6 +11,7 @@ import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { listCredentialStatus, upsertCredential } from '@/lib/api/apiCredentials'
 import { isAllowedCredentialKey } from '@/lib/secrets/credentialKeys'
 import { invalidateCredentialCache } from '@/lib/secrets/getExternalCredentials'
+import { invalidateAiHealthForCredential } from '@/lib/ai/provider/invalidateHealth'
 
 export const GET = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
   const token = extractBearerToken(req.headers.get('authorization'))
@@ -45,6 +46,7 @@ export const PUT = withErrorHandler(async (req: NextRequest): Promise<NextRespon
   const db = await createServiceRoleSupabaseClient()
   await upsertCredential(db, { key, value, updatedBy: userId })
   invalidateCredentialCache()
+  await invalidateAiHealthForCredential(db, key)
   // Health dashboard caches known-api configuration; bust so Apify/etc. show as configured.
   revalidateTag('health-snapshot', 'max')
 
