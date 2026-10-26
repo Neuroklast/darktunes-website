@@ -195,7 +195,7 @@ export async function runNvidiaConnectionTest(options: {
     })
     out.push(stream)
 
-    let sampleToolCall: AiToolCall | null = null
+    const sampleToolCall: { current: AiToolCall | null } = { current: null }
     const tool = await runStep(toolId, model, async () => {
       const completion = await provider.complete({
         request_id: `connection-test-${role}-tool`,
@@ -216,7 +216,7 @@ export async function runNvidiaConnectionTest(options: {
       })
       const matched = completion.tool_calls.find((call) => call.name === 'echo_test')
       const supported = Boolean(matched)
-      if (matched) sampleToolCall = matched
+      if (matched) sampleToolCall.current = matched
       discovered[model] = {
         ...(discovered[model] ?? {}),
         supports_tools: supported,
@@ -257,11 +257,11 @@ export async function runNvidiaConnectionTest(options: {
       if (!validCall) throw new AiProviderError('TOOL_CALL_UNSUPPORTED', 'Streaming tool calls were not supported.')
     })
     out.push(toolStream)
-    if (!toolStream.ok || !sampleToolCall) {
+    if (!toolStream.ok || !sampleToolCall.current) {
       out.push(skippedStep(roundTripId, model, 'streamed tool calls not supported'))
       return out
     }
-    const actualCall: AiToolCall = sampleToolCall
+    const actualCall: AiToolCall = sampleToolCall.current
     const roundTrip = await runStep(roundTripId, model, async () => {
       const answer = await provider.complete({
         request_id: `connection-test-${role}-tool-roundtrip`,
