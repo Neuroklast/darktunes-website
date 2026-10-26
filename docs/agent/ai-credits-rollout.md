@@ -1,6 +1,6 @@
 # AI credits rollout
 
-Status: groundwork only. **Do not enable paid or binding credit deductions yet.**
+Status: implementation committed to feature branch. **Production activation remains blocked until the database has been applied, verified model tariffs entered, and runtime/build tests completed.**
 
 ## Accounting contract
 
@@ -11,7 +11,7 @@ Status: groundwork only. **Do not enable paid or binding credit deductions yet.*
 - A failed provider call may cost the label money but must not automatically charge the artist.
 - Keep existing token-based per-round and global safety limits.
 
-## Required before activation
+## Verification and rollout checklist
 
 1. Add additive SQL schema for model tariffs, artist/label allocations, reservations and immutable ledger entries.
 2. Add transactional RPCs for reserve, settle and release, keyed by request ID and round ID. Enforce nonnegative balances and unique settlement keys in SQL.
