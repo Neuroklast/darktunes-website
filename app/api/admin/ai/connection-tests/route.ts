@@ -8,7 +8,8 @@ import { z } from 'zod'
 import { ApiError, buildApiError, withErrorHandler } from '@/lib/errors'
 import { requireAdminWithServiceClient } from '@/lib/adminAuth'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
-import { resolveNvidiaApiKey } from '@/lib/ai/provider/resolveKey'
+import { AiProviderRouter } from '@/lib/ai/provider/router'
+import { getCatalogModel } from '@/lib/ai/models/catalog'
 import { runNvidiaConnectionTest } from '@/lib/ai/provider/connectionTest'
 import { getAiSettings, updateAiSettings } from '@/lib/api/aiSettings'
 import { parseStoredCapabilities } from '@/lib/ai/models/capabilities'
@@ -17,6 +18,7 @@ export const maxDuration = 120
 
 const bodySchema = z.object({
   scope: z.enum(['fast', 'reasoning', 'all']).optional(),
+  model_id: z.string().min(1).max(180).optional(),
 })
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
@@ -36,19 +38,31 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   const parsed = bodySchema.safeParse(raw)
   if (!parsed.success) throw new ApiError(400, 'Invalid connection test payload', 'VALIDATION_ERROR')
 
-  const apiKey = await resolveNvidiaApiKey(serviceClient)
-  if (!apiKey) {
-    throw buildApiError('AI_NOT_CONFIGURED', 503)
-  }
-
   const settings = await getAiSettings(serviceClient)
-  const result = await runNvidiaConnectionTest({
-    apiKey,
-    fastModel: settings.modelFast,
-    reasoningModel: settings.modelReasoning,
-    scope: parsed.data.scope ?? 'all',
-  })
   const previous = parseStoredCapabilities(settings.providerCapabilities)
+  const router = await AiProviderRouter.create(serviceClient, previous)
+  const selected = parsed.data.model_id ? getCatalogModel(parsed.data.model_id) : null
+  if (parsed.data.model_id && !selected) {
+    throw new ApiError(400, 'Choose an approved text-chat model.', 'VALIDATION_ERROR')
+  }
+  if (!router.hasConfiguredProvider) throw buildApiError('AI_NOT_CONFIGURED', 503)
+  const role = selected?.roles.includes('fast') ? 'fast' : 'reasoning'
+  const scope = selected ? role : (parsed.data.scope ?? 'all')
+  const modelsToTest = selected ? [selected.id] :
+    scope === 'fast' ? [settings.modelFast] :
+    scope === 'reasoning' ? [settings.modelReasoning] :
+    [settings.modelFast, settings.modelReasoning]
+  for (const model of modelsToTest) {
+    if (!getCatalogModel(model)) throw new ApiError(400, 'Selected chat model is not in the approved catalog.', 'VALIDATION_ERROR')
+    if (!router.hasKeyForModel(model)) throw buildApiError('AI_NOT_CONFIGURED', 503)
+  }
+  const result = await runNvidiaConnectionTest({
+    apiKey: 'stored-per-provider',
+    provider: router,
+    fastModel: selected && role === 'fast' ? selected.id : settings.modelFast,
+    reasoningModel: selected && role === 'reasoning' ? selected.id : settings.modelReasoning,
+    scope,
+  })
   const health = { ...previous.health }
   for (const [model, modelResult] of Object.entries(result.models)) {
     health[model] = {
