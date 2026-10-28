@@ -218,7 +218,7 @@ export function CentralLoginForm() {
       if (error) {
         toast.error(t('login_error'))
       } else {
-        window.location.assign('/login')
+        window.location.assign('/login' + window.location.search)
       }
     } catch {
       toast.error(t('login_error'))
