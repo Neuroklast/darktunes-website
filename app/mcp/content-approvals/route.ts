@@ -6,8 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { requireAiActor } from '@/lib/ai/auth/requireAiActor'
-import { consumeActionConfirmation } from '@/lib/ai/actions/confirmations'
-import { executeConfirmedAction } from '@/lib/ai/actions/executeConfirmed'
+import { commitMcpApproval } from '@/lib/mcp/commitApproval'
 import { contentCapability, type ContentKind } from '@/lib/mcp/contentMutations'
 import { isAllowedMcpOrigin, readMcpJson } from '@/lib/mcp/security'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
@@ -69,12 +68,7 @@ export async function POST(req: NextRequest) {
     return problem(403, 'Your account does not have permission to edit this CMS section.')
   }
   try {
-    const prepared = await consumeActionConfirmation(actor.serviceDb, {
-      actor, token: parsed.data.token, action: parsed.data.action,
-    })
-    // Verify the action cannot be switched to another entity kind.
-    if (prepared.kind !== kind) return problem(409, 'The approval does not match its CMS section.')
-    const result = await executeConfirmedAction(actor, parsed.data.action, prepared)
+    const result = await commitMcpApproval(actor, parsed.data.token, parsed.data.action)
     revalidatePath('/admin')
     if (kind === 'artist') revalidatePath('/artists')
     if (kind === 'release') revalidatePath('/releases')

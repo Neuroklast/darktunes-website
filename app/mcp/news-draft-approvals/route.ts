@@ -5,8 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { requireAiActor } from '@/lib/ai/auth/requireAiActor'
-import { consumeActionConfirmation } from '@/lib/ai/actions/confirmations'
-import { executeConfirmedAction } from '@/lib/ai/actions/executeConfirmed'
+import { commitMcpApproval } from '@/lib/mcp/commitApproval'
 import { isAllowedMcpOrigin, readMcpJson } from '@/lib/mcp/security'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
 
@@ -55,13 +54,10 @@ export async function POST(req: NextRequest) {
   }
   if (!input.success) return problem(400, 'Bad request', 'A valid one-time token is required.')
   try {
-    const payload = await consumeActionConfirmation(actor.serviceDb, {
-      actor, token: input.data.token, action: 'create_cms_news_draft',
-    })
-    const result = await executeConfirmedAction(actor, 'create_cms_news_draft', payload)
+    const result = await commitMcpApproval(actor, input.data.token, 'create_cms_news_draft')
     revalidatePath('/admin/news')
     return NextResponse.json(result, {
-      status: 201, headers: {
+      status: result.replayed ? 200 : 201, headers: {
         'Cache-Control': 'no-store',
         ...(result.location ? { Location: result.location } : {}),
       },

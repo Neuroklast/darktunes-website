@@ -11,7 +11,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 ## [Unreleased]
 
 ### Added
-- **DarkTunes GPT/MCP connector (off by default):** OAuth-scoped CMS read tools, news-draft preparation and bounded updates to artists, releases and events using explicit, single-use website approvals. Visibility, publishing and deletion cannot be invoked by external MCP clients. See `docs/MCP_CONNECTOR.md`.
+- **DarkTunes GPT/MCP connector (off by default):** OAuth-scoped CMS read tools, news-draft preparation and bounded updates to artists, releases and events using atomic, idempotent website approvals and an audited PostgreSQL transaction. Visibility, publishing and deletion cannot be invoked by external MCP clients. See `docs/MCP_CONNECTOR.md`.
 - **AI Assistant 2.0:** context-aware assistant workspace with conversation history, rename/delete, reload restore, Markdown answers, throttled streaming, tool activity rows, auto-scroll and a mobile full-screen layout. The editor dashboard now mounts the assistant too.
 - **AI context selector:** artist memberships, admin artist search and label-wide context; the active context is always visible in the header.
 - **AI Admin Control Center:** Overview, Models (Fast/Reasoning/Fallback), independent Connection Health probes, token usage charts (input/output/reasoning, model, role, budget, failures) and filtered Diagnostics with a copyable report.

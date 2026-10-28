@@ -524,3 +524,9 @@
 - [ ] Artist email, private notes and keys cannot be edited using MCP; event/release visibility and publishing changes are rejected.
 - [ ] OAuth tokens cannot submit a browser approval request, even when a forged Origin header is provided.
 - [ ] Confirmation payload hash detects modified nested `changes` or `before` objects, regardless of key ordering.
+
+- [ ] Atomic MCP SQL RPC exists only for `service_role`; `anon` and `authenticated` cannot execute it.
+- [ ] A failed editor audit INSERT rolls back the CMS UPDATE and leaves the approval unconsumed.
+- [ ] Two concurrent approval requests produce exactly one CMS mutation and one audit event, and both receive the same stored result (`replayed: true` for the second).
+- [ ] Stale record revision prevents the update without consuming the token.
+- [ ] Missing RPC returns a configuration error without attempting a legacy nontransactional write.
