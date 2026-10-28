@@ -8,6 +8,7 @@ export default async function AdminAiPage() {
   const t = await getTranslations('ai')
   return (
     <AdminPageShell title={t('title')} description={t('pageDescription')}>
+      <div className="mb-4"><a className="inline-flex rounded border border-zinc-700 px-4 py-2 text-sm" href="/admin/mcp-requests">AI / MCP editorial reviews</a></div>
       <AdminAiDashboard />
     </AdminPageShell>
   )
