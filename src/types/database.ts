@@ -9,6 +9,44 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      mcp_editorial_requests: {
+        Row: {
+          id: string
+          user_id: string
+          collection: 'news_posts' | 'artists' | 'releases' | 'concerts'
+          target_id: string
+          changes: Json
+          base_updated_at: string
+          status: 'pending' | 'approved' | 'rejected'
+          created_at: string
+          reviewed_by: string | null
+          reviewed_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          collection: 'news_posts' | 'artists' | 'releases' | 'concerts'
+          target_id: string
+          changes: Json
+          base_updated_at: string
+          status?: 'pending' | 'approved' | 'rejected'
+          created_at?: string
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          collection?: 'news_posts' | 'artists' | 'releases' | 'concerts'
+          target_id?: string
+          changes?: Json
+          base_updated_at?: string
+          status?: 'pending' | 'approved' | 'rejected'
+          created_at?: string
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+        }
+      }
       artist_members: {
         Row: {
           id: string
@@ -5996,6 +6034,10 @@ export interface Database {
     }
     Views: Record<string, never>
     Functions: {
+      mcp_review_editorial_request: {
+        Args: { p_id: string; p_reviewer: string; p_approve: boolean }
+        Returns: string
+      }
       get_assets_storage_stats: {
         Args: Record<string, never>
         /** JSON object: used_bytes, asset_count, zero_size_count */

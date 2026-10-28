@@ -27,9 +27,9 @@ Stand: 28. Oktober 2026. Diese Anleitung gilt für die darkTunes-Website auf Nex
 
 ### Datenbankmigration
 
-Führe die Datei `supabase/migrations/20261028184500_mcp_editorial_requests.sql` in der produktiven Datenbank aus. Möglich über den projektverknüpften Supabase-CLI-Migrationslauf (`supabase db push`) oder einmalig im SQL Editor, wenn die produktive Migrationsverwaltung danach sauber abgeglichen wird. Keine zweite Ausführung durch ein anderes Deploy-System ohne Abgleich.
+Führe die Datei `supabase/reset.sql` in der produktiven Datenbank aus. Möglich über den projektverknüpften Supabase-CLI-Migrationslauf (`supabase db push`) oder einmalig im SQL Editor, wenn die produktive Migrationsverwaltung danach sauber abgeglichen wird. Keine zweite Ausführung durch ein anderes Deploy-System ohne Abgleich.
 
-Die Migration legt an:
+Der Schema-Block legt an:
 * `public.mcp_editorial_requests` mit RLS und ohne Zugriff für `anon`/`authenticated`.
 * `public.mcp_review_editorial_request` als service-role-only RPC. Die Funktion prüft den Admin und prüft `updated_at` gegen den Stand bei Antragstellung. Änderungen und Review-Status werden innerhalb einer Datenbanktransaktion übernommen. Konflikte führen zu einem Fehler.
 
@@ -108,7 +108,7 @@ Prüfe zusätzlich: falsche oder nicht erlaubte OAuth-App-ID (403), abgelaufener
 * **503 MCP disabled:** `DARKTUNES_MCP_ENABLED` und Supabase-Variablen prüfen.
 * **OAuth Consent zeigt ungültigen Antrag:** `Authorization Path=/oauth/consent` prüfen. Alte Links nicht wiederverwenden.
 * **Admin/Redaktion muss MFA bestätigen:** Unter darkTunes/Supabase Auth TOTP registrieren und die 6-stellige Challenge im Consent-Dialog bestätigen.
-* **Proposal queue unavailable:** Migration nicht angewendet oder Datenbankfehler. Keine blind neu angelegten Tabellen mit geöffnetem RLS.
+* **Proposal queue unavailable:** reset.sql nicht angewendet oder Datenbankfehler. Keine blind neu angelegten Tabellen mit geöffnetem RLS.
 * **Änderung abgewiesen:** Datensatz wurde zwischen Vorschlag und Freigabe bearbeitet. Neues `editorial_get` und neuen Vorschlag erstellen.
 * **Nicht alle Tools sichtbar:** RBAC ist absichtlich kontoabhängig. Die serverseitige Prüfung nutzt den aktuellen darkTunes-User und Künstlerzuordnungen.
 * **Nur Lesen verfügbar:** ChatGPT-Plan oder Workspace erlaubt externe Schreibaktionen eventuell noch nicht. ChatGPT Developer-Mode-/App-Administrationsregeln prüfen.
@@ -119,4 +119,4 @@ Für Sperren sofort in **Supabase → Authentication → OAuth Apps/Grants** Cli
 
 Die Website bleibt der einzige Besitzer ihres Supabase Service-Role-Keys. Der OAuth-Zugriff gibt ChatGPT **keinen** direkten Service-Role-Key und keinen direkten Zugriff auf die Supabase-Datenbank. Der MCP-Server prüft Token bei Supabase und nutzt danach die bestehende darkTunes-Rechteauflösung. Editorial-Tools lesen nur erlaubte Spalten. Schreibaktionen stellen prüfbare Vorschläge. Finanz-, Konto-, Rechts-, E-Mail- und Sicherheitstabellen sind von den redaktionellen Vorschlagswerkzeugen ausgeschlossen.
 
-**Noch zu prüfen vor Livefreigabe:** vollständiger OAuth-Flow mit echtem ChatGPT-Client und Refresh-/Widerrufstest; CI auf Vercel; Datenbankmigration und RLS-/Sicherheitsadvisor; finale Freigabe der angebotenen KI-Werkzeuge nach Datenschutzklassifikation. Die Implementierung ersetzt keinen echten Produktions-Smoke-Test.
+**Noch zu prüfen vor Livefreigabe:** vollständiger OAuth-Flow mit echtem ChatGPT-Client und Refresh-/Widerrufstest; CI auf Vercel; Reset-Schema und RLS-/Sicherheitsadvisor; finale Freigabe der angebotenen KI-Werkzeuge nach Datenschutzklassifikation. Die Implementierung ersetzt keinen echten Produktions-Smoke-Test.
