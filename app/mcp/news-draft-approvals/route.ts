@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
     return problem(503, 'Service unavailable', 'The MCP connector is disabled.')
   }
   const origin = req.headers.get('origin')
-  if (!origin || !isAllowedMcpOrigin(req) || req.headers.get('sec-fetch-site') === 'cross-site') {
+  if (req.headers.has('authorization') || req.headers.get('sec-fetch-site') !== 'same-origin' ||
+      !origin || !isAllowedMcpOrigin(req)) {
     return problem(403, 'Forbidden', 'Approval requires a same-origin browser request.')
   }
   if (!req.headers.get('content-type')?.startsWith('application/json')) {

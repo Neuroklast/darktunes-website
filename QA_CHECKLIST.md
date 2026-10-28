@@ -519,3 +519,8 @@
 - [ ] Re-run CI after changes and manually test connection before enabling in production.
 
 - [ ] MCP OAuth client allowlist is empty by default and rejects valid tokens until the exact client ID has been approved.
+
+- [ ] Artist/release/event patch preview shows accurate before/after fields and rejects stale `updated_at` revisions (concurrent editor changes).
+- [ ] Artist email, private notes and keys cannot be edited using MCP; event/release visibility and publishing changes are rejected.
+- [ ] OAuth tokens cannot submit a browser approval request, even when a forged Origin header is provided.
+- [ ] Confirmation payload hash detects modified nested `changes` or `before` objects, regardless of key ordering.

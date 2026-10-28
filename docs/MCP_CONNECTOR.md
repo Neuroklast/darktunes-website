@@ -1,6 +1,6 @@
 # darkTunes GPT / MCP Connector
 
-Status: **security-first integration with human-approved news drafts**, shipped behind a disabled-by-default feature flag. It does not expose arbitrary SQL, direct R2 write access, publishing, deletion, or the full admin API. Production activation requires an authenticated OAuth integration test.
+Status: **security-first integration with human-approved CMS updates**, shipped behind a disabled-by-default feature flag. It does not expose arbitrary SQL, direct R2 write access, publishing, deletion, or the full admin API. Production activation requires an authenticated OAuth integration test.
 
 ## Endpoints
 
@@ -68,3 +68,9 @@ For other domains, add the same human-reviewed **prepare → preview → explici
 MCP `prepare_cms_news_draft` creates a one-time 10-minute approval token without mutating CMS data. The tool returns a protected `/admin/mcp-approvals/act_...` URL. Only the same signed-in editor with `cms.news.edit` can view and approve it. After reviewing the plaintext content, a same-origin browser POST to `/mcp/news-draft-approvals` atomically consumes the token and creates a **draft**, never a published post. Approval is not available as an MCP tool. The user must click the website button. Tokens should not be forwarded or pasted into public messages.
 
 **Canonical host:** The apex `darktunes.com` redirects to `www.darktunes.com`. Always register the ChatGPT MCP endpoint under the `www` origin. Cross-origin redirects can drop bearer Authorization headers.
+
+## Controlled artist, release and event corrections
+
+`prepare_cms_artist_update`, `prepare_cms_release_update` and `prepare_cms_event_update` generate typed, limited change sets for existing records, with the precise old values and their `updated_at` revision. The one-time human approval screen displays old and proposed values. `/mcp/content-approvals` accepts approvals only from an authenticated same-origin website session and rejects OAuth bearer authorization. PostgreSQL compare-and-swap prevents overwriting records edited after preview. Artist changes cover public bio, genres and links; release changes cover title, date, cover, public links and catalog number; event changes cover date, venue and ticket details. Visibility and publication status are never writable through these tools.
+
+Approval token payload integrity is calculated over recursively canonicalized JSON, including nested change objects, to avoid tampering even if JSONB reorders keys. Audit entries record the before/after changes. **The existing CMS audit write is not transactional with the row update.** If an audit write fails, the API reports the applied update and asks for administrator attention rather than implying a safe retry. A transactional audit implementation is required before treating the integration as a fully hardened production system.

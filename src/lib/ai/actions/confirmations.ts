@@ -13,6 +13,9 @@ export type AiWriteAction =
   | 'create_support_ticket'
   | 'save_error_report'
   | 'create_cms_news_draft'
+  | 'update_cms_artist'
+  | 'update_cms_release'
+  | 'update_cms_event'
 
 export interface ActionPreview {
   action: AiWriteAction
@@ -28,8 +31,20 @@ function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex')
 }
 
-function canonicalJson(value: Record<string, unknown>): string {
-  return JSON.stringify(value, Object.keys(value).sort())
+/**
+ * JSONB is order-insensitive for object keys. Hash ALL nested properties
+ * canonically so changes to nested "changes" or "before" cannot go undetected.
+ */
+export function canonicalJson(value: unknown): string {
+  if (value === null) return 'null'
+  if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']'
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    const keys = Object.keys(record).sort()
+    return '{' + keys.filter(key => record[key] !== undefined).map(key =>
+      JSON.stringify(key) + ':' + canonicalJson(record[key])).join(',') + '}'
+  }
+  return JSON.stringify(value)
 }
 
 export async function createActionConfirmation(

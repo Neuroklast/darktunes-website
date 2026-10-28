@@ -9,6 +9,17 @@ export async function executeConfirmedAction(
 ): Promise<{ ok: true; detail: string; location?: string }> {
   const artistId = actor.artistId
   switch (action) {
+    case 'update_cms_artist':
+    case 'update_cms_release':
+    case 'update_cms_event': {
+      const expected = action === 'update_cms_artist' ? 'artist'
+        : action === 'update_cms_release' ? 'release' : 'event'
+      if (payload.kind !== expected) {
+        throw new ApiError(409, 'The CMS confirmation does not match its action.', 'CONFLICT')
+      }
+      const { executeContentUpdate } = await import('@/lib/mcp/contentMutations')
+      return executeContentUpdate(actor, payload)
+    }
     case 'create_cms_news_draft': {
       if ((actor.role !== 'admin' && actor.role !== 'editor') ||
           !actor.capabilities.has('cms.news.edit')) {

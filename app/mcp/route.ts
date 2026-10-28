@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import '@/lib/ai/tools/mcpContent'
 import '@/lib/ai/tools/mcpWrites'
+import '@/lib/ai/tools/mcpContentWrites'
 import { executeRegisteredTool, getRegisteredTool, listToolDefinitionsForActor } from '@/lib/ai/tools'
 import { processMcpMessage, type McpToolDefinition } from '@/lib/mcp/protocol'
 import { authenticateMcp, isAllowedMcpOrigin, oauthIssuer, readMcpJson } from '@/lib/mcp/security'
@@ -17,6 +18,7 @@ export const maxDuration = 30
 const EXPORTED_TOOLS = new Set([
   'list_cms_news', 'list_cms_artists', 'list_cms_releases', 'list_cms_events',
   'prepare_cms_news_draft',
+  'prepare_cms_artist_update', 'prepare_cms_release_update', 'prepare_cms_event_update',
   'get_artist_overview', 'get_pending_submissions', 'get_system_health',
   'get_sync_job_status', 'get_storage_health',
 ])

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { createActionConfirmation, consumeActionConfirmation } from '@/lib/ai/actions/confirmations'
+import { canonicalJson, createActionConfirmation, consumeActionConfirmation } from '@/lib/ai/actions/confirmations'
 import { ApiError } from '@/lib/errors'
 import type { AiActor } from '@/lib/ai/auth/requireAiActor'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -20,6 +20,36 @@ const actor = {
 } satisfies AiActor
 
 describe('action confirmations', () => {
+  it('binds nested objects and arrays, independent of JSONB key order', () => {
+    const a = { changes: { bio: 'Updated', genres: ['techno'] }, before: { bio: 'Old' } }
+    const b = { before: { bio: 'Old' }, changes: { genres: ['techno'], bio: 'Updated' } }
+    const modified = { changes: { bio: 'Malicious', genres: ['techno'] }, before: { bio: 'Old' } }
+    expect(canonicalJson(a)).toEqual(canonicalJson(b))
+    expect(canonicalJson(a)).not.toEqual(canonicalJson(modified))
+  })
+  it('rejects nested payload tampering before one-time token consumption', async () => {
+    const rows: Array<Record<string, unknown>> = []
+    const db = {
+      from: () => ({
+        insert: async (row: Record<string, unknown>) => {
+          rows.push({ ...row, id: 'c-nested', used_at: null })
+          return { error: null }
+        },
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: rows[0], error: null }) }) }),
+        update: () => ({ eq: () => ({ is: () => ({ select: async () => ({ data: [{ id: 'c-nested' }], error: null }) }) }) }),
+      }),
+    } as unknown as SupabaseClient<Database>
+    const preview = await createActionConfirmation(db, {
+      actor, action: 'update_cms_artist',
+      payload: { kind: 'artist', changes: { bio: 'Approved' }, before: { bio: 'Original' } },
+      summary: 'Review artist update',
+    })
+    rows[0].payload = { kind: 'artist', changes: { bio: 'Altered' }, before: { bio: 'Original' } }
+    await expect(consumeActionConfirmation(db, {
+      actor, token: preview.confirmation_token, action: 'update_cms_artist',
+    })).rejects.toMatchObject({ code: 'CONFLICT' })
+  })
+
   it('should store a hashed token and reject a used confirmation', async () => {
     const rows: Array<Record<string, unknown>> = []
     const db = {
