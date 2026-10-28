@@ -10,7 +10,7 @@ export function GET(req: NextRequest) {
   const issuer = oauthIssuer()
   if (!issuer) return new Response(null, { status: 503 })
   // Deployment host is used only for resource metadata; bearer auth is checked separately.
-  const resource = new URL('/mcp', process.env.NEXT_PUBLIC_SITE_URL || req.url).toString()
+  const resource = new URL('/mcp', req.url).toString()
   return NextResponse.json({
     resource,
     authorization_servers: [issuer],

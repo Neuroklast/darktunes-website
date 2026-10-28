@@ -17,10 +17,10 @@ The endpoint recognizes MCP `2026-07-28` per-request metadata / `server/discover
 
 1. In the **correct** Supabase project, enable **Authentication → OAuth Server** (currently beta). Use asymmetric JWT signing keys. Configure Site URL as the public darkTunes origin and Authorization Path as `/oauth/consent`.
 2. Enable OAuth dynamic client registration only after security review. Supabase OAuth clients use authorization-code PKCE, refresh token rotation and registered redirect URLs. Do not build a custom token issuer.
-3. Set `NEXT_PUBLIC_SITE_URL=https://darktunes.com`, the existing `NEXT_PUBLIC_SUPABASE_URL`, the existing anon/publishable credentials, and existing server-side service key. No OAuth secrets or service-role credentials go to the browser.
+3. Set `NEXT_PUBLIC_SITE_URL=https://www.darktunes.com`, the existing `NEXT_PUBLIC_SUPABASE_URL`, the existing anon/publishable credentials, and existing server-side service key. No OAuth secrets or service-role credentials go to the browser.
 4. Configure **Upstash Redis** (`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`) for cross-instance rate limiting. The existing rate limiter falls back to per-instance memory if Redis is unavailable, so production deployment should monitor Redis health.
 5. Only after the consent screen, end-to-end tests, production domain and OAuth discoverability have been verified, set `MCP_CONNECTOR_ENABLED=true` in Vercel.
-6. In ChatGPT Plugins, create a custom MCP server at `https://darktunes.com/mcp`. Complete OAuth sign-in and approve the connection. Require a darkTunes role of admin or editor. Permissions are resolved from Supabase on every call.
+6. In ChatGPT Plugins, create a custom MCP server at `https://www.darktunes.com/mcp`. Complete OAuth sign-in and approve the connection. Require a darkTunes role of admin or editor. Permissions are resolved from Supabase on every call.
 
 ## Data and security boundaries
 
@@ -38,15 +38,15 @@ The route requires a valid Supabase-issued **OAuth access token** with a verifie
 With the feature flag enabled:
 
 ```bash
-curl -i https://darktunes.com/.well-known/oauth-protected-resource
-curl -i -X POST https://darktunes.com/mcp -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"server/discover"}'
+curl -i https://www.darktunes.com/.well-known/oauth-protected-resource
+curl -i -X POST https://www.darktunes.com/mcp -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"server/discover"}'
 # First should list your Supabase issuer. Second MUST be 401 without OAuth.
 ```
 
 With an OAuth-issued bearer token:
 
 ```bash
-curl -sS https://darktunes.com/mcp \
+curl -sS https://www.darktunes.com/mcp \
   -H "Authorization: Bearer $OAUTH_ACCESS_TOKEN" \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
@@ -65,3 +65,5 @@ For other domains, add the same human-reviewed **prepare → preview → explici
 ## News draft approval
 
 MCP `prepare_cms_news_draft` creates a one-time 10-minute approval token without mutating CMS data. The tool returns a protected `/admin/mcp-approvals/act_...` URL. Only the same signed-in editor with `cms.news.edit` can view and approve it. After reviewing the plaintext content, a same-origin browser POST to `/mcp/news-draft-approvals` atomically consumes the token and creates a **draft**, never a published post. Approval is not available as an MCP tool. The user must click the website button. Tokens should not be forwarded or pasted into public messages.
+
+**Canonical host:** The apex `darktunes.com` redirects to `www.darktunes.com`. Always register the ChatGPT MCP endpoint under the `www` origin. Cross-origin redirects can drop bearer Authorization headers.

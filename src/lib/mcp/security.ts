@@ -31,8 +31,9 @@ export function isAllowedMcpOrigin(req: Request): boolean {
   const origin = req.headers.get('origin')
   if (!origin) return true // Headless OAuth clients generally do not set Origin.
   try {
-    const target = new URL(process.env.NEXT_PUBLIC_SITE_URL || req.url)
-    return new URL(origin).origin === target.origin
+    // Same-origin is based on the actual HTTPS request host, not on a possibly
+    // stale configured Site URL (the production website redirects apex to www).
+    return new URL(origin).origin === new URL(req.url).origin
   } catch {
     return false
   }

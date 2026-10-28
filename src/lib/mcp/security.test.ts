@@ -16,6 +16,12 @@ describe('MCP authentication boundary helpers', () => {
     }))).toBe(true)
     expect(isAllowedMcpOrigin(new Request('https://darktunes.com/mcp'))).toBe(true)
   })
+  it('accepts the canonical www host even if an environment Site URL names the redirecting apex', () => {
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://darktunes.com')
+    expect(isAllowedMcpOrigin(new Request('https://www.darktunes.com/mcp/news-draft-approvals', {
+      headers: { Origin: 'https://www.darktunes.com' },
+    }))).toBe(true)
+  })
   it('publishes only secure Supabase OAuth issuers', () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
     expect(oauthIssuer()).toBe('https://example.supabase.co/auth/v1')
