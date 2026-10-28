@@ -6,7 +6,7 @@ export async function executeConfirmedAction(
   actor: AiActor,
   action: AiWriteAction,
   payload: Record<string, unknown>,
-): Promise<{ ok: true; detail: string }> {
+): Promise<{ ok: true; detail: string; location?: string }> {
   const artistId = actor.artistId
   switch (action) {
     case 'create_cms_news_draft': {
@@ -39,7 +39,7 @@ export async function executeConfirmedAction(
       } catch (error) {
         console.error('[mcp] news saved but activity log failed', error)
       }
-      return { ok: true, detail: 'News draft saved. It has not been published.' }
+      return { ok: true, detail: 'News draft saved. It has not been published.', location: '/admin/news/' + news.id }
     }
     case 'save_epk_text': {
       if (!artistId) throw new ApiError(403, 'No artist linked to this account', 'FORBIDDEN_NO_ARTIST')

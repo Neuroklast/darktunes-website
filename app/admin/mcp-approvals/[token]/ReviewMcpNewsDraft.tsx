@@ -11,7 +11,7 @@ export function ReviewMcpNewsDraft({ token }: { token: string }) {
     if (busy || saved) return
     setBusy(true)
     try {
-      const response = await fetch('/api/mcp/approve-news', {
+      const response = await fetch('/mcp/news-draft-approvals', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },

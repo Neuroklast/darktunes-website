@@ -7,6 +7,8 @@ Status: **security-first integration with human-approved news drafts**, shipped 
 - `POST /mcp`: JSON-RPC MCP over stateless Streamable HTTP
 - `GET /.well-known/oauth-protected-resource`: RFC 9728 OAuth discovery metadata
 - `GET /oauth/consent?authorization_id=...`: darkTunes user consent screen
+- `POST /mcp/news-draft-approvals`: same-origin browser approval of a news draft (201 Created, not an MCP tool)
+- `GET /admin/mcp-approvals/[token]`: protected human review page
 - `GET /mcp` and `DELETE /mcp`: deliberately 405 (no stateful SSE sessions)
 
 The endpoint recognizes MCP `2026-07-28` per-request metadata / `server/discover` and legacy `2025-11-25` `initialize`. No additional runtime dependencies are introduced. Unlike the official SDK, this small transport only implements the subset required for stateless read-only tools (not resources, sampling or subscriptions). The official MCP SDK should replace it when additional protocol primitives are required.
@@ -22,7 +24,7 @@ The endpoint recognizes MCP `2026-07-28` per-request metadata / `server/discover
 
 ## Data and security boundaries
 
-The route requires a valid Supabase-issued **OAuth access token** with a verified `client_id` claim, not a cookie, anon key, or any ordinary portal JWT. It checks that Auth accepts the token and resolves the current server-side darkTunes RBAC capabilities. The internal AI Tool Registry then independently checks capability access for each call. Only the named read-only allowlist is advertised/executable.
+The route requires a valid Supabase-issued **OAuth access token** with a verified `client_id` claim, not a cookie, anon key, or any ordinary portal JWT. It checks that Auth accepts the token and resolves the current server-side darkTunes RBAC capabilities. The internal AI Tool Registry then independently checks capability access for each call. Only allowlisted reads and the prepare-only news-draft tool are advertised/executable.
 
 - Exposed: bounded CMS summaries for news, artists, releases and events; selected non-financial system health/sync tools. A CMS editor can prepare a news draft in ChatGPT and approve its creation on a protected website page. No automatic publishing.
 - Excluded: payments, royalty statements, user data, private artist data, raw database queries, destructive actions, publishing and configuration mutations.
@@ -62,4 +64,4 @@ For other domains, add the same human-reviewed **prepare → preview → explici
 
 ## News draft approval
 
-MCP `prepare_cms_news_draft` creates a one-time 10-minute approval token without mutating CMS data. The tool returns a protected `/admin/mcp-approvals/act_...` URL. Only the same signed-in editor with `cms.news.edit` can view and approve it. After reviewing the plaintext content, a same-origin browser POST to `/api/mcp/approve-news` atomically consumes the token and creates a **draft**, never a published post. Approval is not available as an MCP tool. The user must click the website button. Tokens should not be forwarded or pasted into public messages.
+MCP `prepare_cms_news_draft` creates a one-time 10-minute approval token without mutating CMS data. The tool returns a protected `/admin/mcp-approvals/act_...` URL. Only the same signed-in editor with `cms.news.edit` can view and approve it. After reviewing the plaintext content, a same-origin browser POST to `/mcp/news-draft-approvals` atomically consumes the token and creates a **draft**, never a published post. Approval is not available as an MCP tool. The user must click the website button. Tokens should not be forwarded or pasted into public messages.
