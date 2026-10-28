@@ -29,6 +29,10 @@ const REEXPORT_ALLOWLIST = new Set([
  * Routes intentionally public (no admin auth). Document with //@api-public in file
  * or list here for legacy. Prefer annotation for new public admin paths.
  */
+// MCP JSON-RPC routes must preserve JSON-RPC error envelopes and OAuth 401 challenges.
+// They intentionally use protocol-specific error handling instead of the REST API wrapper.
+const RPC_ROUTE_ALLOWLIST = new Set(['app/api/mcp/route.ts'])
+
 const ADMIN_PUBLIC_ALLOWLIST = new Set([
   // GET genres is public catalogue read (portal profile picker)
   'app/api/admin/genres/route.ts',
@@ -136,7 +140,7 @@ function main() {
       continue
     }
 
-    if (!hasWithErrorHandler(content)) {
+    if (!hasWithErrorHandler(content) && !RPC_ROUTE_ALLOWLIST.has(pathRel)) {
       errors.push(`${pathRel}: missing withErrorHandler`)
     }
 
