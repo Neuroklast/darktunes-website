@@ -17,6 +17,7 @@ export const maxDuration = 30
 
 const EXPORTED_TOOLS = new Set([
   'list_cms_news', 'list_cms_artists', 'list_cms_releases', 'list_cms_events',
+  'get_cms_news', 'get_cms_artist', 'get_cms_release', 'get_cms_event',
   'prepare_cms_news_draft',
   'prepare_cms_artist_update', 'prepare_cms_release_update', 'prepare_cms_event_update',
   'get_artist_overview', 'get_pending_submissions', 'get_system_health',

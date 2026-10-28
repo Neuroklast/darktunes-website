@@ -80,3 +80,7 @@ Approval token payload integrity is calculated over recursively canonicalized JS
 The proposal routes require the **service-role-only** `public.commit_mcp_approval` RPC and the `ai_action_confirmations.result` JSONB column from `supabase/reset.sql`. These changes must be deployed to the correct Supabase project **before enabling** the MCP feature flag. The RPC is `SECURITY INVOKER`, restricts execution to `service_role`, validates token/action/actor, locks the confirmation row, applies a version-checked CMS change, records the editor audit event and stores the idempotent result in one transaction. Failed writes roll back token consumption. Identical retries return `replayed: true` and do not duplicate content or logs. As the entire procedure uses the service role, never expose its credential to browsers or ChatGPT.
 
 **Deployment is not automatic from GitHub.** The SQL function must be reviewed and applied to staging/production separately, and a real database integration test is still required. No direct database migrations are executed as part of this PR.
+
+## Full detail read tools
+
+`get_cms_news`, `get_cms_artist`, `get_cms_release`, and `get_cms_event` support record-specific reads for editing. Every query selects only an explicit non-sensitive column list, checks the appropriate CMS capability, and enforces a result-size limit. News text is plain/untrusted retrieved data and cannot instruct ChatGPT to execute follow-up actions. The service never returns private artist notes, payment details, keys or raw table rows.
