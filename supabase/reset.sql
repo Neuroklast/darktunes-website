@@ -3549,12 +3549,8 @@ BEGIN
   IF CURRENT_USER <> 'service_role' THEN
     RAISE EXCEPTION 'MCP_APPROVAL_FORBIDDEN' USING ERRCODE = '42501';
   END IF;
-  IF p_token_hash !~ '^[0-9a-f]{64}
-
- OR
-      p_payload_hash !~ '^[0-9a-f]{64}
-
- OR
+  IF p_token_hash !~ '^[0-9a-f]{64}$' OR
+      p_payload_hash !~ '^[0-9a-f]{64}$' OR
       p_action NOT IN (
         'create_cms_news_draft', 'update_cms_artist',
         'update_cms_release', 'update_cms_event'
@@ -3596,9 +3592,7 @@ BEGIN
       jsonb_typeof(v_payload->'content') <> 'string' OR
       length(v_payload->>'title') NOT BETWEEN 5 AND 160 OR
       length(v_payload->>'content') NOT BETWEEN 20 AND 8000 OR
-      (v_payload->>'slug') !~ '^[a-z0-9]+(-[a-z0-9]+)*
-
- OR
+      (v_payload->>'slug') !~ '^[a-z0-9]+(-[a-z0-9]+)*$' OR
       length(v_payload->>'slug') > 180 THEN
       RAISE EXCEPTION 'MCP_NEWS_INVALID' USING ERRCODE = '22023';
     END IF;
