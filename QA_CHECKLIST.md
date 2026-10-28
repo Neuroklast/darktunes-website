@@ -505,3 +505,15 @@
 ## Edge Function
 - [ ] Supabase Edge Function 'newsletter-confirm' is deployed and active
 - [ ] Edge Function appears in Supabase Dashboard → Edge Functions
+
+## ChatGPT / MCP Connector
+
+- [ ] Feature flag off: MCP returns 503 and discovery metadata is not published.
+- [ ] Supabase OAuth authorization-code with PKCE completes only for registered clients; grant and denial paths work.
+- [ ] Missing token, non-OAuth portal JWT, revoked token, expired token, and artist-only user cannot access MCP tools.
+- [ ] tools/list reflects admin/editor capabilities; sensitive fields and raw SQL are unavailable.
+- [ ] News, releases, artists, and events data is bounded and excludes private fields.
+- [ ] Prepared news draft does not mutate CMS; review expires after ten minutes, binds to the initiating user and is single use.
+- [ ] Approval requires same-origin browser POST, CMS permission and safe plaintext preview. Never publishes automatically.
+- [ ] Approval creates exactly one unpublished draft and logs the action; reuse and cross-account attempts fail.
+- [ ] Re-run CI after changes and manually test connection before enabling in production.

@@ -459,3 +459,7 @@ Create the token in Zammad → **Profile → Token Access** with `ticket.agent` 
   `[SYSTEM ERROR REPORT — darkTunes]` prefix. Anonymous reports still persist to `app_logs`.
 - **Deduplication:** Same error fingerprint + user within 24 h → no duplicate Zammad ticket.
 - **Known errors:** Admin can block fingerprints in Support → Known Errors.
+
+## ChatGPT / remote MCP connector
+
+The connector is disabled by default. Configure Supabase OAuth Server, its authorization consent URL `/oauth/consent`, an asymmetric signing key and your canonical HTTPS public site URL. Set `MCP_CONNECTOR_ENABLED=true` only after the authenticated manual integration tests in [docs/MCP_CONNECTOR.md](docs/MCP_CONNECTOR.md). Configure distributed Upstash Redis rate limiting. Do not expose the Supabase service-role key or client secrets to the browser.

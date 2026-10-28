@@ -432,3 +432,7 @@ Proprietary — All Rights Reserved. See [LICENSE](./LICENSE).
 
 
 - Press portal: public label press landing, artist EPK pages, embargo-aware press releases, dashboard profile/contact tools, upgraded press kit downloads, and promo-track preview/download flows.
+
+### ChatGPT CMS connector (MCP)
+
+A disabled-by-default remote MCP connector allows authenticated darkTunes editors and admins to inspect CMS content and prepare news drafts for explicit approval on the website. It uses Supabase OAuth and role-based permissions, never arbitrary SQL or automatic publishing. For activation and security checks see [the MCP setup guide](docs/MCP_CONNECTOR.md).
