@@ -7,7 +7,7 @@ import '@/lib/ai/tools/mcpContent'
 import '@/lib/ai/tools/mcpWrites'
 import { executeRegisteredTool, getRegisteredTool, listToolDefinitionsForActor } from '@/lib/ai/tools'
 import { processMcpMessage, type McpToolDefinition } from '@/lib/mcp/protocol'
-import { authenticateMcp, isAllowedMcpOrigin, oauthIssuer } from '@/lib/mcp/security'
+import { authenticateMcp, isAllowedMcpOrigin, oauthIssuer, readMcpJson } from '@/lib/mcp/security'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
 
 export const runtime = 'nodejs'
@@ -30,31 +30,6 @@ function reject(status: number, message: string, request: Request) {
   return NextResponse.json({ error: message }, { status, headers })
 }
 
-async function boundedJson(req: NextRequest): Promise<unknown> {
-  const reader = req.body?.getReader()
-  if (!reader) throw new Error('Empty body')
-  const chunks: Uint8Array[] = []
-  let size = 0
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      size += value.byteLength
-      if (size > 64 * 1024) throw new Error('Request too large')
-      chunks.push(value)
-    }
-  } finally {
-    reader.releaseLock()
-  }
-  const bytes = new Uint8Array(size)
-  let at = 0
-  for (const chunk of chunks) {
-    bytes.set(chunk, at)
-    at += chunk.byteLength
-  }
-  return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
-}
-
 export async function POST(req: NextRequest) {
   if (process.env.MCP_CONNECTOR_ENABLED !== 'true' || !oauthIssuer()) {
     return reject(503, 'MCP connector disabled', req)
@@ -71,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   let payload: unknown
   try {
-    payload = await boundedJson(req)
+    payload = await readMcpJson(req, 64 * 1024)
   } catch {
     return reject(400, 'Invalid or oversized JSON', req)
   }

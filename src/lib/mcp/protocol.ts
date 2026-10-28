@@ -10,12 +10,6 @@ export const MCP_LEGACY = '2025-11-25'
 const LEGACY_VERSIONS = new Set(['2025-03-26', '2025-06-18', MCP_LEGACY])
 
 type RpcId = string | number | null
-type RpcRequest = {
-  jsonrpc: '2.0'
-  id?: RpcId
-  method: string
-  params?: Record<string, unknown>
-}
 type RpcResult = { jsonrpc: '2.0'; id: RpcId; result?: unknown; error?: { code: number; message: string } }
 export type McpToolDefinition = {
   name: string

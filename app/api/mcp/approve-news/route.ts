@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { requireAiActor } from '@/lib/ai/auth/requireAiActor'
 import { consumeActionConfirmation } from '@/lib/ai/actions/confirmations'
 import { executeConfirmedAction } from '@/lib/ai/actions/executeConfirmed'
-import { isAllowedMcpOrigin } from '@/lib/mcp/security'
+import { isAllowedMcpOrigin, readMcpJson } from '@/lib/mcp/security'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
 
 export const runtime = 'nodejs'
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (Number(req.headers.get('content-length')) > 1024) {
       return NextResponse.json({ error: 'Request too large' }, { status: 413, headers })
     }
-    const input = schema.safeParse(await req.json())
+    const input = schema.safeParse(await readMcpJson(req, 1024))
     if (!input.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400, headers })
     const payload = await consumeActionConfirmation(actor.serviceDb, {
       actor, token: input.data.token, action: 'create_cms_news_draft',

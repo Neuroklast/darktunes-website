@@ -49,3 +49,32 @@ export function oauthIssuer(): string | null {
     return null
   }
 }
+
+/** Read bounded JSON even when Content-Length is absent or intentionally wrong. */
+export async function readMcpJson(req: Request, maximumBytes: number): Promise<unknown> {
+  const reader = req.body?.getReader()
+  if (!reader) throw new Error('Missing body')
+  const parts: Uint8Array[] = []
+  let byteLength = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      byteLength += value.byteLength
+      if (byteLength > maximumBytes) {
+        await reader.cancel()
+        throw new Error('Request too large')
+      }
+      parts.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  const bytes = new Uint8Array(byteLength)
+  let position = 0
+  for (const part of parts) {
+    bytes.set(part, position)
+    position += part.byteLength
+  }
+  return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+}
