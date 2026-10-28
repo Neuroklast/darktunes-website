@@ -517,3 +517,5 @@
 - [ ] Approval requires same-origin browser POST, CMS permission and safe plaintext preview. Never publishes automatically.
 - [ ] Approval creates exactly one unpublished draft and logs the action; reuse and cross-account attempts fail.
 - [ ] Re-run CI after changes and manually test connection before enabling in production.
+
+- [ ] MCP OAuth client allowlist is empty by default and rejects valid tokens until the exact client ID has been approved.

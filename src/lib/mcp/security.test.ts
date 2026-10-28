@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { isAllowedMcpOrigin, oauthIssuer } from './security'
+import { isAllowedMcpOrigin, isAllowedOAuthClient, oauthIssuer } from './security'
 
 afterEach(() => vi.unstubAllEnvs())
 describe('MCP authentication boundary helpers', () => {
@@ -21,6 +21,14 @@ describe('MCP authentication boundary helpers', () => {
     expect(isAllowedMcpOrigin(new Request('https://www.darktunes.com/mcp/news-draft-approvals', {
       headers: { Origin: 'https://www.darktunes.com' },
     }))).toBe(true)
+  })
+  it('rejects all clients until explicitly approved, and does not accept arbitrary OAuth clients', () => {
+    vi.stubEnv('MCP_ALLOWED_OAUTH_CLIENT_IDS', '')
+    expect(isAllowedOAuthClient('client-a')).toBe(false)
+    vi.stubEnv('MCP_ALLOWED_OAUTH_CLIENT_IDS', 'client-a, client-b')
+    expect(isAllowedOAuthClient('client-a')).toBe(true)
+    expect(isAllowedOAuthClient('client-b')).toBe(true)
+    expect(isAllowedOAuthClient('client-c')).toBe(false)
   })
   it('publishes only secure Supabase OAuth issuers', () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
