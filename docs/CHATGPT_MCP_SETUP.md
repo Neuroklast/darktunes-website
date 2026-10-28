@@ -27,7 +27,7 @@ Stand: 28. Oktober 2026. Diese Anleitung gilt für die darkTunes-Website auf Nex
 
 ### Datenbankmigration
 
-Führe die Datei `supabase/reset.sql` in der produktiven Datenbank aus. Möglich über den projektverknüpften Supabase-CLI-Migrationslauf (`supabase db push`) oder einmalig im SQL Editor, wenn die produktive Migrationsverwaltung danach sauber abgeglichen wird. Keine zweite Ausführung durch ein anderes Deploy-System ohne Abgleich.
+Führe die idempotente Datei `supabase/reset.sql` im **Supabase Dashboard → SQL Editor** deines produktiven darkTunes-Projekts aus. Das Repository verwendet ausdrücklich **keine** eigenen `supabase/migrations/*.sql`-Dateien. Der MCP-Block steht am Ende von `reset.sql`. Das Schema ist darauf ausgelegt, bestehende Daten zu erhalten.
 
 Der Schema-Block legt an:
 * `public.mcp_editorial_requests` mit RLS und ohne Zugriff für `anon`/`authenticated`.
