@@ -3,7 +3,7 @@ import { resolveEffectiveAccess } from '@/lib/rbac/resolveAccess'
 import { redirect } from 'next/navigation'
 import { reviewMcpProposal } from './actions'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ConsentMfa } from '@/app/oauth/consent/ConsentControls'
+import { ConsentMfa } from '../../oauth/consent/ConsentControls'
 export const dynamic = 'force-dynamic'
 
 export default async function McpReviewPage() {
