@@ -12,6 +12,7 @@ import { createActionConfirmation } from '@/lib/ai/actions/confirmations'
 import { sanitizeArtistWrite, sanitizeReleaseWrite } from '@/lib/sanitizeTextContent'
 import { createEditorActivityLogEntry } from '@/lib/api/editorActivityLog'
 import type { Json } from '@/types/database'
+import type { SystemCapability } from '@/lib/rbac/types'
 
 const id = z.string().uuid()
 const link = z.string().url().max(1000).refine(value =>
@@ -70,7 +71,7 @@ export const contentChangePayload = z.discriminatedUnion('kind', [
 export type ContentKind = 'artist' | 'release' | 'event'
 export type ContentChangePayload = z.infer<typeof contentChangePayload>
 
-export const contentCapability: Record<ContentKind, string> = {
+export const contentCapability: Record<ContentKind, SystemCapability> = {
   artist: 'cms.artists.manage',
   release: 'cms.releases.manage',
   event: 'admin.panel.full',
