@@ -9,6 +9,38 @@ export async function executeConfirmedAction(
 ): Promise<{ ok: true; detail: string }> {
   const artistId = actor.artistId
   switch (action) {
+    case 'create_cms_news_draft': {
+      if ((actor.role !== 'admin' && actor.role !== 'editor') ||
+          !actor.capabilities.has('cms.news.edit')) {
+        throw new ApiError(403, 'Editing news is not allowed for this account', 'FORBIDDEN')
+      }
+      const { mcpNewsDraftSchema } = await import('@/lib/ai/tools/mcpWrites')
+      const parsed = mcpNewsDraftSchema.safeParse(payload)
+      if (!parsed.success) throw new ApiError(400, 'News draft has invalid content', 'VALIDATION_ERROR')
+      const article = parsed.data
+      // MCP-authored content is plain text, never executable HTML.
+      const escape = (value: string) => value.replace(/[&<>"']/g,
+        char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char)
+      const html = article.content.split(/\n\s*\n/).map(paragraph =>
+        '<p>' + escape(paragraph).replace(/\n/g, '<br>') + '</p>',
+      ).join('')
+      const { createNewsPost } = await import('@/lib/api/news')
+      const news = await createNewsPost(actor.serviceDb, {
+        title: article.title, slug: article.slug, excerpt: article.excerpt,
+        content: html, status: 'draft', is_press_only: false,
+        published_at: new Date().toISOString(),
+      })
+      const { createEditorActivityLogEntry } = await import('@/lib/api/editorActivityLog')
+      try {
+        await createEditorActivityLogEntry(actor.serviceDb, {
+          editor_id: actor.userId, action: 'create', entity_type: 'news',
+          entity_id: news.id, entity_name: news.title, changes: { source: 'mcp', status: 'draft' },
+        })
+      } catch (error) {
+        console.error('[mcp] news saved but activity log failed', error)
+      }
+      return { ok: true, detail: 'News draft saved. It has not been published.' }
+    }
     case 'save_epk_text': {
       if (!artistId) throw new ApiError(403, 'No artist linked to this account', 'FORBIDDEN_NO_ARTIST')
       const text = String(payload.text ?? '')

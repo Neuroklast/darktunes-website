@@ -4,7 +4,8 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import '@/lib/ai/tools/mcpContent'
-import { executeRegisteredTool, listToolDefinitionsForActor } from '@/lib/ai/tools'
+import '@/lib/ai/tools/mcpWrites'
+import { executeRegisteredTool, getRegisteredTool, listToolDefinitionsForActor } from '@/lib/ai/tools'
 import { processMcpMessage, type McpToolDefinition } from '@/lib/mcp/protocol'
 import { authenticateMcp, isAllowedMcpOrigin, oauthIssuer } from '@/lib/mcp/security'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
@@ -15,6 +16,7 @@ export const maxDuration = 30
 
 const EXPORTED_TOOLS = new Set([
   'list_cms_news', 'list_cms_artists', 'list_cms_releases', 'list_cms_events',
+  'prepare_cms_news_draft',
   'get_artist_overview', 'get_pending_submissions', 'get_system_health',
   'get_sync_job_status', 'get_storage_health',
 ])
@@ -80,7 +82,7 @@ export async function POST(req: NextRequest) {
     name: tool.name,
     description: tool.description,
     inputSchema: tool.parameters as Record<string, unknown>,
-    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    annotations: { readOnlyHint: getRegisteredTool(tool.name)?.classification === 'read', destructiveHint: false, openWorldHint: false },
   })) satisfies McpToolDefinition[]
   try {
     const response = await processMcpMessage(payload, {

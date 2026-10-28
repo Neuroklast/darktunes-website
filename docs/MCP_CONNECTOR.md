@@ -1,6 +1,6 @@
 # darkTunes GPT / MCP Connector
 
-Status: **read-only, security-first integration**, shipped behind a disabled-by-default feature flag. It does not expose arbitrary SQL, direct R2 write access, publishing, deletion, or the full admin API. Production activation requires an authenticated OAuth integration test.
+Status: **security-first integration with human-approved news drafts**, shipped behind a disabled-by-default feature flag. It does not expose arbitrary SQL, direct R2 write access, publishing, deletion, or the full admin API. Production activation requires an authenticated OAuth integration test.
 
 ## Endpoints
 
@@ -24,7 +24,7 @@ The endpoint recognizes MCP `2026-07-28` per-request metadata / `server/discover
 
 The route requires a valid Supabase-issued **OAuth access token** with a verified `client_id` claim, not a cookie, anon key, or any ordinary portal JWT. It checks that Auth accepts the token and resolves the current server-side darkTunes RBAC capabilities. The internal AI Tool Registry then independently checks capability access for each call. Only the named read-only allowlist is advertised/executable.
 
-- Exposed: bounded CMS summaries for news, artists, releases and events; selected non-financial system health/sync tools.
+- Exposed: bounded CMS summaries for news, artists, releases and events; selected non-financial system health/sync tools. A CMS editor can prepare a news draft in ChatGPT and approve its creation on a protected website page. No automatic publishing.
 - Excluded: payments, royalty statements, user data, private artist data, raw database queries, destructive actions, publishing and configuration mutations.
 - Internal queries project safe columns, enforce a limit of 50 rows, and require CMS/label capabilities.
 - Tool execution is recorded by the existing AI tool audit system. Tool results are validated by the existing Zod registry.
@@ -58,4 +58,8 @@ Tests: `npx vitest run src/lib/mcp/protocol.test.ts src/lib/mcp/security.test.ts
 
 ## Next iteration
 
-Before enabling changes from ChatGPT, add a human-reviewed **prepare → preview → explicit website approval → commit** workflow per CMS domain. Require permission rechecks, optimistic concurrency (record version), an idempotency key, an immutable audit trail and automatic public cache invalidation. Never expose existing arbitrary admin mutation routes or service-role Supabase keys as MCP tools.
+For other domains, add the same human-reviewed **prepare → preview → explicit website approval → commit** workflow. Require permission rechecks, optimistic concurrency (record version), an idempotency key, an immutable audit trail and automatic public cache invalidation. Never expose existing arbitrary admin mutation routes or service-role Supabase keys as MCP tools.
+
+## News draft approval
+
+MCP `prepare_cms_news_draft` creates a one-time 10-minute approval token without mutating CMS data. The tool returns a protected `/admin/mcp-approvals/act_...` URL. Only the same signed-in editor with `cms.news.edit` can view and approve it. After reviewing the plaintext content, a same-origin browser POST to `/api/mcp/approve-news` atomically consumes the token and creates a **draft**, never a published post. Approval is not available as an MCP tool. The user must click the website button. Tokens should not be forwarded or pasted into public messages.

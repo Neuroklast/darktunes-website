@@ -12,6 +12,7 @@ export type AiWriteAction =
   | 'save_release_draft'
   | 'create_support_ticket'
   | 'save_error_report'
+  | 'create_cms_news_draft'
 
 export interface ActionPreview {
   action: AiWriteAction
