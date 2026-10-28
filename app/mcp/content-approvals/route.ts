@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { ApiError } from '@/lib/errors'
 import { requireAiActor } from '@/lib/ai/auth/requireAiActor'
 import { commitMcpApproval } from '@/lib/mcp/commitApproval'
 import { contentCapability, type ContentKind } from '@/lib/mcp/contentMutations'
@@ -75,7 +76,13 @@ export async function POST(req: NextRequest) {
     if (kind === 'event') revalidatePath('/events')
     revalidatePath('/')
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError) {
+      if (error.status === 503) return problem(503, error.message)
+      if (error.status === 410) return problem(410, error.message)
+      if (error.status === 404) return problem(404, 'This approval does not belong to this account.')
+      if (error.status === 403) return problem(403, error.message)
+    }
     return problem(409, 'The draft expired, was used, or the record changed. Prepare a new update.')
   }
 }

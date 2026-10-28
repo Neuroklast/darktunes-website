@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { ApiError } from '@/lib/errors'
 import { requireAiActor } from '@/lib/ai/auth/requireAiActor'
 import { commitMcpApproval } from '@/lib/mcp/commitApproval'
 import { isAllowedMcpOrigin, readMcpJson } from '@/lib/mcp/security'
@@ -62,7 +63,13 @@ export async function POST(req: NextRequest) {
         ...(result.location ? { Location: result.location } : {}),
       },
     })
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError) {
+      if (error.status === 503) return problem(503, 'Database setup required', error.message)
+      if (error.status === 410) return problem(410, 'Approval expired', error.message)
+      if (error.status === 404) return problem(404, 'Approval not found', 'The approval belongs to another account or does not exist.')
+      if (error.status === 403) return problem(403, 'Approval forbidden', error.message)
+    }
     return problem(409, 'Draft not saved', 'Approval expired, was used, or the draft could not be saved. Prepare a new draft.')
   }
 }
