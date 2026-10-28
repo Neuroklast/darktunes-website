@@ -505,3 +505,28 @@
 ## Edge Function
 - [ ] Supabase Edge Function 'newsletter-confirm' is deployed and active
 - [ ] Edge Function appears in Supabase Dashboard → Edge Functions
+
+## ChatGPT / MCP Connector
+
+- [ ] Feature flag off: MCP returns 503 and discovery metadata is not published.
+- [ ] Supabase OAuth authorization-code with PKCE completes only for registered clients; grant and denial paths work.
+- [ ] Missing token, non-OAuth portal JWT, revoked token, expired token, and artist-only user cannot access MCP tools.
+- [ ] tools/list reflects admin/editor capabilities; sensitive fields and raw SQL are unavailable.
+- [ ] News, releases, artists, and events data is bounded and excludes private fields.
+- [ ] Prepared news draft does not mutate CMS; review expires after ten minutes, binds to the initiating user and is single use.
+- [ ] Approval requires same-origin browser POST, CMS permission and safe plaintext preview. Never publishes automatically.
+- [ ] Approval creates exactly one unpublished draft and logs the action; reuse and cross-account attempts fail.
+- [ ] Re-run CI after changes and manually test connection before enabling in production.
+
+- [ ] MCP OAuth client allowlist is empty by default and rejects valid tokens until the exact client ID has been approved.
+
+- [ ] Artist/release/event patch preview shows accurate before/after fields and rejects stale `updated_at` revisions (concurrent editor changes).
+- [ ] Artist email, private notes and keys cannot be edited using MCP; event/release visibility and publishing changes are rejected.
+- [ ] OAuth tokens cannot submit a browser approval request, even when a forged Origin header is provided.
+- [ ] Confirmation payload hash detects modified nested `changes` or `before` objects, regardless of key ordering.
+
+- [ ] Atomic MCP SQL RPC exists only for `service_role`; `anon` and `authenticated` cannot execute it.
+- [ ] A failed editor audit INSERT rolls back the CMS UPDATE and leaves the approval unconsumed.
+- [ ] Two concurrent approval requests produce exactly one CMS mutation and one audit event, and both receive the same stored result (`replayed: true` for the second).
+- [ ] Stale record revision prevents the update without consuming the token.
+- [ ] Missing RPC returns a configuration error without attempting a legacy nontransactional write.

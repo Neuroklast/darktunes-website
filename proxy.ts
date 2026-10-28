@@ -182,11 +182,15 @@ export async function proxy(request: NextRequest) {
     const returnTo = request.nextUrl.searchParams.get('returnTo')
     const url = request.nextUrl.clone()
 
-    // Validate returnTo to prevent open redirects (only allow local paths)
-    if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
-      url.pathname = returnTo
-      url.search = ''
-      return NextResponse.redirect(url)
+    // Parse path and query separately. OAuth consent must survive the sign-in round trip.
+    // A same-origin check plus backslash rejection prevents protocol-relative / alternate-host redirects.
+    if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') && !returnTo.includes('\\')) {
+      const destination = new URL(returnTo, url.origin)
+      if (destination.origin === url.origin) {
+        url.pathname = destination.pathname
+        url.search = destination.search
+        return NextResponse.redirect(url)
+      }
     }
 
     url.pathname = resolveRedirectPath(profileRole)

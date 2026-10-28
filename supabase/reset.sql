@@ -3516,6 +3516,234 @@ CREATE TABLE IF NOT EXISTS public.ai_action_confirmations (
 
 CREATE INDEX IF NOT EXISTS idx_ai_action_confirmations_user ON public.ai_action_confirmations (user_id, expires_at);
 
+-- =============================================================================
+-- REMOTE MCP CMS APPROVALS
+-- This RPC executes as service_role ONLY. Each invocation is one DB transaction:
+-- lock approval -> validate -> CAS update or create draft -> audit -> save result.
+-- An unsuccessful UPDATE, duplicate slug, or failed audit aborts everything.
+-- =============================================================================
+ALTER TABLE public.ai_action_confirmations
+  ADD COLUMN IF NOT EXISTS result JSONB;
+
+CREATE OR REPLACE FUNCTION public.commit_mcp_approval(
+  p_token_hash TEXT,
+  p_actor_id UUID,
+  p_action TEXT,
+  p_payload_hash TEXT
+) RETURNS JSONB
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = ''
+AS $mcp$
+DECLARE
+  v_approval public.ai_action_confirmations%ROWTYPE;
+  v_payload JSONB;
+  v_changes JSONB;
+  v_kind TEXT;
+  v_id UUID;
+  v_expected TIMESTAMPTZ;
+  v_name TEXT;
+  v_html TEXT;
+  v_content TEXT;
+  v_result JSONB;
+BEGIN
+  -- Do not allow this service-only operation to be promoted into a client RPC.
+  IF CURRENT_USER <> 'service_role' THEN
+    RAISE EXCEPTION 'MCP_APPROVAL_FORBIDDEN' USING ERRCODE = '42501';
+  END IF;
+  IF p_token_hash !~ '^[0-9a-f]{64}$' OR
+      p_payload_hash !~ '^[0-9a-f]{64}$' OR
+      p_action NOT IN (
+        'create_cms_news_draft', 'update_cms_artist',
+        'update_cms_release', 'update_cms_event'
+      ) THEN
+    RAISE EXCEPTION 'MCP_APPROVAL_INVALID' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_approval
+  FROM public.ai_action_confirmations
+  WHERE token_hash = p_token_hash
+  FOR UPDATE;
+
+  IF NOT FOUND OR v_approval.user_id <> p_actor_id OR
+    v_approval.action <> p_action OR v_approval.payload_hash <> p_payload_hash OR
+    v_approval.artist_id IS NOT NULL THEN
+    RAISE EXCEPTION 'MCP_APPROVAL_MISMATCH' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Idempotent network retries return the *recorded* outcome without
+  -- running the mutation or creating a second audit entry.
+  IF v_approval.used_at IS NOT NULL THEN
+    IF v_approval.result IS NULL THEN
+      RAISE EXCEPTION 'MCP_APPROVAL_ALREADY_USED' USING ERRCODE = 'P0001';
+    END IF;
+    RETURN v_approval.result || jsonb_build_object('replayed', true);
+  END IF;
+  IF v_approval.expires_at <= NOW() THEN
+    RAISE EXCEPTION 'MCP_APPROVAL_EXPIRED' USING ERRCODE = 'P0001';
+  END IF;
+
+  v_payload := v_approval.payload;
+  IF jsonb_typeof(v_payload) <> 'object' THEN
+    RAISE EXCEPTION 'MCP_PAYLOAD_INVALID' USING ERRCODE = '22023';
+  END IF;
+
+  IF p_action = 'create_cms_news_draft' THEN
+    IF jsonb_typeof(v_payload->'title') <> 'string' OR
+      jsonb_typeof(v_payload->'slug') <> 'string' OR
+      jsonb_typeof(v_payload->'content') <> 'string' OR
+      length(v_payload->>'title') NOT BETWEEN 5 AND 160 OR
+      length(v_payload->>'content') NOT BETWEEN 20 AND 8000 OR
+      (v_payload->>'slug') !~ '^[a-z0-9]+(-[a-z0-9]+)*$' OR
+      length(v_payload->>'slug') > 180 THEN
+      RAISE EXCEPTION 'MCP_NEWS_INVALID' USING ERRCODE = '22023';
+    END IF;
+    -- The agent supplies plain text, not HTML. Escape before storing rich text.
+    v_content := v_payload->>'content';
+    v_html := replace(replace(replace(replace(replace(
+      v_content, '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),
+      '"', '&quot;'), '''', '&#39;');
+    v_html := '<p>' || replace(replace(v_html, E'\n\n', '</p><p>'), E'\n', '<br>') || '</p>';
+
+    INSERT INTO public.news_posts
+      (title, slug, excerpt, content, status, is_press_only, published_at)
+    VALUES
+      (v_payload->>'title', v_payload->>'slug',
+       COALESCE(v_payload->>'excerpt', ''), v_html,
+       'draft', false, NOW())
+    RETURNING id INTO v_id;
+    v_kind := 'news';
+    v_name := v_payload->>'title';
+    INSERT INTO public.editor_activity_log
+      (editor_id, action, entity_type, entity_id, entity_name, changes)
+    VALUES
+      (p_actor_id, 'create', 'news', v_id, v_name,
+       jsonb_build_object('source', 'mcp', 'status', 'draft', 'approval_id', v_approval.id));
+    v_result := jsonb_build_object(
+      'ok', true, 'detail', 'News draft saved; not published.',
+      'location', '/admin/news/' || v_id::text, 'entity_id', v_id,
+      'replayed', false
+    );
+  ELSE
+    v_changes := v_payload->'changes';
+    v_kind := v_payload->>'kind';
+    IF jsonb_typeof(v_changes) <> 'object' OR v_changes = '{}'::jsonb
+      OR jsonb_typeof(v_payload->'before') <> 'object'
+      OR v_kind IS DISTINCT FROM
+        CASE p_action
+          WHEN 'update_cms_artist' THEN 'artist'
+          WHEN 'update_cms_release' THEN 'release'
+          WHEN 'update_cms_event' THEN 'event'
+        END THEN
+      RAISE EXCEPTION 'MCP_PATCH_INVALID' USING ERRCODE = '22023';
+    END IF;
+    v_id := (v_payload->>'entity_id')::UUID;
+    v_expected := (v_payload->>'expected_updated_at')::TIMESTAMPTZ;
+    v_name := LEFT(COALESCE(v_payload->>'display_name', ''), 180);
+
+    IF v_kind = 'artist' THEN
+      IF EXISTS (
+        SELECT 1 FROM jsonb_object_keys(v_changes) AS k(key)
+        WHERE k.key NOT IN ('bio','genres','website_url','spotify_url','instagram_url')
+      ) THEN
+        RAISE EXCEPTION 'MCP_PATCH_FORBIDDEN_FIELDS' USING ERRCODE = '22023';
+      END IF;
+      UPDATE public.artists SET
+        bio = CASE WHEN v_changes ? 'bio' THEN v_changes->>'bio' ELSE bio END,
+        genres = CASE WHEN v_changes ? 'genres'
+          THEN ARRAY(SELECT jsonb_array_elements_text(v_changes->'genres')) ELSE genres END,
+        website_url = CASE WHEN v_changes ? 'website_url' THEN v_changes->>'website_url' ELSE website_url END,
+        spotify_url = CASE WHEN v_changes ? 'spotify_url' THEN v_changes->>'spotify_url' ELSE spotify_url END,
+        instagram_url = CASE WHEN v_changes ? 'instagram_url' THEN v_changes->>'instagram_url' ELSE instagram_url END
+      WHERE id = v_id AND updated_at = v_expected
+      RETURNING id INTO v_id;
+
+    ELSIF v_kind = 'release' THEN
+      IF EXISTS (
+        SELECT 1 FROM jsonb_object_keys(v_changes) AS k(key)
+        WHERE k.key NOT IN (
+          'title','release_date','cover_art','spotify_url',
+          'apple_music_url','youtube_url','bandcamp_url','catalog_number'
+        )
+      ) THEN
+        RAISE EXCEPTION 'MCP_PATCH_FORBIDDEN_FIELDS' USING ERRCODE = '22023';
+      END IF;
+      UPDATE public.releases SET
+        title = CASE WHEN v_changes ? 'title' THEN v_changes->>'title' ELSE title END,
+        release_date = CASE WHEN v_changes ? 'release_date'
+          THEN (v_changes->>'release_date')::DATE ELSE release_date END,
+        cover_art = CASE WHEN v_changes ? 'cover_art' THEN v_changes->>'cover_art' ELSE cover_art END,
+        spotify_url = CASE WHEN v_changes ? 'spotify_url' THEN v_changes->>'spotify_url' ELSE spotify_url END,
+        apple_music_url = CASE WHEN v_changes ? 'apple_music_url' THEN v_changes->>'apple_music_url' ELSE apple_music_url END,
+        youtube_url = CASE WHEN v_changes ? 'youtube_url' THEN v_changes->>'youtube_url' ELSE youtube_url END,
+        bandcamp_url = CASE WHEN v_changes ? 'bandcamp_url' THEN v_changes->>'bandcamp_url' ELSE bandcamp_url END,
+        catalog_number = CASE WHEN v_changes ? 'catalog_number' THEN v_changes->>'catalog_number' ELSE catalog_number END
+      WHERE id = v_id AND updated_at = v_expected
+      RETURNING id INTO v_id;
+
+    ELSIF v_kind = 'event' THEN
+      IF EXISTS (
+        SELECT 1 FROM jsonb_object_keys(v_changes) AS k(key)
+        WHERE k.key NOT IN (
+          'event_name','concert_date','event_time','venue_name',
+          'venue_city','venue_country','ticket_url'
+        )
+      ) THEN
+        RAISE EXCEPTION 'MCP_PATCH_FORBIDDEN_FIELDS' USING ERRCODE = '22023';
+      END IF;
+      UPDATE public.concerts SET
+        event_name = CASE WHEN v_changes ? 'event_name'
+          THEN v_changes->>'event_name' ELSE event_name END,
+        concert_date = CASE WHEN v_changes ? 'concert_date'
+          THEN (v_changes->>'concert_date')::DATE ELSE concert_date END,
+        event_time = CASE WHEN v_changes ? 'event_time'
+          THEN (v_changes->>'event_time')::TIME ELSE event_time END,
+        venue_name = CASE WHEN v_changes ? 'venue_name' THEN v_changes->>'venue_name' ELSE venue_name END,
+        venue_city = CASE WHEN v_changes ? 'venue_city' THEN v_changes->>'venue_city' ELSE venue_city END,
+        venue_country = CASE WHEN v_changes ? 'venue_country' THEN v_changes->>'venue_country' ELSE venue_country END,
+        ticket_url = CASE WHEN v_changes ? 'ticket_url' THEN v_changes->>'ticket_url' ELSE ticket_url END
+      WHERE id = v_id AND updated_at = v_expected
+      RETURNING id INTO v_id;
+    END IF;
+
+    IF v_id IS NULL THEN
+      RAISE EXCEPTION 'MCP_STALE_CONTENT' USING ERRCODE = 'P0001';
+    END IF;
+    INSERT INTO public.editor_activity_log
+      (editor_id, action, entity_type, entity_id, entity_name, changes)
+    VALUES
+      (p_actor_id, 'update',
+       CASE WHEN v_kind = 'event' THEN 'concert' ELSE v_kind END,
+       v_id, v_name,
+       jsonb_build_object(
+         'source', 'mcp', 'before', v_payload->'before',
+         'after', v_changes,
+         'expected_updated_at', v_payload->'expected_updated_at',
+         'approval_id', v_approval.id
+       ));
+    v_result := jsonb_build_object(
+      'ok', true, 'detail', 'The ' || v_kind || ' record was updated.',
+      'location', CASE v_kind
+        WHEN 'artist' THEN '/admin/artists/' || v_id::text || '/edit'
+        WHEN 'release' THEN '/admin/releases'
+        WHEN 'event' THEN '/admin/events'
+      END,
+      'entity_id', v_id, 'replayed', false
+    );
+  END IF;
+
+  UPDATE public.ai_action_confirmations
+  SET used_at = NOW(), result = v_result
+  WHERE id = v_approval.id;
+  RETURN v_result;
+END;
+$mcp$;
+
+REVOKE ALL ON FUNCTION public.commit_mcp_approval(TEXT, UUID, TEXT, TEXT)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.commit_mcp_approval(TEXT, UUID, TEXT, TEXT)
+  TO service_role;
+
+
+
 CREATE TABLE IF NOT EXISTS public.integration_outbox (
   id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
   target           TEXT        NOT NULL CHECK (target IN ('zammad')),

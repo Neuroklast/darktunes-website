@@ -6,7 +6,7 @@ export async function executeConfirmedAction(
   actor: AiActor,
   action: AiWriteAction,
   payload: Record<string, unknown>,
-): Promise<{ ok: true; detail: string }> {
+): Promise<{ ok: true; detail: string; location?: string }> {
   const artistId = actor.artistId
   switch (action) {
     case 'save_epk_text': {

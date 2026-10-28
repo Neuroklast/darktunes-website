@@ -9,6 +9,7 @@ const EDITOR_ADMIN_PATH_PATTERNS: RegExp[] = [
   /^\/admin\/news\/[^/]+$/,
   /^\/admin\/artists\/[^/]+\/edit$/,
   /^\/admin\/promo-log$/,
+  /^\/admin\/mcp-approvals\/act_[a-f0-9]{48}$/,
 ]
 
 export function isEditorAllowedAdminPath(pathname: string): boolean {

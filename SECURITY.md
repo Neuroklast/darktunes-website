@@ -114,3 +114,9 @@ Bronze presigned PUT URLs target a temporary key. Confirm verifies the copied fi
 
 
 - Press inquiries from authenticated journalists are stored as internal app log entries; promo track previews/downloads continue to use short-lived signed R2 URLs and journalist download logging.
+
+## External CMS and MCP access
+
+`/mcp` is feature-gated and requires a verified Supabase OAuth bearer token with a client identifier and current admin/editor RBAC permissions. Only allowlisted tools are reachable and CMS data is projected to non-sensitive, bounded columns. ChatGPT can prepare a news draft but only a same-origin, human-initiated browser action to `/mcp/news-draft-approvals` can save it. No tool publishes or deletes content. See [docs/MCP_CONNECTOR.md](docs/MCP_CONNECTOR.md).
+
+Supabase OAuth scopes do not currently grant per-domain CMS permissions. Explicitly set `MCP_ALLOWED_OAUTH_CLIENT_IDS` to approved clients. A valid OAuth token for any other client is rejected even if its account is an administrator.

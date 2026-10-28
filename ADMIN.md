@@ -300,3 +300,7 @@ If a public page shows stale data after an admin save:
 - Admin → Settings → any save triggers automatic revalidation of site-settings cache
 - To manually bust artist/release caches: use the "Force Sync All" button in Admin → Health tab
 - Or call: `POST /api/revalidate` with `Authorization: ******
+
+## ChatGPT / MCP connector
+
+The optional connector is off unless `MCP_CONNECTOR_ENABLED=true` and Supabase OAuth Server is configured. Editor/admin access is role-scoped. News draft preparation from ChatGPT only becomes a saved, unpublished draft after the user reviews it through a ten-minute approval link in the website. See [docs/MCP_CONNECTOR.md](docs/MCP_CONNECTOR.md).
