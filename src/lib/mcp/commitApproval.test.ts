@@ -24,7 +24,10 @@ function fixture(overrides: Record<string, unknown> = {}) {
     used_at: null, result: null, payload_hash: hash(canonicalJson(payload)),
     ...overrides,
   }
-  const rpc = vi.fn(async () => ({
+  const rpc = vi.fn(async (): Promise<{
+    data: { ok: boolean; detail: string; location: string; entity_id: string; replayed: boolean } | null
+    error: { code: string; message: string } | null
+  }> => ({
     data: {
       ok: true, detail: 'News draft saved; not published.',
       location: '/admin/news/' + entityId, entity_id: entityId, replayed: false,
@@ -40,7 +43,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
     rpc,
   } as unknown as SupabaseClient<Database>
   const actor = {
-    userId, role: 'editor', accessContext: 'label', dashboard: 'admin',
+    userId, role: 'editor', accessContext: 'editor', dashboard: 'admin',
     artistId: null, artistMembershipIds: [],
     capabilities: new Set<Capability>(['cms.news.edit']),
     availableArtists: [], serviceDb: db, userDb: db,
