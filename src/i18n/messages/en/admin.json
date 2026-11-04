@@ -249,7 +249,7 @@
     "bronzeDeleteConfirm": "Delete this bronze archive (raw CSV in R2) permanently?",
     "bronzeLoadError": "Failed to load import batches",
     "bronzeArchiveLoadError": "Failed to load bronze archive",
-    "bronzeArchiveIncomplete": "This import was not fully archived. Select the original CSV to upload it again."
+    "bronzeArchiveIncomplete": "This import was not fully archived. Select the original CSV to upload it again.",
     "bronzeLoadUnavailable": "Load is not available in this context",
     "currencyFallbackTitle": "Fallback exchange rates in use",
     "currencyFallbackDescription": "ECB rates could not be loaded. Currency conversions may be inaccurate — review before publishing statements.",
