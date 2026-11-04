@@ -186,13 +186,13 @@ describe('buildHealthSnapshot', () => {
     const db = createMockDb()
     await buildHealthSnapshot({
       db,
-      knownApis: { itunes: true, odesli: true },
+      knownApis: { itunes: true, spotify: true },
       nowMs: NOW_MS,
     })
 
     const fromCalls = (db.from as ReturnType<typeof vi.fn>).mock.calls
     const syncLogsCall = fromCalls.filter(([t]) => t === 'sync_logs')
-    // log-store probe + latest itunes + latest odesli + 24h stats (≥4)
+    // log-store probe + latest itunes + latest spotify + 24h stats (≥4)
     expect(syncLogsCall.length).toBeGreaterThanOrEqual(4)
   })
 
@@ -216,10 +216,9 @@ describe('buildHealthSnapshot', () => {
       knownApis: {
         itunes: true,
         spotify: false,
-        discogs: false,
+        discogs: true,
         songkick: false,
         bandsintown: false,
-        discogs: true,
         lastfm: false,
         soundcharts: false,
         apify: false,
