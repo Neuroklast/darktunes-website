@@ -82,7 +82,7 @@ A modern alternative music label platform that combines:
 - Secure downloads via server/presigned patterns (never long-lived public secrets).
 
 ### 3.5 Platform services
-- Sync queue: iTunes, Spotify, Discogs, Odesli, YouTube, Songkick/Bandsintown; Apify public play scrapes (budgeted).
+- Sync queue: iTunes, Spotify, Discogs, YouTube, Songkick/Bandsintown; Apify public play scrapes (budgeted).
 - R2 object keys SSOT (see `docs/agent/data-and-schema.md`).
 - Errors: `withErrorHandler` + `ApiError` on route handlers.
 - Notifications: `emitNotification` catalog after successful writes.
