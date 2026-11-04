@@ -27,10 +27,11 @@ const schema = z.object({
   decision: z.enum(['approve', 'reject']).default('approve'),
 }).strict()
 
-function problem(status: number, detail: string) {
+function problem(status: number, detail: string, code?: string) {
   return new Response(JSON.stringify({
-    type: 'about:blank', title: status === 409 ? 'Conflict' : 'Request denied',
-    status, detail,
+    type: 'about:blank',
+    title: status === 409 ? 'Conflict' : status >= 500 ? 'Review unavailable' : 'Request denied',
+    status, detail, ...(code ? { code } : {}),
   }), {
     status,
     headers: { 'Content-Type': 'application/problem+json', 'Cache-Control': 'no-store' },
@@ -87,11 +88,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     if (error instanceof ApiError) {
-      if (error.status === 503) return problem(503, error.message)
-      if (error.status === 410) return problem(410, error.message)
-      if (error.status === 404) return problem(404, 'This proposal is unavailable to this account.')
-      if (error.status === 403) return problem(403, error.message)
+      if (error.status === 404) {
+        return problem(404, 'This proposal is unavailable to this account.', error.code)
+      }
+      return problem(error.status, error.message, error.code)
     }
-    return problem(409, 'The draft expired, was used, or the record changed. Prepare a new update.')
+    console.error('[mcp] unexpected content approval failure', {
+      action: parsed.data.action,
+      decision: parsed.data.decision,
+      error_type: error instanceof Error ? error.name : 'unknown',
+    })
+    return problem(500, 'The server could not complete this review. The decision was not confirmed.', 'MCP_REVIEW_FAILED')
   }
 }
