@@ -7,7 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import {
   DEFAULT_LABEL_ID,
-  getDecryptedCredential,
+  getDecryptedCredentials,
   getConfiguredCredentialKeys,
 } from '@/lib/api/apiCredentials'
 import type { CredentialKey } from '@/lib/secrets/credentialKeys'
@@ -18,37 +18,42 @@ const CACHE_TTL_MS = 60_000
 
 interface CacheEntry {
   expiresAt: number
-  values: Map<CredentialKey, string | null>
-  configured: Set<CredentialKey>
+  values: Map<CredentialKey, string>
 }
 
 let credentialCache: CacheEntry | null = null
+let pendingCredentialLoad: Promise<CacheEntry> | null = null
+let cacheGeneration = 0
 
 export function invalidateCredentialCache(): void {
+  cacheGeneration += 1
   credentialCache = null
+  pendingCredentialLoad = null
 }
 
 async function loadCredentialCache(db: DbClient): Promise<CacheEntry> {
-  const now = Date.now()
-  if (credentialCache && credentialCache.expiresAt > now) {
+  if (credentialCache && credentialCache.expiresAt > Date.now()) {
     return credentialCache
   }
+  // Share the first cold-cache request among concurrent callers in one isolate.
+  // Cross-instance cache lifetime is limited by the short TTL.
+  if (pendingCredentialLoad) return pendingCredentialLoad
 
-  const configured = await getConfiguredCredentialKeys(db, DEFAULT_LABEL_ID)
-  const values = new Map<CredentialKey, string | null>()
+  const generation = cacheGeneration
+  const load = (async (): Promise<CacheEntry> => {
+    const values = await getDecryptedCredentials(db, DEFAULT_LABEL_ID)
+    const entry = { expiresAt: Date.now() + CACHE_TTL_MS, values }
+    // An admin may invalidate the cache while this query is still in flight.
+    if (generation === cacheGeneration) credentialCache = entry
+    return entry
+  })()
 
-  await Promise.all(
-    [...configured].map(async (key) => {
-      values.set(key, await getDecryptedCredential(db, key, DEFAULT_LABEL_ID))
-    }),
-  )
-
-  credentialCache = {
-    expiresAt: now + CACHE_TTL_MS,
-    values,
-    configured,
+  pendingCredentialLoad = load
+  try {
+    return await load
+  } finally {
+    if (pendingCredentialLoad === load) pendingCredentialLoad = null
   }
-  return credentialCache
 }
 
 export async function getApiCredential(
@@ -56,14 +61,9 @@ export async function getApiCredential(
   key: CredentialKey,
 ): Promise<string | null> {
   const cache = await loadCredentialCache(db)
-  // Prefer cache hits, but never treat a stale "configured" set as authoritative:
-  // a key may have been saved on another instance or after this cache was filled.
-  if (cache.values.has(key)) return cache.values.get(key) ?? null
-
-  const value = await getDecryptedCredential(db, key, DEFAULT_LABEL_ID)
-  cache.values.set(key, value)
-  if (value) cache.configured.add(key)
-  return value
+  // Missing keys are negative-cached too. Admin writes invalidate locally;
+  // other server instances pick up changes after the 60s TTL.
+  return cache.values.get(key) ?? null
 }
 
 export interface SyncCredentials {
@@ -182,54 +182,32 @@ async function countNonNullBandsintownKeys(
 export async function getKnownApiConfiguration(
   db: DbClient,
 ): Promise<Record<string, boolean>> {
-  const [
-    spotifyClientId,
-    spotifyClientSecret,
-    discogsToken,
-    odesliApiKey,
-    songkickApiKey,
-    bandsintownApiKey,
-    lastfmApiKey,
-    soundchartsApiKey,
-    apifyToken,
-    youtubeApiKey,
-    youtubeChannelId,
-    nvidiaApiKey,
-    artistsWithPublicBandsintownKey,
-    artistsWithPrivateBandsintownKey,
-  ] = await Promise.all([
-    getApiCredential(db, 'spotify_client_id'),
-    getApiCredential(db, 'spotify_client_secret'),
-    getApiCredential(db, 'discogs_token'),
-    getApiCredential(db, 'odesli_api_key'),
-    getApiCredential(db, 'songkick_api_key'),
-    getApiCredential(db, 'bandsintown_api_key'),
-    getApiCredential(db, 'lastfm_api_key'),
-    getApiCredential(db, 'soundcharts_api_key'),
-    getApiCredential(db, 'apify_token'),
-    getApiCredential(db, 'youtube_api_key'),
-    getApiCredential(db, 'youtube_channel_id'),
-    getApiCredential(db, 'nvidia_api_key'),
-    countNonNullBandsintownKeys(db, 'artists', 'id'),
-    countNonNullBandsintownKeys(db, 'artist_private_data', 'artist_id'),
-  ])
+  // Status needs only the presence of encrypted envelopes, not the secrets.
+  // One lightweight credential query replaces twelve decrypting lookups.
+  const [configured, artistsWithPublicBandsintownKey, artistsWithPrivateBandsintownKey] =
+    await Promise.all([
+      getConfiguredCredentialKeys(db, DEFAULT_LABEL_ID),
+      countNonNullBandsintownKeys(db, 'artists', 'id'),
+      countNonNullBandsintownKeys(db, 'artist_private_data', 'artist_id'),
+    ])
 
+  const has = (key: CredentialKey): boolean => configured.has(key)
   const hasBandsintown =
-    Boolean(bandsintownApiKey) ||
+    has('bandsintown_api_key') ||
     artistsWithPublicBandsintownKey > 0 ||
     artistsWithPrivateBandsintownKey > 0
 
   return {
     itunes: true,
-    spotify: Boolean(spotifyClientId && spotifyClientSecret),
-    discogs: Boolean(discogsToken),
-    songkick: Boolean(songkickApiKey),
+    spotify: has('spotify_client_id') && has('spotify_client_secret'),
+    discogs: has('discogs_token'),
+    songkick: has('songkick_api_key'),
     bandsintown: hasBandsintown,
-    odesli: Boolean(odesliApiKey),
-    lastfm: Boolean(lastfmApiKey),
-    soundcharts: Boolean(soundchartsApiKey),
-    apify: Boolean(apifyToken),
-    youtube: Boolean(youtubeApiKey && youtubeChannelId),
-    nvidia: Boolean(nvidiaApiKey) || Boolean(process.env.NVIDIA_API_KEY?.trim()),
+    odesli: has('odesli_api_key'),
+    lastfm: has('lastfm_api_key'),
+    soundcharts: has('soundcharts_api_key'),
+    apify: has('apify_token'),
+    youtube: has('youtube_api_key') && has('youtube_channel_id'),
+    nvidia: has('nvidia_api_key') || Boolean(process.env.NVIDIA_API_KEY?.trim()),
   }
 }
