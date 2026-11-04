@@ -60,8 +60,10 @@ describe('shared GPT approval slider', () => {
     })
     expect(refresh).toHaveBeenCalled()
     expect(screen.getByRole('heading', { name: 'Proposal B' })).toBeTruthy()
-    expect(screen.getByText('1 / 2 reviewed this session')).toBeTruthy()
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('1')
+    await waitFor(() => {
+      expect(screen.getByText('1 / 2 reviewed this session')).toBeTruthy()
+      expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('1')
+    })
   })
 
   it('restores a failed decision with an explicit review action', async () => {
