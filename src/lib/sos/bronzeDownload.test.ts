@@ -12,7 +12,7 @@ describe('downloadBronzeCsvText', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('does not request presign-download for an unfinished historical upload', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(metadata('uploaded'))
+    const fetchMock = vi.fn().mockImplementation(async () => metadata('uploaded'))
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(downloadBronzeCsvText(batchId)).rejects.toBeInstanceOf(BronzeArchiveUnavailableError)
