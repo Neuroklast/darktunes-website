@@ -247,7 +247,8 @@
 - [ ] `/admin/accounting` Statement History tab and `/admin/statements` render without `Something went wrong`
 - [ ] Add an expense in period A, save Default / a named preset, open period B → expense is gone; mappings and splits remain
 - [ ] Load a preset while the current period has a manual revenue line → the line is still there
-- [ ] Sampler listed in compilation checks still appears in the artist payout; hiding compilations in PDF/Excel does not change the euro amount
+- [ ] A filtered compilation is excluded from artist payout, release breakdown and original-report sheets; its value remains in the informational audit summary and uploaded source archive
+- [ ] Track `Satisfaction` assigned 100% to Exstais and 0% to featured Agnis appears only in Exstais raw sheets; proportional splits show the allocated net amount separately from original distributor values
 - [ ] Ignored release is gone from payout; ignored artist without a release title drops that artist entirely
 - [ ] Track split 60/40 that sums to 100% splits across roster artists; 70/20 stays on the original artist
 - [ ] Portal PATCH invoice status `paid` returns 4xx; only admin payment records paid. Artist can cancel a draft with no payment
