@@ -17,6 +17,7 @@ export type McpReviewRow = {
 
 export type McpReviewLabels = {
   pending: string
+  reviewed: string
   review: string
   empty: string
   history: string
@@ -95,6 +96,7 @@ export function McpReviewQueue({
 }) {
   const router = useRouter()
   const [hidden, setHidden] = useState<string[]>([])
+  const [completed, setCompleted] = useState<string[]>([])
   const [index, setIndex] = useState(0)
   const [saving, setSaving] = useState<Record<string, string>>({})
   const [failures, setFailures] = useState<Record<string, string>>({})
@@ -107,6 +109,9 @@ export function McpReviewQueue({
   const active = queue[activeIndex]
   const changes = active ? fields(active) : []
   const busyCount = Object.keys(saving).length
+  // A list position is not the number of decisions successfully saved. Keep
+  // the progress numerator based on acknowledged server responses only.
+  const totalCount = new Set([...completed, ...queue.map(row => row.id), ...Object.keys(saving)]).size
 
   const navigate = useCallback((delta: number) => {
     if (detailOpen || historyOpen || queue.length < 2) return
@@ -185,6 +190,7 @@ export function McpReviewQueue({
           throw new Error(body.detail ?? body.error ??
             'HTTP ' + response.status + ': ' + labels.reviewFailed)
         }
+        setCompleted(old => old.includes(row.id) ? old : [...old, row.id])
         router.refresh()
       } catch (error) {
         setHidden(old => old.filter(id => id !== row.id))
@@ -208,14 +214,17 @@ export function McpReviewQueue({
     <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-3 overflow-hidden">
       <div className="flex shrink-0 items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
         <span className="shrink-0 text-sm font-semibold tabular-nums" aria-live="polite">
-          {queue.length ? String(activeIndex + 1) + ' / ' + queue.length : labels.allReviewed}
+          {completed.length} / {totalCount} {labels.reviewed}
         </span>
-        <div role="progressbar" aria-label={labels.pending} aria-valuemin={0}
-          aria-valuemax={Math.max(1, queue.length)} aria-valuenow={queue.length ? activeIndex + 1 : 0}
+        <div role="progressbar" aria-label={labels.reviewed} aria-valuemin={0}
+          aria-valuemax={Math.max(1, totalCount)} aria-valuenow={completed.length}
           className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
           <div className="h-full rounded-full bg-primary transition-[width] duration-200"
-            style={{ width: queue.length ? ((activeIndex + 1) / queue.length) * 100 + '%' : '0%' }} />
+            style={{ width: totalCount ? (completed.length / totalCount) * 100 + '%' : '0%' }} />
         </div>
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          {labels.pending}: {queue.length}
+        </span>
         <span role="status" aria-live="polite" className="shrink-0 text-xs text-muted-foreground">
           {busyCount ? labels.saving + ' ' + busyCount : ''}
         </span>
@@ -229,7 +238,7 @@ export function McpReviewQueue({
           {Object.entries(failures).map(([id, reason]) => {
             const position = queue.findIndex(row => row.id === id)
             return <div key={id} className="flex flex-wrap items-center gap-2">
-              <span className="min-w-0 flex-1">{labels.reviewFailed} {reason}</span>
+              <span className="min-w-0 flex-1">{reason}</span>
               {position >= 0 ? <button type="button" className="rounded-md border border-current px-2 py-1"
                 onClick={() => {
                   setIndex(position)
