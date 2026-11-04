@@ -93,7 +93,7 @@
     "changes": "Aperçu des modifications",
     "openHistory": "Décisions récentes",
     "preparing": "Les valeurs complètes et leur comparaison sont disponibles dans Voir tous les champs.",
-    "reviewed": "traitées"
+    "reviewed": "traitées durant cette session"
   },
   "tour_planner_page_title": "Planificateur de tournée",
   "tour_planner_page_desc": "Vue d’ensemble en lecture seule des données de production de tournée des artistes.",
