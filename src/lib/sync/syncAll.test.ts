@@ -346,6 +346,20 @@ describe('syncSingleArtist', () => {
     expect(result.results.find((r) => r.api === 'itunes')).toBeUndefined()
   })
 
+  it('ignores retired legacy job types without querying the database', async () => {
+    const db = makeMockDb(() => ({ data: [mockArtist], error: null }))
+    const fetchFn = vi.fn()
+    const result = await syncSingleArtist(mockArtist.id, 'odesli', {
+      db,
+      fetch: fetchFn as typeof fetch,
+      uploadToR2: vi.fn(),
+    })
+
+    expect(result).toEqual({ results: [], totalErrors: 0 })
+    expect(db.from).not.toHaveBeenCalled()
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+
   it('maps songkick jobType to onlyApi=songkick, skipping iTunes', async () => {
     const db = makeMockDb((table) => {
       if (table === 'artists') return { data: [{ ...mockArtist, songkick_id: 'sk-1' }], error: null }
