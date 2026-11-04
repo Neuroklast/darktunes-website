@@ -284,7 +284,7 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
       }
       bronzeStartedRef.current.add(id)
       setFileMetas((prev) =>
-        (prev ?? []).some((file) => file.bronzeBatchId === batch.id) ? prev : [...(prev ?? []), meta],
+        (prev ?? []).some((file) => file.bronzeBatchId === batch.id) ? (prev ?? []) : [...(prev ?? []), meta],
       )
       setFileDataMap((prev) => ({ ...prev, [id]: data }))
       // The metadata is being inserted in the same React update cycle, so
