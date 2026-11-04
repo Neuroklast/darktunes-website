@@ -82,6 +82,16 @@ components:
         must have the `partner_api` feature enabled.
 
   schemas:
+    McpReviewResult:
+      type: object
+      required: [ok, detail, location, entity_id, replayed]
+      properties:
+        ok: { type: boolean, const: true }
+        detail: { type: string }
+        location: { type: string }
+        entity_id: { type: string, format: uuid }
+        replayed: { type: boolean }
+        decision: { type: string, enum: [approved, rejected] }
     ErrorResponse:
       type: object
       required: [error]
@@ -724,6 +734,96 @@ components:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
 
 paths:
+  /mcp/content-approvals:
+    post:
+      operationId: reviewMcpContentProposal
+      tags: [Admin]
+      summary: Accept or decline a GPT-proposed artist, release or event edit
+      description: >
+        Requires a same-origin, cookie-authenticated darkTunes admin/editor
+        browser session. OAuth bearer requests are rejected. All administrators
+        may review the shared queue; editors may review only their own proposals.
+        Decisions are atomic and idempotent. Content changes require the
+        corresponding current CMS capability.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, action]
+              properties:
+                token:
+                  type: string
+                  description: Server-generated proposal UUID or legacy one-time token.
+                action:
+                  type: string
+                  enum: [update_cms_artist, update_cms_release, update_cms_event]
+                decision:
+                  type: string
+                  enum: [approve, reject]
+                  default: approve
+      responses:
+        '200':
+          description: Proposal accepted or declined in a database transaction.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpReviewResult'
+        '400': { description: Invalid identifier or action }
+        '401': { description: Login required }
+        '403': { description: Insufficient CMS permission or origin rejected }
+        '409': { description: Proposal changed, already decided or no longer applicable }
+        '410': { description: Proposal expired }
+        '429': { description: Too many review attempts }
+        '503': { description: MCP disabled or database function not deployed }
+  /mcp/news-draft-approvals:
+    post:
+      operationId: reviewMcpNewsProposal
+      tags: [Admin]
+      summary: Accept or decline a GPT-prepared unpublished news draft
+      description: >
+        Same-origin browser session required. All administrators may review
+        any pending label proposal while editors can review only their own.
+        Accept creates an unpublished draft; decline never mutates CMS content.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token:
+                  type: string
+                decision:
+                  type: string
+                  enum: [approve, reject]
+                  default: approve
+      responses:
+        '200':
+          description: Proposal declined or replay of a previously committed decision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpReviewResult'
+        '201':
+          description: An unpublished news draft was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpReviewResult'
+        '400': { description: Invalid identifier }
+        '401': { description: Login required }
+        '403': { description: Insufficient CMS permission or origin rejected }
+        '409': { description: Proposal changed or already decided }
+        '410': { description: Proposal expired }
+        '429': { description: Too many review attempts }
+        '503': { description: MCP disabled or database function not deployed }
   /api/account:
     delete:
       operationId: deleteaccount
