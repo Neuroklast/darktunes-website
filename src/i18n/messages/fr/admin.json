@@ -12,7 +12,8 @@
     "dashboard": "Tableau de bord",
     "group_content": "Contenu",
     "group_submissions": "Soumissions",
-    "group_press": "Presse",    "artists": "Artistes",
+    "group_press": "Presse",
+    "artists": "Artistes",
     "releases": "Sorties",
     "news": "Actualités",
     "videos": "Vidéos",
@@ -73,7 +74,6 @@
     "review": "Examiner les modifications",
     "history": "Historique récent",
     "completed": "Validé",
-
     "expired": "Expiré",
     "back": "Retour",
     "skip": "Ignorer",
@@ -92,7 +92,8 @@
     "rejected": "Refusé",
     "changes": "Aperçu des modifications",
     "openHistory": "Décisions récentes",
-    "preparing": "Les valeurs complètes et leur comparaison sont disponibles dans Voir tous les champs."
+    "preparing": "Les valeurs complètes et leur comparaison sont disponibles dans Voir tous les champs.",
+    "reviewed": "traitées"
   },
   "tour_planner_page_title": "Planificateur de tournée",
   "tour_planner_page_desc": "Vue d’ensemble en lecture seule des données de production de tournée des artistes.",
@@ -1559,8 +1560,7 @@
   "submission_download_audio": "Télécharger l’audio",
   "submission_download_cover": "Télécharger la pochette",
   "submission_files_expire_today": "L’audio et la pochette expirent aujourd’hui et seront supprimés. Téléchargez-les maintenant.",
-  "submission_files_expire_in": "L’audio et la pochette seront supprimés automatiquement dans {days} jours. Téléchargez-les maintenant."
-,
+  "submission_files_expire_in": "L’audio et la pochette seront supprimés automatiquement dans {days} jours. Téléchargez-les maintenant.",
   "overview": {
     "title": "Vue d’ensemble",
     "introAdmin": "Ce qui demande votre attention aujourd’hui et ce qui a changé récemment.",
@@ -1585,7 +1585,10 @@
         "title": "Pages artistes à valider",
         "hint": "En attente d’approbation"
       },
-      "unreadMessages": { "title": "Messages non lus", "hint": "Nouveaux depuis votre dernière consultation" },
+      "unreadMessages": {
+        "title": "Messages non lus",
+        "hint": "Nouveaux depuis votre dernière consultation"
+      },
       "statementsToReview": {
         "title": "Relevés à vérifier",
         "hint": "Brouillon ou approuvé, pas encore envoyé"
