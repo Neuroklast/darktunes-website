@@ -43,9 +43,11 @@ export function processTransactionsWithCompilations(
     config.historicalExchangeRates ?? {},
   )
 
-  const workingTransactions = config.excludePhysical
+  // A compilation exclusion removes rows from artist settlements and their raw exports.
+  // Keep the original input untouched for the audit summary / bronze archive.
+  const workingTransactions = (config.excludePhysical
     ? transactions.filter(t => !t.is_physical)
-    : transactions
+    : transactions).filter(t => !compilationTransactionIds.has(t.id))
 
   const resolved = workingTransactions.map(t => ({
     ...t,
