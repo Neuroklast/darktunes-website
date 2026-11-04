@@ -17,7 +17,7 @@ registerTool({
   output: z.object({
     needs_confirmation: z.literal(true),
     approval_url: z.string(),
-    expires_at: z.string(),
+    expires_at: z.string().nullable(),
     summary: z.string(),
   }),
   capabilities: ['cms.news.edit'],
