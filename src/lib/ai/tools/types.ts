@@ -3,7 +3,7 @@ import type { AiActor } from '@/lib/ai/auth/requireAiActor'
 import type { Capability } from '@/lib/rbac/types'
 
 export type ToolClassification = 'read' | 'write'
-export type ToolDataScope = 'self_artist' | 'label' | 'none'
+export type ToolDataScope = 'self_artist' | 'label' | 'admin_finance' | 'none'
 
 export interface ToolContext {
   actor: AiActor
