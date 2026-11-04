@@ -166,7 +166,7 @@ describe('buildHealthSnapshot', () => {
   it('builds full snapshot when db is online', async () => {
     const snapshot = await buildHealthSnapshot({
       db: createMockDb(),
-      knownApis: { itunes: true, odesli: true },
+      knownApis: { itunes: true, spotify: true },
       nowMs: NOW_MS,
     })
 
@@ -199,7 +199,7 @@ describe('buildHealthSnapshot', () => {
   it('surfaces older API last-runs even when a recent chatty source exists', async () => {
     const snapshot = await buildHealthSnapshot({
       db: createMockDb([RECENT_ITUNES_LOG, OLDER_SPOTIFY_LOG]),
-      knownApis: { itunes: true, spotify: true, odesli: true },
+      knownApis: { itunes: true, spotify: true, discogs: true },
       nowMs: NOW_MS,
     })
 
@@ -219,7 +219,7 @@ describe('buildHealthSnapshot', () => {
         discogs: false,
         songkick: false,
         bandsintown: false,
-        odesli: true,
+        discogs: true,
         lastfm: false,
         soundcharts: false,
         apify: false,
