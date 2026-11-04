@@ -219,15 +219,18 @@ export async function runNvidiaConnectionTest(options: {
         })
       let completion = await request(false, 512)
       let supported = hasValidEcho(completion)
+      let requiresThinkingForTools = false
       // Some reasoning-capable fast models require thinking mode to form
       // structured tool calls. Probe it only after a failed non-thinking call.
       if (!supported && getModelProfile(model).supports_enable_thinking) {
         completion = await request(true, 2048, '-thinking')
         supported = hasValidEcho(completion)
+        requiresThinkingForTools = supported
       }
       discovered[model] = {
         ...(discovered[model] ?? {}),
         supports_tools: supported,
+        requires_thinking_for_tools: requiresThinkingForTools,
       }
       if (!supported) {
         throw new AiProviderError(
