@@ -191,24 +191,40 @@ export async function runNvidiaConnectionTest(options: {
     out.push(stream)
 
     const tool = await runStep(toolId, model, async () => {
-      const completion = await provider.complete({
-        request_id: `connection-test-${role}-tool`,
-        model,
-        messages: [
-          {
-            role: 'user',
-            content: 'Call echo_test with ping set to pong. Do not answer in prose.',
-          },
-        ],
-        tools: [CONNECTION_TEST_ECHO_TOOL],
-        tool_choice: 'required',
-        max_tokens: 128,
-        enable_thinking: false,
-        force_nonempty_content: true,
-        timeout_ms: timeoutMs,
-        retry: false,
-      })
-      const supported = completion.tool_calls.some((call) => call.name === 'echo_test')
+      const prompt = 'Call echo_test with ping set to pong. Do not answer in prose.'
+      const request = async (thinking: boolean, tokenLimit: number, suffix = '') =>
+        provider.complete({
+          request_id: `connection-test-${role}-tool${suffix}`,
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          tools: [CONNECTION_TEST_ECHO_TOOL],
+          tool_choice: 'required',
+          // A 128-token cap can be exhausted by reasoning before the tool call
+          // is emitted. Do not force an answer when we require a tool call.
+          max_tokens: tokenLimit,
+          enable_thinking: thinking,
+          timeout_ms: timeoutMs,
+          retry: false,
+        })
+      const hasValidEcho = (completion: Awaited<ReturnType<typeof request>>) =>
+        completion.tool_calls.some((call) => {
+          if (call.name !== 'echo_test') return false
+          try {
+            const args: unknown = JSON.parse(call.arguments)
+            return Boolean(args && typeof args === 'object' &&
+              (args as { ping?: unknown }).ping === 'pong')
+          } catch {
+            return false
+          }
+        })
+      let completion = await request(false, 512)
+      let supported = hasValidEcho(completion)
+      // Some reasoning-capable fast models require thinking mode to form
+      // structured tool calls. Probe it only after a failed non-thinking call.
+      if (!supported && getModelProfile(model).supports_enable_thinking) {
+        completion = await request(true, 2048, '-thinking')
+        supported = hasValidEcho(completion)
+      }
       discovered[model] = {
         ...(discovered[model] ?? {}),
         supports_tools: supported,
@@ -216,7 +232,7 @@ export async function runNvidiaConnectionTest(options: {
       if (!supported) {
         throw new AiProviderError(
           'TOOL_CALL_UNSUPPORTED',
-          'The model did not emit the echo_test tool call.',
+          'The model did not emit a valid echo_test tool call, including the thinking-mode retry.',
         )
       }
     })
