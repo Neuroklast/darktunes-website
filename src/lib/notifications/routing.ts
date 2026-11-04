@@ -72,6 +72,8 @@ function getKnownNotificationHref(
       return withEntity(withArtist('/portal/invoices', artistId), entityId)
     case 'journalist_application_submitted':
       return '/admin/press'
+    case 'mcp_approval_pending':
+      return '/admin/mcp-approvals'
     case 'journalist_application_decision':
       return '/press/dashboard'
     default:
@@ -111,6 +113,8 @@ export function getNotificationSummaryFallback(
       return entityName ?? 'Invoice payment received'
     case 'journalist_application_submitted':
       return entityName ?? 'New journalist application'
+    case 'mcp_approval_pending':
+      return entityName ? `GPT approval: ${entityName}` : 'GPT change awaiting approval'
     case 'journalist_application_decision':
       return entityName ?? 'Journalist application decision'
     default:
@@ -146,6 +150,8 @@ export function getNotificationActionLabelFallback(type: string): string {
       return 'Open invoices'
     case 'journalist_application_submitted':
       return 'Review application'
+    case 'mcp_approval_pending':
+      return 'Review GPT change'
     case 'journalist_application_decision':
       return 'Open press dashboard'
     default:
