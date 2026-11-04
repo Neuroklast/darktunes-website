@@ -15,6 +15,7 @@ import { contentChangePayload, contentCapability } from '@/lib/mcp/contentMutati
 import { mcpNewsDraftSchema } from '@/lib/ai/tools/mcpWrites'
 
 const tokenPattern = /^act_[a-f0-9]{48}$/
+const approvalIdPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/
 const rpcResult = z.object({
   ok: z.literal(true),
   detail: z.string(),
@@ -38,14 +39,16 @@ export async function commitMcpApproval(
   token: string,
   action: McpAction,
 ): Promise<z.infer<typeof rpcResult>> {
-  if (!tokenPattern.test(token)) {
-    throw new ApiError(400, 'This approval token is malformed.', 'VALIDATION_ERROR')
+  const isToken = tokenPattern.test(token)
+  if (!isToken && !approvalIdPattern.test(token)) {
+    throw new ApiError(400, 'This approval identifier is malformed.', 'VALIDATION_ERROR')
   }
-  const tokenHash = createHash('sha256').update(token).digest('hex')
-  const { data: pending, error: lookupError } = await actor.serviceDb
-    .from('ai_action_confirmations')
-    .select('user_id,artist_id,action,payload_hash,payload,expires_at,used_at,result')
-    .eq('token_hash', tokenHash).maybeSingle()
+  const tokenHash = isToken ? createHash('sha256').update(token).digest('hex') : null
+  const lookup = actor.serviceDb.from('ai_action_confirmations')
+    .select('id,token_hash,user_id,artist_id,action,payload_hash,payload,expires_at,used_at,result')
+  const { data: pending, error: lookupError } = await (
+    isToken ? lookup.eq('token_hash', tokenHash!) : lookup.eq('id', token)
+  ).maybeSingle()
   if (lookupError) throw lookupError
   if (!pending || pending.user_id !== actor.userId ||
       pending.artist_id !== null || pending.action !== action) {
@@ -77,8 +80,12 @@ export async function commitMcpApproval(
     throw new ApiError(403, 'An editor or administrator must approve this change.', 'FORBIDDEN')
   }
 
+  const approvalHash = tokenHash ?? pending.token_hash
+  if (!/^[0-9a-f]{64}$/.test(approvalHash)) {
+    throw new ApiError(409, 'The stored approval identifier is invalid.', 'CONFLICT')
+  }
   const { data, error } = await actor.serviceDb.rpc('commit_mcp_approval', {
-    p_token_hash: tokenHash,
+    p_token_hash: approvalHash,
     p_actor_id: actor.userId,
     p_action: action,
     p_payload_hash: pending.payload_hash,
@@ -96,6 +103,18 @@ export async function commitMcpApproval(
   const parsed = rpcResult.safeParse(data)
   if (!parsed.success) {
     throw new ApiError(500, 'The approval returned an invalid database result.', 'MCP_INVALID_RESULT')
+  }
+  // A completed approval no longer needs to appear unread in the existing bell.
+  if (pending.id) {
+    try {
+      await actor.serviceDb.from('notifications')
+        .update({ read: true })
+        .eq('user_id', actor.userId)
+        .eq('entity_id', pending.id)
+        .eq('type', 'mcp_approval_pending')
+    } catch {
+      // Notification bookkeeping must not turn a committed edit into an error.
+    }
   }
   return parsed.data
 }
