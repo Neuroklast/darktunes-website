@@ -62,6 +62,19 @@
     "noEditorPermissionsTitle": "Keine Editor-Rechte",
     "noEditorPermissionsBody": "Deinem Konto sind keine Content-Berechtigungen zugewiesen. Bitte wende dich an deinen Administrator."
   },
+  "mcpApprovals": {
+    "description": "Prüfe und bestätige Änderungen von ChatGPT. Hier siehst du nur Freigaben für dein Konto.",
+    "disabled": "Die GPT-Anbindung ist derzeit deaktiviert.",
+    "loadError": "Die Freigaben konnten nicht geladen werden.",
+    "pending": "Offene Freigaben",
+    "empty": "Keine Änderungen warten auf deine Freigabe.",
+    "newsDraft": "News-Entwurf",
+    "expires": "Läuft ab",
+    "review": "Änderungen prüfen",
+    "history": "Letzte Freigaben",
+    "completed": "Bestätigt",
+    "expired": "Abgelaufen"
+  },
   "tour_planner_page_title": "Tourplaner",
   "tour_planner_page_desc": "Nur-Lese-Übersicht der Tour-Production-Daten der Künstler.",
   "tour_planner_loading": "Laden…",
