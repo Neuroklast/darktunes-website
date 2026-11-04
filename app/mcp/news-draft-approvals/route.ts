@@ -14,7 +14,10 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const schema = z.object({ token: z.union([z.string().uuid(), z.string().regex(/^act_[a-f0-9]{48}$/)]) }).strict()
+const schema = z.object({
+  token: z.union([z.string().uuid(), z.string().regex(/^act_[a-f0-9]{48}$/)]),
+  decision: z.enum(['approve', 'reject']).default('approve'),
+}).strict()
 
 function problem(status: number, title: string, detail: string) {
   return new Response(JSON.stringify({ type: 'about:blank', title, status, detail }), {
@@ -38,7 +41,7 @@ export async function POST(req: NextRequest) {
   }
   let actor: Awaited<ReturnType<typeof requireAiActor>>
   try {
-    actor = await requireAiActor(req, { dashboard: 'admin' })
+    actor = await requireAiActor(req)
   } catch {
     return problem(401, 'Unauthorized', 'Sign in to darkTunes before approving a draft.')
   }
@@ -62,11 +65,11 @@ export async function POST(req: NextRequest) {
   }
   if (!input.success) return problem(400, 'Bad request', 'A valid one-time token is required.')
   try {
-    const result = await commitMcpApproval(actor, input.data.token, 'create_cms_news_draft')
+    const result = await commitMcpApproval(actor, input.data.token, 'create_cms_news_draft', input.data.decision)
     revalidatePath('/admin/mcp-approvals')
     revalidatePath('/admin/news')
     return NextResponse.json(result, {
-      status: result.replayed ? 200 : 201, headers: {
+      status: result.replayed || input.data.decision === 'reject' ? 200 : 201, headers: {
         'Cache-Control': 'no-store',
         ...(result.location ? { Location: result.location } : {}),
       },
@@ -75,7 +78,7 @@ export async function POST(req: NextRequest) {
     if (error instanceof ApiError) {
       if (error.status === 503) return problem(503, 'Database setup required', error.message)
       if (error.status === 410) return problem(410, 'Approval expired', error.message)
-      if (error.status === 404) return problem(404, 'Approval not found', 'The approval belongs to another account or does not exist.')
+      if (error.status === 404) return problem(404, 'Approval not found', 'The proposal is unavailable to this account or does not exist.')
       if (error.status === 403) return problem(403, 'Approval forbidden', error.message)
     }
     return problem(409, 'Draft not saved', 'Approval expired, was used, or the draft could not be saved. Prepare a new draft.')
