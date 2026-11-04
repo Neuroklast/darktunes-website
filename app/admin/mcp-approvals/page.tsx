@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
-import { AdminPageShell } from '@/app/admin/_components/AdminPageShell'
+import { AdminPageShell } from '../_components/AdminPageShell'
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { resolveEffectiveAccess } from '@/lib/rbac/resolveAccess'
 import { mcpActions } from '@/lib/mcp/commitApproval'
@@ -19,8 +19,8 @@ function approvalTitle(payload: Record<string, unknown>, action: string): string
   return action.replaceAll('_', ' ')
 }
 
-function changeDescription(payload: Record<string, unknown>, action: string): string {
-  if (action === 'create_cms_news_draft') return 'News draft'
+function changeDescription(payload: Record<string, unknown>, action: string, newsDraftLabel: string): string {
+  if (action === 'create_cms_news_draft') return newsDraftLabel
   const changes = payload.changes
   if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
     return action.replaceAll('_', ' ')
@@ -30,6 +30,7 @@ function changeDescription(payload: Record<string, unknown>, action: string): st
 
 export default async function McpApprovalsInboxPage() {
   const tNav = await getTranslations('admin.nav')
+  const t = await getTranslations('admin.mcpApprovals')
   const locale = await getLocale()
   const session = await createServerSupabaseClient()
   const { data: { user } } = await session.auth.getUser()
@@ -58,21 +59,21 @@ export default async function McpApprovalsInboxPage() {
   return (
     <AdminPageShell
       title={tNav('mcpApprovals')}
-      description="Review and approve changes proposed by ChatGPT. Only approvals created for your account are shown."
+      description={t('description')}
     >
       {process.env.MCP_CONNECTOR_ENABLED !== 'true' ? (
-        <p className="text-sm text-muted-foreground">The GPT connector is currently disabled.</p>
+        <p className="text-sm text-muted-foreground">{t('disabled')}</p>
       ) : error ? (
-        <p role="alert" className="text-sm text-destructive">The approval inbox could not be loaded.</p>
+        <p role="alert" className="text-sm text-destructive">{t('loadError')}</p>
       ) : (
         <div className="mx-auto max-w-4xl space-y-8">
           <section className="space-y-4" aria-labelledby="pending-approvals">
             <h2 id="pending-approvals" className="text-lg font-semibold">
-              Pending approvals ({pending.length})
+              {t('pending')} ({pending.length})
             </h2>
             {pending.length === 0 ? (
               <p className="rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground">
-                No changes are awaiting your approval.
+                {t('empty')}
               </p>
             ) : (
               <ul className="space-y-3">
@@ -82,16 +83,16 @@ export default async function McpApprovalsInboxPage() {
                     <li key={row.id} className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-5">
                       <div className="min-w-0 space-y-1">
                         <p className="font-semibold break-words">{approvalTitle(payload, row.action)}</p>
-                        <p className="text-sm text-muted-foreground">{changeDescription(payload, row.action)}</p>
+                        <p className="text-sm text-muted-foreground">{changeDescription(payload, row.action, t('newsDraft'))}</p>
                         <p className="text-xs text-muted-foreground">
-                          Expires {dateFormat.format(new Date(row.expires_at))}
+                          {t('expires')} {dateFormat.format(new Date(row.expires_at))}
                         </p>
                       </div>
                       <Link
                         href={`/admin/mcp-approvals/${row.id}`}
                         className="inline-flex min-h-10 items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
                       >
-                        Review changes
+                        {t('review')}
                       </Link>
                     </li>
                   )
@@ -101,14 +102,14 @@ export default async function McpApprovalsInboxPage() {
           </section>
           {history.length > 0 && (
             <section className="space-y-3" aria-labelledby="approval-history">
-              <h2 id="approval-history" className="text-lg font-semibold">Recent history</h2>
+              <h2 id="approval-history" className="text-lg font-semibold">{t('history')}</h2>
               <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
                 {history.map(row => {
                   const payload = row.payload as Record<string, unknown>
                   return (
                     <li key={row.id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-3 text-sm">
                       <span className="min-w-0 break-words">{approvalTitle(payload, row.action)}</span>
-                      <span className="shrink-0 text-muted-foreground">{row.used_at ? 'Completed' : 'Expired'}</span>
+                      <span className="shrink-0 text-muted-foreground">{row.used_at ? t('completed') : t('expired')}</span>
                     </li>
                   )
                 })}
