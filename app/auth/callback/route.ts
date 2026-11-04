@@ -69,7 +69,7 @@ async function establishRecoverySession(
   const destination = recoveryLoginUrl(origin, { exchanged: '1' })
   const { supabase, getResponse } = createRecoveryCookieClient(request, destination)
 
-  await supabase.auth.signOut()
+  await supabase.auth.signOut({ scope: 'local' })
 
   const { error } = await authenticate(supabase)
 
@@ -142,7 +142,7 @@ async function establishInviteSession(
 
   const { supabase, getResponse } = createInviteCookieClient(request, destination)
 
-  await supabase.auth.signOut()
+  await supabase.auth.signOut({ scope: 'local' })
 
   const { error } = await supabase.auth.verifyOtp({
     type: 'invite',
@@ -194,7 +194,7 @@ export async function GET(request: NextRequest) {
       ? invitePortalUrl(origin, { exchanged: '1' })
       : inviteLoginUrl(origin, { exchanged: '1' })
     const { supabase, getResponse } = createInviteCookieClient(request, destination)
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (error) {
       const failureResponse = NextResponse.redirect(inviteLoginUrl(origin, { error: 'auth_failed' }))
