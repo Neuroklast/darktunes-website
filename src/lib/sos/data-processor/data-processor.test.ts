@@ -194,6 +194,19 @@ describe('processTransactionsWithCompilations', () => {
     expect(sheets.get('exstais')?.[0]?.rows[0]?.[1]).toBe('Satisfaction')
   })
 
+  it('does not reassign a locked owner outside the roster to a featured roster artist', () => {
+    const { artistData } = processTransactionsWithCompilations([
+      makeTx({ original_artist: 'Exstais feat Agnis', release_title: 'Satisfaction',
+        track_title: 'Satisfaction', net_revenue: 250 }),
+    ], {
+      ...emptyConfig(),
+      labelArtists: [{ id: 'agnis', name: 'Agnis' }],
+      trackRevenueAssignments: [{ id: 'owner', trackTitle: 'Satisfaction',
+        owners: [{ artist: 'Exstais', percentage: 100 }] }],
+    })
+    expect(artistData).toHaveLength(0)
+  })
+
   it('sums compilation summary after FX conversion', () => {
     const { filteredCompilations } = processTransactionsWithCompilations(
       [makeTx({
