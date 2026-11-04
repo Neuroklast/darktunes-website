@@ -249,6 +249,7 @@
     "bronzeDeleteConfirm": "Supprimer définitivement cette archive bronze (CSV brut dans R2) ?",
     "bronzeLoadError": "Échec du chargement des lots d’import",
     "bronzeArchiveLoadError": "Échec du chargement de l’archive bronze",
+    "bronzeArchiveIncomplete": "Cet import n'a pas été complètement archivé. Téléversez à nouveau le fichier CSV d'origine."
     "bronzeLoadUnavailable": "Le chargement n’est pas disponible dans ce contexte",
     "currencyFallbackTitle": "Taux de change de secours utilisés",
     "currencyFallbackDescription": "Les taux BCE n’ont pas pu être chargés. Les conversions de devises peuvent être inexactes — vérifiez avant de publier les relevés.",
