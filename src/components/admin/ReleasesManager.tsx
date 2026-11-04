@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus, PencilSimple, Trash, ArrowsClockwise, LinkSimple, Warning, MagnifyingGlass } from '@phosphor-icons/react'
+import { Plus, PencilSimple, Trash, ArrowsClockwise, Warning, MagnifyingGlass } from '@phosphor-icons/react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useReleases } from '@/hooks/useReleases'
 import { useNews } from '@/hooks/useNews'
@@ -176,7 +176,6 @@ export function ReleasesManager() {
   const [editingRelease, setEditingRelease] = useState<Release | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Release | null>(null)
   const [isMutating, setIsMutating] = useState(false)
-  const [resolvingSmartLinkId, setResolvingSmartLinkId] = useState<string | null>(null)
   const [syncResult, setSyncResult] = useState<SyncAllResult | null>(null)
   const [isCleaningUp, setIsCleaningUp] = useState(false)
 
@@ -375,53 +374,6 @@ export function ReleasesManager() {
       toast.error(err instanceof Error ? err.message : tErrors('SERVER_ERROR'))
     } finally {
       setIsCleaningUp(false)
-    }
-  }
-
-  const handleResolveSmartLink = async (release: Release) => {
-    setResolvingSmartLinkId(release.id)
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error(tErrors('AUTH_REQUIRED'))
-
-      const res = await fetch('/api/admin/resolve-release-smart-link', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ releaseId: release.id }),
-      })
-
-      const rawText = await res.text()
-      if (!rawText.trim()) {
-        throw new Error(res.ok ? tErrors('SERVER_ERROR') : `Request failed (${res.status})`)
-      }
-      let body: ApiErrorResponse & { smartUrl?: string; platforms?: Record<string, string> }
-      try {
-        body = JSON.parse(rawText) as ApiErrorResponse & {
-          smartUrl?: string
-          platforms?: Record<string, string>
-        }
-      } catch {
-        throw new Error(rawText.trim().slice(0, 200) || tErrors('SERVER_ERROR'))
-      }
-      if (!res.ok) {
-        throw new Error(getErrorMessage(body, tErrors))
-      }
-      const platformCount = Object.keys(body.platforms ?? {}).length
-      if (platformCount === 0 && !body.smartUrl) throw new Error(tErrors('SERVER_ERROR'))
-      toast.success(
-        platformCount > 0
-          ? `Platform links resolved for "${release.title}" (${platformCount} service${platformCount === 1 ? '' : 's'}).`
-          : `Smart link resolved for "${release.title}".`,
-      )
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : tErrors('SERVER_ERROR'))
-    } finally {
-      setResolvingSmartLinkId(null)
     }
   }
 
@@ -638,33 +590,6 @@ export function ReleasesManager() {
         const release = row.original
         return (
           <div className="flex justify-end gap-2">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => void handleResolveSmartLink(release)}
-              disabled={resolvingSmartLinkId === release.id || (!release.spotifyUrl && !release.appleMusicUrl)}
-              title={
-                release.platformLinks && Object.keys(release.platformLinks).length > 0
-                  ? 'Re-resolve platform links (Odesli)'
-                  : 'Resolve platform links (Odesli)'
-              }
-              aria-label={
-                release.platformLinks && Object.keys(release.platformLinks).length > 0
-                  ? `Re-resolve platform links for ${release.title}`
-                  : `Resolve platform links for ${release.title}`
-              }
-            >
-              <LinkSimple
-                size={16}
-                aria-hidden="true"
-                className={resolvingSmartLinkId === release.id ? 'animate-pulse' : ''}
-                weight={
-                  release.platformLinks && Object.keys(release.platformLinks).length > 0
-                    ? 'fill'
-                    : 'regular'
-                }
-              />
-            </Button>
             <Button
               size="icon"
               variant="ghost"
