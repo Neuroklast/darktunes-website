@@ -514,8 +514,8 @@
 - [ ] Accept/Decline advance instantly before the server returns; multiple decisions can be in flight, duplicate submissions on one item are suppressed, the saving count is visible, and navigation/reload warns about pending writes.
 - [ ] A server failure restores the proposal with an actionable retry button; no optimistic message claims the database decision succeeded.
 - [ ] Two admins racing to accept/decline the same proposal result in one atomic decision; the second receives a conflict/replay outcome, no duplicate draft or audit entry is created, and all admins' notifications are marked read after settlement.
-- [ ] Previously generated ten-minute MCP proposals gain a 30-day expiration window when the reviewed database update is deployed. Other AI confirmation types retain ten-minute expiration.
-- [ ] A proposal expires after its 30-day window, disappears from pending reviews and shows in recent history as expired.
+- [ ] Previously generated ten-minute MCP proposals become permanently pending when the reviewed database update is deployed, even if previously expired. Other AI confirmation types retain ten-minute expiration.
+- [ ] An MCP proposal never expires by time. It remains in the queue until accepted or declined, even after a browser reload and across multiple administrators.
 
 
 - [ ] Feature flag off: MCP returns 503 and discovery metadata is not published.
@@ -525,7 +525,7 @@
 - [ ] Missing token, non-OAuth portal JWT, revoked token, expired token, and artist-only user cannot access MCP tools.
 - [ ] tools/list reflects admin/editor capabilities; sensitive fields and raw SQL are unavailable.
 - [ ] News, releases, artists, and events data is bounded and excludes private fields.
-- [ ] Prepared news draft does not mutate CMS; an MCP review remains pending up to 30 days and appears in every admin's shared queue, including proposals created by a different admin/editor.
+- [ ] Prepared news draft does not mutate CMS; an MCP review remains pending without a time limit and appears in every admin's shared queue, including proposals created by a different admin/editor.
 - [ ] Approval requires same-origin browser POST, CMS permission and safe plaintext preview. Never publishes automatically.
 - [ ] Accept creates exactly one unpublished draft and audits the reviewer, even when the reviewer is not the creator. Decline atomically records rejection without content changes. Repeated or concurrent conflicting decisions do not mutate content twice.
 - [ ] Re-run CI after changes and manually test connection before enabling in production.
