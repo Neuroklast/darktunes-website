@@ -10,7 +10,7 @@ export function ReviewMcpNewsDraft({ token, action }: {
   const [result, setResult] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
-  async function approve() {
+  async function decide(decision: 'approve' | 'reject') {
     if (busy || saved) return
     setBusy(true)
     try {
@@ -20,7 +20,7 @@ export function ReviewMcpNewsDraft({ token, action }: {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(isNews ? { token } : { token, action }),
+          body: JSON.stringify(isNews ? { token, decision } : { token, action, decision }),
         },
       )
       const json = await response.json() as { detail?: string; error?: string }
@@ -28,7 +28,7 @@ export function ReviewMcpNewsDraft({ token, action }: {
         setResult(json.detail ?? json.error ?? 'This change could not be approved.')
       } else {
         setSaved(true)
-        setResult(json.detail ?? 'The CMS change was saved.')
+        setResult(json.detail ?? (decision === 'approve' ? 'The CMS change was saved.' : 'The proposal was declined.'))
       }
     } catch {
       setResult('The browser could not contact the darkTunes approval endpoint.')
@@ -39,10 +39,16 @@ export function ReviewMcpNewsDraft({ token, action }: {
   return (
     <div className="flex flex-wrap items-center gap-4">
       {!saved ? (
-        <button type="button" onClick={() => void approve()} disabled={busy}
-          className="rounded-md bg-primary px-5 py-2 text-primary-foreground disabled:opacity-50">
-          {busy ? 'Saving…' : action === 'create_cms_news_draft' ? 'Approve and save draft' : 'Approve and apply changes'}
-        </button>
+        <>
+          <button type="button" onClick={() => void decide('reject')} disabled={busy}
+            className="rounded-md border border-destructive px-5 py-2 text-destructive disabled:opacity-50">
+            Decline
+          </button>
+          <button type="button" onClick={() => void decide('approve')} disabled={busy}
+            className="rounded-md bg-primary px-5 py-2 text-primary-foreground disabled:opacity-50">
+            {busy ? 'Saving…' : action === 'create_cms_news_draft' ? 'Approve and save draft' : 'Approve and apply changes'}
+          </button>
+        </>
       ) : null}
       <Link href="/admin/mcp-approvals" className="underline text-sm">Back to GPT approvals</Link>
       {result ? <p className={saved ? 'text-sm' : 'text-sm text-destructive'} role="status">{result}</p> : null}
