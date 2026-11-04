@@ -42,7 +42,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
     })),
     rpc,
   } as unknown as SupabaseClient<Database>
-  const actor = {
+  const actor: AiActor = {
     userId, role: 'editor', accessContext: 'editor', dashboard: 'admin',
     artistId: null, artistMembershipIds: [],
     capabilities: new Set<Capability>(['cms.news.edit']),
