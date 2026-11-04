@@ -59,9 +59,6 @@ export async function commitMcpApproval(
   if (pending.used_at && pending.result === null) {
     throw new ApiError(409, 'Approval was previously used without a saved result.', 'CONFLICT')
   }
-  if (!pending.used_at && new Date(pending.expires_at).getTime() <= Date.now()) {
-    throw new ApiError(410, 'The approval expired. Prepare the change again.', 'AI_CONFIRMATION_EXPIRED')
-  }
   if (createHash('sha256').update(canonicalJson(pending.payload)).digest('hex') !== pending.payload_hash) {
     throw new ApiError(409, 'The approval content changed after preparation.', 'CONFLICT')
   }
