@@ -5,6 +5,7 @@ import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/l
 import { requirePageCapability } from '@/lib/rbac'
 import { contentChangePayload, contentCapability } from '@/lib/mcp/contentMutations'
 import { ReviewMcpNewsDraft } from './ReviewMcpNewsDraft'
+import { McpMfa } from '../../../oauth/consent/McpMfa'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Review GPT changes | darkTunes', robots: { index: false, follow: false } }
@@ -23,6 +24,8 @@ export default async function McpApprovalPage({ params }: {
   const session = await createServerSupabaseClient()
   const { data: { user } } = await session.auth.getUser()
   if (!user) notFound()
+  const { data: assurance, error: assuranceError } = await session.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (assuranceError || assurance?.currentLevel !== 'aal2') return <McpMfa />
 
   const db = await createServiceRoleSupabaseClient()
   const tokenHash = createHash('sha256').update(token).digest('hex')
