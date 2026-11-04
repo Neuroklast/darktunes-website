@@ -120,7 +120,7 @@ export function buildFilteredCompilations(
   return Array.from(compilationMap.values()).sort((a, b) => b.revenue - a.revenue)
 }
 
-type ResolvedTransaction = SalesTransaction & { main_artist: string; assignment_owner_locked?: boolean }
+type ResolvedTransaction = SalesTransaction & { main_artist: string; assignment_owner_locked?: boolean; assignment_allocation_percentage?: number }
 
 function normalizeMatchTitle(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
@@ -176,7 +176,7 @@ export function applyTrackRevenueAssignments(
     }
 
     if (owners.length === 1 && owners[0].fraction === 1) {
-      return [{ ...t, main_artist: owners[0].artist, assignment_owner_locked: true }]
+      return [{ ...t, main_artist: owners[0].artist, assignment_owner_locked: true, assignment_allocation_percentage: 100 }]
     }
 
     const revenueByOwner = splitRevenueAmongOwners(t.net_revenue, owners)
@@ -192,6 +192,7 @@ export function applyTrackRevenueAssignments(
         id: `${t.id}__split__${owner.artist}`,
         main_artist: owner.artist,
         assignment_owner_locked: true,
+        assignment_allocation_percentage: owner.fraction * 100,
         net_revenue: revenueByOwner.get(owner.artist.trim()) ?? 0,
         quantity,
       }
