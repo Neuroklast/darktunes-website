@@ -76,11 +76,15 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     if (error instanceof ApiError) {
-      if (error.status === 503) return problem(503, 'Database setup required', error.message)
-      if (error.status === 410) return problem(410, 'Approval expired', error.message)
-      if (error.status === 404) return problem(404, 'Approval not found', 'The proposal is unavailable to this account or does not exist.')
-      if (error.status === 403) return problem(403, 'Approval forbidden', error.message)
+      if (error.status === 404) {
+        return problem(404, 'Approval not found', 'The proposal is unavailable to this account or does not exist.')
+      }
+      return problem(error.status, 'Review not saved', error.message)
     }
-    return problem(409, 'Draft not saved', 'Approval expired, was used, or the draft could not be saved. Prepare a new draft.')
+    console.error('[mcp] unexpected news approval failure', {
+      decision: input.data.decision,
+      error_type: error instanceof Error ? error.name : 'unknown',
+    })
+    return problem(500, 'Review failed', 'The server could not complete this review. The decision was not confirmed.')
   }
 }
