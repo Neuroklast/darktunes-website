@@ -213,6 +213,23 @@ describe('processTransactionsWithCompilations', () => {
     expect(artistData).toHaveLength(0)
   })
 
+  it('does not duplicate a track when the same owner is entered twice', () => {
+    const { artistData } = processTransactionsWithCompilations([
+      makeTx({ id: 'same-owner', original_artist: 'Collaboration', release_title: 'Duet',
+        track_title: 'Duet', net_revenue: 100, quantity: 100 }),
+    ], {
+      ...emptyConfig(),
+      trackRevenueAssignments: [{ id: 'duet', trackTitle: 'Duet', owners: [
+        { artist: 'Exstais', percentage: 40 },
+        { artist: ' Exstais ', percentage: 60 },
+      ] }],
+    })
+    expect(artistData).toHaveLength(1)
+    expect(artistData[0]?.artist).toBe('Exstais')
+    expect(artistData[0]?.grossRevenue).toBe(100)
+    expect(artistData[0]?.totalQuantity).toBe(100)
+  })
+
   it('sums compilation summary after FX conversion', () => {
     const { filteredCompilations } = processTransactionsWithCompilations(
       [makeTx({
