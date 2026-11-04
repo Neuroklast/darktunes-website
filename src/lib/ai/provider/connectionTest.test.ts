@@ -194,7 +194,9 @@ describe('runNvidiaConnectionTest', () => {
     expect(result.steps.find((step) => step.id === 'fast_tool')?.status).toBe('passed')
     expect(result.discovered_capabilities['nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'])
       .toMatchObject({ supports_tools: true, requires_thinking_for_tools: true })
-    expect(requests.filter((request) => request.request_id.includes('fast-tool'))).toMatchObject([
+    // The tool-stream and round-trip probes are additional requests and must
+    // not be confused with the two attempts of the initial tool probe.
+    expect(requests.filter((request) => /^connection-test-fast-tool(?:-thinking)?$/.test(request.request_id))).toMatchObject([
       { enable_thinking: false, max_tokens: 512 },
       { enable_thinking: true, max_tokens: 2048 },
     ])
