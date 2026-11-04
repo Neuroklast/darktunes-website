@@ -126,7 +126,7 @@ function buildSheetForSource(
   source: RawExportSource,
 ): ArtistRawSourceSheet | null {
   const seenRowIds = new Set<string>()
-  const sourceRows: Array<{ headers: string[]; values: string[] }> = []
+  const sourceRows: Array<{ headers: string[]; values: string[]; share: number; revenue: number; quantity: number }> = []
 
   for (const tx of transactions) {
     if (tx.source !== source) continue
@@ -137,7 +137,9 @@ function buildSheetForSource(
     const rowId = tx.source_row_id ?? tx.id
     if (seenRowIds.has(rowId)) continue
     seenRowIds.add(rowId)
-    sourceRows.push({ headers, values })
+    const share = 'assignment_allocation_percentage' in tx && typeof tx.assignment_allocation_percentage === 'number'
+      ? tx.assignment_allocation_percentage : 100
+    sourceRows.push({ headers, values, share, revenue: tx.net_revenue, quantity: tx.quantity })
   }
 
   if (sourceRows.length === 0) return null
@@ -147,11 +149,27 @@ function buildSheetForSource(
   const stripped = stripDeniedSourceColumns(headers, rawRows, source)
   if (stripped.headers.length === 0) return null
 
+  // Never overwrite the distributor's original values. For proportional track
+  // ownership, show additional artist-allocated amounts so that the original
+  // full-value row cannot be mistaken for the artist's 100% share.
+  const hasPartialAllocations = sourceRows.some(row => row.share !== 100)
+  const exportedHeaders = hasPartialAllocations
+    ? [...stripped.headers, 'Statement Allocation (%)', 'Statement Net Revenue (source currency)', 'Statement Quantity']
+    : stripped.headers
+  const exportedRows = hasPartialAllocations
+    ? stripped.rows.map((row, index) => [
+        ...row,
+        String(sourceRows[index].share),
+        String(sourceRows[index].revenue),
+        String(sourceRows[index].quantity),
+      ])
+    : stripped.rows
+
   return {
     source,
     sheetName: excelSafeSheetName(RAW_SOURCE_SHEET_NAMES[source]),
-    headers: stripped.headers,
-    rows: stripped.rows,
+    headers: exportedHeaders,
+    rows: exportedRows,
   }
 }
 
