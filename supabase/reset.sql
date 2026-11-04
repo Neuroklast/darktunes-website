@@ -3659,17 +3659,15 @@ BEGIN
         spotify_url = CASE WHEN v_changes ? 'spotify_url' THEN v_changes->>'spotify_url' ELSE spotify_url END,
         instagram_url = CASE WHEN v_changes ? 'instagram_url' THEN v_changes->>'instagram_url' ELSE instagram_url END
       WHERE existing.id = v_id
-        AND (
-          existing.updated_at = v_expected
-          OR NOT EXISTS (
-            -- Unrelated background CMS updates must not invalidate a proposal.
-            -- If any *proposed* field changed, fail closed instead of overwriting it.
-            SELECT 1
-            FROM jsonb_object_keys(v_changes) AS changed(key)
-            WHERE NOT (v_payload->'before' ? changed.key)
-              OR (to_jsonb(existing) -> changed.key)
-                IS DISTINCT FROM (v_payload->'before' -> changed.key)
-          )
+        AND NOT EXISTS (
+          -- All proposed fields must still match their captured values,
+          -- even when a legacy writer forgot to advance updated_at.
+          -- Changes to unrelated columns cannot invalidate a proposal.
+          SELECT 1
+          FROM jsonb_object_keys(v_changes) AS changed(key)
+          WHERE NOT (v_payload->'before' ? changed.key)
+            OR (to_jsonb(existing) -> changed.key)
+              IS DISTINCT FROM (v_payload->'before' -> changed.key)
         )
       RETURNING id INTO v_id;
 
@@ -3694,17 +3692,15 @@ BEGIN
         bandcamp_url = CASE WHEN v_changes ? 'bandcamp_url' THEN v_changes->>'bandcamp_url' ELSE bandcamp_url END,
         catalog_number = CASE WHEN v_changes ? 'catalog_number' THEN v_changes->>'catalog_number' ELSE catalog_number END
       WHERE existing.id = v_id
-        AND (
-          existing.updated_at = v_expected
-          OR NOT EXISTS (
-            -- Unrelated background CMS updates must not invalidate a proposal.
-            -- If any *proposed* field changed, fail closed instead of overwriting it.
-            SELECT 1
-            FROM jsonb_object_keys(v_changes) AS changed(key)
-            WHERE NOT (v_payload->'before' ? changed.key)
-              OR (to_jsonb(existing) -> changed.key)
-                IS DISTINCT FROM (v_payload->'before' -> changed.key)
-          )
+        AND NOT EXISTS (
+          -- All proposed fields must still match their captured values,
+          -- even when a legacy writer forgot to advance updated_at.
+          -- Changes to unrelated columns cannot invalidate a proposal.
+          SELECT 1
+          FROM jsonb_object_keys(v_changes) AS changed(key)
+          WHERE NOT (v_payload->'before' ? changed.key)
+            OR (to_jsonb(existing) -> changed.key)
+              IS DISTINCT FROM (v_payload->'before' -> changed.key)
         )
       RETURNING id INTO v_id;
 
@@ -3730,17 +3726,15 @@ BEGIN
         venue_country = CASE WHEN v_changes ? 'venue_country' THEN v_changes->>'venue_country' ELSE venue_country END,
         ticket_url = CASE WHEN v_changes ? 'ticket_url' THEN v_changes->>'ticket_url' ELSE ticket_url END
       WHERE existing.id = v_id
-        AND (
-          existing.updated_at = v_expected
-          OR NOT EXISTS (
-            -- Unrelated background CMS updates must not invalidate a proposal.
-            -- If any *proposed* field changed, fail closed instead of overwriting it.
-            SELECT 1
-            FROM jsonb_object_keys(v_changes) AS changed(key)
-            WHERE NOT (v_payload->'before' ? changed.key)
-              OR (to_jsonb(existing) -> changed.key)
-                IS DISTINCT FROM (v_payload->'before' -> changed.key)
-          )
+        AND NOT EXISTS (
+          -- All proposed fields must still match their captured values,
+          -- even when a legacy writer forgot to advance updated_at.
+          -- Changes to unrelated columns cannot invalidate a proposal.
+          SELECT 1
+          FROM jsonb_object_keys(v_changes) AS changed(key)
+          WHERE NOT (v_payload->'before' ? changed.key)
+            OR (to_jsonb(existing) -> changed.key)
+              IS DISTINCT FROM (v_payload->'before' -> changed.key)
         )
       RETURNING id INTO v_id;
     END IF;
