@@ -38,7 +38,7 @@ export default async function McpApprovalPage({ params }: {
   ).maybeSingle()
   if (!data || data.artist_id !== null ||
       (data.user_id !== user.id && access.primaryRole !== 'admin') ||
-      data.used_at || new Date(data.expires_at).getTime() < Date.now()) notFound()
+      data.used_at) notFound()
 
   const isNews = data.action === 'create_cms_news_draft'
   if (!isNews && !(data.action in CONTENT_ACTIONS)) notFound()
