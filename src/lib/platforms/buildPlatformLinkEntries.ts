@@ -1,4 +1,4 @@
-import { ODESLI_PLATFORM_ORDER } from './odesliPlatformConfig'
+import { PLATFORM_ORDER } from './platformConfig'
 
 export interface PlatformLinkEntry {
   key: string
@@ -18,7 +18,7 @@ const HUB_PLATFORM_KEYS = new Set(['smartlink', 'songlink', 'page', 'link'])
 
 /**
  * Builds ordered per-platform streaming entries for release/artist pages.
- * Merges Odesli `platform_links` with individually stored URLs; excludes
+ * Merges persisted `platform_links` with individually stored URLs; excludes
  * song.link / Listen Everywhere hub links.
  */
 export function buildPlatformLinkEntries(sources: PlatformLinkSources): PlatformLinkEntry[] {
@@ -38,9 +38,9 @@ export function buildPlatformLinkEntries(sources: PlatformLinkSources): Platform
   addIfMissing('youtube', sources.youtubeUrl)
   addIfMissing('bandcamp', sources.bandcampUrl)
 
-  const known = ODESLI_PLATFORM_ORDER.filter((k) => merged[k])
+  const known = PLATFORM_ORDER.filter((k) => merged[k])
   const unknown = Object.keys(merged)
-    .filter((k) => !ODESLI_PLATFORM_ORDER.includes(k))
+    .filter((k) => !PLATFORM_ORDER.includes(k))
     .sort()
 
   return [...known, ...unknown].map((k) => ({ key: k, url: merged[k] }))
