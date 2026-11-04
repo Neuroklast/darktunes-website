@@ -91,9 +91,8 @@ describe('atomic MCP approval', () => {
     const { actor, rpc } = fixture({
       user_id: '00000000-0000-4000-8000-000000000099',
     })
-    actor.role = 'admin'
-    actor.accessContext = 'admin'
-    await expect(commitMcpApproval(actor, token, 'create_cms_news_draft'))
+    const adminActor: AiActor = { ...actor, role: 'admin', accessContext: 'admin' }
+    await expect(commitMcpApproval(adminActor, token, 'create_cms_news_draft'))
       .resolves.toMatchObject({ ok: true })
     expect(rpc).toHaveBeenCalledOnce()
   })
