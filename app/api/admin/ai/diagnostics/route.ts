@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { ApiError, withErrorHandler } from '@/lib/errors'
+import { safeTechnical } from '@/lib/ai/diagnostics/safeTechnical'
 import { requireAdminWithServiceClient } from '@/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
@@ -165,26 +166,6 @@ async function loadRepeatedFailures(
     .filter((entry) => entry.count >= 2)
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
-}
-
-export function safeTechnical(metadata: unknown): Record<string, unknown> {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return {}
-  const allowed = [
-    'finish_reason',
-    'fallback_used',
-    'fallback_from',
-    'tool_rounds',
-    'rounds',
-    'retry_count',
-    'mode',
-    'model_role',
-    'metrics',
-  ]
-  const out: Record<string, unknown> = {}
-  for (const key of allowed) {
-    if (key in metadata) out[key] = metadata[key]
-  }
-  return out
 }
 
 function parseSince(value: string | null): string {
