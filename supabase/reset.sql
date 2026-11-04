@@ -3651,14 +3651,26 @@ BEGIN
       ) THEN
         RAISE EXCEPTION 'MCP_PATCH_FORBIDDEN_FIELDS' USING ERRCODE = '22023';
       END IF;
-      UPDATE public.artists SET
+      UPDATE public.artists AS existing SET
         bio = CASE WHEN v_changes ? 'bio' THEN v_changes->>'bio' ELSE bio END,
         genres = CASE WHEN v_changes ? 'genres'
           THEN ARRAY(SELECT jsonb_array_elements_text(v_changes->'genres')) ELSE genres END,
         website_url = CASE WHEN v_changes ? 'website_url' THEN v_changes->>'website_url' ELSE website_url END,
         spotify_url = CASE WHEN v_changes ? 'spotify_url' THEN v_changes->>'spotify_url' ELSE spotify_url END,
         instagram_url = CASE WHEN v_changes ? 'instagram_url' THEN v_changes->>'instagram_url' ELSE instagram_url END
-      WHERE id = v_id AND updated_at = v_expected
+      WHERE existing.id = v_id
+        AND (
+          existing.updated_at = v_expected
+          OR NOT EXISTS (
+            -- Unrelated background CMS updates must not invalidate a proposal.
+            -- If any *proposed* field changed, fail closed instead of overwriting it.
+            SELECT 1
+            FROM jsonb_object_keys(v_changes) AS changed(key)
+            WHERE NOT (v_payload->'before' ? changed.key)
+              OR (to_jsonb(existing) -> changed.key)
+                IS DISTINCT FROM (v_payload->'before' -> changed.key)
+          )
+        )
       RETURNING id INTO v_id;
 
     ELSIF v_kind = 'release' THEN
@@ -3671,7 +3683,7 @@ BEGIN
       ) THEN
         RAISE EXCEPTION 'MCP_PATCH_FORBIDDEN_FIELDS' USING ERRCODE = '22023';
       END IF;
-      UPDATE public.releases SET
+      UPDATE public.releases AS existing SET
         title = CASE WHEN v_changes ? 'title' THEN v_changes->>'title' ELSE title END,
         release_date = CASE WHEN v_changes ? 'release_date'
           THEN (v_changes->>'release_date')::DATE ELSE release_date END,
@@ -3681,7 +3693,19 @@ BEGIN
         youtube_url = CASE WHEN v_changes ? 'youtube_url' THEN v_changes->>'youtube_url' ELSE youtube_url END,
         bandcamp_url = CASE WHEN v_changes ? 'bandcamp_url' THEN v_changes->>'bandcamp_url' ELSE bandcamp_url END,
         catalog_number = CASE WHEN v_changes ? 'catalog_number' THEN v_changes->>'catalog_number' ELSE catalog_number END
-      WHERE id = v_id AND updated_at = v_expected
+      WHERE existing.id = v_id
+        AND (
+          existing.updated_at = v_expected
+          OR NOT EXISTS (
+            -- Unrelated background CMS updates must not invalidate a proposal.
+            -- If any *proposed* field changed, fail closed instead of overwriting it.
+            SELECT 1
+            FROM jsonb_object_keys(v_changes) AS changed(key)
+            WHERE NOT (v_payload->'before' ? changed.key)
+              OR (to_jsonb(existing) -> changed.key)
+                IS DISTINCT FROM (v_payload->'before' -> changed.key)
+          )
+        )
       RETURNING id INTO v_id;
 
     ELSIF v_kind = 'event' THEN
@@ -3694,7 +3718,7 @@ BEGIN
       ) THEN
         RAISE EXCEPTION 'MCP_PATCH_FORBIDDEN_FIELDS' USING ERRCODE = '22023';
       END IF;
-      UPDATE public.concerts SET
+      UPDATE public.concerts AS existing SET
         event_name = CASE WHEN v_changes ? 'event_name'
           THEN v_changes->>'event_name' ELSE event_name END,
         concert_date = CASE WHEN v_changes ? 'concert_date'
@@ -3705,7 +3729,19 @@ BEGIN
         venue_city = CASE WHEN v_changes ? 'venue_city' THEN v_changes->>'venue_city' ELSE venue_city END,
         venue_country = CASE WHEN v_changes ? 'venue_country' THEN v_changes->>'venue_country' ELSE venue_country END,
         ticket_url = CASE WHEN v_changes ? 'ticket_url' THEN v_changes->>'ticket_url' ELSE ticket_url END
-      WHERE id = v_id AND updated_at = v_expected
+      WHERE existing.id = v_id
+        AND (
+          existing.updated_at = v_expected
+          OR NOT EXISTS (
+            -- Unrelated background CMS updates must not invalidate a proposal.
+            -- If any *proposed* field changed, fail closed instead of overwriting it.
+            SELECT 1
+            FROM jsonb_object_keys(v_changes) AS changed(key)
+            WHERE NOT (v_payload->'before' ? changed.key)
+              OR (to_jsonb(existing) -> changed.key)
+                IS DISTINCT FROM (v_payload->'before' -> changed.key)
+          )
+        )
       RETURNING id INTO v_id;
     END IF;
 
