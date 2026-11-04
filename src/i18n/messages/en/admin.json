@@ -12,7 +12,8 @@
     "dashboard": "Dashboard",
     "group_content": "Content",
     "group_submissions": "Submissions",
-    "group_press": "Press",    "artists": "Artists",
+    "group_press": "Press",
+    "artists": "Artists",
     "releases": "Releases",
     "news": "News",
     "videos": "Videos",
@@ -73,7 +74,6 @@
     "review": "Review changes",
     "history": "Recent history",
     "completed": "Completed",
-
     "expired": "Expired",
     "back": "Back",
     "skip": "Skip",
@@ -92,7 +92,8 @@
     "rejected": "Declined",
     "changes": "Change highlights",
     "openHistory": "Recent decisions",
-    "preparing": "Complete values and before/after comparisons are available under Review all fields."
+    "preparing": "Complete values and before/after comparisons are available under Review all fields.",
+    "reviewed": "reviewed"
   },
   "tour_planner_page_title": "Tour Planner",
   "tour_planner_page_desc": "Read-only overview of artist tour production data.",
@@ -1559,8 +1560,7 @@
   "submission_download_audio": "Download audio",
   "submission_download_cover": "Download cover",
   "submission_files_expire_today": "Audio and cover files expire today and will be deleted. Download them now.",
-  "submission_files_expire_in": "Audio and cover files are deleted automatically in {days} days. Download them now."
-,
+  "submission_files_expire_in": "Audio and cover files are deleted automatically in {days} days. Download them now.",
   "overview": {
     "title": "Overview",
     "introAdmin": "What needs attention today, and what changed recently.",
@@ -1585,7 +1585,10 @@
         "title": "Artist page reviews",
         "hint": "Waiting for approval"
       },
-      "unreadMessages": { "title": "Unread messages", "hint": "New since your last check" },
+      "unreadMessages": {
+        "title": "Unread messages",
+        "hint": "New since your last check"
+      },
       "statementsToReview": {
         "title": "Statements to review",
         "hint": "Draft or approved, not yet sent"
