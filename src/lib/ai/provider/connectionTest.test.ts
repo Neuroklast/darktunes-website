@@ -74,7 +74,7 @@ function fakeProvider(options: FakeOptions = {}): AiProvider {
           return completion(request, 'I will not call tools.')
         }
       }
-      if (request.request_id.endsWith('-tool')) {
+      if (request.request_id.endsWith('-tool') || request.request_id.endsWith('-tool-thinking')) {
         return completion(request, '', true)
       }
       return completion(request, 'pong')
