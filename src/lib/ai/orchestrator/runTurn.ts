@@ -94,14 +94,19 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
     accessContext: actor.accessContext,
     mode: input.mode,
   })
-  // Auto mode never sends a turn to a reasoning model whose last test
-  // explicitly failed. Explicit Deep still tries it and offers a fast retry.
-  const initialRole: AiModelRole =
-    classification.role === 'reasoning' &&
-    classification.reason !== 'explicit' &&
-    stored.health[settings.modelReasoning]?.ok === false
-      ? 'fast'
-      : classification.role
+  // Prefer a fully verified tool-capable model over one whose connection test
+  // failed. A model unable to call tools must not quietly invent a "no data"
+  // answer to a real artist analytics request.
+  const requestedRole: AiModelRole = classification.role
+  const selectedModel = requestedRole === 'reasoning' ? settings.modelReasoning : settings.modelFast
+  const alternateModel = requestedRole === 'reasoning' ? settings.modelFast : settings.modelReasoning
+  const selectedFailed = stored.health[selectedModel]?.ok === false
+  const alternateVerified = isModelVerified(stored.health, alternateModel, [
+    'supports_streaming', 'supports_tools',
+  ])
+  const initialRole: AiModelRole = selectedFailed && alternateVerified
+    ? (requestedRole === 'reasoning' ? 'fast' : 'reasoning')
+    : requestedRole
   const primaryModel = initialRole === 'reasoning' ? settings.modelReasoning : settings.modelFast
   const fallbackModel = settings.fallbackModel.trim()
   // Only tested, explicitly configured fallback models can be used; no blind
@@ -111,14 +116,22 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
       (!providerRouter || (getCatalogModel(fallbackModel) && providerRouter.hasKeyForModel(fallbackModel))) &&
       isModelVerified(stored.health, fallbackModel, ['supports_streaming', 'supports_tools']),
   )
-  // Legacy NVIDIA setup remains functional. New providers must pass an
-  // actual text/stream/tool probe before being used with customer data.
+  // Never run a known-failing tool model: without tool calls it cannot answer
+  // stored-data questions correctly. Untested legacy NVIDIA models retain
+  // their previous behavior until an administrator runs the connection test.
   if (!input.providerOverride && !allowMock) {
     for (const model of [primaryModel]) {
       const entry = getCatalogModel(model)
-      if (!entry || (entry.provider !== 'nvidia' &&
+      const health = stored.health[model]
+      if (!entry || (health && !isModelVerified(stored.health, model, [
+        'supports_streaming', 'supports_tools',
+      ])) || (entry.provider !== 'nvidia' &&
           !isModelVerified(stored.health, model, ['supports_streaming', 'supports_tools']))) {
-        throw new ApiError(503, 'Test the selected chat model in Admin → AI → Models before using it.', 'AI_MODEL_UNVERIFIED')
+        throw new ApiError(
+          503,
+          'The selected AI model has not passed the tool-calling test. Test or change the model in Admin → AI → Models.',
+          'AI_MODEL_UNVERIFIED',
+        )
       }
       if (!providerRouter?.hasKeyForModel(model)) throw buildApiError('AI_NOT_CONFIGURED', 503)
     }
@@ -141,7 +154,17 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
   let caps = provider.getCapabilities(currentModel)
   let useTools = caps.supports_tools && (!settings.defaultStreaming || caps.supports_tools_with_streaming)
   const allToolDefinitions = listToolDefinitionsForActor(actor)
-  let tools = useTools ? allToolDefinitions : []
+  // Force a scoped lookup for explicit streaming-count questions, instead of
+  // relying on the model to elect to call a tool and then declaring no data.
+  const wantsArtistStreams = Boolean(
+    actor.artistId &&
+    /\\b(?:streams?|streaming(?:zahlen)?|spotify.?streams?|plays?|wiedergaben|abrufe?|hörzahlen|hoerzahlen)\\b/i.test(input.userText) &&
+    allToolDefinitions.some((tool) => tool.name === 'get_artist_analytics'),
+  )
+  const streamingTool = allToolDefinitions.filter((tool) => tool.name === 'get_artist_analytics')
+  let tools = useTools
+    ? (wantsArtistStreams ? streamingTool : allToolDefinitions)
+    : []
 
   const systemPrompt = buildSystemPrompt({
     accessContext: actor.accessContext,
@@ -249,7 +272,10 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
 
       caps = provider.getCapabilities(currentModel)
       useTools = caps.supports_tools && (!settings.defaultStreaming || caps.supports_tools_with_streaming) && !forceFinal
-      tools = useTools ? allToolDefinitions : []
+      const requireStreamingTool = useTools && wantsArtistStreams && rounds === 0 && toolRounds === 0
+      tools = useTools
+        ? (requireStreamingTool ? streamingTool : allToolDefinitions)
+        : []
       const outputCap = outputCapFor(currentRole, settings.tokenLimits)
       const roundEstimate = estimateInputTokens(messages, tools)
       if (rounds > 0) {
@@ -285,6 +311,7 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
         model: currentModel,
         messages,
         ...(tools.length > 0 ? { tools } : {}),
+        ...(requireStreamingTool ? { tool_choice: 'required' as const } : {}),
         max_tokens: outputCap,
         enable_thinking: thinking,
         low_effort: lowEffort,
