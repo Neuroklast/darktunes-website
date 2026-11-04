@@ -11,6 +11,10 @@
 - Empty-state suggestions (`src/lib/ai/presentation/suggestions.ts`) must be derived from the current page and the actor's available tools; never offer a question the role cannot answer.
 - `app/error.tsx` / `src/ErrorFallback.tsx` never render raw exception messages in production. Only the React digest is exposed as a support reference.
 
+## GPT / MCP administrator review
+
+At `/admin/mcp-approvals`, the server-only service-role query lists pending and recent CMS GPT proposals from `ai_action_confirmations`. Administrators see the **shared** label-wide queue; editors see **only their own** proposals. The `McpReviewQueue` client shows one proposal per screen and keeps action buttons visible in the viewport. Back/Skip, left/right arrows and horizontal touch gestures browse without writes. Accept/Decline optimistically move to the next card while same-origin browser requests settle. In-flight operations are counted and protected with `beforeunload`. Errors restore the item. Never display optimistic success or silently lose proposals. Full before/after fields and review history open as separate dialogs. Use the existing admin notification bell, never a second bell or count-only duplicate. Actual decisions must be authorized and committed atomically through `commit_mcp_approval` or `reject_mcp_approval` (`supabase/reset.sql`), and remain inaccessible via MCP OAuth bearer alone.
+
 ## Artist Portal (`/portal/*`)
 
 | Topic | Rule |
