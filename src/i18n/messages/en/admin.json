@@ -62,6 +62,19 @@
     "noEditorPermissionsTitle": "No Editor Permissions",
     "noEditorPermissionsBody": "Your account does not have any content permissions assigned. Please contact your administrator."
   },
+  "mcpApprovals": {
+    "description": "Review and approve changes proposed by ChatGPT. Only approvals for your account are shown.",
+    "disabled": "The GPT connector is currently disabled.",
+    "loadError": "The approval inbox could not be loaded.",
+    "pending": "Pending approvals",
+    "empty": "No changes are awaiting your approval.",
+    "newsDraft": "News draft",
+    "expires": "Expires",
+    "review": "Review changes",
+    "history": "Recent history",
+    "completed": "Completed",
+    "expired": "Expired"
+  },
   "tour_planner_page_title": "Tour Planner",
   "tour_planner_page_desc": "Read-only overview of artist tour production data.",
   "tour_planner_loading": "Loading…",
