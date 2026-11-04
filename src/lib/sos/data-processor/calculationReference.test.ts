@@ -44,7 +44,7 @@ function config(overrides: Partial<DataProcessorConfig> = {}): DataProcessorConf
 }
 
 describe('calculation reference — pipeline', () => {
-  it('counts compilation rows in payout and lists them separately', () => {
+  it('excludes compilation rows from payout and lists them for audit', () => {
     const { artistData, filteredCompilations } = processTransactionsWithCompilations(
       [
         tx({ id: 'own', net_revenue: 80, upc_ean: 'OWN-1' }),
@@ -60,8 +60,8 @@ describe('calculation reference — pipeline', () => {
     expect(filteredCompilations).toEqual([
       expect.objectContaining({ identifier: 'COMP-1', revenue: 20, transactionCount: 1 }),
     ])
-    expect(artistData[0]?.grossRevenue).toBe(100)
-    expect(artistData[0]?.finalPayout).toBeCloseTo(100, 6)
+    expect(artistData[0]?.grossRevenue).toBe(80)
+    expect(artistData[0]?.finalPayout).toBeCloseTo(80, 6)
   })
 
   it('drops ignored releases from payout instead of only hiding them', () => {
