@@ -67,7 +67,7 @@ export function resolveMainArtist(
 }
 
 /**
- * Builds the informational compilation summary panel (compilations still count toward revenue).
+ * Builds the informational summary of compilation rows excluded from artist revenue.
  */
 export function buildFilteredCompilations(
   transactions: SalesTransaction[],
