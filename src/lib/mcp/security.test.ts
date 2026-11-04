@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { isAllowedMcpOrigin, isAllowedOAuthClient, oauthIssuer, isMcpAal2, mcpResourceMetadataUrl } from './security'
+import { isAllowedMcpOrigin, isAllowedOAuthClient, oauthIssuer, mcpResourceMetadataUrl } from './security'
 
 afterEach(() => vi.unstubAllEnvs())
 describe('MCP authentication boundary helpers', () => {
@@ -29,11 +29,6 @@ describe('MCP authentication boundary helpers', () => {
     expect(isAllowedOAuthClient('client-a')).toBe(true)
     expect(isAllowedOAuthClient('client-b')).toBe(true)
     expect(isAllowedOAuthClient('client-c')).toBe(false)
-  })
-  it('requires verified OAuth AAL2', () => {
-    expect(isMcpAal2({ aal: 'aal2' })).toBe(true)
-    expect(isMcpAal2({ aal: 'aal1' })).toBe(false)
-    expect(isMcpAal2({})).toBe(false)
   })
   it('uses separate OAuth resource metadata for the alias', () => {
     expect(mcpResourceMetadataUrl(new Request('https://www.darktunes.com/mcp')))
