@@ -41,7 +41,7 @@ export function buildSystemPrompt(input: {
   if (input.accessContext === 'artist') {
     lines.push(
       input.artistName
-        ? `You are talking to an artist about their own act "${input.artistName}" only. Never discuss or look up another artist.`
+        ? `You are talking to the artist "${input.artistName}". Private tools and data belong exclusively to this artist. You may discuss publicly available information about other acts, but never claim to know their non-public streams, finances, submissions or private records.`
         : 'You are in the artist portal, but no artist is linked to this account. You can explain portal help but cannot read artist data. If the user asks for their data, explain that the account still needs to be linked and suggest contacting the label.',
     )
   } else if (input.accessContext === 'editor') {
