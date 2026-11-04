@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
+import { describeOAuthConsentFailure } from '@/lib/mcp/oauthConsentErrors'
 
 type ConsentDetails = {
   authorization_id?: string
@@ -18,6 +19,7 @@ export function McpOAuthConsent() {
   const [details, setDetails] = useState<ConsentDetails | null>(null)
   const [needsLogin, setNeedsLogin] = useState(false)
   const [error, setError] = useState('')
+  const [diagnostic, setDiagnostic] = useState('')
   const [busy, setBusy] = useState(false)
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
 
@@ -37,7 +39,9 @@ export function McpOAuthConsent() {
       const { data, error: detailsError } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId)
       if (cancelled) return
       if (detailsError || !data) {
-        setError('Authorization request expired or could not be verified.')
+        const failure = describeOAuthConsentFailure(detailsError, window.location.origin)
+        setError(failure.message)
+        setDiagnostic(failure.diagnostic)
         return
       }
       const result = data as ConsentDetails
@@ -61,12 +65,15 @@ export function McpOAuthConsent() {
     if (!details || busy) return
     setBusy(true)
     setError('')
+    setDiagnostic('')
     try {
       const result = allow
         ? await supabase.auth.oauth.approveAuthorization(authorizationId)
         : await supabase.auth.oauth.denyAuthorization(authorizationId)
       if (result.error || !result.data?.redirect_url) {
-        setError('Unable to complete authorization. Please retry.')
+        const failure = describeOAuthConsentFailure(result.error, window.location.origin)
+        setError(failure.message)
+        setDiagnostic(failure.diagnostic)
         setBusy(false)
         return
       }
@@ -85,6 +92,7 @@ export function McpOAuthConsent() {
         <h1 id="oauth-title" className="text-2xl font-semibold">Connect an external app</h1>
       </header>
       {error ? <p className="text-destructive" role="alert">{error}</p> : null}
+      {diagnostic ? <p className="text-xs text-muted-foreground" role="status">{diagnostic}</p> : null}
       {needsLogin ? (
         <div className="space-y-4">
           <p>Sign in with your darkTunes account to review this request.</p>
