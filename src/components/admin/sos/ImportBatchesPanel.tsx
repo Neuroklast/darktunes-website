@@ -86,7 +86,7 @@ export function ImportBatchesPanel({
 
   const handleLoad = async (batch: DistributorImportBatch) => {
     if (batch.status !== 'completed' || !batch.fileHash) {
-      toast.error('This import has no complete archive. Select the original CSV to upload it again.')
+      toast.error(t.bronzeArchiveIncomplete)
       return
     }
     if (!onLoadBatch) {
@@ -242,7 +242,7 @@ export function ImportBatchesPanel({
                       disabled={isPending || batch.status !== 'completed' || !batch.fileHash}
                       onClick={() => void handleLoad(batch)}
                       title={batch.status !== 'completed' || !batch.fileHash
-                        ? 'The original CSV must be uploaded again. This import was never fully archived.'
+                        ? t.bronzeArchiveIncomplete
                         : t.bronzeLoad}
                     >
                       <DownloadSimple size={14} className="mr-1" />
