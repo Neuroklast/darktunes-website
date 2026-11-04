@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { requirePageCapability } from '@/lib/rbac'
+import { resolveEffectiveAccess } from '@/lib/rbac/resolveAccess'
 import { contentChangePayload, contentCapability } from '@/lib/mcp/contentMutations'
 import { ReviewMcpNewsDraft } from './ReviewMcpNewsDraft'
 
@@ -27,13 +28,17 @@ export default async function McpApprovalPage({ params }: {
   if (!user) notFound()
 
   const db = await createServiceRoleSupabaseClient()
+  const access = await resolveEffectiveAccess(db, user.id)
+  if (access.primaryRole !== 'admin' && access.primaryRole !== 'editor') notFound()
   const lookup = db.from('ai_action_confirmations')
-    .select('user_id,action,payload,expires_at,used_at')
+    .select('user_id,artist_id,action,payload,expires_at,used_at')
   const { data } = await (
     isToken ? lookup.eq('token_hash', createHash('sha256').update(token).digest('hex'))
       : lookup.eq('id', token)
-  ).eq('user_id', user.id).maybeSingle()
-  if (!data || data.used_at || new Date(data.expires_at).getTime() < Date.now()) notFound()
+  ).maybeSingle()
+  if (!data || data.artist_id !== null ||
+      (data.user_id !== user.id && access.primaryRole !== 'admin') ||
+      data.used_at || new Date(data.expires_at).getTime() < Date.now()) notFound()
 
   const isNews = data.action === 'create_cms_news_draft'
   if (!isNews && !(data.action in CONTENT_ACTIONS)) notFound()
