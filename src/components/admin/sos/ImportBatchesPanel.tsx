@@ -37,6 +37,7 @@ const BRONZE_FALLBACK = {
   bronzeDelete: 'Delete',
   bronzeDeleteConfirm: 'Delete this bronze archive (raw CSV in R2) permanently?',
   bronzeLoadError: 'Failed to load import batches',
+  bronzeArchiveLoadError: 'Failed to load saved archive',
   bronzeLoadUnavailable: 'Load is not available in this context',
   bronzeLoadSuccess: 'Loaded {distributor} archive into workspace',
   bronzeDeleteError: 'Delete failed',
@@ -92,7 +93,7 @@ export function ImportBatchesPanel({
       const dist = batch.distributor
       toast.success(interpolate(t.bronzeLoadSuccess, { distributor: dist }))
     } catch (err) {
-      toast.error('Could not load saved source', {
+      toast.error(t.bronzeArchiveLoadError, {
         description: err instanceof Error ? err.message : t.bronzeLoadError,
       })
     }
