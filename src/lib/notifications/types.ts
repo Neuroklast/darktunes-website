@@ -21,6 +21,7 @@ export type NotificationEventType =
   | 'invoice_payment_received'
   | 'journalist_application_submitted'
   | 'journalist_application_decision'
+  | 'mcp_approval_pending'
 
 export type StaffRole = 'admin' | 'editor'
 
