@@ -91,7 +91,6 @@ npm run dev
 ## 📈 Performance Monitoring
 
 - **Lighthouse CI**: `.github/workflows/lighthouse-ci.yml` with budgets in `lighthouserc.js`
-- **Web Vitals RUM**: `app/web-vitals.tsx` sends Core Web Vitals to `POST /api/vitals`
 - **Bundle analysis**: enabled via `@next/bundle-analyzer` and `npm run analyze`
 - **Playwright performance tests**: `tests/performance/core-web-vitals.spec.ts`
 - **Bundle budget enforcement**: `scripts/check-bundle-budget.js` + `.github/workflows/performance-budget.yml`
