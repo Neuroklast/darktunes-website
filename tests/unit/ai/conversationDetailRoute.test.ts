@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { jsonRequest } from '../../helpers/api/routeTestkit'
+import { ApiError } from '@/lib/errors'
 
 const requireAiActor = vi.fn()
 const getAiConversationForUser = vi.fn()
 const assertConversationContext = vi.fn()
 const markStaleAiTurnFailed = vi.fn()
 const listAiMessagesPage = vi.fn()
+const renameAiConversation = vi.fn()
+const deleteAiConversation = vi.fn()
 
 vi.mock('@/lib/ai/auth/requireAiActor', () => ({
   requireAiActor: (...args: unknown[]) => requireAiActor(...args),
@@ -16,8 +19,8 @@ vi.mock('@/lib/api/aiConversations', () => ({
   assertConversationContext: (...args: unknown[]) => assertConversationContext(...args),
   markStaleAiTurnFailed: (...args: unknown[]) => markStaleAiTurnFailed(...args),
   listAiMessagesPage: (...args: unknown[]) => listAiMessagesPage(...args),
-  renameAiConversation: vi.fn(),
-  deleteAiConversation: vi.fn(),
+  renameAiConversation: (...args: unknown[]) => renameAiConversation(...args),
+  deleteAiConversation: (...args: unknown[]) => deleteAiConversation(...args),
 }))
 
 async function importRoute() {
@@ -67,6 +70,35 @@ describe('GET /api/ai/conversations/{id}', () => {
       items: [message('m3', 'third'), message('m2', 'second'), message('m1', 'first')],
       next_cursor: 'older',
     })
+  })
+
+  it('rejects a conversation rename when the current artist context is different', async () => {
+    assertConversationContext.mockImplementationOnce(() => {
+      throw new ApiError(404, 'Conversation belongs to a different artist')
+    })
+    const { PATCH } = await importRoute()
+    const res = await PATCH(jsonRequest(`/api/ai/conversations/${conversation.id}`, {
+      method: 'PATCH',
+      searchParams: { dashboard: 'portal', artist_id: 'artist-b' },
+      body: { title: 'Unauthorized rename' },
+    }))
+    expect(res.status).toBe(404)
+    expect(renameAiConversation).not.toHaveBeenCalled()
+    expect(assertConversationContext).toHaveBeenCalled()
+  })
+
+  it('rejects a conversation delete when the current artist context is different', async () => {
+    assertConversationContext.mockImplementationOnce(() => {
+      throw new ApiError(404, 'Conversation belongs to a different artist')
+    })
+    const { DELETE } = await importRoute()
+    const res = await DELETE(jsonRequest(`/api/ai/conversations/${conversation.id}`, {
+      method: 'DELETE',
+      searchParams: { dashboard: 'portal', artist_id: 'artist-b' },
+    }))
+    expect(res.status).toBe(404)
+    expect(deleteAiConversation).not.toHaveBeenCalled()
+    expect(assertConversationContext).toHaveBeenCalled()
   })
 
   it('returns messages in chronological order for the client', async () => {
