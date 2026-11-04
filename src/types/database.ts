@@ -5758,7 +5758,7 @@ export interface Database {
           action: string
           payload_hash: string
           payload: Record<string, unknown>
-          expires_at: string
+          expires_at: string | null
           used_at: string | null
           result: Json | null
           created_at: string
@@ -5771,7 +5771,7 @@ export interface Database {
           action: string
           payload_hash: string
           payload?: Record<string, unknown>
-          expires_at: string
+          expires_at: string | null
           used_at?: string | null
           result?: Json | null
           created_at?: string
@@ -5784,7 +5784,7 @@ export interface Database {
           action?: string
           payload_hash?: string
           payload?: Record<string, unknown>
-          expires_at?: string
+          expires_at?: string | null
           used_at?: string | null
           result?: Json | null
           created_at?: string
