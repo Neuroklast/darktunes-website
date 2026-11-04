@@ -148,10 +148,11 @@ export function isToolAllowed(
     if (actor.role === 'admin') {
       return actor.accessContext === 'admin' && actor.dashboard === 'admin'
     }
-    // Editors may inspect operational queues, never admin-only information.
+    // Editors may inspect authorized CMS data through both the editor UI
+    // and the MCP endpoint (which has no editor-dashboard route). The server-
+    // verified role and capabilities, not a client dashboard label, decide.
     return actor.role === 'editor' &&
       actor.accessContext === 'editor' &&
-      actor.dashboard === 'editor' &&
       !tool.capabilities.includes('admin.panel.full')
   }
   if (tool.dataScope === 'self_artist') {
