@@ -43,8 +43,6 @@ export interface RequireAiActorOptions {
   includeArtists?: boolean
 }
 
-const MANAGE_ARTISTS: Capability = 'cms.artists.manage'
-
 export async function requireAiActor(
   req: NextRequest,
   options?: RequireAiActorOptions,
@@ -57,12 +55,19 @@ export async function requireAiActor(
     throw new ApiError(403, 'The AI assistant is only available to artists, editors, and admins.', 'FORBIDDEN')
   }
 
+  // The dashboard is client-controlled. It must never upgrade the actor's role.
+  if (role === 'artist' && options?.dashboard && options.dashboard !== 'portal') {
+    throw new ApiError(403, 'Artist accounts can only use the artist assistant.', 'AI_CONTEXT_FORBIDDEN')
+  }
+  if (role === 'editor' && options?.dashboard === 'admin') {
+    throw new ApiError(403, 'Editor accounts cannot use the admin assistant.', 'AI_CONTEXT_FORBIDDEN')
+  }
   const dashboard: AiDashboard =
-    options?.dashboard ?? (role === 'artist' ? 'portal' : 'admin')
+    options?.dashboard ?? (role === 'artist' ? 'portal' : role === 'editor' ? 'editor' : 'admin')
   const memberships = await listArtistMemberships(serviceDb, user.id).catch(async () => {
     return listArtistMemberships(userDb, user.id)
   })
-  const canInspectAnyArtist = role === 'admin' || (role === 'editor' && access.capabilities.has(MANAGE_ARTISTS))
+  const canInspectAnyArtist = role === 'admin'
   const allArtists =
     canInspectAnyArtist && options?.includeArtists === true
       ? await listArtistOptions(serviceDb).catch(() => [] as ArtistOption[])
