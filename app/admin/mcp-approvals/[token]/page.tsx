@@ -19,16 +19,20 @@ export default async function McpApprovalPage({ params }: {
 }) {
   if (process.env.MCP_CONNECTOR_ENABLED !== 'true') notFound()
   const { token } = await params
-  if (!/^act_[a-f0-9]{48}$/.test(token)) notFound()
+  const isToken = /^act_[a-f0-9]{48}$/.test(token)
+  const isId = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(token)
+  if (!isToken && !isId) notFound()
   const session = await createServerSupabaseClient()
   const { data: { user } } = await session.auth.getUser()
   if (!user) notFound()
 
   const db = await createServiceRoleSupabaseClient()
-  const tokenHash = createHash('sha256').update(token).digest('hex')
-  const { data } = await db.from('ai_action_confirmations')
+  const lookup = db.from('ai_action_confirmations')
     .select('user_id,action,payload,expires_at,used_at')
-    .eq('token_hash', tokenHash).eq('user_id', user.id).maybeSingle()
+  const { data } = await (
+    isToken ? lookup.eq('token_hash', createHash('sha256').update(token).digest('hex'))
+      : lookup.eq('id', token)
+  ).eq('user_id', user.id).maybeSingle()
   if (!data || data.used_at || new Date(data.expires_at).getTime() < Date.now()) notFound()
 
   const isNews = data.action === 'create_cms_news_draft'
