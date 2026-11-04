@@ -23,7 +23,6 @@ import {
   Record as RecordIcon,
   Ticket,
   YoutubeLogo,
-  Link,
   Queue,
   Gauge,
   Bell,
@@ -80,7 +79,6 @@ const API_META: Record<string, { label: string; icon: React.ReactNode }> = {
   songkick: { label: 'Songkick', icon: <Ticket size={16} weight="bold" aria-hidden="true" /> },
   bandsintown: { label: 'Bandsintown', icon: <Ticket size={16} weight="bold" aria-hidden="true" /> },
   youtube: { label: 'YouTube', icon: <YoutubeLogo size={16} weight="bold" aria-hidden="true" /> },
-  odesli: { label: 'Odesli', icon: <Link size={16} weight="bold" aria-hidden="true" /> },
   lastfm: { label: 'Last.fm', icon: <Headphones size={16} weight="bold" aria-hidden="true" /> },
   soundcharts: { label: 'Soundcharts', icon: <Waveform size={16} weight="bold" aria-hidden="true" /> },
   apify: { label: 'Apify (Spotify public)', icon: <ChartLine size={16} weight="bold" aria-hidden="true" /> },
@@ -370,7 +368,6 @@ export function SystemHealthWidget({ bearerToken }: SystemHealthWidgetProps) {
         )
       } else if (
         api === 'spotify' ||
-        api === 'odesli' ||
         api === 'songkick' ||
         api === 'bandsintown'
       ) {
@@ -840,9 +837,6 @@ export function SystemHealthWidget({ bearerToken }: SystemHealthWidgetProps) {
                   )}
                   {api === 'bandsintown' && status.configured && (
                     <p>Keys are per artist on the profile; global key is an optional fallback.</p>
-                  )}
-                  {api === 'odesli' && status.configured && status.operationalState === 'idle' && (
-                    <p>Resolves smart links from release album/track URLs.</p>
                   )}
                   {api === 'lastfm' && status.configured && (
                     <p>Syncs monthly listener trends for portal artists.</p>
