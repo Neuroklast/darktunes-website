@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useFileManager } from './useSosFileManager'
 
@@ -165,6 +165,7 @@ describe('useFileManager archive restoration', () => {
       request = result.current.restoreArchivedFile('local-file')
       result.current.removeFile('local-file')
     })
+    await waitFor(() => expect(resolveDownload).toBeDefined())
     await act(async () => {
       resolveDownload?.('Sales Month,Artist\n2026-01,Reaper')
       await request
