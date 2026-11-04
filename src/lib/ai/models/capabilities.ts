@@ -18,6 +18,7 @@ const CAPABILITY_KEYS: Array<keyof ModelCapabilities> = [
   'supports_streaming',
   'supports_tools',
   'supports_tools_with_streaming',
+  'requires_thinking_for_tools',
   'supports_enable_thinking',
   'supports_low_effort',
   'supports_reasoning_budget',
