@@ -3569,9 +3569,6 @@ BEGIN
     AND NOT EXISTS (
       SELECT 1 FROM public.users WHERE id = p_actor_id AND role = 'admin'
     )
-    AND NOT EXISTS (
-      SELECT 1 FROM public.user_roles WHERE user_id = p_actor_id AND role = 'admin'
-    )
   ) OR v_approval.action <> p_action OR v_approval.payload_hash <> p_payload_hash OR
     v_approval.artist_id IS NOT NULL THEN
     RAISE EXCEPTION 'MCP_APPROVAL_MISMATCH' USING ERRCODE = 'P0001';
@@ -3781,9 +3778,6 @@ BEGIN
     v_approval.user_id <> p_actor_id
     AND NOT EXISTS (
       SELECT 1 FROM public.users WHERE id = p_actor_id AND role = 'admin'
-    )
-    AND NOT EXISTS (
-      SELECT 1 FROM public.user_roles WHERE user_id = p_actor_id AND role = 'admin'
     )
   ) OR v_approval.action <> p_action OR
      v_approval.payload_hash <> p_payload_hash OR
