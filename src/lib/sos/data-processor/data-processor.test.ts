@@ -57,6 +57,12 @@ describe('distribution helpers', () => {
     ).toBe('Frozen Plasma')
   })
 
+  it('does not treat an empty stored compilation identifier as a wildcard', () => {
+    expect(isCompilation(makeTx({ release_title: 'Every Release' }), [
+      { id: 'bad', type: 'title', identifier: ' ', label: 'Empty' },
+    ])).toBe(false)
+  })
+
   it('isCompilation matches EAN filter exactly', () => {
     const tx = makeTx({ upc_ean: '1234567890123' })
     expect(
