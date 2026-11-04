@@ -1,31 +1,16 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { AdminPageShell } from '../_components/AdminPageShell'
 import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import { resolveEffectiveAccess } from '@/lib/rbac/resolveAccess'
 import { mcpActions } from '@/lib/mcp/commitApproval'
+import { McpReviewQueue, type McpReviewLabels, type McpReviewRow } from './McpReviewQueue'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'GPT approvals | darkTunes',
   robots: { index: false, follow: false },
-}
-
-function approvalTitle(payload: Record<string, unknown>, action: string): string {
-  const name = payload.display_name ?? payload.title
-  if (typeof name === 'string' && name.trim()) return name.slice(0, 180)
-  return action.replaceAll('_', ' ')
-}
-
-function changeDescription(payload: Record<string, unknown>, action: string, newsDraftLabel: string): string {
-  if (action === 'create_cms_news_draft') return newsDraftLabel
-  const changes = payload.changes
-  if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
-    return action.replaceAll('_', ' ')
-  }
-  return Object.keys(changes).slice(0, 8).map(key => key.replaceAll('_', ' ')).join(', ')
 }
 
 export default async function McpApprovalsInboxPage() {
@@ -42,81 +27,70 @@ export default async function McpApprovalsInboxPage() {
     redirect('/login?error=unauthorized')
   }
 
-  const { data, error } = await db.from('ai_action_confirmations')
-    .select('id,action,payload,created_at,expires_at,used_at')
-    .eq('user_id', user.id)
+  const now = new Date().toISOString()
+  // All administrators see one shared queue. Editors keep their own queue.
+  // This query is server-only because it uses the service-role database client.
+  let pendingQuery = db.from('ai_action_confirmations')
+    .select('id,user_id,action,payload,created_at,expires_at,used_at,result')
     .is('artist_id', null)
     .in('action', [...mcpActions])
+    .is('used_at', null)
+    .gt('expires_at', now)
     .order('created_at', { ascending: false })
-    .limit(100)
+    .limit(500)
+  let historyQuery = db.from('ai_action_confirmations')
+    .select('id,user_id,action,payload,created_at,expires_at,used_at,result')
+    .is('artist_id', null)
+    .in('action', [...mcpActions])
+    .or('used_at.not.is.null,expires_at.lte.' + now)
+    .order('created_at', { ascending: false })
+    .limit(30)
+  if (access.primaryRole !== 'admin') {
+    pendingQuery = pendingQuery.eq('user_id', user.id)
+    historyQuery = historyQuery.eq('user_id', user.id)
+  }
 
-  const rows = data ?? []
-  const now = Date.now()
-  const pending = rows.filter(row => !row.used_at && new Date(row.expires_at).getTime() > now)
-  const history = rows.filter(row => row.used_at || new Date(row.expires_at).getTime() <= now)
-  const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
+  const [pendingResult, historyResult] = await Promise.all([pendingQuery, historyQuery])
+  const labels: McpReviewLabels = {
+    pending: t('pending'),
+    review: t('review'),
+    empty: t('empty'),
+    history: t('history'),
+    expired: t('expired'),
+    completed: t('completed'),
+    back: t('back'),
+    skip: t('skip'),
+    accept: t('accept'),
+    decline: t('decline'),
+    details: t('details'),
+    before: t('before'),
+    after: t('after'),
+    saving: t('saving'),
+    refresh: t('refresh'),
+    reviewFailed: t('reviewFailed'),
+    retryReview: t('retryReview'),
+    fields: t('fields'),
+    allReviewed: t('allReviewed'),
+    noChanges: t('noChanges'),
+    rejected: t('rejected'),
+    changes: t('changes'),
+    openHistory: t('openHistory'),
+    preparing: t('preparing'),
+  }
 
   return (
-    <AdminPageShell
-      title={tNav('mcpApprovals')}
-      description={t('description')}
-    >
+    <AdminPageShell title={tNav('mcpApprovals')} description={t('description')} fill>
       {process.env.MCP_CONNECTOR_ENABLED !== 'true' ? (
         <p className="text-sm text-muted-foreground">{t('disabled')}</p>
-      ) : error ? (
+      ) : pendingResult.error || historyResult.error ? (
         <p role="alert" className="text-sm text-destructive">{t('loadError')}</p>
       ) : (
-        <div className="mx-auto max-w-4xl space-y-8">
-          <section className="space-y-4" aria-labelledby="pending-approvals">
-            <h2 id="pending-approvals" className="text-lg font-semibold">
-              {t('pending')} ({pending.length})
-            </h2>
-            {pending.length === 0 ? (
-              <p className="rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground">
-                {t('empty')}
-              </p>
-            ) : (
-              <ul className="space-y-3">
-                {pending.map(row => {
-                  const payload = row.payload as Record<string, unknown>
-                  return (
-                    <li key={row.id} className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-5">
-                      <div className="min-w-0 space-y-1">
-                        <p className="font-semibold break-words">{approvalTitle(payload, row.action)}</p>
-                        <p className="text-sm text-muted-foreground">{changeDescription(payload, row.action, t('newsDraft'))}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {t('expires')} {dateFormat.format(new Date(row.expires_at))}
-                        </p>
-                      </div>
-                      <Link
-                        href={`/admin/mcp-approvals/${row.id}`}
-                        className="inline-flex min-h-10 items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-                      >
-                        {t('review')}
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </section>
-          {history.length > 0 && (
-            <section className="space-y-3" aria-labelledby="approval-history">
-              <h2 id="approval-history" className="text-lg font-semibold">{t('history')}</h2>
-              <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
-                {history.map(row => {
-                  const payload = row.payload as Record<string, unknown>
-                  return (
-                    <li key={row.id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-3 text-sm">
-                      <span className="min-w-0 break-words">{approvalTitle(payload, row.action)}</span>
-                      <span className="shrink-0 text-muted-foreground">{row.used_at ? t('completed') : t('expired')}</span>
-                    </li>
-                  )
-                })}
-              </ul>
-            </section>
-          )}
-        </div>
+        <McpReviewQueue
+          initialPending={(pendingResult.data ?? []) as McpReviewRow[]}
+          recentHistory={(historyResult.data ?? []) as McpReviewRow[]}
+          labels={labels}
+          locale={locale}
+        />
       )}
     </AdminPageShell>
   )
