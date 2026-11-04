@@ -263,10 +263,19 @@ async function writeRawSheet(
     worksheet.addRow(sourceSheet.headers)
     worksheet.getRow(1).font = { bold: true }
 
+    // Only the additional settlement columns are numeric. Keep every original
+    // distributor cell as supplied, including IDs with leading zeros.
+    const statementNumericColumns = new Set(sourceSheet.headers.flatMap((header, index) =>
+      ['Statement Allocation (%)', 'Statement Net Revenue (source currency)', 'Statement Quantity'].includes(header)
+        ? [index]
+        : [],
+    ))
     const total = chunk.rows.length
     for (let i = 0; i < total; i += RAW_SHEET_WRITE_BATCH) {
       const batch = chunk.rows.slice(i, i + RAW_SHEET_WRITE_BATCH)
-      worksheet.addRows(batch)
+      worksheet.addRows(batch.map(row => row.map((cell, index) =>
+        statementNumericColumns.has(index) ? Number(cell) : cell,
+      )))
       const written = Math.min(i + batch.length, total)
       onRawProgress?.({ sheet: chunk.name, written, total })
       if (total > RAW_SHEET_WRITE_BATCH) {
