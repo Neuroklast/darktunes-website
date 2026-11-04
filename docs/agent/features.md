@@ -194,7 +194,7 @@ Enterprise SOS + invoice lifecycle. Workflow helpers: `src/lib/sos/statementWork
 
 **FX / ECB:** Spot + historical rates via `/api/exchange-rates` (Frankfurter). Processing is gated until rates are non-empty (`useSosCSVProcessor`). Sticky `CurrencyRatesBanner` for loading / live ECB / fallback + refresh. Historical fetch does **not** pre-fill missing months with `FALLBACK_EXCHANGE_RATES` — convert uses spot, then throws if still missing. Empty currency cell → EUR + wizard warning. Missing or ≤0 rate still throws (no silent €0).
 
-**Parser skips:** Bandcamp `payout`, empty lines, and no-artist 0 € rows go to `skipped[]` (counted in `rowsSkipped`, listed as non-blocking wizard warnings). “Too many columns” stays a parse error. Compilation summary revenue is EUR after FX (`buildFilteredCompilations` + `normalizeRevenueToEur`). Quoted embedded newlines are preserved via PapaParse records (not `split('\\n')`).
+**Parser skips:** Bandcamp `payout`, empty lines, and no-artist 0 € rows go to `skipped[]` (counted in `rowsSkipped`, listed as non-blocking wizard warnings). “Too many columns” stays a parse error. Compilation summary revenue is EUR after FX (`buildFilteredCompilations` + `normalizeRevenueToEur`); filtered compilations are excluded from artist settlement totals and raw tabs while retained in this audit summary and original bronze uploads. Quoted embedded newlines are preserved via PapaParse records (not `split('\\n')`).
 
 **Dates:** `normalizeDateToMonth(s, source)` — unambiguous day/month always wins; when both parts ≤ 12, Believe/Printful = DD/MM and Bandcamp/Shopify/Darkmerch = MM/DD. Two-digit years are American only for Bandcamp.
 
