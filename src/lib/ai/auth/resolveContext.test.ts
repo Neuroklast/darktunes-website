@@ -80,7 +80,7 @@ describe('resolveAiContext', () => {
     expect(result.error).toMatchObject({ status: 403, code: 'AI_ARTIST_FORBIDDEN' })
   })
 
-  it('allows an editor with cms.artists.manage to inspect an artist', () => {
+  it('denies cross-artist access even for editors with cms.artists.manage', () => {
     const result = resolveAiContext({
       userId: 'editor',
       role: 'editor',
@@ -91,7 +91,24 @@ describe('resolveAiContext', () => {
       capabilities: new Set(['admin.panel.editor', 'cms.artists.manage']),
       requestedArtist: B,
     })
-    expect(result).toMatchObject({ accessContext: 'editor', artistId: B.id, error: null })
+    expect(result.error).toMatchObject({ status: 403, code: 'AI_ARTIST_FORBIDDEN' })
+    expect(result.artistId).toBeNull()
+    expect(result.availableArtists).toEqual([])
+  })
+
+  it('allows an editor to view only artists linked to their own account', () => {
+    const result = resolveAiContext({
+      userId: 'editor',
+      role: 'editor',
+      dashboard: 'editor',
+      requestedArtistId: A.id,
+      memberships: [A],
+      allArtists: [A, B],
+      capabilities: new Set(['cms.artists.manage']),
+    })
+    expect(result.artistId).toBe(A.id)
+    expect(result.availableArtists).toEqual([A])
+    expect(result.error).toBeNull()
   })
 
   it('uses the first portal membership as the default and lists all memberships', () => {
