@@ -5,7 +5,7 @@ import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '@/l
 import { requirePageCapability } from '@/lib/rbac'
 import { contentChangePayload, contentCapability } from '@/lib/mcp/contentMutations'
 import { ReviewMcpNewsDraft } from './ReviewMcpNewsDraft'
-import { McpMfa } from '@/app/oauth/consent/McpMfa'
+import { McpMfa } from '../../../oauth/consent/McpMfa'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Review GPT changes | darkTunes', robots: { index: false, follow: false } }
