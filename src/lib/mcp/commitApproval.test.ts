@@ -62,6 +62,37 @@ describe('atomic MCP approval', () => {
       p_action: 'create_cms_news_draft', p_payload_hash: hash(canonicalJson(payload)),
     })
   })
+  it('approves the authenticated owner\'s inbox UUID without requiring the secret URL token', async () => {
+    const approvalId = '00000000-0000-4000-8000-000000000003'
+    const { actor, rpc } = fixture({
+      id: approvalId,
+      token_hash: hash(token),
+    })
+    const result = await commitMcpApproval(actor, approvalId, 'create_cms_news_draft')
+    expect(result).toMatchObject({ ok: true, replayed: false })
+    expect(rpc).toHaveBeenCalledWith('commit_mcp_approval', {
+      p_token_hash: hash(token),
+      p_actor_id: userId,
+      p_action: 'create_cms_news_draft',
+      p_payload_hash: hash(canonicalJson(payload)),
+    })
+  })
+  it('rejects another user when an inbox UUID is requested', async () => {
+    const approvalId = '00000000-0000-4000-8000-000000000003'
+    const { actor, rpc } = fixture({
+      id: approvalId, token_hash: hash(token),
+      user_id: '00000000-0000-4000-8000-000000000099',
+    })
+    await expect(commitMcpApproval(actor, approvalId, 'create_cms_news_draft'))
+      .rejects.toMatchObject({ code: 'NOT_FOUND' })
+    expect(rpc).not.toHaveBeenCalled()
+  })
+  it('rejects malformed identifiers without accessing the database', async () => {
+    const { actor, rpc } = fixture()
+    await expect(commitMcpApproval(actor, 'not-an-approval', 'create_cms_news_draft'))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+    expect(rpc).not.toHaveBeenCalled()
+  })
   it('rejects modified nested content before any RPC call', async () => {
     const { actor, rpc } = fixture({ payload_hash: hash('tampered') })
     await expect(commitMcpApproval(actor, token, 'create_cms_news_draft'))
