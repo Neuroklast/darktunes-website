@@ -103,9 +103,9 @@ export function AssistantWorkspace({
     [audience, capabilities?.tools, pathname],
   )
   const isAdmin = audience === 'admin'
-  const canSwitchLabel = capabilities
-    ? capabilities.context.access_context !== 'artist'
-    : false
+  // A label editor or artist must not have the AI context switcher.
+  // The server independently enforces this, including direct API requests.
+  const canSwitchLabel = capabilities?.context.access_context === 'admin'
   const statusLabel = (() => {
     switch (phase) {
       case 'connecting':
@@ -228,7 +228,7 @@ export function AssistantWorkspace({
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {capabilities ? (
+          {capabilities && canSwitchLabel ? (
             <ContextSelector
               capabilities={capabilities}
               artistId={artistId}
@@ -239,6 +239,11 @@ export function AssistantWorkspace({
               open={contextOpen}
               onOpenChange={setContextOpen}
             />
+          ) : capabilities ? (
+            <span className="text-xs text-muted-foreground">
+              {capabilities.context.artist?.name ??
+                (audience === 'artist' ? t('contextNoArtist') : t('contextEditor'))}
+            </span>
           ) : (
             <span className="text-xs text-muted-foreground">{t('loadingCapabilities')}</span>
           )}
