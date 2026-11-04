@@ -42,7 +42,7 @@ registerTool({
     const origin = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/$/, '')
     return {
       needs_confirmation: true as const,
-      approval_url: `${origin}/admin/mcp-approvals/${encodeURIComponent(confirmation.confirmation_token)}`,
+      approval_url: `${origin}/admin/mcp-approvals`,
       expires_at: confirmation.expires_at,
       summary: confirmation.summary,
     }
