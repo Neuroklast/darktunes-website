@@ -44,7 +44,7 @@ export function ReviewMcpNewsDraft({ token, action }: {
           {busy ? 'Saving…' : action === 'create_cms_news_draft' ? 'Approve and save draft' : 'Approve and apply changes'}
         </button>
       ) : null}
-      <Link href="/admin" className="underline text-sm">Back to admin</Link>
+      <Link href="/admin/mcp-approvals" className="underline text-sm">Back to GPT approvals</Link>
       {result ? <p className={saved ? 'text-sm' : 'text-sm text-destructive'} role="status">{result}</p> : null}
     </div>
   )
