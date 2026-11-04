@@ -196,7 +196,7 @@ Set these in your Vercel project settings (Dashboard → Project → Settings �
 ### API Credentials Encryption (required)
 - `API_CREDENTIALS_ENCRYPTION_KEY`: 64-character hex string (32 bytes). Generate with `openssl rand -hex 32`. Encrypts external integration keys before they are stored in Supabase `api_credentials`. **Never** store this key in Supabase or commit it to git.
 
-External integration API keys (Spotify, Discogs, Resend, YouTube, MailerLite, Odesli, etc.) are **not** Vercel env vars anymore. Configure them in **Admin → API Keys** (`/admin/api-keys`). Values are encrypted with AES-256-GCM and persisted in `api_credentials` (admin-only RLS). iTunes sync works without keys.
+External integration API keys (Spotify, Discogs, Resend, YouTube, MailerLite, etc.) are **not** Vercel env vars anymore. Configure them in **Admin → API Keys** (`/admin/api-keys`). Values are encrypted with AES-256-GCM and persisted in `api_credentials` (admin-only RLS). iTunes sync works without keys.
 
 **Migrating from env vars:** After deploying, log in as admin → API Keys → **Import from environment variables** (one-time). Then remove the legacy `SPOTIFY_*`, `DISCOGS_*`, `RESEND_*`, etc. from Vercel.
 
@@ -361,10 +361,7 @@ silently in production and was removed):
 > there, add a dashboard SQL job (owner decision) or clear a table manually from
 > Admin → System → Maintenance.
 
-> **Odesli note:** The Odesli / song.link `v1-alpha.1` public API was sunset on
-> 2026-07-31 (it now returns `401 PUBLIC_API_ACCESS_DEPRECATED`). Add an
-> `odesli_api_key` in Admin → API Keys to authenticate; without a key the Odesli
-> queue job completes as a no-op instead of failing.
+> The Odesli public API was retired in July 2026. Historical links remain stored and displayed; do not configure Odesli credentials or schedule related jobs.
 
 ---
 
