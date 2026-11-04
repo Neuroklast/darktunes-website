@@ -623,7 +623,7 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
     const id = conversationIdRef.current
     if (id) {
       void headers().then((auth) =>
-        fetch(`/api/ai/conversations/${id}/cancellations`, {
+        fetch(`/api/ai/conversations/${id}/cancellations?${new URLSearchParams({ dashboard: input.dashboard, ...(artistIdRef.current ? { artist_id: artistIdRef.current } : {}) })}`, {
           method: 'POST',
           headers: auth,
         }).catch(() => undefined),
@@ -730,7 +730,7 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
   const deleteConversation = useCallback(
     async (id: string) => {
       try {
-        const res = await fetch(`/api/ai/conversations/${id}`, {
+        const res = await fetch(`/api/ai/conversations/${id}?${new URLSearchParams({ dashboard: input.dashboard, ...(artistIdRef.current ? { artist_id: artistIdRef.current } : {}) })}`, {
           method: 'DELETE',
           headers: await headers(),
         })
@@ -759,7 +759,7 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
   const renameConversation = useCallback(
     async (id: string, title: string): Promise<boolean> => {
       try {
-        const res = await fetch(`/api/ai/conversations/${id}`, {
+        const res = await fetch(`/api/ai/conversations/${id}?${new URLSearchParams({ dashboard: input.dashboard, ...(artistIdRef.current ? { artist_id: artistIdRef.current } : {}) })}`, {
           method: 'PATCH',
           headers: await headers(),
           body: JSON.stringify({ title }),
