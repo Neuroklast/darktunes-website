@@ -303,6 +303,7 @@ export async function enqueueArtistSyncJobs(
   artistIds: string[],
   jobType: SyncJobType = 'full',
 ): Promise<number> {
+  if (jobType === 'odesli') throw new Error('Retired sync provider cannot be enqueued')
   if (artistIds.length === 0) return 0
 
   // Find artists already queued (pending or running) to avoid duplicates
@@ -551,12 +552,13 @@ export async function markSyncJobCancelled(db: DbClient, jobId: string): Promise
 export async function retrySyncJob(db: DbClient, jobId: string): Promise<boolean> {
   const { data: existing, error: readError } = await db
     .from('sync_queue')
-    .select('id, status')
+    .select('id, status, job_type')
     .eq('id', jobId)
     .maybeSingle()
 
   if (readError) throw new Error(`Failed to load sync job: ${readError.message}`)
   if (!existing) throw new Error('Sync job not found')
+  if (existing.job_type === 'odesli') return false
   if (existing.status !== 'failed' && existing.status !== 'cancelled') return false
 
   const { error } = await db
