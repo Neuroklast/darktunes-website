@@ -27,6 +27,8 @@ export function isCompilation(
   filters: CompilationFilter[],
 ): boolean {
   for (const filter of filters) {
+    // Empty persisted filters must never exclude the entire catalogue.
+    if (!filter.identifier.trim()) continue
     switch (filter.type) {
       case 'ean':
         if (
