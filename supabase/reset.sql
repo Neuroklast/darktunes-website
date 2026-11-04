@@ -3509,13 +3509,12 @@ CREATE TABLE IF NOT EXISTS public.ai_action_confirmations (
   action        TEXT        NOT NULL,
   payload_hash  TEXT        NOT NULL,
   payload       JSONB       NOT NULL DEFAULT '{}',
-  expires_at    TIMESTAMPTZ,
+  expires_at    TIMESTAMPTZ NOT NULL,
   used_at       TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Only short-lived internal action confirmations expire. MCP proposals do not.
-ALTER TABLE public.ai_action_confirmations ALTER COLUMN expires_at DROP NOT NULL;
+-- MCP review does not enforce expiry. Keep this legacy NOT NULL column.
 CREATE INDEX IF NOT EXISTS idx_ai_action_confirmations_user ON public.ai_action_confirmations (user_id, expires_at);
 
 -- =============================================================================
@@ -3822,9 +3821,10 @@ CREATE INDEX IF NOT EXISTS idx_ai_action_confirmations_mcp_queue
      'update_cms_release', 'update_cms_event');
 
 -- Restore all unreviewed MCP proposals, including previously expired ones.
--- This never modifies ordinary, non-MCP assistant confirmations.
+-- Keep the pre-existing NOT NULL schema; the stored timestamp is no longer
+-- enforced by the MCP approval functions and is never shown as a deadline.
 UPDATE public.ai_action_confirmations
-SET expires_at = NULL
+SET expires_at = '9999-12-31T23:59:59.999Z'::timestamptz
 WHERE used_at IS NULL AND artist_id IS NULL AND action IN
   ('create_cms_news_draft', 'update_cms_artist',
    'update_cms_release', 'update_cms_event');
