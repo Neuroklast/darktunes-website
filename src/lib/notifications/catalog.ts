@@ -92,7 +92,8 @@ export const NOTIFICATION_CATALOG: Record<NotificationEventType, NotificationCat
     actionKey: 'actions.review_press',
   },
   mcp_approval_pending: {
-    audience: 'user',
+    audience: 'staff',
+    roles: ['admin'],
     defaultEntityType: 'mcp_approval',
     summaryKey: 'types.mcp_approval',
     actionKey: 'actions.review_mcp',
