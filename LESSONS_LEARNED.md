@@ -81,6 +81,11 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-11-04 — Darkmerch uses shared-year quarter labels
+
+- **Finding:** A Darkmerch XLSX with 18 valid revenue rows and `DATE = Q2 - Q3 2026` parsed financially but skipped bronze archiving. The report-period parser only accepted a year after each quarter (`Q2 2026 - Q3 2026`).
+- **Rule:** Test period recognition with actual source-label shapes, including shared-year ranges and empty spreadsheet columns. Use the range only for archive provenance; do not allocate aggregated sales to invented monthly transaction dates.
+
 ### 2026-11-04 — Fallbacks inside unstable_cache cache the outage
 
 - **Finding:** Public read helpers wrapped Supabase calls in `unstable_cache` with `.catch(() => [])` / `.catch(() => null)` / `SITE_SETTINGS_DEFAULTS` inside the callback. A Supabase 429 therefore resolved successfully with an empty value, which Next stored in the Data Cache for up to 1h, overwriting the last good entry (the symptom behind the 2026-10-21 entry: `Music Label` and empty catalogues). If the callback throws, Next logs it and keeps/returns the stale entry (revalidateTag uses `'max'`, so stale entries survive invalidation); with no entry the error propagates and nothing is cached.
