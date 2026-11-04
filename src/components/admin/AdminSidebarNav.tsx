@@ -61,6 +61,7 @@ import {
   Globe,
   Question,
   ChatTeardropDots,
+  CheckCircle,
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -104,6 +105,7 @@ type NavItemKey =
   | 'settings'
   | 'apiKeys'
   | 'aiAssistant'
+  | 'mcpApprovals'
   | 'support'
   | 'system'
 
@@ -206,6 +208,7 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: 'group_operations',
     items: [
       { labelKey: 'aiAssistant', href: '/admin/ai', icon: Sparkle, adminOnly: true },
+      { labelKey: 'mcpApprovals', href: '/admin/mcp-approvals', icon: CheckCircle, adminOnly: false },
       { labelKey: 'support', href: '/admin/support', icon: Lifebuoy, adminOnly: true },
       { labelKey: 'apiKeys', href: '/admin/api-keys', icon: Key, adminOnly: true },
       { labelKey: 'system', href: '/admin/system', icon: Cpu, adminOnly: true },
