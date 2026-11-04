@@ -7,7 +7,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }))
 
 const labels: McpReviewLabels = {
   pending: 'Pending', review: 'Review', empty: 'No proposals',
-  history: 'History', expired: 'Expired', completed: 'Completed',
+  history: 'History', completed: 'Completed',
   back: 'Back', skip: 'Skip', accept: 'Accept', decline: 'Decline',
   details: 'Details', before: 'Before', after: 'After', saving: 'Saving',
   refresh: 'Refresh', reviewFailed: 'Could not save decision.',
@@ -21,7 +21,7 @@ function approval(id: string, title: string): McpReviewRow {
     id, user_id: '00000000-0000-4000-8000-000000000010',
     action: 'create_cms_news_draft',
     payload: { title, slug: title.toLowerCase().replaceAll(' ', '-'), excerpt: '', content: 'Some valid news content for review.' },
-    created_at: '2026-11-04T18:00:00Z', expires_at: '2026-12-04T18:00:00Z',
+    created_at: '2026-11-04T18:00:00Z', expires_at: null,
     used_at: null, result: null,
   }
 }
