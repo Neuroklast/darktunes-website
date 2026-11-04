@@ -17,6 +17,7 @@ export type McpReviewRow = {
 
 export type McpReviewLabels = {
   pending: string
+  review: string
   empty: string
   history: string
   expired: string
