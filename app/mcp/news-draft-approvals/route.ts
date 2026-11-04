@@ -14,7 +14,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const schema = z.object({ token: z.string().regex(/^act_[a-f0-9]{48}$/) }).strict()
+const schema = z.object({ token: z.union([z.string().uuid(), z.string().regex(/^act_[a-f0-9]{48}$/)]) }).strict()
 
 function problem(status: number, title: string, detail: string) {
   return new Response(JSON.stringify({ type: 'about:blank', title, status, detail }), {
@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
   if (!input.success) return problem(400, 'Bad request', 'A valid one-time token is required.')
   try {
     const result = await commitMcpApproval(actor, input.data.token, 'create_cms_news_draft')
+    revalidatePath('/admin/mcp-approvals')
     revalidatePath('/admin/news')
     return NextResponse.json(result, {
       status: result.replayed ? 200 : 201, headers: {
