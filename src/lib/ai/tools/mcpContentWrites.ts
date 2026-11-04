@@ -12,7 +12,7 @@ import {
 const confirmationOutput = z.object({
   needs_confirmation: z.literal(true),
   approval_url: z.string().min(1),
-  expires_at: z.string(),
+  expires_at: z.null(),
   summary: z.string(),
 })
 
