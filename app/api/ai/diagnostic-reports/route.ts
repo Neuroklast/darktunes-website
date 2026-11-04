@@ -15,8 +15,8 @@ const bodySchema = z.object({
 
 export const POST = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
   const actor = await requireAiActor(req)
-  if (actor.role === 'artist') {
-    throw new ApiError(403, 'Developer reports are limited to label staff.', 'FORBIDDEN')
+  if (actor.role !== 'admin' || !actor.capabilities.has('admin.panel.full')) {
+    throw new ApiError(403, 'Developer reports are limited to administrators.', 'FORBIDDEN')
   }
   let raw: unknown
   try {
