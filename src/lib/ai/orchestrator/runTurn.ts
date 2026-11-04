@@ -158,7 +158,7 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
   // relying on the model to elect to call a tool and then declaring no data.
   const wantsArtistStreams = Boolean(
     actor.artistId &&
-    /\\b(?:streams?|streaming(?:zahlen)?|spotify.?streams?|plays?|wiedergaben|abrufe?|hörzahlen|hoerzahlen)\\b/i.test(input.userText) &&
+    /\b(?:streams?|streaming(?:zahlen)?|spotify.?streams?|plays?|wiedergaben|abrufe?|hörzahlen|hoerzahlen)\b/i.test(input.userText) &&
     allToolDefinitions.some((tool) => tool.name === 'get_artist_analytics'),
   )
   const streamingTool = allToolDefinitions.filter((tool) => tool.name === 'get_artist_analytics')
