@@ -14,7 +14,6 @@ import { buildRootLayoutMetadata } from '@/lib/seo/metadata'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages } from 'next-intl/server'
 import type { Locale } from '@/i18n/types'
-import { WebVitals } from './web-vitals'
 import './globals.css'
 
 const fontVariables: CSSProperties = {
@@ -101,7 +100,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           />
           <ThemeEffectsClient effects={settings?.themeConfig?.effects} />
         </NavHidingWrapper>
-        {process.env.NODE_ENV === 'production' ? <WebVitals /> : null}
         <NextIntlClientProvider locale={locale} messages={messages}>
           <Providers brand={resolveBrandFromSettings(settings ?? SITE_SETTINGS_DEFAULTS)}>
             <NavHidingWrapper><SiteHeader /></NavHidingWrapper>
