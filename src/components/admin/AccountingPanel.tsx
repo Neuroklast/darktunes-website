@@ -428,35 +428,31 @@ function SosGeneratorPanel() {
     },
   }
 
-  // Load a bronze archive into the appropriate in-memory file manager for processing.
-  // CSV is fetched via presigned R2 GET (bypasses Vercel response size limit).
-  const loadBronzeBatch = useCallback(async (batch: { id: string; distributor: string; periodStart: string }) => {
-    try {
-      const { downloadBronzeCsvText } = await import('@/lib/sos/bronzeDownload')
-      const csvText = await downloadBronzeCsvText(batch.id)
-      const fileName = `${batch.distributor}-${batch.periodStart || 'archive'}.csv`
-      const blob = new Blob([csvText], { type: 'text/csv; charset=utf-8' })
-      const file = new File([blob], fileName, { type: 'text/csv; charset=utf-8' })
-      const dist = batch.distributor as 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch'
-      if (dist === 'believe') await believeManager.addFiles([file])
-      else if (dist === 'bandcamp') await bandcampManager.addFiles([file])
-      else if (dist === 'shopify') await shopifyManager.addFiles([file])
-      else if (dist === 'printful') await printfulManager.addFiles([file])
-      else if (dist === 'darkmerch') await darkmerchManager.addFiles([file])
-      else throw new Error(`Unsupported distributor: ${dist}`)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : t.bronzeArchiveLoadError
-      toast.error(msg)
-      throw err
-    }
-  }, [
-    believeManager,
-    bandcampManager,
-    shopifyManager,
-    printfulManager,
-    darkmerchManager,
-    t.bronzeArchiveLoadError,
-  ])
+  // Restore a saved batch into its existing file card when present. If only
+  // the workspace links the archive, add exactly one card without re-uploading.
+  const loadBronzeBatch = useCallback(async (batch: {
+    id: string
+    distributor: string
+    periodStart: string
+    periodEnd?: string
+    r2Key?: string
+  }) => {
+    const archivedName = batch.r2Key?.split('/').pop()?.replace(/^[a-f0-9]{12}_/i, '')
+    const name = archivedName || `${batch.distributor}-${batch.periodStart || 'archive'}.csv`
+    const manager = batch.distributor === 'believe' ? believeManager
+      : batch.distributor === 'bandcamp' ? bandcampManager
+      : batch.distributor === 'shopify' ? shopifyManager
+      : batch.distributor === 'printful' ? printfulManager
+      : batch.distributor === 'darkmerch' ? darkmerchManager
+      : null
+    if (!manager) throw new Error(`Unsupported distributor: ${batch.distributor}`)
+    await manager.restoreArchivedBatch({
+      id: batch.id,
+      name,
+      periodStart: batch.periodStart,
+      periodEnd: batch.periodEnd,
+    })
+  }, [believeManager, bandcampManager, shopifyManager, printfulManager, darkmerchManager])
 
   // CSV processing — all config fields now wired
   const {
@@ -629,6 +625,11 @@ function SosGeneratorPanel() {
     [sessionFiles],
   )
 
+  const recoverableSessionFiles = useMemo(
+    () => sessionFiles.filter((file) => file.bronzeBatchId && !file.data),
+    [sessionFiles],
+  )
+
   const bronzeBatchIds = useMemo(() => {
     const ids = new Set<string>()
     for (const file of sessionFiles) {
@@ -793,40 +794,78 @@ function SosGeneratorPanel() {
     }
   }, [currentPeriodKey, loadFromServer, t])
 
-  /** Load bronze archives referenced by the server workspace back into the session. */
+  /** Restore missing CSV content, including already-listed files with archived IDs. */
   const restoreArchivedSources = useCallback(async () => {
-    const missing = serverBronzeBatchIds.filter((id) => !bronzeBatchIds.includes(id))
-    if (missing.length === 0) return
+    const unloaded = sessionFiles.filter((file) => file.bronzeBatchId && !file.data)
+    const workspaceOnly = serverBronzeBatchIds.filter((id) => !bronzeBatchIds.includes(id))
+    if (unloaded.length === 0 && workspaceOnly.length === 0) return
     setRestoringArchives(true)
+    let restored = 0
+    let failed = 0
     try {
-      const supabase = createBrowserSupabaseClient()
-      const { data } = await supabase.auth.getSession()
-      const token = data.session?.access_token
-      if (!token) throw new Error(t.workspaceLoadFailed)
-      for (const batchId of missing) {
-        const res = await fetch(`/api/admin/sos/import-batches/${batchId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!res.ok) continue
-        const json = (await res.json()) as {
-          batch?: { id: string; distributor?: string; periodStart?: string }
+      // Sequential retrieval prevents large Believe archives exhausting memory
+      // or bandwidth at the same time. A failed source doesn't stop the rest.
+      for (const file of unloaded) {
+        const manager = file.type === 'believe' ? believeManager
+          : file.type === 'bandcamp' ? bandcampManager
+          : file.type === 'shopify' ? shopifyManager
+          : file.type === 'printful' ? printfulManager
+          : darkmerchManager
+        try {
+          await manager.restoreArchivedFile(file.id)
+          restored++
+        } catch {
+          failed++
         }
-        if (!json.batch?.distributor) continue
-        await loadBronzeBatch({
-          id: json.batch.id,
-          distributor: json.batch.distributor,
-          periodStart: json.batch.periodStart ?? '',
-        })
       }
+      if (workspaceOnly.length > 0) {
+        const supabase = createBrowserSupabaseClient()
+        const { data } = await supabase.auth.getSession()
+        const token = data.session?.access_token
+        if (!token) throw new Error(t.workspaceLoadFailed)
+        for (const batchId of workspaceOnly) {
+          try {
+            const res = await fetch(`/api/admin/sos/import-batches/${batchId}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            if (!res.ok) throw new Error(`Cannot read saved archive (${res.status})`)
+            const json = (await res.json()) as { batch?: {
+              id: string; distributor?: string; periodStart?: string
+              periodEnd?: string; r2Key?: string; status?: string
+            } }
+            if (!json.batch?.distributor || json.batch.status !== 'completed') {
+              throw new Error('The requested archive is not complete.')
+            }
+            await loadBronzeBatch({
+              id: json.batch.id,
+              distributor: json.batch.distributor,
+              periodStart: json.batch.periodStart ?? '',
+              periodEnd: json.batch.periodEnd,
+              r2Key: json.batch.r2Key,
+            })
+            restored++
+          } catch {
+            failed++
+          }
+        }
+      }
+      if (restored > 0) toast.success(`${restored} saved file(s) loaded. Calculations are updating.`)
+      if (failed > 0) toast.error(`${failed} file(s) could not be restored. Retry or select the original files.`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t.bronzeArchiveLoadError)
     } finally {
       setRestoringArchives(false)
     }
   }, [
+    sessionFiles,
     serverBronzeBatchIds,
     bronzeBatchIds,
     loadBronzeBatch,
+    believeManager,
+    bandcampManager,
+    shopifyManager,
+    printfulManager,
+    darkmerchManager,
     t.workspaceLoadFailed,
     t.bronzeArchiveLoadError,
   ])
@@ -886,10 +925,11 @@ function SosGeneratorPanel() {
       <p className="text-xs text-muted-foreground">
         {interpolate(t.rosterFromDbHint, { count: labelArtists.length })}
       </p>
-      {serverBronzeBatchIds.some((id) => !bronzeBatchIds.includes(id)) && (
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs text-muted-foreground">
-            {interpolate(t.uploadArchiveAvailable, { count: serverBronzeBatchIds.length })}
+      {(recoverableSessionFiles.length > 0 ||
+        serverBronzeBatchIds.some((id) => !bronzeBatchIds.includes(id))) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+          <p className="text-xs text-foreground">
+            Your source files are saved. Restore their data to continue the calculation.
           </p>
           <Button
             type="button"
@@ -898,7 +938,7 @@ function SosGeneratorPanel() {
             onClick={() => void restoreArchivedSources()}
             disabled={restoringArchives || isProcessing}
           >
-            {t.uploadArchiveRestore}
+            {restoringArchives ? 'Restoring saved files…' : 'Restore all saved files'}
           </Button>
         </div>
       )}
@@ -1282,6 +1322,9 @@ function SosGeneratorPanel() {
             onImportReady={handleImportReady}
             hasBlockingValidation={hasBlockingValidation}
             ratesReady={exchangeRatesReady}
+            labels={recoverableSessionFiles.length > 0
+              ? { blockedUploadNoData: 'Restore the saved file data above to continue.' }
+              : undefined}
             uploadPanel={uploadPanel}
             validatePanel={validatePanel}
             reviewPanel={reviewPanel}
