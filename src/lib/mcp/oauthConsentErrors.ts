@@ -42,7 +42,7 @@ export function describeOAuthConsentFailure(
   }
 
   return {
-    message: `Supabase could not verify the authorization request. ${message.slice(0, 240) || 'Start a new connection from ChatGPT.'}`,
+    message: 'Supabase could not verify the authorization request. Check the Auth error response in your browser Network tab, then start a new connection from ChatGPT.',
     diagnostic,
   }
 }
