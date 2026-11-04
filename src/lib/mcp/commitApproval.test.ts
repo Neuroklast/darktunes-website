@@ -162,6 +162,27 @@ describe('atomic MCP approval', () => {
     expect(result.replayed).toBe(true)
     expect(rpc).toHaveBeenCalledTimes(1)
   })
+  it.each([
+    ['MCP_STALE_CONTENT', 'P0001', 409, 'MCP_CONTENT_CHANGED'],
+    ['MCP_APPROVAL_ALREADY_USED', 'P0001', 409, 'MCP_ALREADY_REVIEWED'],
+    ['MCP_APPROVAL_MISMATCH', 'P0001', 403, 'MCP_APPROVAL_MISMATCH'],
+    ['MCP_PATCH_INVALID', '22023', 422, 'MCP_INVALID_PROPOSAL'],
+  ] as const)('returns a specific failure for %s instead of a generic conflict', async (message, code, status, expected) => {
+    const { actor, rpc } = fixture()
+    rpc.mockResolvedValueOnce({ data: null, error: { code, message } })
+    await expect(commitMcpApproval(actor, token, 'create_cms_news_draft'))
+      .rejects.toMatchObject({ status, code: expected })
+  })
+
+  it('does not mistake an unrelated database error for an expired proposal', async () => {
+    const { actor, rpc } = fixture()
+    rpc.mockResolvedValueOnce({
+      data: null, error: { code: '42P01', message: 'relation missing' },
+    })
+    await expect(commitMcpApproval(actor, token, 'create_cms_news_draft'))
+      .rejects.toMatchObject({ status: 503, code: 'MCP_REVIEW_DATABASE_ERROR' })
+  })
+
   it('fails closed when the reviewed SQL function is not deployed', async () => {
     const { actor, rpc } = fixture()
     rpc.mockResolvedValueOnce({
