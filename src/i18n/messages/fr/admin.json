@@ -63,7 +63,7 @@
     "noEditorPermissionsBody": "Aucun droit de contenu n’est assigné à votre compte. Contactez votre administrateur."
   },
   "mcpApprovals": {
-    "description": "Examinez et validez les modifications proposées par ChatGPT. Seules les demandes liées à votre compte sont affichées.",
+    "description": "Examinez les propositions de ChatGPT une par une. Tous les administrateurs partagent la même file.",
     "disabled": "Le connecteur GPT est actuellement désactivé.",
     "loadError": "Impossible de charger les validations.",
     "pending": "Validations en attente",
@@ -73,7 +73,26 @@
     "review": "Examiner les modifications",
     "history": "Historique récent",
     "completed": "Validé",
-    "expired": "Expiré"
+
+    "expired": "Expiré",
+    "back": "Retour",
+    "skip": "Ignorer",
+    "accept": "Accepter",
+    "decline": "Refuser",
+    "details": "Voir tous les champs",
+    "before": "Avant",
+    "after": "Proposé",
+    "saving": "Enregistrement",
+    "refresh": "Actualiser la file",
+    "reviewFailed": "Impossible d'enregistrer la décision.",
+    "retryReview": "Réexaminer",
+    "fields": "Champs modifiés",
+    "allReviewed": "Tout est traité",
+    "noChanges": "Aucune modification.",
+    "rejected": "Refusé",
+    "changes": "Aperçu des modifications",
+    "openHistory": "Décisions récentes",
+    "preparing": "Les valeurs complètes et leur comparaison sont disponibles dans Voir tous les champs."
   },
   "tour_planner_page_title": "Planificateur de tournée",
   "tour_planner_page_desc": "Vue d’ensemble en lecture seule des données de production de tournée des artistes.",
