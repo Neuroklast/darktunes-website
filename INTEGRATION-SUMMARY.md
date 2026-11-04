@@ -57,7 +57,7 @@ Living product-status snapshot. Architecture and agent rules: `AGENTS.md` + `doc
 | Area | Key paths |
 |------|-----------|
 | DAL | `src/lib/api/*` — `SupabaseClient` first arg |
-| Sync | `src/lib/sync/` — iTunes, Spotify, Discogs, Songkick, Bandsintown, Odesli; `sync_queue` + cron |
+| Sync | `src/lib/sync/` — iTunes, Spotify, Discogs, Songkick, Bandsintown; `sync_queue` + cron |
 | Upload | `app/api/upload` (admin), portal upload routes |
 | SOS PDF | `uploadStatement` Server Action |
 | Settlement | `settlementPeriods`, `settlementLedger`, `settlementRegister`, `useSettlementCenter` |
