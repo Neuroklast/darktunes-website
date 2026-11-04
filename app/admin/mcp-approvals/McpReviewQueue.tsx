@@ -10,7 +10,7 @@ export type McpReviewRow = {
   action: string
   payload: Record<string, unknown>
   created_at: string
-  expires_at: string
+  expires_at: string | null
   used_at: string | null
   result: Record<string, unknown> | null
 }
@@ -20,7 +20,6 @@ export type McpReviewLabels = {
   review: string
   empty: string
   history: string
-  expired: string
   completed: string
   back: string
   skip: string
@@ -253,7 +252,7 @@ export function McpReviewQueue({
             </div>
             <h2 className="mt-3 line-clamp-2 break-words text-lg font-semibold sm:text-xl">{title(active)}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              {labels.fields}: {changes.length} · {labels.expired}: {new Date(active.expires_at).toLocaleString(locale)}
+              {labels.fields}: {changes.length}
             </p>
           </header>
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 py-4 sm:px-6">
@@ -333,7 +332,7 @@ export function McpReviewQueue({
                 <span className="text-xs text-muted-foreground">
                   {row.used_at
                     ? row.result?.decision === 'rejected' ? labels.rejected : labels.completed
-                    : labels.expired}
+                    : labels.completed}
                 </span>
               </div>
             ))}
