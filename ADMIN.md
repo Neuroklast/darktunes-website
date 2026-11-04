@@ -41,7 +41,7 @@ WHERE slug = 'artist-slug';
 - **Role-Based Access Control**: Admin and Editor roles with different permissions
 - **User Management** *(admin-only)*: View all registered users, change their roles (admin / editor / journalist / user), ban/unban accounts, delete users, and link/unlink artists — no raw SQL required. Accessible via `/admin/users` (only visible to admins).
 - **Artists Management**: Create, read, update, and delete artist profiles. The artist form includes social/shop URL fields (**Facebook**, **Twitter/X**, **TikTok**, **Bandcamp**, **Shop URL**), an **Assets** tab, and image/logo **Asset Picker** buttons. Editing an existing artist navigates to the dedicated `/admin/artists/[id]/edit` route. Creating a new artist opens a dialog on `/admin/artists`.
-- **Releases Management**: Manage music releases with iTunes API integration, Odesli smart-link resolution, and promo-flag control.
+- **Releases Management**: Manage music releases with iTunes API integration, manual smartlink fields, and promo-flag control.
 - **News Management**: Create and publish news posts and announcements. Optionally associate a news post with a specific artist (`news_posts.artist_id`). Toggle **Press-only** visibility (`is_press_only`).
 - **Feature Flags** *(admin-only)*: Toggle Artist + Journalist dashboard modules (`portal_feature_flags` table, API: `PATCH /api/admin/feature-flags/[id]`). Also toggle global `site_settings` feature flags via **FeatureTogglesManager**.
 - **Messages** *(admin-only)*: Rich-text label inbox (`label_messages`) at `/admin/messages`. Conversations group `Re:`/`Aw:` rows into one list entry (chat detail, sort, drag-to-folder, optional arrival sound). Also: templates, search, starring, realtime, soft-delete.
