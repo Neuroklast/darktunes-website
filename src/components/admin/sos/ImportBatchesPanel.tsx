@@ -15,7 +15,7 @@ import { explainSosError } from '@/lib/sos/explainSosError'
 
 interface ImportBatchesPanelProps {
   labelArtists: LabelArtist[]
-  onLoadBatch?: (batch: DistributorImportBatch) => void
+  onLoadBatch?: (batch: DistributorImportBatch) => void | Promise<void>
   exchangeRates?: Record<string, number>
   historicalRates?: Record<string, Record<string, number>>
   carryForwardByArtist?: Record<string, number>
@@ -91,8 +91,10 @@ export function ImportBatchesPanel({
       await onLoadBatch(batch)
       const dist = batch.distributor
       toast.success(interpolate(t.bronzeLoadSuccess, { distributor: dist }))
-    } catch {
-      // error already reported by load implementation
+    } catch (err) {
+      toast.error('Could not load saved source', {
+        description: err instanceof Error ? err.message : t.bronzeLoadError,
+      })
     }
   }
 
