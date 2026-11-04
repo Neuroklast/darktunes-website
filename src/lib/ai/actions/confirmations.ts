@@ -26,6 +26,10 @@ export interface ActionPreview {
 }
 
 const TTL_MS = 10 * 60 * 1000
+const MCP_REVIEW_TTL_MS = 30 * 24 * 60 * 60 * 1000
+const MCP_ACTIONS: readonly AiWriteAction[] = [
+  'create_cms_news_draft', 'update_cms_artist', 'update_cms_release', 'update_cms_event',
+]
 
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex')
@@ -58,7 +62,8 @@ export async function createActionConfirmation(
 ): Promise<ActionPreview> {
   const token = `act_${randomBytes(24).toString('hex')}`
   const confirmationId = randomUUID()
-  const expiresAt = new Date(Date.now() + TTL_MS).toISOString()
+  const mcpReview = MCP_ACTIONS.includes(input.action) && input.actor.artistId === null
+  const expiresAt = new Date(Date.now() + (mcpReview ? MCP_REVIEW_TTL_MS : TTL_MS)).toISOString()
   const { error } = await db.from('ai_action_confirmations').insert({
     id: confirmationId,
     token_hash: sha256(token),
@@ -72,16 +77,11 @@ export async function createActionConfirmation(
   if (error) throw error
   // Use the existing user notification bell for MCP reviews. Never expose the
   // one-time token in notifications, whose rows are readable by the recipient.
-  const mcpReview = input.action === 'create_cms_news_draft' ||
-    input.action === 'update_cms_artist' ||
-    input.action === 'update_cms_release' ||
-    input.action === 'update_cms_event'
-  if (mcpReview && input.actor.artistId === null) {
+  if (mcpReview) {
     try {
       const { emitNotification } = await import('@/lib/notifications/emit')
       await emitNotification(db, {
         type: 'mcp_approval_pending',
-        userIds: [input.actor.userId],
         entityId: confirmationId,
         entityName: input.summary,
         dedupeKey: `mcp_approval:${confirmationId}`,
