@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   if (sessionError || !user || user.id !== actor.userId) {
     return problem(403, 'Approval requires the same signed-in darkTunes account.')
   }
-  const limit = await checkDistributedRateLimit('mcp:approval:' + actor.userId, 10, 60_000)
+  const limit = await checkDistributedRateLimit('mcp:approval:' + actor.userId, 120, 60_000)
   if (limit.limited) return problem(429, 'Approval rate limit exceeded. Retry in one minute.')
   let payload: unknown
   try {
