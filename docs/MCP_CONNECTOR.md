@@ -1,5 +1,7 @@
 # darkTunes GPT / MCP Connector
 
+For sharing the connector across several ChatGPT users, see [MCP_MULTI_USER.md](./MCP_MULTI_USER.md). Each person connects with their own darkTunes identity and permissions.
+
 Status: **security-first integration with human-approved CMS updates**, shipped behind a disabled-by-default feature flag. It does not expose arbitrary SQL, direct R2 write access, publishing, deletion, or the full admin API. Production activation requires an authenticated OAuth integration test.
 
 ## Endpoints
