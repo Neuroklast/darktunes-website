@@ -49,7 +49,7 @@ export function parseHeroButton(value: unknown): HeroButton | undefined {
 }
 
 /**
- * Parses Odesli-style per-platform streaming links from a JSON column.
+ * Parses persisted per-platform streaming links from a JSON column.
  * @returns Link map or `undefined` when input is absent or invalid.
  */
 export function parsePlatformLinks(value: unknown): Record<string, string> | undefined {
