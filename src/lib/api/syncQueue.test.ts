@@ -5,7 +5,6 @@ import {
   recoverStuckSyncJobs,
   requeueFailedSyncJobs,
   enqueueArtistSyncJobs,
-  enqueueOdesliSyncJob,
   markSyncJobFailed,
   markSyncJobDone,
   countStuckSyncJobs,
@@ -258,15 +257,6 @@ describe('enqueueArtistSyncJobs', () => {
     const db = makeSequentialMockDb([{ data: null, error: { message: 'boom' } }])
     await expect(enqueueArtistSyncJobs(db, ['artist-1'])).rejects.toThrow(
       'Failed to read existing sync jobs',
-    )
-  })
-})
-
-describe('enqueueOdesliSyncJob', () => {
-  it('throws when reading the existing Odesli job fails', async () => {
-    const db = makeSequentialMockDb([{ data: null, error: { message: 'boom' } }])
-    await expect(enqueueOdesliSyncJob(db)).rejects.toThrow(
-      'Failed to read existing Odesli sync jobs',
     )
   })
 })
