@@ -16,14 +16,19 @@ describe('preserveAuthResponse', () => {
         pragma: 'no-cache',
       }),
     } as unknown as NextResponse
-    const setAll = vi.fn()
+    const setCookie = vi.fn()
     const redirect = {
-      cookies: { setAll },
+      cookies: { set: setCookie },
       headers: new Headers(),
     } as unknown as NextResponse
 
     expect(preserveAuthResponse(source, redirect)).toBe(redirect)
-    expect(setAll).toHaveBeenCalledWith(cookies)
+    expect(setCookie).toHaveBeenNthCalledWith(1, 'sb-session', 'rotated', {
+      path: '/', sameSite: 'lax',
+    })
+    expect(setCookie).toHaveBeenNthCalledWith(2, 'sb-stale', '', {
+      path: '/', maxAge: 0,
+    })
     expect(redirect.headers.get('cache-control')).toBe('private, no-store')
     expect(redirect.headers.get('pragma')).toBe('no-cache')
     expect(redirect.headers.get('expires')).toBe('0')
@@ -35,7 +40,7 @@ describe('preserveAuthResponse', () => {
       headers: new Headers(),
     } as unknown as NextResponse
     const redirect = {
-      cookies: { setAll: vi.fn() },
+      cookies: { set: vi.fn() },
       headers: new Headers({ location: 'https://darktunes.com/login' }),
     } as unknown as NextResponse
 
