@@ -13,14 +13,14 @@ function normalizeUrl(url: string | null | undefined): string | undefined {
 
 /**
  * Resolves the release-level hub / smart link (Linktree, presave, song.link, etc.).
- * Manual `smartlinkUrl` takes priority over Odesli `smartUrl` and platform_links hubs.
+ * Manual `smartlinkUrl` takes priority over historical `smartUrl` and platform_links hubs.
  */
 export function resolveReleaseHubLink(sources: ReleaseHubLinkSources): string | undefined {
   const manual = normalizeUrl(sources.smartlinkUrl)
   if (manual) return manual
 
-  const odesli = normalizeUrl(sources.smartUrl)
-  if (odesli) return odesli
+  const stored = normalizeUrl(sources.smartUrl)
+  if (stored) return stored
 
   for (const key of HUB_PLATFORM_KEYS) {
     const url = normalizeUrl(sources.platformLinks?.[key])
@@ -31,7 +31,7 @@ export function resolveReleaseHubLink(sources: ReleaseHubLinkSources): string | 
 }
 
 /**
- * Label key for the hub button: manual smartlinks use `smartLink`, Odesli hubs use `listenEverywhere`.
+ * Label key for the hub button: manual links use `smartLink`, stored hubs use `listenEverywhere`.
  */
 export function resolveReleaseHubLinkLabelKey(sources: ReleaseHubLinkSources): 'smartLink' | 'listenEverywhere' {
   return normalizeUrl(sources.smartlinkUrl) ? 'smartLink' : 'listenEverywhere'
