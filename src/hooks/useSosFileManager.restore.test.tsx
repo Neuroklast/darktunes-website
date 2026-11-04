@@ -84,6 +84,8 @@ describe('useFileManager archive restoration', () => {
         rowsParsed: 1,
         rowsSkipped: 0,
         uniqueArtistsCount: 1,
+        emptyCurrencyRows: 0,
+        skipReasons: [],
         periodStart: '2026-01',
         periodEnd: '2026-01',
       })
