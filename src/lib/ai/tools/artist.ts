@@ -137,27 +137,68 @@ registerTool({
     latest_period: z.string().nullable().optional(),
     platforms: z.array(z.object({ platform: z.string(), total_streams: z.number() })),
     reason: z.string().optional(),
+    source: z.enum(['streaming_stats', 'territory_metrics']).optional(),
   }),
   capabilities: [],
   dataScope: 'self_artist',
   classification: 'read',
   maxResultBytes: 6000,
-  timeoutMs: 8000,
+  timeoutMs: 12_000,
   execute: async (_input, context) => {
     const artistId = requireArtistId(context.actor.artistId)
     const { getStreamingStatsByArtistId, getAggregatedStreamsByPlatform } = await import(
       '@/lib/api/streamingStats'
     )
     const stats = await getStreamingStatsByArtistId(context.actor.serviceDb, artistId)
-    if (stats.length === 0) {
+    if (stats.length > 0) {
+      const platforms = getAggregatedStreamsByPlatform(stats)
+      return {
+        available: true,
+        source: 'streaming_stats' as const,
+        total_streams: platforms.reduce((sum, row) => sum + row.totalStreams, 0),
+        latest_period: stats[0]?.period ?? null,
+        platforms: platforms.map((row) => ({ platform: row.platform, total_streams: row.totalStreams })),
+      }
+    }
+
+    // Some ingest batches have territory facts before monthly streaming_stats
+    // materializes. Only read platform, period and streams, never revenue.
+    // Page explicitly to avoid silently treating the PostgREST row cap as a total.
+    const totals = new Map<string, number>()
+    let latestPeriod: string | null = null
+    const pageSize = 500
+    const maxRows = 25_000
+    for (let offset = 0; offset <= maxRows; offset += pageSize) {
+      const { data, error } = await context.actor.serviceDb
+        .from('artist_territory_metrics')
+        .select('platform, period, streams')
+        .eq('artist_id', artistId)
+        .order('id', { ascending: true })
+        .range(offset, offset + pageSize - 1)
+      if (error) throw new Error('Streaming territory metrics could not be read.')
+      for (const row of data ?? []) {
+        totals.set(row.platform, (totals.get(row.platform) ?? 0) + row.streams)
+        if (!latestPeriod || row.period > latestPeriod) latestPeriod = row.period
+      }
+      if ((data?.length ?? 0) < pageSize) break
+      if (offset === maxRows) {
+        return {
+          available: false,
+          platforms: [],
+          reason: 'Too many streaming rows to calculate an exact total. Ask the label to refresh the monthly stream aggregates.',
+        }
+      }
+    }
+    if (totals.size === 0) {
       return { available: false, platforms: [], reason: 'No streaming stats are stored for this artist.' }
     }
-    const platforms = getAggregatedStreamsByPlatform(stats)
+    const platforms = [...totals].map(([platform, total_streams]) => ({ platform, total_streams }))
     return {
       available: true,
-      total_streams: platforms.reduce((sum, row) => sum + row.totalStreams, 0),
-      latest_period: stats[0]?.period ?? null,
-      platforms: platforms.map((row) => ({ platform: row.platform, total_streams: row.totalStreams })),
+      source: 'territory_metrics' as const,
+      total_streams: platforms.reduce((sum, row) => sum + row.total_streams, 0),
+      latest_period: latestPeriod,
+      platforms,
     }
   },
 })
@@ -178,8 +219,8 @@ registerTool({
     ),
     reason: z.string().optional(),
   }),
-  capabilities: [],
-  dataScope: 'self_artist',
+  capabilities: ['admin.panel.full'],
+  dataScope: 'admin_finance',
   classification: 'read',
   maxResultBytes: 6000,
   timeoutMs: 8000,
@@ -218,8 +259,8 @@ registerTool({
     ),
     reason: z.string().optional(),
   }),
-  capabilities: [],
-  dataScope: 'self_artist',
+  capabilities: ['admin.panel.full'],
+  dataScope: 'admin_finance',
   classification: 'read',
   maxResultBytes: 6000,
   timeoutMs: 8000,
@@ -338,8 +379,8 @@ registerTool({
     ),
     reason: z.string().optional(),
   }),
-  capabilities: [],
-  dataScope: 'self_artist',
+  capabilities: ['admin.panel.full'],
+  dataScope: 'admin_finance',
   classification: 'read',
   maxResultBytes: 4000,
   timeoutMs: 8000,
