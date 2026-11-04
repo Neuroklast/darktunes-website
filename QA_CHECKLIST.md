@@ -509,16 +509,25 @@
 
 ## ChatGPT / MCP Connector
 
+- [ ] Admin A prepares a GPT proposal. Admin B sees it in the shared GPT-Freigaben inbox and through the existing notification bell. A non-admin cannot inspect it. A normal editor sees only their own proposals.
+- [ ] The inbox displays one bounded card at a time, full before/after field comparisons open in a separate scrollable dialog, and the Back/Skip buttons, arrow keys and touch navigation do not change CMS data.
+- [ ] Accept/Decline advance instantly before the server returns; multiple decisions can be in flight, duplicate submissions on one item are suppressed, the saving count is visible, and navigation/reload warns about pending writes.
+- [ ] A server failure restores the proposal with an actionable retry button; no optimistic message claims the database decision succeeded.
+- [ ] Two admins racing to accept/decline the same proposal result in one atomic decision; the second receives a conflict/replay outcome, no duplicate draft or audit entry is created, and all admins' notifications are marked read after settlement.
+- [ ] Previously generated ten-minute MCP proposals gain a 30-day expiration window when the reviewed database update is deployed. Other AI confirmation types retain ten-minute expiration.
+- [ ] A proposal expires after its 30-day window, disappears from pending reviews and shows in recent history as expired.
+
+
 - [ ] Feature flag off: MCP returns 503 and discovery metadata is not published.
 - [ ] Supabase OAuth authorization-code with PKCE completes only for registered clients; grant and denial paths work.
 - [ ] A valid allowlisted OAuth token issued at `aal1` can connect without TOTP enrollment or an MFA challenge; revoked, wrong-client and ordinary portal tokens remain rejected.
-- [ ] CMS review and approval work with a normal signed-in browser session without `aal2`; cross-account sessions and OAuth bearer-only approval attempts still fail.
+- [ ] CMS review and approval work with a normal signed-in browser session without `aal2`; OAuth bearer-only approval attempts and artist accounts fail. Every admin may act on any label-wide proposal, but editors may act only on their own.
 - [ ] Missing token, non-OAuth portal JWT, revoked token, expired token, and artist-only user cannot access MCP tools.
 - [ ] tools/list reflects admin/editor capabilities; sensitive fields and raw SQL are unavailable.
 - [ ] News, releases, artists, and events data is bounded and excludes private fields.
-- [ ] Prepared news draft does not mutate CMS; review expires after ten minutes, binds to the initiating user and is single use.
+- [ ] Prepared news draft does not mutate CMS; an MCP review remains pending up to 30 days and appears in every admin's shared queue, including proposals created by a different admin/editor.
 - [ ] Approval requires same-origin browser POST, CMS permission and safe plaintext preview. Never publishes automatically.
-- [ ] Approval creates exactly one unpublished draft and logs the action; reuse and cross-account attempts fail.
+- [ ] Accept creates exactly one unpublished draft and audits the reviewer, even when the reviewer is not the creator. Decline atomically records rejection without content changes. Repeated or concurrent conflicting decisions do not mutate content twice.
 - [ ] Re-run CI after changes and manually test connection before enabling in production.
 
 - [ ] MCP OAuth client allowlist is empty by default and rejects valid tokens until the exact client ID has been approved.
