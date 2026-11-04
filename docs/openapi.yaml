@@ -743,7 +743,7 @@ paths:
         Requires a same-origin, cookie-authenticated darkTunes admin/editor
         browser session. OAuth bearer requests are rejected. All administrators
         may review the shared queue; editors may review only their own proposals.
-        Decisions are atomic and idempotent. Content changes require the
+        Decisions are atomic and idempotent; pending proposals do not expire. Content changes require the
         corresponding current CMS capability.
       security: []
       requestBody:
@@ -776,7 +776,6 @@ paths:
         '401': { description: Login required }
         '403': { description: Insufficient CMS permission or origin rejected }
         '409': { description: Proposal changed, already decided or no longer applicable }
-        '410': { description: Proposal expired }
         '429': { description: Too many review attempts }
         '503': { description: MCP disabled or database function not deployed }
   /mcp/news-draft-approvals:
@@ -821,7 +820,6 @@ paths:
         '401': { description: Login required }
         '403': { description: Insufficient CMS permission or origin rejected }
         '409': { description: Proposal changed or already decided }
-        '410': { description: Proposal expired }
         '429': { description: Too many review attempts }
         '503': { description: MCP disabled or database function not deployed }
   /api/account:
