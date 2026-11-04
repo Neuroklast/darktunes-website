@@ -44,6 +44,7 @@ const REQUIRED_NAV_KEYS = [
   'settings',
   'apiKeys',
   'aiAssistant',
+  'mcpApprovals',
   'support',
   'system',
   'signOut',
