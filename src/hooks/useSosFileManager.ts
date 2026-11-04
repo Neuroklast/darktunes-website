@@ -76,6 +76,8 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
   const [fileDataMap, setFileDataMap] = useState<Record<string, string>>({})
   const [fileStates, setFileStates] = useState<Record<string, FileProcessingState>>({})
   const bronzeStartedRef = useRef(new Set<string>())
+  const restoringFileIdsRef = useRef(new Set<string>())
+  const restoringBatchIdsRef = useRef(new Set<string>())
   const fileDataRef = useRef<Record<string, string>>({})
   fileDataRef.current = fileDataMap
   const fileMetasRef = useRef(fileMetas)
@@ -196,6 +198,106 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
     },
     [archiveFile],
   )
+
+  /**
+   * Rehydrate an existing file from its completed R2 batch, preserving the
+   * persisted file id and archive lineage. Never create a second batch or
+   * write another R2 object just because browser memory was cleared.
+   */
+  const restoreArchivedFile = useCallback(async (id: string): Promise<void> => {
+    const meta = (fileMetasRef.current ?? []).find((file) => file.id === id)
+    if (!meta?.bronzeBatchId) throw new Error('No saved archive is linked to this file.')
+    if (fileDataRef.current[id] || restoringFileIdsRef.current.has(id)) return
+
+    const batchId = meta.bronzeBatchId
+    restoringFileIdsRef.current.add(id)
+    bronzeStartedRef.current.add(id)
+    setFileState(id, {
+      status: 'uploading',
+      phase: 'archiving',
+      progress: 0,
+      detail: 'Loading saved file…',
+      error: undefined,
+      bronzeStatus: 'done',
+      bronzeError: undefined,
+    })
+    try {
+      const { downloadBronzeCsvText } = await import('@/lib/sos/bronzeDownload')
+      const data = await downloadBronzeCsvText(batchId)
+      if (!data) throw new Error('The saved archive is empty.')
+      // The operator may remove or replace this card while R2 is responding.
+      const current = (fileMetasRef.current ?? []).find((file) => file.id === id)
+      if (!current || current.bronzeBatchId !== batchId) return
+      setFileDataMap((prev) => ({ ...prev, [id]: data }))
+      setFileState(id, {
+        status: 'processing',
+        phase: 'parsing',
+        progress: 0,
+        detail: t.ingestWaitingParser,
+        error: undefined,
+        bronzeStatus: 'done',
+      })
+    } catch (err) {
+      setFileState(id, {
+        status: 'error',
+        phase: 'error',
+        progress: 0,
+        detail: undefined,
+        error: err instanceof Error ? err.message : 'The saved file could not be loaded.',
+      })
+      throw err
+    } finally {
+      restoringFileIdsRef.current.delete(id)
+    }
+  }, [setFileState, t.ingestWaitingParser])
+
+  /** Restore a workspace-linked archive that has no local file card yet. */
+  const restoreArchivedBatch = useCallback(async (batch: {
+    id: string
+    name: string
+    periodStart?: string
+    periodEnd?: string
+    size?: number
+  }): Promise<void> => {
+    const existing = (fileMetasRef.current ?? []).find((meta) => meta.bronzeBatchId === batch.id)
+    if (existing) return restoreArchivedFile(existing.id)
+    if (restoringBatchIdsRef.current.has(batch.id)) return
+
+    restoringBatchIdsRef.current.add(batch.id)
+    try {
+      const { downloadBronzeCsvText } = await import('@/lib/sos/bronzeDownload')
+      const data = await downloadBronzeCsvText(batch.id)
+      if (!data) throw new Error('The saved archive is empty.')
+      // Recheck after the async download to prevent duplicate file cards.
+      const current = (fileMetasRef.current ?? []).find((meta) => meta.bronzeBatchId === batch.id)
+      if (current) return restoreArchivedFile(current.id)
+      const id = crypto.randomUUID()
+      const meta: UploadedFileMeta = {
+        id,
+        name: batch.name,
+        size: batch.size ?? new Blob([data]).size,
+        type,
+        uploadedAt: new Date().toISOString(),
+        bronzeBatchId: batch.id,
+        periodStart: batch.periodStart,
+        periodEnd: batch.periodEnd,
+      }
+      bronzeStartedRef.current.add(id)
+      setFileMetas((prev) =>
+        (prev ?? []).some((file) => file.bronzeBatchId === batch.id) ? prev : [...(prev ?? []), meta],
+      )
+      setFileDataMap((prev) => ({ ...prev, [id]: data }))
+      setFileState(id, {
+        status: 'processing',
+        phase: 'parsing',
+        progress: 0,
+        detail: t.ingestWaitingParser,
+        bronzeStatus: 'done',
+      })
+    } finally {
+      restoringBatchIdsRef.current.delete(batch.id)
+    }
+  }, [restoreArchivedFile, setFileMetas, setFileState, t.ingestWaitingParser, type])
 
   const processAndStore = useCallback(
     async (rawFile: File, id: string): Promise<{ data: string }> => {
@@ -377,6 +479,7 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
       })
       removeFileState(id)
       bronzeStartedRef.current.delete(id)
+      restoringFileIdsRef.current.delete(id)
       callbacks?.onFileRemoved?.(id)
       toast.info(t.fileRemoved)
     },
@@ -402,6 +505,7 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
 
       try {
         bronzeStartedRef.current.delete(id)
+        restoringFileIdsRef.current.delete(id)
         const { data } = await processAndStore(rawFile, id)
         const uploadedFile: UploadedFile = {
           id,
@@ -428,6 +532,8 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
     setFileDataMap({})
     setFileStates({})
     bronzeStartedRef.current.clear()
+    restoringFileIdsRef.current.clear()
+    restoringBatchIdsRef.current.clear()
   }, [setFileMetas])
 
   return {
@@ -437,6 +543,8 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
     removeFile,
     replaceFile,
     retryArchive,
+    restoreArchivedFile,
+    restoreArchivedBatch,
     clearAll,
     patchFileState: setFileState,
     applyParseResult,
