@@ -27,6 +27,14 @@ The endpoint recognizes MCP `2026-07-28` per-request metadata / `server/discover
 6. Only after the consent screen, end-to-end tests, production domain and OAuth discoverability have been verified, set `MCP_CONNECTOR_ENABLED=true` in Vercel.
 7. In ChatGPT Plugins, create a custom MCP server at `https://www.darktunes.com/mcp`. Complete OAuth sign-in and approve the connection. Require a darkTunes role of admin or editor. Permissions are resolved from Supabase on every call.
 
+## Consent troubleshooting: HTTP 400 from Supabase
+
+The consent page displays Supabase Auth's HTTP status, error code, and an actionable explanation rather than classifying every failed request as expired. The OAuth authorization ID and access token are never shown.
+
+If `GET /auth/v1/oauth/authorizations/{authorization_id}` returns `400 validation_failed` with `unauthorized request origin`, Supabase Auth rejected the **website Origin**, not the ChatGPT callback URL. In the Supabase project actually used by `NEXT_PUBLIC_SUPABASE_URL`, check **Authentication → URL Configuration**: use `https://www.darktunes.com` as Site URL, or explicitly allow the exact `https://www.darktunes.com` browser origin through the redirect URL allowlist. Check **Authentication → OAuth Server** has the authorization path `/oauth/consent`. Keep OAuth-client callback/redirect URIs separately registered as exact URLs, never substitute a wildcard or turn off origin checks.
+
+If the response is `oauth_authorization_not_found` or says the authorization request cannot be processed, restart the connection in ChatGPT to generate a new authorization ID. Do not reload or bookmark the old consent URL. For other errors, inspect the specific status/code and message in the browser's Network tab and the correct Supabase project's Auth logs. A generic HTTP 400 alone does not prove an origin mismatch.
+
 ## Data and security boundaries
 
 The route requires a valid Supabase-issued **OAuth access token** with an explicitly allowlisted `client_id` claim, not a cookie, anon key, or any ordinary portal JWT. It checks that Auth accepts the token and resolves the current server-side darkTunes RBAC capabilities. The internal AI Tool Registry then independently checks capability access for each call. Only allowlisted reads and the prepare-only news-draft tool are advertised/executable.
