@@ -20,7 +20,7 @@ export type AiWriteAction =
 export interface ActionPreview {
   action: AiWriteAction
   confirmation_token: string
-  expires_at: string | null
+  expires_at: string
   summary: string
   payload: Record<string, unknown>
 }
@@ -65,7 +65,7 @@ export async function createActionConfirmation(
   const token = `act_${randomBytes(24).toString('hex')}`
   const confirmationId = randomUUID()
   const mcpReview = MCP_ACTIONS.includes(input.action) && input.actor.artistId === null
-  const expiresAt = mcpReview ? null : new Date(Date.now() + TTL_MS).toISOString()
+  const expiresAt = mcpReview ? PERMANENT_MCP_EXPIRY : new Date(Date.now() + TTL_MS).toISOString()
   const { error } = await db.from('ai_action_confirmations').insert({
     id: confirmationId,
     token_hash: sha256(token),
@@ -74,7 +74,7 @@ export async function createActionConfirmation(
     action: input.action,
     payload_hash: sha256(canonicalJson(input.payload)),
     payload: input.payload,
-    expires_at: mcpReview ? PERMANENT_MCP_EXPIRY : expiresAt,
+    expires_at: expiresAt,
   })
   if (error) throw error
   // Use the existing user notification bell for MCP reviews. Never expose the
