@@ -36,7 +36,7 @@ describe('MCP OAuth consent diagnostics', () => {
     const result = describeOAuthConsentFailure(
       { message: 'validation failed', code: 'validation_failed', status: 400 }, origin,
     )
-    expect(result.message).toContain('validation failed')
+    expect(result.message).toContain('Network tab')
     expect(result.diagnostic).toBe('Supabase Auth: HTTP 400, code validation_failed')
   })
 })
