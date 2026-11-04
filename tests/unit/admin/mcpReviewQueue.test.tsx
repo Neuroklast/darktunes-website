@@ -35,7 +35,8 @@ afterEach(() => {
 describe('shared GPT approval slider', () => {
   it('advances immediately, keeps writing asynchronously, and confirms only after the server succeeds', async () => {
     let resolveRequest: ((response: Response) => void) | undefined
-    const fetchMock = vi.fn(() => new Promise<Response>(resolve => { resolveRequest = resolve }))
+    const fetchMock = vi.fn((_url: string, _options: RequestInit) =>
+      new Promise<Response>(resolve => { resolveRequest = resolve }))
     vi.stubGlobal('fetch', fetchMock)
     render(<McpReviewQueue
       initialPending={[approval('00000000-0000-4000-8000-000000000001', 'Proposal A'),
