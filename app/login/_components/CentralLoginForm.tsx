@@ -21,6 +21,7 @@ import {
   isRecoverySessionEvent,
 } from '@/lib/auth/recoverySession'
 import { resolveRedirectPath } from '@/lib/auth/resolveRedirectPath'
+import { cleanPostLoginHref } from '@/lib/auth/cleanPostLoginHref'
 import { PASSWORD_MIN_LENGTH } from '@/lib/auth/passwordPolicy'
 import { PasswordRequirements } from '@/components/auth/PasswordRequirements'
 import { getLocalizedPasswordPairError } from '@/components/auth/passwordPolicyUi'
@@ -218,7 +219,8 @@ export function CentralLoginForm() {
       if (error) {
         toast.error(t('login_error'))
       } else {
-        window.location.assign('/login' + window.location.search)
+        // A previous session's error code must not survive a successful login.
+        window.location.replace(cleanPostLoginHref(window.location.search))
       }
     } catch {
       toast.error(t('login_error'))
