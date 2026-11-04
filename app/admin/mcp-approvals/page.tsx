@@ -27,7 +27,6 @@ export default async function McpApprovalsInboxPage() {
     redirect('/login?error=unauthorized')
   }
 
-  const now = new Date().toISOString()
   // All administrators see one shared queue. Editors keep their own queue.
   // This query is server-only because it uses the service-role database client.
   let pendingQuery = db.from('ai_action_confirmations')
@@ -35,14 +34,13 @@ export default async function McpApprovalsInboxPage() {
     .is('artist_id', null)
     .in('action', [...mcpActions])
     .is('used_at', null)
-    .gt('expires_at', now)
     .order('created_at', { ascending: false })
     .limit(500)
   let historyQuery = db.from('ai_action_confirmations')
     .select('id,user_id,action,payload,created_at,expires_at,used_at,result')
     .is('artist_id', null)
     .in('action', [...mcpActions])
-    .or('used_at.not.is.null,expires_at.lte.' + now)
+    .not('used_at', 'is', null)
     .order('created_at', { ascending: false })
     .limit(30)
   if (access.primaryRole !== 'admin') {
@@ -56,7 +54,6 @@ export default async function McpApprovalsInboxPage() {
     review: t('review'),
     empty: t('empty'),
     history: t('history'),
-    expired: t('expired'),
     completed: t('completed'),
     back: t('back'),
     skip: t('skip'),
