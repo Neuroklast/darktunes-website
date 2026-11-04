@@ -39,20 +39,20 @@ describe('withApiRetry', () => {
       .mockRejectedValueOnce(new HttpError(502, 'bad gateway'))
       .mockResolvedValue('ok')
 
-    const result = await withApiRetry('odesli', fn)
+    const result = await withApiRetry('songkick', fn)
     expect(result).toBe('ok')
     expect(fn).toHaveBeenCalledTimes(2)
   })
 
   it('does not retry permanent errors', async () => {
     const fn = vi.fn().mockRejectedValue(new HttpError(404, 'missing'))
-    await expect(withApiRetry('odesli', fn)).rejects.toThrow('missing')
+    await expect(withApiRetry('songkick', fn)).rejects.toThrow('missing')
     expect(fn).toHaveBeenCalledTimes(1)
   })
 
   it('does not retry rate-limited errors (queue handles cooldown)', async () => {
     const fn = vi.fn().mockRejectedValue(new HttpError(429, 'too many'))
-    await expect(withApiRetry('odesli', fn)).rejects.toThrow('too many')
+    await expect(withApiRetry('songkick', fn)).rejects.toThrow('too many')
     expect(fn).toHaveBeenCalledTimes(1)
   })
 })
