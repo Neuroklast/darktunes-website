@@ -26,6 +26,9 @@ export interface ActionPreview {
 }
 
 const TTL_MS = 10 * 60 * 1000
+// Backward-compatible placeholder for the existing NOT NULL DB column.
+// MCP review logic never checks this value as an expiry.
+const PERMANENT_MCP_EXPIRY = '9999-12-31T23:59:59.999Z'
 const MCP_ACTIONS: readonly AiWriteAction[] = [
   'create_cms_news_draft', 'update_cms_artist', 'update_cms_release', 'update_cms_event',
 ]
@@ -71,7 +74,7 @@ export async function createActionConfirmation(
     action: input.action,
     payload_hash: sha256(canonicalJson(input.payload)),
     payload: input.payload,
-    expires_at: expiresAt,
+    expires_at: mcpReview ? PERMANENT_MCP_EXPIRY : expiresAt,
   })
   if (error) throw error
   // Use the existing user notification bell for MCP reviews. Never expose the
