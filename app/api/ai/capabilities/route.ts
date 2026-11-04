@@ -7,7 +7,8 @@ import { withErrorHandler } from '@/lib/errors'
 import { requireAiActor } from '@/lib/ai/auth/requireAiActor'
 import { getAiSettings } from '@/lib/api/aiSettings'
 import { AiProviderRouter } from '@/lib/ai/provider/router'
-import { listToolDefinitionsForActor } from '@/lib/ai/tools/registry'
+// Import the registry entrypoint so every AI tool is registered before listing it.
+import { listToolDefinitionsForActor } from '@/lib/ai/tools'
 import { FAST_MODEL_ID, REASONING_MODEL_ID } from '@/lib/ai/models/profiles'
 import { parseStoredCapabilities } from '@/lib/ai/models/capabilities'
 import { searchArtistOptions } from '@/lib/api/artistProfiles'
@@ -22,8 +23,7 @@ export const GET = withErrorHandler(async (req: NextRequest): Promise<NextRespon
   const stored = parseStoredCapabilities(settings.providerCapabilities)
   const router = await AiProviderRouter.create(actor.serviceDb, stored)
   const query = req.nextUrl.searchParams.get('artist_query')?.trim() ?? ''
-  const canSearchArtists =
-    actor.role === 'admin' || actor.capabilities.has('cms.artists.manage')
+  const canSearchArtists = actor.role === 'admin'
   const availableArtists = canSearchArtists && query
     ? await searchArtistOptions(actor.serviceDb, query).catch(() => actor.availableArtists)
     : actor.availableArtists
