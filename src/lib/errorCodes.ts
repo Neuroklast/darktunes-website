@@ -123,6 +123,15 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
     'The NVIDIA API key is missing. Add it under Admin → API Keys, then run Test Connection.',
   AI_BUDGET_EXCEEDED:
     'The AI token budget for this request is used up. Wait for the next period or ask an admin to raise the limit.',
+  AI_MODEL_UNVERIFIED:
+    'The selected AI model has not passed the agent connection checks. Ask an admin to test it before use.',
+  AI_CREDITS_EXCEEDED:
+    'The AI credit allowance is exhausted. Wait for the next credit period or ask an admin to adjust it.',
+  AI_CREDITS_UNAVAILABLE:
+    'AI credit accounting is temporarily unavailable. Ask an admin to check the billing configuration.',
+  AI_CREDITS_ADJUSTMENT_REJECTED:
+    'The credit adjustment could not be applied. Check the account balance and try again.',
+
   AI_PROVIDER_INVALID_KEY:
     'NVIDIA rejected the API key. Replace the key under Admin → API Keys and run Test Connection.',
   AI_PROVIDER_MODEL_UNAVAILABLE:
