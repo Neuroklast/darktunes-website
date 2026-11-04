@@ -63,7 +63,7 @@
     "noEditorPermissionsBody": "Your account does not have any content permissions assigned. Please contact your administrator."
   },
   "mcpApprovals": {
-    "description": "Review and approve changes proposed by ChatGPT. Only approvals for your account are shown.",
+    "description": "Review ChatGPT proposals in one queue. All administrators see the same pending changes.",
     "disabled": "The GPT connector is currently disabled.",
     "loadError": "The approval inbox could not be loaded.",
     "pending": "Pending approvals",
@@ -73,7 +73,26 @@
     "review": "Review changes",
     "history": "Recent history",
     "completed": "Completed",
-    "expired": "Expired"
+
+    "expired": "Expired",
+    "back": "Back",
+    "skip": "Skip",
+    "accept": "Accept",
+    "decline": "Decline",
+    "details": "Review all fields",
+    "before": "Before",
+    "after": "Proposed",
+    "saving": "Saving",
+    "refresh": "Refresh queue",
+    "reviewFailed": "Could not save the decision.",
+    "retryReview": "Review proposal",
+    "fields": "Changed fields",
+    "allReviewed": "All reviewed",
+    "noChanges": "No changes supplied.",
+    "rejected": "Declined",
+    "changes": "Change highlights",
+    "openHistory": "Recent decisions",
+    "preparing": "Complete values and before/after comparisons are available under Review all fields."
   },
   "tour_planner_page_title": "Tour Planner",
   "tour_planner_page_desc": "Read-only overview of artist tour production data.",
