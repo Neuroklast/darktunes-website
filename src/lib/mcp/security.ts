@@ -17,7 +17,7 @@ export async function authenticateMcp(req: NextRequest): Promise<AiActor | null>
 
     // Parse OAuth client_id ONLY after Auth verified the signed JWT.
     const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as Record<string, unknown>
-    if (claims.sub !== user.id || typeof claims.client_id !== 'string' || !isAllowedOAuthClient(claims.client_id)) return null
+    if (claims.sub !== user.id || !isMcpAal2(claims) || typeof claims.client_id !== 'string' || !isAllowedOAuthClient(claims.client_id)) return null
 
     const actor = await requireAiActor(req, { dashboard: 'admin' })
     if (actor.userId !== user.id || (actor.role !== 'admin' && actor.role !== 'editor')) return null
@@ -87,6 +87,11 @@ export function isAllowedOAuthClient(clientId: string): boolean {
   const allowed = (process.env.MCP_ALLOWED_OAUTH_CLIENT_IDS ?? '')
     .split(',').map(value => value.trim()).filter(Boolean)
   return Boolean(clientId && allowed.includes(clientId))
+}
+
+/** Reject unverified/ordinary OAuth sessions before exposing any CMS tool. */
+export function isMcpAal2(claims: Record<string, unknown>): boolean {
+  return claims.aal === 'aal2'
 }
 
 /** OAuth challenges must reference metadata for the endpoint the client called. */
