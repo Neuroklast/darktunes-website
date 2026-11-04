@@ -62,6 +62,19 @@
     "noEditorPermissionsTitle": "Aucune permission éditeur",
     "noEditorPermissionsBody": "Aucun droit de contenu n’est assigné à votre compte. Contactez votre administrateur."
   },
+  "mcpApprovals": {
+    "description": "Examinez et validez les modifications proposées par ChatGPT. Seules les demandes liées à votre compte sont affichées.",
+    "disabled": "Le connecteur GPT est actuellement désactivé.",
+    "loadError": "Impossible de charger les validations.",
+    "pending": "Validations en attente",
+    "empty": "Aucune modification n’attend votre validation.",
+    "newsDraft": "Brouillon d’actualité",
+    "expires": "Expire le",
+    "review": "Examiner les modifications",
+    "history": "Historique récent",
+    "completed": "Validé",
+    "expired": "Expiré"
+  },
   "tour_planner_page_title": "Planificateur de tournée",
   "tour_planner_page_desc": "Vue d’ensemble en lecture seule des données de production de tournée des artistes.",
   "tour_planner_loading": "Chargement…",
