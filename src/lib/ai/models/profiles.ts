@@ -63,9 +63,19 @@ const CONSERVATIVE_PROFILE: Omit<ModelCapabilities, 'model_id' | 'role'> = {
   max_output_tokens: 1200,
 }
 
+const NANO_OMNI_MODEL_ID = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'
+
 const PROFILES_BY_ID: Record<string, ModelCapabilities> = {
   [FAST_MODEL_ID]: FAST_PROFILE,
   [REASONING_MODEL_ID]: REASONING_PROFILE,
+  // The Nano Omni model exposes a thinking switch and function calling.
+  // Its name contains "reasoning", but it may be configured as the fast role.
+  [NANO_OMNI_MODEL_ID]: {
+    ...FAST_PROFILE,
+    model_id: NANO_OMNI_MODEL_ID,
+    supports_force_nonempty_content: false,
+    max_output_tokens: 2048,
+  },
 }
 
 export function getModelProfile(modelId: string): ModelCapabilities {
