@@ -22,6 +22,7 @@ interface FakeOptions {
   failFastComplete?: 'INVALID_KEY' | 'EMPTY_RESPONSE'
   failReasoningComplete?: 'TIMEOUT' | 'REASONING_ONLY'
   failFastTool?: boolean
+  fastToolNeedsThinking?: boolean
 }
 
 function completion(request: AiCompletionRequest, content: string, tool = false): AiCompletion {
@@ -68,8 +69,10 @@ function fakeProvider(options: FakeOptions = {}): AiProvider {
           'reasoning complete failed',
         )
       }
-      if (request.request_id === 'connection-test-fast-tool' && options.failFastTool) {
-        return completion(request, 'I will not call tools.')
+      if (request.request_id.startsWith('connection-test-fast-tool')) {
+        if (options.failFastTool || (options.fastToolNeedsThinking && !request.enable_thinking)) {
+          return completion(request, 'I will not call tools.')
+        }
       }
       if (request.request_id.endsWith('-tool')) {
         return completion(request, '', true)
@@ -167,6 +170,28 @@ describe('runNvidiaConnectionTest', () => {
     })
     expect(result.steps.find((step) => step.id === 'fast_complete')?.status).toBe('passed')
     expect(result.steps.find((step) => step.id === 'reasoning_tool')?.status).toBe('passed')
+  })
+
+  it('retries a tool-capable fast reasoning model with thinking and larger output cap', async () => {
+    const requests: AiCompletionRequest[] = []
+    const provider = fakeProvider({ fastToolNeedsThinking: true })
+    const originalComplete = provider.complete.bind(provider)
+    provider.complete = async (request, signal) => {
+      requests.push(request)
+      return originalComplete(request, signal)
+    }
+    const result = await runNvidiaConnectionTest({
+      apiKey: 'mock',
+      provider,
+      fastModel: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+      scope: 'fast',
+    })
+    expect(result.ok).toBe(true)
+    expect(result.steps.find((step) => step.id === 'fast_tool')?.status).toBe('passed')
+    expect(requests.filter((request) => request.request_id.includes('fast-tool'))).toMatchObject([
+      { enable_thinking: false, max_tokens: 512 },
+      { enable_thinking: true, max_tokens: 2048 },
+    ])
   })
 
   it('skips model probes when the key is rejected', async () => {
