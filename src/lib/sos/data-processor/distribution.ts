@@ -120,7 +120,7 @@ export function buildFilteredCompilations(
   return Array.from(compilationMap.values()).sort((a, b) => b.revenue - a.revenue)
 }
 
-type ResolvedTransaction = SalesTransaction & { main_artist: string }
+type ResolvedTransaction = SalesTransaction & { main_artist: string; assignment_owner_locked?: boolean }
 
 function normalizeMatchTitle(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
@@ -176,7 +176,7 @@ export function applyTrackRevenueAssignments(
     }
 
     if (owners.length === 1 && owners[0].fraction === 1) {
-      return [{ ...t, main_artist: owners[0].artist }]
+      return [{ ...t, main_artist: owners[0].artist, assignment_owner_locked: true }]
     }
 
     const revenueByOwner = splitRevenueAmongOwners(t.net_revenue, owners)
@@ -191,6 +191,7 @@ export function applyTrackRevenueAssignments(
         ...t,
         id: `${t.id}__split__${owner.artist}`,
         main_artist: owner.artist,
+        assignment_owner_locked: true,
         net_revenue: revenueByOwner.get(owner.artist.trim()) ?? 0,
         quantity,
       }
@@ -219,6 +220,10 @@ export function applyLabelRosterFilter(
         labelArtists?.find(la => normalizeArtistNameKey(la.name) === mainKey)?.name ?? t.main_artist
       return [{ ...t, main_artist: canonical }]
     }
+
+    // Explicit ownership rules must never fall back to a featured artist in the source credit.
+    // If the assigned owner is outside the roster, omit the row instead of paying it twice.
+    if (t.assignment_owner_locked) return []
 
     const found = rosterNames.find(rn =>
       normalizeArtistNameKey(t.original_artist) === rn ||
