@@ -11,6 +11,7 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 ## [Unreleased]
 
 ### Added
+- **Shared GPT approvals:** all darkTunes administrators see one inbox of ChatGPT CMS proposals with one-card-at-a-time review (Back, Skip, Accept, Decline, detailed before/after comparison), optimistic async decisions with failure restoration, existing admin bell notifications, atomic PostgreSQL approve/decline and a 30-day proposal window. Editors retain own-proposal restrictions and current CMS rights.
 - **MCP CMS detail tools:** bounded, role-scoped lookups of individual news items, artist profiles, releases and events without exposing private columns.
 - **DarkTunes GPT/MCP connector (off by default):** OAuth-scoped CMS read tools, news-draft preparation and bounded updates to artists, releases and events using atomic, idempotent website approvals and an audited PostgreSQL transaction. Visibility, publishing and deletion cannot be invoked by external MCP clients. See `docs/MCP_CONNECTOR.md`.
 - **AI Assistant 2.0:** context-aware assistant workspace with conversation history, rename/delete, reload restore, Markdown answers, throttled streaming, tool activity rows, auto-scroll and a mobile full-screen layout. The editor dashboard now mounts the assistant too.
