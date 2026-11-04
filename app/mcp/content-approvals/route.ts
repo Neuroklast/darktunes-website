@@ -11,6 +11,7 @@ import { commitMcpApproval } from '@/lib/mcp/commitApproval'
 import { contentCapability, type ContentKind } from '@/lib/mcp/contentMutations'
 import { isAllowedMcpOrigin, readMcpJson } from '@/lib/mcp/security'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -52,6 +53,13 @@ export async function POST(req: NextRequest) {
     actor = await requireAiActor(req, { dashboard: 'admin' })
   } catch {
     return problem(401, 'Sign in to darkTunes to approve this change.')
+  }
+  // Authorization via OAuth alone never commits CMS changes.
+  const session = await createServerSupabaseClient()
+  const { data: { user }, error: sessionError } = await session.auth.getUser()
+  const { data: assurance, error: assuranceError } = await session.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (sessionError || !user || user.id !== actor.userId || assuranceError || assurance?.currentLevel !== 'aal2') {
+    return problem(403, 'Verify your authenticator before approving an MCP change.')
   }
   const limit = await checkDistributedRateLimit('mcp:approval:' + actor.userId, 10, 60_000)
   if (limit.limited) return problem(429, 'Approval rate limit exceeded. Retry in one minute.')

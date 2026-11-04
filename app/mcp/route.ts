@@ -8,7 +8,7 @@ import '@/lib/ai/tools/mcpWrites'
 import '@/lib/ai/tools/mcpContentWrites'
 import { executeRegisteredTool, getRegisteredTool, listToolDefinitionsForActor } from '@/lib/ai/tools'
 import { processMcpMessage, type McpToolDefinition } from '@/lib/mcp/protocol'
-import { authenticateMcp, isAllowedMcpOrigin, oauthIssuer, readMcpJson } from '@/lib/mcp/security'
+import { authenticateMcp, isAllowedMcpOrigin, oauthIssuer, mcpResourceMetadataUrl, readMcpJson } from '@/lib/mcp/security'
 import { checkDistributedRateLimit } from '@/lib/rateLimitDistributed'
 
 export const runtime = 'nodejs'
@@ -27,8 +27,7 @@ const HEADERS = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosnif
 function reject(status: number, message: string, request: Request) {
   const headers = new Headers(HEADERS)
   if (status === 401) {
-    const metadata = new URL('/.well-known/oauth-protected-resource', request.url)
-    headers.set('WWW-Authenticate', `Bearer resource_metadata="${metadata.toString()}"`)
+    headers.set('WWW-Authenticate', `Bearer resource_metadata="${mcpResourceMetadataUrl(request)}"`)
   }
   return NextResponse.json({ error: message }, { status, headers })
 }

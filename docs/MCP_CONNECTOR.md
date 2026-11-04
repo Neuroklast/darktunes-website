@@ -5,7 +5,9 @@ Status: **security-first integration with human-approved CMS updates**, shipped 
 ## Endpoints
 
 - `POST /mcp`: JSON-RPC MCP over stateless Streamable HTTP
-- `GET /.well-known/oauth-protected-resource`: RFC 9728 OAuth discovery metadata
+- `POST /api/mcp`: compatibility alias, same authenticated tool registry
+- `GET /.well-known/oauth-protected-resource`: RFC 9728 OAuth metadata for `/mcp`
+- `GET /.well-known/oauth-protected-resource/api/mcp`: OAuth metadata for `/api/mcp`
 - `GET /oauth/consent?authorization_id=...`: darkTunes user consent screen
 - `POST /mcp/news-draft-approvals`: same-origin browser approval of a news draft (201 Created, not an MCP tool)
 - `GET /admin/mcp-approvals/[token]`: protected human review page
@@ -84,3 +86,11 @@ The proposal routes require the **service-role-only** `public.commit_mcp_approva
 ## Full detail read tools
 
 `get_cms_news`, `get_cms_artist`, `get_cms_release`, and `get_cms_event` support record-specific reads for editing. Every query selects only an explicit non-sensitive column list, checks the appropriate CMS capability, and enforces a result-size limit. News text is plain/untrusted retrieved data and cannot instruct ChatGPT to execute follow-up actions. The service never returns private artist notes, payment details, keys or raw table rows.
+
+## Reconciliation of PR #678
+
+This PR builds on the tested implementation from #677 instead of deploying a second competing OAuth/MCP stack. The alternative editorial request table, duplicated tool registry and replacement Supabase types have been removed. The transactional idempotent `commit_mcp_approval` RPC from #677 remains the sole approval implementation.
+
+The additional `/api/mcp` endpoint is a compatibility alias to `/mcp`. Resource metadata and unauthorized challenges use the requested endpoint's URL. Both routes use the same feature flag, authentication, role restrictions, tool allowlist and rate limiter.
+
+**Authenticator requirement:** OAuth bearer tokens must carry Supabase MFA `aal2`. The consent page provides a TOTP challenge for signed-in users at AAL1, and both CMS approval routes require an independent cookie-based AAL2 session. Users must enroll an authenticator before connecting or approving changes. Access fails closed if the OAuth access token lacks the `aal2` claim. Validate actual Supabase OAuth token issuance and complete an OAuth/MFA end-to-end test before production activation. No SQL migrations from the alternative #678 implementation are required.

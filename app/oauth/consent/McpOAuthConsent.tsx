@@ -100,8 +100,8 @@ export function McpOAuthConsent() {
               <dd className="break-all text-muted-foreground">{details.redirect_uri || 'Provided by OAuth server'}</dd></div>
           </dl>
           <p className="text-sm text-muted-foreground">
-            This connector currently exposes authorized, read-only CMS tools. Your existing darkTunes role
-            restricts which data the application can access. Do not approve unknown clients.
+            This connector offers authorized CMS read tools and prepare-only edit requests. Any edit requires
+            a separate approval on the darkTunes website. No direct publishing is possible.
           </p>
           <div className="flex gap-3">
             <button type="button" disabled={busy} onClick={() => void decide(false)}
