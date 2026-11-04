@@ -287,13 +287,18 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
         (prev ?? []).some((file) => file.bronzeBatchId === batch.id) ? prev : [...(prev ?? []), meta],
       )
       setFileDataMap((prev) => ({ ...prev, [id]: data }))
-      setFileState(id, {
-        status: 'processing',
-        phase: 'parsing',
-        progress: 0,
-        detail: t.ingestWaitingParser,
-        bronzeStatus: 'done',
-      })
+      // The metadata is being inserted in the same React update cycle, so
+      // setFileState's existing-file guard would reject this first state.
+      setFileStates((prev) => ({
+        ...prev,
+        [id]: {
+          status: 'processing',
+          phase: 'parsing',
+          progress: 0,
+          detail: t.ingestWaitingParser,
+          bronzeStatus: 'done',
+        },
+      }))
     } finally {
       restoringBatchIdsRef.current.delete(batch.id)
     }
