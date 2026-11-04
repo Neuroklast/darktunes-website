@@ -3509,11 +3509,13 @@ CREATE TABLE IF NOT EXISTS public.ai_action_confirmations (
   action        TEXT        NOT NULL,
   payload_hash  TEXT        NOT NULL,
   payload       JSONB       NOT NULL DEFAULT '{}',
-  expires_at    TIMESTAMPTZ NOT NULL,
+  expires_at    TIMESTAMPTZ,
   used_at       TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Only short-lived internal action confirmations expire. MCP proposals do not.
+ALTER TABLE public.ai_action_confirmations ALTER COLUMN expires_at DROP NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_ai_action_confirmations_user ON public.ai_action_confirmations (user_id, expires_at);
 
 -- =============================================================================
@@ -3586,9 +3588,6 @@ BEGIN
       RAISE EXCEPTION 'MCP_APPROVAL_ALREADY_USED' USING ERRCODE = 'P0001';
     END IF;
     RETURN v_approval.result || jsonb_build_object('replayed', true);
-  END IF;
-  IF v_approval.expires_at <= NOW() THEN
-    RAISE EXCEPTION 'MCP_APPROVAL_EXPIRED' USING ERRCODE = 'P0001';
   END IF;
 
   v_payload := v_approval.payload;
@@ -3798,9 +3797,6 @@ BEGIN
     END IF;
     RAISE EXCEPTION 'MCP_APPROVAL_ALREADY_APPROVED' USING ERRCODE = 'P0001';
   END IF;
-  IF v_approval.expires_at <= NOW() THEN
-    RAISE EXCEPTION 'MCP_APPROVAL_EXPIRED' USING ERRCODE = 'P0001';
-  END IF;
 
   v_result := jsonb_build_object(
     'ok', true, 'detail', 'The GPT proposal was declined. No CMS content changed.',
@@ -3825,9 +3821,10 @@ CREATE INDEX IF NOT EXISTS idx_ai_action_confirmations_mcp_queue
     ('create_cms_news_draft', 'update_cms_artist',
      'update_cms_release', 'update_cms_event');
 
--- Keep unreviewed legacy ten-minute proposals available for the new queue.
+-- Restore all unreviewed MCP proposals, including previously expired ones.
+-- This never modifies ordinary, non-MCP assistant confirmations.
 UPDATE public.ai_action_confirmations
-SET expires_at = GREATEST(expires_at, created_at + INTERVAL '30 days')
+SET expires_at = NULL
 WHERE used_at IS NULL AND artist_id IS NULL AND action IN
   ('create_cms_news_draft', 'update_cms_artist',
    'update_cms_release', 'update_cms_event');
