@@ -126,7 +126,6 @@ describe('credential cache', () => {
       discogsToken: 'discogs-value',
       songkickApiKey: undefined,
       bandsintownApiKey: undefined,
-      odesliApiKey: undefined,
     })
     expect(await single).toBe('discogs-value')
     expect(await missing).toBeNull()
