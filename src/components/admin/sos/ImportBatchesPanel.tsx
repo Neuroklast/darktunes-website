@@ -38,6 +38,7 @@ const BRONZE_FALLBACK = {
   bronzeDeleteConfirm: 'Delete this bronze archive (raw CSV in R2) permanently?',
   bronzeLoadError: 'Failed to load import batches',
   bronzeArchiveLoadError: 'Failed to load saved archive',
+  bronzeArchiveIncomplete: 'This import was not fully archived. Select the original CSV to upload it again.'
   bronzeLoadUnavailable: 'Load is not available in this context',
   bronzeLoadSuccess: 'Loaded {distributor} archive into workspace',
   bronzeDeleteError: 'Delete failed',
