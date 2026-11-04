@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom'
+import '@testing-library/jest-dom/vitest'
 import { webcrypto } from 'node:crypto'
 import { vi } from 'vitest'
 import { mockNextIntl } from './mockNextIntl'
