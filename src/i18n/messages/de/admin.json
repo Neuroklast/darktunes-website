@@ -63,7 +63,7 @@
     "noEditorPermissionsBody": "Deinem Konto sind keine Content-Berechtigungen zugewiesen. Bitte wende dich an deinen Administrator."
   },
   "mcpApprovals": {
-    "description": "Prüfe und bestätige Änderungen von ChatGPT. Hier siehst du nur Freigaben für dein Konto.",
+    "description": "Prüfe ChatGPT-Vorschläge einzeln. Alle Administratoren sehen dieselbe Warteschlange.",
     "disabled": "Die GPT-Anbindung ist derzeit deaktiviert.",
     "loadError": "Die Freigaben konnten nicht geladen werden.",
     "pending": "Offene Freigaben",
@@ -73,7 +73,26 @@
     "review": "Änderungen prüfen",
     "history": "Letzte Freigaben",
     "completed": "Bestätigt",
-    "expired": "Abgelaufen"
+
+    "expired": "Abgelaufen",
+    "back": "Zurück",
+    "skip": "Überspringen",
+    "accept": "Annehmen",
+    "decline": "Ablehnen",
+    "details": "Alle Felder prüfen",
+    "before": "Vorher",
+    "after": "Vorschlag",
+    "saving": "Speichere",
+    "refresh": "Liste aktualisieren",
+    "reviewFailed": "Die Entscheidung wurde nicht gespeichert.",
+    "retryReview": "Erneut prüfen",
+    "fields": "Geänderte Felder",
+    "allReviewed": "Alles geprüft",
+    "noChanges": "Keine Änderungen angegeben.",
+    "rejected": "Abgelehnt",
+    "changes": "Änderungen im Überblick",
+    "openHistory": "Letzte Entscheidungen",
+    "preparing": "Alle Werte und der Vorher-Nachher-Vergleich stehen unter Alle Felder prüfen."
   },
   "tour_planner_page_title": "Tourplaner",
   "tour_planner_page_desc": "Nur-Lese-Übersicht der Tour-Production-Daten der Künstler.",
