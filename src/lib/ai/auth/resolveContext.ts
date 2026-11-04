@@ -26,8 +26,6 @@ export interface ResolvedAiContext {
   error: { status: number; code: string; message: string } | null
 }
 
-const CAN_MANAGE_ARTISTS: Capability = 'cms.artists.manage'
-
 /**
  * Pure context resolution. The caller resolves memberships and (when allowed)
  * an explicitly requested artist from the database first; URL parameters never
@@ -35,8 +33,9 @@ const CAN_MANAGE_ARTISTS: Capability = 'cms.artists.manage'
  */
 export function resolveAiContext(input: ResolveAiContextInput): ResolvedAiContext {
   const membershipIds = input.memberships.map((artist) => artist.id)
-  const canInspectAnyArtist =
-    input.role === 'admin' || (input.role === 'editor' && input.capabilities.has(CAN_MANAGE_ARTISTS))
+  // Only admins can change the AI context to another artist. An editor's
+  // CMS permissions do not authorize cross-artist AI access.
+  const canInspectAnyArtist = input.role === 'admin'
   const availableArtists = canInspectAnyArtist
     ? mergeArtists(input.memberships, input.allArtists ?? [])
     : input.memberships
