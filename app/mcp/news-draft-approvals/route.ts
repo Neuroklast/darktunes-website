@@ -49,9 +49,8 @@ export async function POST(req: NextRequest) {
   // Authorization via OAuth alone never commits CMS changes.
   const session = await createServerSupabaseClient()
   const { data: { user }, error: sessionError } = await session.auth.getUser()
-  const { data: assurance, error: assuranceError } = await session.auth.mfa.getAuthenticatorAssuranceLevel()
-  if (sessionError || !user || user.id !== actor.userId || assuranceError || assurance?.currentLevel !== 'aal2') {
-    return problem(403, 'Two-factor verification required', 'Verify your authenticator before approving a draft.')
+  if (sessionError || !user || user.id !== actor.userId) {
+    return problem(403, 'Forbidden', 'Approval requires the same signed-in darkTunes account.')
   }
   const limit = await checkDistributedRateLimit('mcp:approve:' + actor.userId, 10, 60_000)
   if (limit.limited) return problem(429, 'Rate limited', 'Too many approval attempts. Retry after one minute.')
