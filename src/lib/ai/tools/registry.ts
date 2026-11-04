@@ -131,24 +131,37 @@ export function isToolAllowed(
   tool: RegisteredTool<z.ZodType, z.ZodType>,
   actor: AiActor,
 ): boolean {
+  const hasCapabilities = tool.capabilities.every((capability) =>
+    actor.capabilities.has(capability))
+  if (!hasCapabilities) return false
+
+  if (tool.dataScope === 'admin_finance') {
+    // Financial and potentially financial document data never enter an artist
+    // or editor conversation, even when the caller is an admin in the portal.
+    return actor.role === 'admin' &&
+      actor.accessContext === 'admin' &&
+      actor.dashboard === 'admin' &&
+      actor.capabilities.has('admin.panel.full') &&
+      Boolean(actor.artistId)
+  }
   if (tool.dataScope === 'label') {
-    if (actor.accessContext === 'artist' || actor.role === 'artist') return false
-    return (
-      (actor.role === 'admin' || actor.role === 'editor') &&
-      tool.capabilities.every((capability) => actor.capabilities.has(capability))
-    )
+    if (actor.role === 'admin') {
+      return actor.accessContext === 'admin' && actor.dashboard === 'admin'
+    }
+    // Editors may inspect operational queues, never admin-only information.
+    return actor.role === 'editor' &&
+      actor.accessContext === 'editor' &&
+      actor.dashboard === 'editor' &&
+      !tool.capabilities.includes('admin.panel.full')
   }
   if (tool.dataScope === 'self_artist') {
     if (!actor.artistId) return false
-    // Bound to the server-resolved artist, not to a client-supplied id.
-    if (actor.role === 'artist') return actor.artistMembershipIds.includes(actor.artistId)
-    if (actor.role === 'admin' || actor.role === 'editor') {
-      return (
-        actor.capabilities.has('cms.artists.manage' as Capability) ||
+    if (actor.role === 'admin') {
+      return actor.capabilities.has('cms.artists.manage' as Capability) ||
         actor.artistMembershipIds.includes(actor.artistId)
-      )
     }
-    return false
+    // CMS permissions do not grant access to a different artist's private data.
+    return actor.artistMembershipIds.includes(actor.artistId)
   }
   return actor.role === 'artist' || actor.role === 'editor' || actor.role === 'admin'
 }
@@ -183,7 +196,8 @@ function safeToolError(error: unknown, timedOut: boolean): string {
     if (error.code === 'FORBIDDEN_NO_ARTIST') {
       return 'No artist is selected for this request. Select an artist and try again.'
     }
-    return error.message
+    // An unexpected internal API error can include database or tenant details.
+    return 'The data lookup was denied or could not be completed.'
   }
   return 'The data lookup failed. Try again; if it repeats, tell the label team.'
 }
