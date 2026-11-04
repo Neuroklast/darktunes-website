@@ -40,6 +40,7 @@
     "settings": "Settings",
     "apiKeys": "API Keys",
     "aiAssistant": "AI Assistant",
+    "mcpApprovals": "GPT Approvals",
     "support": "Support",
     "system": "System",
     "signOut": "Sign Out",
@@ -1275,7 +1276,8 @@
       "portal_message": "New message from artist",
       "label_message": "New message from label",
       "fan_page_decision": "Fan page review decision",
-      "invoice_submitted": "New invoice submitted"
+      "invoice_submitted": "New invoice submitted",
+      "mcp_approval": "GPT change awaiting approval"
     },
     "actions": {
       "review_release": "Review release",
@@ -1284,7 +1286,8 @@
       "review_asset": "Review asset",
       "open_messages": "Open messages",
       "open_fan_page": "Open fan page",
-      "open_invoices": "Open invoices"
+      "open_invoices": "Open invoices",
+      "review_mcp": "Review change"
     },
     "typeLabels": {
       "artist_release_submission": "Release submission (staff)",
@@ -1300,7 +1303,8 @@
       "invoice_submitted": "Invoice submitted",
       "invoice_payment_received": "Invoice payment",
       "journalist_application_submitted": "Journalist application",
-      "journalist_application_decision": "Journalist decision"
+      "journalist_application_decision": "Journalist decision",
+      "mcp_approval_pending": "GPT change awaiting approval"
     }
   },
   "toast": {
