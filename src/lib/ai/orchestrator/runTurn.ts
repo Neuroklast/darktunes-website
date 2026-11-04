@@ -247,10 +247,13 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
       }
       const roundReservation = activeReservation
 
-      const thinking = shouldEnableThinking(
-        currentRole,
-        classification.reason === 'diagnostic' ? 'complex' : 'simple',
-        caps,
+      const thinking = Boolean(
+        (useTools && caps.requires_thinking_for_tools && caps.supports_enable_thinking) ||
+        shouldEnableThinking(
+          currentRole,
+          classification.reason === 'diagnostic' ? 'complex' : 'simple',
+          caps,
+        ),
       )
       const lowEffort =
         currentRole === 'reasoning' &&
