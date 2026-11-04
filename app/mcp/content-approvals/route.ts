@@ -22,7 +22,7 @@ const actions = {
   update_cms_event: 'event',
 } as const
 const schema = z.object({
-  token: z.string().regex(/^act_[a-f0-9]{48}$/),
+  token: z.union([z.string().uuid(), z.string().regex(/^act_[a-f0-9]{48}$/)]),
   action: z.enum(['update_cms_artist', 'update_cms_release', 'update_cms_event']),
 }).strict()
 
@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
   }
   try {
     const result = await commitMcpApproval(actor, parsed.data.token, parsed.data.action)
+    revalidatePath('/admin/mcp-approvals')
     revalidatePath('/admin')
     if (kind === 'artist') revalidatePath('/artists')
     if (kind === 'release') revalidatePath('/releases')
