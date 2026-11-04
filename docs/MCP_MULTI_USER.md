@@ -5,21 +5,21 @@ The same darkTunes MCP server can serve multiple ChatGPT users. The endpoint is 
 ## Identity separation
 
 - A shared ChatGPT plugin is installed in one workspace. Each member must authorize using their own darkTunes account. Never place service-role credentials or shared admin sessions into ChatGPT.
-- Supabase OAuth tokens contain a user subject (sub), an OAuth application client ID (client_id), and an assurance level (aal). Several users of the same shared plugin can legitimately share a client ID while having different user subjects.
-- The MCP gateway validates bearer tokens with Supabase Auth, requires MFA assurance aal2, matches token subject against the verified Supabase user and live darkTunes actor, and requires an exact OAuth client ID from MCP_ALLOWED_OAUTH_CLIENT_IDS.
+- Supabase OAuth tokens contain a user subject (sub), an OAuth application client ID (client_id), and may include an assurance level (aal). Several users of the same shared plugin can legitimately share a client ID while having different user subjects.
+- The MCP gateway validates bearer tokens with Supabase Auth, matches token subject against the verified Supabase user and live darkTunes actor, and requires an exact OAuth client ID from MCP_ALLOWED_OAUTH_CLIENT_IDS.
 - Only darkTunes admin and editor accounts enter MCP. RBAC capability checks control which tools appear. The tool executor rechecks live permissions before execution, so revoked CMS privileges immediately prevent further actions.
 - Every recognized tool invocation is logged in ai_tool_executions with its individual actor_id, unique request_id, tool name, status and duration. Do not log OAuth tokens or raw input arguments.
 - Edit proposals are tied to the preparing darkTunes user. Another editor cannot approve or replay somebody else's one-time confirmation. Publishing and deletion remain unavailable.
 
 ## A shared plugin in a ChatGPT workspace
 
-1. Enable Supabase OAuth Server for the correct darkTunes project, with authorization path /oauth/consent and the canonical Site URL https://www.darktunes.com. Configure asymmetric JWT signing and verified TOTP MFA for participating users.
+1. Enable Supabase OAuth Server for the correct darkTunes project, with authorization path /oauth/consent and the canonical Site URL https://www.darktunes.com. Configure asymmetric JWT signing. TOTP MFA is optional for MCP OAuth.
 2. Register the ChatGPT OAuth client (or permit Dynamic Client Registration under a carefully controlled rollout). Use the exact redirect URI provided by the ChatGPT plugin setup screen.
 3. Add the exact registered OAuth client ID to MCP_ALLOWED_OAUTH_CLIENT_IDS in Vercel Production. Multiple explicitly approved IDs may be supplied as a comma-separated list; an empty value denies all clients.
 4. Apply and verify the approval database changes from docs/MCP_CONNECTOR.md (ai_action_confirmations.result and commit_mcp_approval) in staging, and then production.
 5. Complete the staging test matrix below before enabling MCP_CONNECTOR_ENABLED=true in production.
 6. Create and scan the custom ChatGPT MCP plugin with https://www.darktunes.com/mcp, then have the ChatGPT workspace admin publish it to the approved workspace audience.
-7. Every member installs/connects the published plugin and independently authenticates with their own darkTunes login and TOTP factor.
+7. Every member installs/connects the published plugin and independently authenticates with their own darkTunes login. An MFA factor is not required for MCP.
 
 ## Multiple independently registered ChatGPT plugins
 
@@ -39,7 +39,7 @@ Changing darkTunes roles immediately blocks CMS actions because permissions are 
 | Artist or visitor tries to use MCP | Denied |
 | Second explicitly approved OAuth client | Allowed with a valid, individually authorized user |
 | Unknown client or empty allowlist | Denied |
-| OAuth token without MFA aal2 | Denied |
+| Valid OAuth token with aal1 and without MFA | Allowed if the client, user identity and RBAC checks pass |
 | Token subject differs from verified Supabase user | Denied |
 | Verified token differs from server-resolved darkTunes actor | Denied |
 | CMS permission withdrawn after tools/list | Subsequent tools/call fails |
@@ -52,7 +52,7 @@ Automated regression suite:
 
     npx vitest run src/lib/mcp/multiUserAuth.test.ts src/lib/mcp/multiUserAccess.test.ts src/lib/mcp/commitApproval.test.ts src/lib/mcp/security.test.ts
 
-These automated tests use mocked OAuth and database responses. They do not prove live Supabase OAuth, DCR, ChatGPT publication, MFA token issuance or SQL migration. Real staging E2E testing is a release prerequisite.
+These automated tests use mocked OAuth and database responses. They do not prove live Supabase OAuth, DCR, ChatGPT publication, optional MFA token issuance or SQL migration. Real staging E2E testing is a release prerequisite.
 
 ## Operational limitations
 
