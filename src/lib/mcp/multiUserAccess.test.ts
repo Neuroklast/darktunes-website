@@ -82,14 +82,17 @@ beforeEach(() => {
   vi.resetAllMocks()
   auditRows.length = 0
   currentGrants.clear()
-  vi.mocked(resolveEffectiveAccess).mockImplementation(async (_db, userId) => ({
-    primaryRole: userId === 'admin-1' ? 'admin' : 'editor',
-    allRoles: userId === 'admin-1' ? ['admin'] : ['editor'],
-    permissions: new Set(),
-    capabilities: currentGrants.get(userId) ?? new Set<Capability>(),
-    customRoleNames: [],
-    isAdmin: userId === 'admin-1',
-  }))
+  vi.mocked(resolveEffectiveAccess).mockImplementation(async (_db, userId) => {
+    const primaryRole: 'admin' | 'editor' = userId === 'admin-1' ? 'admin' : 'editor'
+    return {
+      primaryRole,
+      allRoles: [primaryRole],
+      permissions: new Set<string>(),
+      capabilities: currentGrants.get(userId) ?? new Set<Capability>(),
+      customRoleNames: [],
+      isAdmin: userId === 'admin-1',
+    }
+  })
 })
 
 describe('MCP per-user CMS permissions and audit', () => {
