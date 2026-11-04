@@ -31,7 +31,9 @@ export const POST = withErrorHandler(async (req: NextRequest): Promise<NextRespo
   let query = actor.serviceDb.from('app_logs').select('*').limit(1)
   if (parsed.data.fingerprint) query = query.eq('fingerprint', parsed.data.fingerprint)
   if (parsed.data.error_id) query = query.ilike('message', `%${parsed.data.error_id}%`)
-  if (actor.role === 'artist') query = query.eq('user_id', actor.userId)
+  // Application logs may contain private artist activity. Only admins may
+  // search across users; editors and artists see solely their own entries.
+  if (actor.role !== 'admin') query = query.eq('user_id', actor.userId)
 
   const { data, error } = await query.maybeSingle()
   if (error) throw new ApiError(500, 'The error log could not be read.', 'DB_ERROR')
