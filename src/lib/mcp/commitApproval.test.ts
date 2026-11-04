@@ -125,15 +125,21 @@ describe('atomic MCP approval', () => {
       .rejects.toMatchObject({ code: 'CONFLICT' })
     expect(rpc).not.toHaveBeenCalled()
   })
-  it('rejects another user and an expired pending confirmation', async () => {
+  it('rejects another user while allowing old and non-expiring pending proposals', async () => {
     const a = fixture({ user_id: '00000000-0000-4000-8000-000000000099' })
     await expect(commitMcpApproval(a.actor, token, 'create_cms_news_draft'))
       .rejects.toMatchObject({ code: 'NOT_FOUND' })
     expect(a.rpc).not.toHaveBeenCalled()
-    const b = fixture({ expires_at: '2000-01-01T00:00:00Z' })
-    await expect(commitMcpApproval(b.actor, token, 'create_cms_news_draft'))
-      .rejects.toMatchObject({ code: 'AI_CONFIRMATION_EXPIRED' })
-    expect(b.rpc).not.toHaveBeenCalled()
+
+    const pastExpiry = fixture({ expires_at: '2000-01-01T00:00:00Z' })
+    await expect(commitMcpApproval(pastExpiry.actor, token, 'create_cms_news_draft'))
+      .resolves.toMatchObject({ ok: true })
+    expect(pastExpiry.rpc).toHaveBeenCalledOnce()
+
+    const permanent = fixture({ expires_at: null })
+    await expect(commitMcpApproval(permanent.actor, token, 'create_cms_news_draft'))
+      .resolves.toMatchObject({ ok: true })
+    expect(permanent.rpc).toHaveBeenCalledOnce()
   })
   it('rejects a missing CMS permission and non-editor actor', async () => {
     const { actor, rpc } = fixture()
