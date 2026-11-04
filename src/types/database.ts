@@ -6032,6 +6032,15 @@ export interface Database {
         }
         Returns: Json
       }
+      reject_mcp_approval: {
+        Args: {
+          p_token_hash: string
+          p_actor_id: string
+          p_action: string
+          p_payload_hash: string
+        }
+        Returns: Json
+      }
       get_assets_storage_stats: {
         Args: Record<string, never>
         /** JSON object: used_bytes, asset_count, zero_size_count */
