@@ -54,6 +54,13 @@ export function parseDarkmerchReportingPeriod(value: string): { periodStart: str
     const last = quarter(range[4], range[3])
     return first.start <= last.end ? { periodStart: first.start, periodEnd: last.end } : null
   }
+  // Darkmerch summaries may place a shared year after both quarters.
+  const sharedYearRange = /^Q([1-4])\s*[-–—]\s*Q([1-4])\s+(\d{4})$/i.exec(text)
+  if (sharedYearRange) {
+    const first = quarter(sharedYearRange[3], sharedYearRange[1])
+    const last = quarter(sharedYearRange[3], sharedYearRange[2])
+    return first.start <= last.end ? { periodStart: first.start, periodEnd: last.end } : null
+  }
   const single = /^Q([1-4])\s+(\d{4})$/i.exec(text)
   if (single) {
     const bounds = quarter(single[2], single[1])
