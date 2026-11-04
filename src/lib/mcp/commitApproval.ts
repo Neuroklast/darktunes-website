@@ -96,9 +96,45 @@ export async function commitMcpApproval(
         'The atomic GPT review function is not deployed. Apply the reviewed reset.sql function first.',
         'MCP_DATABASE_NOT_READY')
     }
-    throw new ApiError(409,
-      'The CMS update was not applied. The record may have changed, or the approval is invalid.',
-      'CONFLICT')
+    // PostgreSQL raises named, stable exceptions for expected conflicts. Never
+    // turn unrelated SQL failures into a misleading "expired/used" HTTP 409.
+    if (error.message.includes('MCP_STALE_CONTENT')) {
+      throw new ApiError(409,
+        'One of the proposed fields was changed after the proposal was prepared. Review the current CMS values and prepare an updated proposal.',
+        'MCP_CONTENT_CHANGED')
+    }
+    if (error.message.includes('MCP_APPROVAL_ALREADY_USED') ||
+        error.message.includes('MCP_APPROVAL_ALREADY_APPROVED') ||
+        error.message.includes('MCP_APPROVAL_REJECTED')) {
+      throw new ApiError(409,
+        'Another reviewer has already decided this proposal. Refresh the review queue.',
+        'MCP_ALREADY_REVIEWED')
+    }
+    if (error.message.includes('MCP_APPROVAL_MISMATCH')) {
+      throw new ApiError(403,
+        'This proposal does not match the current reviewer or approval action.',
+        'MCP_APPROVAL_MISMATCH')
+    }
+    if (error.message.includes('MCP_APPROVAL_FORBIDDEN')) {
+      throw new ApiError(403, 'This operation is not permitted.', 'FORBIDDEN')
+    }
+    if (error.message.includes('MCP_PATCH_INVALID') ||
+        error.message.includes('MCP_PATCH_FORBIDDEN_FIELDS') ||
+        error.message.includes('MCP_PAYLOAD_INVALID') ||
+        error.message.includes('MCP_APPROVAL_INVALID') ||
+        error.message.includes('MCP_NEWS_INVALID')) {
+      throw new ApiError(422,
+        'The saved proposal contains invalid changes. Prepare a corrected proposal.',
+        'MCP_INVALID_PROPOSAL')
+    }
+    // Do not leak raw PostgreSQL errors or record data to the browser. The
+    // operator can use the server logs and SQLSTATE to diagnose the failure.
+    console.error('[mcp] approval RPC failed', {
+      action, decision, pg_code: error.code,
+    })
+    throw new ApiError(503,
+      'The database could not save the decision. No change was confirmed. Check the server logs and the deployed approval functions.',
+      'MCP_REVIEW_DATABASE_ERROR')
   }
   const parsed = rpcResult.safeParse(data)
   if (!parsed.success) {
