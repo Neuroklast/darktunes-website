@@ -6,7 +6,7 @@ const refresh = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }))
 
 const labels: McpReviewLabels = {
-  pending: 'Pending', review: 'Review', empty: 'No proposals',
+  pending: 'Pending', reviewed: 'reviewed this session', review: 'Review', empty: 'No proposals',
   history: 'History', completed: 'Completed',
   back: 'Back', skip: 'Skip', accept: 'Accept', decline: 'Decline',
   details: 'Details', before: 'Before', after: 'After', saving: 'Saving',
@@ -47,6 +47,8 @@ describe('shared GPT approval slider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }))
     expect(screen.getByRole('heading', { name: 'Proposal B' })).toBeTruthy()
     expect(screen.getByText(/Saving 1/)).toBeTruthy()
+    expect(screen.getByText('0 / 2 reviewed this session')).toBeTruthy()
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('0')
     expect(fetchMock).toHaveBeenCalledOnce()
     expect(JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)).toMatchObject({
       token: '00000000-0000-4000-8000-000000000001', decision: 'approve',
@@ -58,6 +60,8 @@ describe('shared GPT approval slider', () => {
     })
     expect(refresh).toHaveBeenCalled()
     expect(screen.getByRole('heading', { name: 'Proposal B' })).toBeTruthy()
+    expect(screen.getByText('1 / 2 reviewed this session')).toBeTruthy()
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('1')
   })
 
   it('restores a failed decision with an explicit review action', async () => {
@@ -75,6 +79,8 @@ describe('shared GPT approval slider', () => {
       expect(screen.getByRole('button', { name: 'Review again' })).toBeTruthy()
     })
     expect(refresh).toHaveBeenCalled()
+    expect(screen.getByText('0 / 1 reviewed this session')).toBeTruthy()
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('0')
   })
 
   it('navigates without deciding when Back and Skip are used', () => {
