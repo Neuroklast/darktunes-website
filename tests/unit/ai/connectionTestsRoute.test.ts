@@ -139,7 +139,6 @@ describe('POST /api/admin/ai/connection-tests', () => {
   })
 
   it('passes the requested scope through', async () => {
-    resolveNvidiaApiKey.mockResolvedValue('nvapi-test')
     runNvidiaConnectionTest.mockResolvedValue(result(true))
     const { POST } = await importRoute()
     await POST(
@@ -155,7 +154,6 @@ describe('POST /api/admin/ai/connection-tests', () => {
   })
 
   it('stores the successful test separately', async () => {
-    resolveNvidiaApiKey.mockResolvedValue('nvapi-test')
     runNvidiaConnectionTest.mockResolvedValue(result(true))
     const { POST } = await importRoute()
     await POST(
