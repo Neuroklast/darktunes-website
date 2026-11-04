@@ -91,6 +91,12 @@ export const NOTIFICATION_CATALOG: Record<NotificationEventType, NotificationCat
     summaryKey: 'types.journalist_application',
     actionKey: 'actions.review_press',
   },
+  mcp_approval_pending: {
+    audience: 'user',
+    defaultEntityType: 'mcp_approval',
+    summaryKey: 'types.mcp_approval',
+    actionKey: 'actions.review_mcp',
+  },
   journalist_application_decision: {
     audience: 'user',
     defaultEntityType: 'journalist_application',
