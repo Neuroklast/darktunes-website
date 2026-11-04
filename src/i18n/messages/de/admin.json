@@ -249,6 +249,7 @@
     "bronzeDeleteConfirm": "Dieses Bronze-Archiv (rohe CSV in R2) dauerhaft löschen?",
     "bronzeLoadError": "Import-Batches konnten nicht geladen werden",
     "bronzeArchiveLoadError": "Bronze-Archiv konnte nicht geladen werden",
+    "bronzeArchiveIncomplete": "Dieser Import wurde nicht vollständig archiviert. Bitte die ursprüngliche CSV-Datei erneut hochladen."
     "bronzeLoadUnavailable": "Laden ist in diesem Kontext nicht verfügbar",
     "currencyFallbackTitle": "Fallback-Wechselkurse aktiv",
     "currencyFallbackDescription": "ECB-Kurse konnten nicht geladen werden. Währungsumrechnungen können ungenau sein — vor Veröffentlichung prüfen.",
