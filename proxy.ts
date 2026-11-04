@@ -19,6 +19,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { resolveRedirectPath } from '@/lib/auth/resolveRedirectPath'
+import { preserveAuthResponse } from '@/lib/auth/preserveAuthResponse'
 import { isEditorAllowedAdminPath } from '@/lib/editor/editorAdminPaths'
 import { DEFAULT_FEATURE_TOGGLES, getFeatureToggles } from '@/lib/featureToggles'
 import { hasPortalArtistMembership } from '@/lib/portal/membership'
@@ -76,12 +77,16 @@ function redirectUnauthenticatedToLogin(request: NextRequest): NextResponse {
   return NextResponse.redirect(loginUrl)
 }
 
-function redirectToLoginWithError(request: NextRequest, error: string): NextResponse {
+function redirectToLoginWithError(
+  request: NextRequest,
+  error: string,
+  sessionResponse: NextResponse,
+): NextResponse {
   const loginUrl = request.nextUrl.clone()
   loginUrl.pathname = '/login'
   loginUrl.search = ''
   loginUrl.searchParams.set('error', error)
-  return NextResponse.redirect(loginUrl)
+  return preserveAuthResponse(sessionResponse, NextResponse.redirect(loginUrl))
 }
 
 function shouldStayOnLoginPage(searchParams: URLSearchParams): boolean {
@@ -126,6 +131,10 @@ export async function proxy(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           )
+          // Supabase rotated a user-specific cookie. Never cache this response.
+          supabaseResponse.headers.set('Cache-Control', 'private, no-store')
+          supabaseResponse.headers.set('Pragma', 'no-cache')
+          supabaseResponse.headers.set('Expires', '0')
         },
       },
     },
@@ -175,7 +184,12 @@ export async function proxy(request: NextRequest) {
 
   // Central Login Redirection Logic for Authenticated Users
   if (isLoginPage && user && profileRole) {
-    if (shouldStayOnLoginPage(request.nextUrl.searchParams)) {
+    // A stale ?error=unauthorized must not trap a valid admin on /login.
+    // Non-admins keep the form so they can switch to an authorized account.
+    if (
+      shouldStayOnLoginPage(request.nextUrl.searchParams) &&
+      (!effectiveAccess || !hasAdminPanelAccess(effectiveAccess))
+    ) {
       return withRequestContext(supabaseResponse, request)
     }
 
@@ -186,16 +200,16 @@ export async function proxy(request: NextRequest) {
     // A same-origin check plus backslash rejection prevents protocol-relative / alternate-host redirects.
     if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') && !returnTo.includes('\\')) {
       const destination = new URL(returnTo, url.origin)
-      if (destination.origin === url.origin) {
+      if (destination.origin === url.origin && destination.pathname !== '/login') {
         url.pathname = destination.pathname
         url.search = destination.search
-        return NextResponse.redirect(url)
+        return preserveAuthResponse(supabaseResponse, NextResponse.redirect(url))
       }
     }
 
     url.pathname = resolveRedirectPath(profileRole)
     url.search = ''
-    return NextResponse.redirect(url)
+    return preserveAuthResponse(supabaseResponse, NextResponse.redirect(url))
   }
 
   // Redirect unauthenticated users away from protected routes
@@ -203,7 +217,7 @@ export async function proxy(request: NextRequest) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
     loginUrl.searchParams.set('returnTo', request.nextUrl.pathname)
-    return NextResponse.redirect(loginUrl)
+    return preserveAuthResponse(supabaseResponse, NextResponse.redirect(loginUrl))
   }
 
   // --- Admin/Editor route protection ---
@@ -214,14 +228,14 @@ export async function proxy(request: NextRequest) {
       const adminUrl = request.nextUrl.clone()
       adminUrl.pathname = '/admin'
       adminUrl.search = ''
-      return NextResponse.redirect(adminUrl)
+      return preserveAuthResponse(supabaseResponse, NextResponse.redirect(adminUrl))
     }
 
     if (isEditorRoute && !hasAdminAccess) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
       loginUrl.searchParams.set('error', 'unauthorized')
-      return NextResponse.redirect(loginUrl)
+      return preserveAuthResponse(supabaseResponse, NextResponse.redirect(loginUrl))
     }
 
     if (isEditorRoute && profileRole === 'editor') {
@@ -230,7 +244,7 @@ export async function proxy(request: NextRequest) {
         const loginUrl = request.nextUrl.clone()
         loginUrl.pathname = '/login'
         loginUrl.searchParams.set('error', 'unauthorized')
-        return NextResponse.redirect(loginUrl)
+        return preserveAuthResponse(supabaseResponse, NextResponse.redirect(loginUrl))
       }
     }
 
@@ -238,14 +252,14 @@ export async function proxy(request: NextRequest) {
       const editorUrl = request.nextUrl.clone()
       editorUrl.pathname = '/editor'
       editorUrl.search = ''
-      return NextResponse.redirect(editorUrl)
+      return preserveAuthResponse(supabaseResponse, NextResponse.redirect(editorUrl))
     }
 
     if (!hasAdminAccess) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
       loginUrl.searchParams.set('error', 'unauthorized')
-      return NextResponse.redirect(loginUrl)
+      return preserveAuthResponse(supabaseResponse, NextResponse.redirect(loginUrl))
     }
   }
 
@@ -258,11 +272,11 @@ export async function proxy(request: NextRequest) {
       try {
         hasMembership = await hasPortalArtistMembership(supabase, user.id)
       } catch {
-        return redirectToLoginWithError(request, 'no_artist')
+        return redirectToLoginWithError(request, 'no_artist', supabaseResponse)
       }
 
       if (!hasMembership) {
-        return redirectToLoginWithError(request, 'no_artist')
+        return redirectToLoginWithError(request, 'no_artist', supabaseResponse)
       }
     }
   }
@@ -273,7 +287,7 @@ export async function proxy(request: NextRequest) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
       loginUrl.searchParams.set('error', 'unauthorized')
-      return NextResponse.redirect(loginUrl)
+      return preserveAuthResponse(supabaseResponse, NextResponse.redirect(loginUrl))
     }
   }
 
