@@ -28,6 +28,7 @@ import {
   WarningCircle,
   Info,
   CloudArrowUp,
+  CloudArrowDown,
 } from '@phosphor-icons/react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -76,6 +77,7 @@ export interface FileManagerCallbacks {
   removeFile: (id: string) => void
   replaceFile: (id: string, file: File) => void
   retryArchive?: (id: string) => void
+  restoreArchivedFile?: (id: string) => Promise<void>
 }
 
 /**
@@ -92,6 +94,7 @@ export interface EcommerceManagerCallbacks {
   addFiles: (files: File[]) => void
   removeFile: (id: string) => void
   retryArchive?: (id: string) => void
+  restoreArchivedFile?: (id: string) => Promise<void>
 }
 
 interface UniversalFileUploadZoneProps {
@@ -225,7 +228,7 @@ function FileStatusIcon({ state, hasData }: { state: FileProcessingState | undef
     return <Spinner size={16} className="text-primary animate-spin flex-shrink-0" />
   if (state?.bronzeStatus === 'error' || state?.bronzeStatus === 'skipped')
     return <Warning size={16} className="text-amber-400 flex-shrink-0" />
-  if (!hasData && !state) return <Warning size={16} className="text-amber-400 flex-shrink-0" />
+  if (!hasData) return <Warning size={16} className="text-amber-400 flex-shrink-0" />
   return <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
 }
 
@@ -576,9 +579,10 @@ interface FileItemProps {
   replaceRef: ((el: HTMLInputElement | null) => void) | null
   onReplaceInput: ((e: React.ChangeEvent<HTMLInputElement>) => void) | null
   onRetryArchive: (() => void) | null
+  onRestore: (() => void) | null
 }
 
-function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef, onReplaceInput, onRetryArchive }: FileItemProps) {
+function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef, onReplaceInput, onRetryArchive, onRestore }: FileItemProps) {
   const t = useTranslations('admin.accounting')
   const isProcessingFile =
     state?.status === 'uploading' ||
@@ -586,6 +590,7 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
     state?.bronzeStatus === 'uploading'
   const isDone = !state || state.status === 'done' || state.status === 'idle'
   const hasData = Boolean(file.data)
+  const needsRestore = !hasData && Boolean(file.bronzeBatchId) && !isProcessingFile
   const needsReupload = isDone && !hasData
   const prefersReducedMotion = useReducedMotion()
 
@@ -664,7 +669,32 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
             )}
 
             {needsReupload && (
-              <p className="text-xs text-amber-400 mt-1">Data not in memory — re-upload or load from Bronze archives below</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <p className="text-xs text-amber-400">
+                  {file.bronzeBatchId
+                    ? 'Saved in archive. Restore the data to continue.'
+                    : 'The original file data is no longer loaded. Select the file again.'}
+                </p>
+                {file.bronzeBatchId && onRestore && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={onRestore}
+                    disabled={!needsRestore}
+                    className="h-8 gap-1.5"
+                  >
+                    <CloudArrowDown size={15} />
+                    Restore data
+                  </Button>
+                )}
+              </div>
+            )}
+            {!isProcessingFile && !hasData && !isDone && file.bronzeBatchId && onRestore && (
+              <Button type="button" size="sm" variant="outline" onClick={onRestore} className="mt-2 h-8 gap-1.5">
+                <CloudArrowDown size={15} />
+                Retry restore
+              </Button>
             )}
 
             <FileProgressBar state={state} />
@@ -723,6 +753,7 @@ interface FileEntry {
   replaceRef: ((el: HTMLInputElement | null) => void) | null
   onReplaceInput: ((e: React.ChangeEvent<HTMLInputElement>) => void) | null
   onRetryArchive: (() => void) | null
+  onRestore: (() => void) | null
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -929,6 +960,13 @@ export function UniversalFileUploadZone({
         replaceRef: makeRefSetter(f.id),
         onReplaceInput: (e: React.ChangeEvent<HTMLInputElement>) => handleReplaceInput(manager, f.id, e),
         onRetryArchive: manager.retryArchive ? () => manager.retryArchive?.(f.id) : null,
+        onRestore: manager.restoreArchivedFile
+          ? () => { void manager.restoreArchivedFile!(f.id).catch((err) => {
+              toast.error('Could not restore saved file', {
+                description: err instanceof Error ? err.message : String(err),
+              })
+            }) }
+          : null,
       })),
     [makeRefSetter, handleReplaceInput]
   )
@@ -945,6 +983,13 @@ export function UniversalFileUploadZone({
         replaceRef: null,
         onReplaceInput: null,
         onRetryArchive: manager.retryArchive ? () => manager.retryArchive?.(f.id) : null,
+        onRestore: manager.restoreArchivedFile
+          ? () => { void manager.restoreArchivedFile!(f.id).catch((err) => {
+              toast.error('Could not restore saved file', {
+                description: err instanceof Error ? err.message : String(err),
+              })
+            }) }
+          : null,
       })),
     []
   )
@@ -1093,7 +1138,7 @@ export function UniversalFileUploadZone({
             transition={prefersReducedMotion ? { duration: 0 } : undefined}
             className="space-y-2"
           >
-            {allFiles.map(({ file, source, state, onRemove, onReplace, replaceRef, onReplaceInput, onRetryArchive }, index) => (
+            {allFiles.map(({ file, source, state, onRemove, onReplace, replaceRef, onReplaceInput, onRetryArchive, onRestore }, index) => (
               <FileItem
                 key={file.id}
                 file={file}
@@ -1105,6 +1150,7 @@ export function UniversalFileUploadZone({
                 replaceRef={replaceRef}
                 onReplaceInput={onReplaceInput}
                 onRetryArchive={onRetryArchive}
+                onRestore={onRestore}
               />
             ))}
           </motion.div>
