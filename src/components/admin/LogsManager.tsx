@@ -244,7 +244,6 @@ const SYNC_LOG_SOURCES = [
   'spotify',
   'discogs',
   'youtube',
-  'odesli',
   'songkick',
   'bandsintown',
   'lastfm',
