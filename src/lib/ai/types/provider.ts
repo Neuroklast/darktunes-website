@@ -61,6 +61,8 @@ export interface ModelCapabilities {
   supports_streaming: boolean
   supports_tools: boolean
   supports_tools_with_streaming: boolean
+  /** Tool calls only succeeded with enable_thinking=true during connection test. */
+  requires_thinking_for_tools?: boolean
   supports_enable_thinking: boolean
   supports_low_effort: boolean
   supports_reasoning_budget: boolean
