@@ -132,7 +132,7 @@ export async function prepareContentUpdate(
   return {
     needs_confirmation: true as const,
     approval_url: origin + '/admin/mcp-approvals',
-    expires_at: preview.expires_at,
+    expires_at: null,
     summary: preview.summary,
   }
 }
