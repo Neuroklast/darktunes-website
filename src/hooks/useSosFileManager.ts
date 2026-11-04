@@ -302,7 +302,7 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
     } finally {
       restoringBatchIdsRef.current.delete(batch.id)
     }
-  }, [restoreArchivedFile, setFileMetas, setFileState, t.ingestWaitingParser, type])
+  }, [restoreArchivedFile, setFileMetas, t.ingestWaitingParser, type])
 
   const processAndStore = useCallback(
     async (rawFile: File, id: string): Promise<{ data: string }> => {
