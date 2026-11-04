@@ -9,14 +9,14 @@ The same darkTunes MCP server can serve multiple ChatGPT users. The endpoint is 
 - The MCP gateway validates bearer tokens with Supabase Auth, matches token subject against the verified Supabase user and live darkTunes actor, and requires an exact OAuth client ID from MCP_ALLOWED_OAUTH_CLIENT_IDS.
 - Only darkTunes admin and editor accounts enter MCP. RBAC capability checks control which tools appear. The tool executor rechecks live permissions before execution, so revoked CMS privileges immediately prevent further actions.
 - Every recognized tool invocation is logged in ai_tool_executions with its individual actor_id, unique request_id, tool name, status and duration. Do not log OAuth tokens or raw input arguments.
-- Edit proposals are tied to the preparing darkTunes user. Another editor cannot approve or replay somebody else's one-time confirmation. Publishing and deletion remain unavailable.
+- GPT edit proposals are placed in a shared **administrator** queue at `/admin/mcp-approvals`. All darkTunes admins can inspect and approve/decline any label-wide proposal regardless of its creator. Editors remain restricted to proposals that they prepared and to their current CMS capabilities. Other users cannot see or act on these proposals. Publishing and deletion remain unavailable through MCP. Review decisions are committed in a locked SQL transaction, preventing two admins from deciding the same proposal differently.
 
 ## A shared plugin in a ChatGPT workspace
 
 1. Enable Supabase OAuth Server for the correct darkTunes project, with authorization path /oauth/consent and the canonical Site URL https://www.darktunes.com. Configure asymmetric JWT signing. TOTP MFA is optional for MCP OAuth.
 2. Register the ChatGPT OAuth client (or permit Dynamic Client Registration under a carefully controlled rollout). Use the exact redirect URI provided by the ChatGPT plugin setup screen.
 3. Add the exact registered OAuth client ID to MCP_ALLOWED_OAUTH_CLIENT_IDS in Vercel Production. Multiple explicitly approved IDs may be supplied as a comma-separated list; an empty value denies all clients.
-4. Apply and verify the approval database changes from docs/MCP_CONNECTOR.md (ai_action_confirmations.result and commit_mcp_approval) in staging, and then production.
+4. Apply and verify the approval database changes from docs/MCP_CONNECTOR.md (ai_action_confirmations.result, commit_mcp_approval and reject_mcp_approval) in staging, and then production.
 5. Complete the staging test matrix below before enabling MCP_CONNECTOR_ENABLED=true in production.
 6. Create and scan the custom ChatGPT MCP plugin with https://www.darktunes.com/mcp, then have the ChatGPT workspace admin publish it to the approved workspace audience.
 7. Every member installs/connects the published plugin and independently authenticates with their own darkTunes login. An MFA factor is not required for MCP.
