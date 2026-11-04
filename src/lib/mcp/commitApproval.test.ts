@@ -25,7 +25,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
     ...overrides,
   }
   const rpc = vi.fn(async (): Promise<{
-    data: { ok: boolean; detail: string; location: string; entity_id: string; replayed: boolean } | null
+    data: { ok: boolean; detail: string; location: string; entity_id: string; replayed: boolean; decision?: string } | null
     error: { code: string; message: string } | null
   }> => ({
     data: {
