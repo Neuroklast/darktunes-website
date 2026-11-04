@@ -145,8 +145,6 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     console.error('[sync] scheduled news publish failed:', err)
   })
 
-  const syncCredentials = await getSyncCredentials(db)
-
   // Dead-man's switch: proves the HTTP hop reached Next.js (written before any
   // lease/claim so a 401 or crash upstream is distinguishable from a dead worker).
   await recordCronTick(db, 'worker', 'ok')
@@ -179,6 +177,7 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
       let completed = 0
       let failed = 0
       let runError: string | null = null
+      let syncCredentialsPromise: ReturnType<typeof getSyncCredentials> | null = null
 
       try {
         // Drain until budget headroom is gone or the due queue is empty.
@@ -206,7 +205,14 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
           }
 
           try {
-            const tags = await processSyncJob(db, job, uploadFn, syncCredentials)
+            // Do not read credentials for idle or already-cancelled sync ticks.
+            // Reuse one request for all jobs claimed by this worker invocation.
+            syncCredentialsPromise ??= getSyncCredentials(db)
+            const credentials = await syncCredentialsPromise.catch((error) => {
+              syncCredentialsPromise = null
+              throw error
+            })
+            const tags = await processSyncJob(db, job, uploadFn, credentials)
             // processSyncJob finalises via markSyncJobDone/rescheduleSyncJob, both
             // of which honour cancel_requested_at. Re-check so we never leave a
             // cancel request stranded if finalisation was skipped.
