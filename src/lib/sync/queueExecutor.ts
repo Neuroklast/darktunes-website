@@ -108,7 +108,7 @@ export async function selfChainSyncExecutor(options: {
 }
 
 /**
- * After enqueue-only APIs (Spotify / Odesli) write jobs, kick `/api/sync`
+ * After enqueue-only APIs (Spotify / Songkick / Bandsintown) write jobs, kick `/api/sync`
  * so the worker does not wait for the next pg_cron tick.
  * No-ops when nothing was queued, origin cannot be resolved, or auth is missing.
  */

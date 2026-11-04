@@ -11,7 +11,6 @@ export const API_SOURCE_ORDER = [
   'discogs',
   'songkick',
   'bandsintown',
-  'odesli',
   'lastfm',
   'soundcharts',
   'apify',
@@ -27,7 +26,6 @@ export const API_CONFIG_HINTS: Record<string, string> = {
   songkick: 'Add a Songkick API key in Admin → API Keys.',
   bandsintown:
     'Per-artist API keys on artist profiles, or a global fallback key in Admin → API Keys.',
-  odesli: 'No API key required — free song.link smart-link resolution.',
   lastfm: 'Add a Last.fm API key in Admin → API Keys. Artists need a Last.fm name.',
   soundcharts: 'Optional — add a Soundcharts API key in Admin → API Keys.',
   apify: 'Add an Apify API token in Admin → API Keys (Spotify public play counts).',

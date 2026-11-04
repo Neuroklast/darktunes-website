@@ -336,7 +336,6 @@ export function computeKpiSummary(apis: Record<string, ApiHealthStatus>): Health
 
 function formatApiName(api: string): string {
   if (api === 'itunes') return 'iTunes'
-  if (api === 'odesli') return 'Odesli'
   if (api === 'lastfm') return 'Last.fm'
   if (api === 'soundcharts') return 'Soundcharts'
   return api.charAt(0).toUpperCase() + api.slice(1)

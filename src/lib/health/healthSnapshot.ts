@@ -53,7 +53,6 @@ export function getKnownApisFallback(): Record<string, boolean> {
     discogs: false,
     songkick: false,
     bandsintown: false,
-    odesli: true,
     lastfm: false,
     soundcharts: false,
     apify: false,
@@ -251,7 +250,8 @@ export async function buildHealthSnapshot(
         const builtApis: Record<string, ApiHealthStatus> = {}
 
         for (const api of allApis) {
-          if (api === 'all') continue
+          // Historical logs from retired providers remain stored, not displayed.
+          if (api === 'all' || api === 'odesli') continue
           const snapshot = latestPerApi.get(api) ?? null
           const configured = knownApis[api] ?? false
           const derived = deriveApiHealth(api, configured, snapshot, nowMs)

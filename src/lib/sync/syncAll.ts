@@ -9,7 +9,6 @@
  *   3. Discogs — physical releases (catalog numbers, barcodes)
  *   4. Songkick — upcoming concerts
  *   5. Bandsintown — upcoming concerts (second source)
- *   6. Odesli — smart links for newly synced releases
  *
  * All dependencies are injected via `SyncAllDeps` for full testability.
  * The function never throws — all errors are collected in `SyncAllResult`.
@@ -28,16 +27,11 @@ import { fetchSpotifyArtistReleases } from './spotifyApi'
 import { fetchDiscogsArtistReleases } from './discogsApi'
 import { fetchSongkickArtistCalendar } from './songkickApi'
 import { fetchBandsintownArtistEvents } from './bandsintownApi'
-import { isSkippableOdesliError, pickOdesliMusicUrl } from './odesliApi'
-import { resolveOdesliSmartLinkThrottled } from './odesliThrottle'
 import { deduplicateReleases, pruneOrphanedDuplicates, type CrossSourceReleaseRow } from './deduplication'
 import { isRateLimitedSyncError, withApiRetry } from './retryPolicy'
 import { cacheReleaseCoverArt } from './coverArtUpload'
 import { syncArtist } from './syncArtist'
 import type { SyncDeps } from './syncArtist'
-
-/** Releases (or artists) resolved per Odesli queue job invocation. */
-export const ODESLI_BATCH_SIZE = 40
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,8 +46,6 @@ export interface SyncAllDeps extends SyncDeps {
   songkickApiKey?: string
   /** Bandsintown API key — undefined means Bandsintown sync is skipped */
   bandsintownApiKey?: string
-  /** Odesli / song.link API key — undefined means Odesli calls are unauthenticated */
-  odesliApiKey?: string
   /**
    * When set, only the sync step for this API source is executed.
    * Useful for per-API force-sync from the admin health widget.
@@ -64,8 +56,6 @@ export interface SyncAllDeps extends SyncDeps {
    * Used by the queue executor so each job processes exactly one artist.
    */
   onlyArtistId?: string
-  /** Max releases to resolve per Odesli batch (queue executor). */
-  odesliBatchLimit?: number
 }
 
 export interface ApiSyncResult {
@@ -74,8 +64,6 @@ export interface ApiSyncResult {
   releasesUpserted: number
   concertsUpserted: number
   rateLimited: boolean
-  /** True when more Odesli work remains after a batch (re-queue). */
-  hasMoreWork?: boolean
   errors: string[]
 }
 
@@ -181,10 +169,8 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
     discogsToken,
     songkickApiKey,
     bandsintownApiKey,
-    odesliApiKey,
     onlyApi,
     onlyArtistId,
-    odesliBatchLimit = ODESLI_BATCH_SIZE,
   } = deps
   const results: ApiSyncResult[] = []
 
@@ -584,248 +570,6 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
     results.push(bandsintownResult)
   }
 
-  // 6. Standalone Odesli smart-link resolution — runs regardless of whether
-  // Spotify sync succeeded or was skipped.  Finds all releases that have a
-  // Spotify URL or Apple Music URL but no smart_url yet, and resolves each
-  // one through Odesli so they always get a working link.
-  let odesliStartedAt: number | null = null
-
-  // Odesli's public v1-alpha.1 API was sunset (2026-07-31): unauthenticated
-  // calls return 401 PUBLIC_API_ACCESS_DEPRECATED. Without an API key there is
-  // nothing to resolve, so skip instead of burning the batch on retries. Only
-  // surface an explicit result for a dedicated Odesli run (full syncs stay quiet).
-  if (onlyApi === 'odesli' && !odesliApiKey) {
-    results.push({
-      api: 'odesli',
-      artistsProcessed: 0,
-      releasesUpserted: 0,
-      concertsUpserted: 0,
-      rateLimited: false,
-      hasMoreWork: false,
-      errors: ['Odesli skipped: no API key configured'],
-    })
-  }
-
-  if ((!onlyApi || onlyApi === 'odesli') && odesliApiKey) {
-    odesliStartedAt = Date.now()
-    const odesliResult: ApiSyncResult = {
-      api: 'odesli',
-      artistsProcessed: 0,
-      releasesUpserted: 0,
-      concertsUpserted: 0,
-      rateLimited: false,
-      errors: [],
-    }
-
-    try {
-      let releasesQuery = db
-        .from('releases')
-        .select('id, spotify_url, apple_music_url, artist_id')
-        .is('smart_url', null)
-        .or('spotify_url.not.is.null,apple_music_url.not.is.null')
-        .order('id', { ascending: true })
-        .limit(odesliBatchLimit)
-
-      if (onlyArtistId) {
-        releasesQuery = releasesQuery.eq('artist_id', onlyArtistId)
-      }
-
-      const { data: releasesWithoutSmartUrl, error: batchErr } = await releasesQuery
-
-      if (batchErr) {
-        odesliResult.errors.push(`Odesli batch query failed: ${batchErr.message}`)
-      }
-
-      const batch = releasesWithoutSmartUrl ?? []
-      let odesliRowsAdvanced = 0
-
-      for (const release of batch) {
-        const musicUrl = pickOdesliMusicUrl(release.spotify_url, release.apple_music_url)
-        const fallbackUrl = release.spotify_url || release.apple_music_url
-        if (!musicUrl) {
-          // Artist/profile (or otherwise unresolvable) URLs stay smart_url=null
-          // forever and the same first N rows are reclaimed every run.
-          if (fallbackUrl && (await persistOdesliFallbackSmartUrl(db, release.id, fallbackUrl, odesliResult.errors))) {
-            odesliRowsAdvanced++
-          }
-          continue
-        }
-
-        odesliResult.artistsProcessed++
-
-        try {
-          const odesli = await resolveOdesliSmartLinkThrottled(musicUrl, fetchFn, odesliApiKey)
-          const appleMusicUrl =
-            odesli.platforms['appleMusic'] ?? odesli.platforms['itunes'] ?? null
-
-          const { error: updateErr } = await db
-            .from('releases')
-            .update({
-              smart_url: odesli.smartUrl,
-              platform_links: odesli.platforms,
-              ...(appleMusicUrl && !release.apple_music_url
-                ? { apple_music_url: appleMusicUrl }
-                : {}),
-            })
-            .eq('id', release.id)
-
-          if (updateErr) {
-            odesliResult.errors.push(
-              `Odesli DB update for release ${release.id}: ${updateErr.message}`,
-            )
-          } else {
-            odesliResult.releasesUpserted++
-            odesliRowsAdvanced++
-          }
-        } catch (e) {
-          if (isRateLimitedSyncError(e)) {
-            // Do not abort the rest of this batch or later APIs. Skip this
-            // item; leftover smart_url=null rows are picked up on the next pass.
-            odesliResult.hasMoreWork = true
-            continue
-          }
-          const odesliErr = String(e)
-          if (isSkippableOdesliError(odesliErr)) {
-            if (await persistOdesliFallbackSmartUrl(db, release.id, musicUrl, odesliResult.errors)) {
-              odesliRowsAdvanced++
-            }
-            continue
-          }
-          odesliResult.errors.push(`Odesli resolve for release ${release.id}: ${odesliErr}`)
-        }
-      }
-
-      // Only continue the global Odesli job when this batch advanced the queue
-      // (or hit 429). A full page of permanent failures must not reschedule
-      // the same rows forever — that leaves Sync Queue at 1 running.
-      if (batch.length >= odesliBatchLimit && odesliRowsAdvanced > 0) {
-        odesliResult.hasMoreWork = true
-      }
-    } catch (e) {
-      odesliResult.errors.push(`Odesli batch query failed: ${String(e)}`)
-    }
-
-    results.push(odesliResult)
-  }
-
-  // 7. Odesli platform links for artists — uses each artist's latest
-  // resolvable release URL as proxy (artist profile URLs are not supported).
-  // Batched like releases so free-tier rate limits do not thrash a single job.
-  // Results are merged into the existing odesliResult (same api_source).
-  if ((!onlyApi || onlyApi === 'odesli') && odesliApiKey) {
-    const existingOdesli = results.find((r) => r.api === 'odesli')
-
-    if (existingOdesli) {
-      try {
-        // Odesli cannot resolve artist profile URLs — use each artist's latest release as proxy.
-        let releaseProxyQuery = db
-          .from('releases')
-          .select('artist_id, spotify_url, apple_music_url, release_date')
-          .or('spotify_url.not.is.null,apple_music_url.not.is.null')
-          .order('release_date', { ascending: false })
-
-        if (onlyArtistId) {
-          releaseProxyQuery = releaseProxyQuery.eq('artist_id', onlyArtistId)
-        }
-
-        const { data: proxyReleaseRows, error: proxyErr } = await releaseProxyQuery
-
-        if (proxyErr) {
-          existingOdesli?.errors.push(`Odesli release proxy query failed: ${proxyErr.message}`)
-        }
-
-        const releaseProxyByArtist = new Map<string, string>()
-        for (const row of proxyReleaseRows ?? []) {
-          if (!row.artist_id || releaseProxyByArtist.has(row.artist_id)) continue
-          const proxyUrl = pickOdesliMusicUrl(row.spotify_url, row.apple_music_url)
-          if (proxyUrl) releaseProxyByArtist.set(row.artist_id, proxyUrl)
-        }
-
-        const proxyArtistIds = [...releaseProxyByArtist.keys()]
-        if (proxyArtistIds.length > 0) {
-          let artistsQuery = db
-            .from('artists')
-            .select('id')
-            .is('platform_links', null)
-            .in('id', proxyArtistIds)
-            .order('id', { ascending: true })
-            .limit(odesliBatchLimit)
-
-          if (onlyArtistId) {
-            artistsQuery = artistsQuery.eq('id', onlyArtistId)
-          }
-
-          const { data: artistsWithoutPlatformLinks, error: batchErr } = await artistsQuery
-
-          if (batchErr) {
-            existingOdesli?.errors.push(`Odesli artist batch query failed: ${batchErr.message}`)
-          }
-
-          const artistBatch = artistsWithoutPlatformLinks ?? []
-          let artistRowsAdvanced = 0
-
-          for (const artist of artistBatch) {
-            const musicUrl = releaseProxyByArtist.get(artist.id)
-            if (!musicUrl) {
-              if (await persistOdesliArtistPlatformLinks(db, artist.id, {}, existingOdesli.errors)) {
-                artistRowsAdvanced++
-              }
-              continue
-            }
-
-            if (existingOdesli) existingOdesli.artistsProcessed++
-
-            try {
-              const odesli = await resolveOdesliSmartLinkThrottled(musicUrl, fetchFn, odesliApiKey)
-              const platforms = odesli.platforms
-              const { error: updateErr } = await db
-                .from('artists')
-                .update({ platform_links: Object.keys(platforms).length > 0 ? platforms : {} })
-                .eq('id', artist.id)
-
-              if (updateErr) {
-                existingOdesli?.errors.push(
-                  `Odesli DB update for artist ${artist.id}: ${updateErr.message}`,
-                )
-              } else if (existingOdesli) {
-                if (Object.keys(platforms).length > 0) existingOdesli.releasesUpserted++
-                artistRowsAdvanced++
-              }
-            } catch (e) {
-              if (isRateLimitedSyncError(e)) {
-                existingOdesli.hasMoreWork = true
-                continue
-              }
-              const odesliErr = String(e)
-              if (isSkippableOdesliError(odesliErr)) {
-                if (await persistOdesliArtistPlatformLinks(db, artist.id, {}, existingOdesli.errors)) {
-                  artistRowsAdvanced++
-                }
-                continue
-              }
-              existingOdesli.errors.push(`Odesli resolve for artist ${artist.id}: ${odesliErr}`)
-            }
-          }
-
-          if (artistBatch.length >= odesliBatchLimit && artistRowsAdvanced > 0) {
-            existingOdesli.hasMoreWork = true
-          }
-        }
-      } catch (e) {
-        existingOdesli?.errors.push(`Odesli artist batch query failed: ${String(e)}`)
-      }
-    }
-
-    // Write one combined sync_log for releases + artist platform links
-    if (existingOdesli) {
-      await writeSyncLog(db, 'odesli', existingOdesli, {
-        durationMs: odesliStartedAt !== null ? Date.now() - odesliStartedAt : undefined,
-        artistId: onlyArtistId ?? null,
-        metadata: { source: 'odesli', only_artist_id: onlyArtistId ?? null },
-      })
-    }
-  }
-
   return {
     results,
     totalErrors: results.reduce((sum, r) => sum + r.errors.length, 0),
@@ -843,7 +587,7 @@ export async function syncAll(deps: SyncAllDeps): Promise<SyncAllResult> {
  * one artist is processed per invocation.
  *
  * jobType → onlyApi mapping:
- *   'spotify' / 'discogs' / 'odesli' / 'songkick' / 'bandsintown' → that API only
+ *   'spotify' / 'discogs' / 'songkick' / 'bandsintown' → that API only
  *   'full' / anything else → all configured APIs run
  *   'youtube'  → NOT handled here (channel-level). Use POST /api/sync-youtube.
  *                Legacy queue rows with job_type=youtube fall through to full.
@@ -853,62 +597,12 @@ export async function syncSingleArtist(
   jobType: string,
   deps: SyncAllDeps,
 ): Promise<SyncAllResult> {
-  const onlyApi =
-    jobType === 'spotify'
-      ? 'spotify'
-      : jobType === 'discogs'
-        ? 'discogs'
-        : jobType === 'odesli'
-          ? 'odesli'
-          : jobType === 'songkick'
-            ? 'songkick'
-            : jobType === 'bandsintown'
-              ? 'bandsintown'
-              : undefined
+  // Legacy jobs must never fall through to a full multi-provider sync.
+  if (jobType === 'odesli') return { results: [], totalErrors: 0 }
+  const onlyApi = ['spotify', 'discogs', 'songkick', 'bandsintown'].includes(jobType)
+    ? jobType
+    : undefined
   return syncAll({ ...deps, onlyArtistId: artistId, onlyApi })
-}
-
-/** Runs a single Odesli batch (global queue job). */
-export async function syncOdesliBatch(deps: SyncAllDeps): Promise<SyncAllResult> {
-  return syncAll({ ...deps, onlyApi: 'odesli', onlyArtistId: undefined })
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-async function persistOdesliFallbackSmartUrl(
-  db: SupabaseClient<Database>,
-  releaseId: string,
-  fallbackUrl: string,
-  errors: string[],
-): Promise<boolean> {
-  const { error } = await db
-    .from('releases')
-    .update({ smart_url: fallbackUrl })
-    .eq('id', releaseId)
-  if (error) {
-    errors.push(`Odesli fallback update for release ${releaseId}: ${error.message}`)
-    return false
-  }
-  return true
-}
-
-async function persistOdesliArtistPlatformLinks(
-  db: SupabaseClient<Database>,
-  artistId: string,
-  platforms: Record<string, string>,
-  errors: string[],
-): Promise<boolean> {
-  const { error } = await db
-    .from('artists')
-    .update({ platform_links: platforms })
-    .eq('id', artistId)
-  if (error) {
-    errors.push(`Odesli fallback update for artist ${artistId}: ${error.message}`)
-    return false
-  }
-  return true
 }
 
 interface WriteSyncLogOptions {

@@ -5,7 +5,7 @@
 
 import { HttpError } from '@/lib/rateLimiter'
 
-export type SyncApiName = 'itunes' | 'spotify' | 'discogs' | 'songkick' | 'bandsintown' | 'odesli'
+export type SyncApiName = 'itunes' | 'spotify' | 'discogs' | 'songkick' | 'bandsintown'
 
 export type SyncErrorClass = 'permanent' | 'transient' | 'rate_limited'
 
@@ -21,7 +21,6 @@ export const API_RETRY_PROFILES: Record<SyncApiName, ApiRetryProfile> = {
   discogs: { maxRetries: 3, baseDelayMs: 1000, jitter: true },
   songkick: { maxRetries: 3, baseDelayMs: 1000, jitter: true },
   bandsintown: { maxRetries: 3, baseDelayMs: 1000, jitter: true },
-  odesli: { maxRetries: 5, baseDelayMs: 2000, jitter: true },
 }
 
 /** Cooldown before re-queueing a job that hit rate limits (ms). */
@@ -58,8 +57,7 @@ export function classifySyncError(err: unknown): SyncErrorClass {
   if (msg.includes('429') || msg.includes('TOO_MANY_REQUESTS')) return 'rate_limited'
   if (msg.includes('502') || msg.includes('503') || msg.includes('504')) return 'transient'
   if (isTransientNetworkError(err)) return 'transient'
-  // Deprecation failures never recover by retrying (e.g. Odesli's
-  // PUBLIC_API_ACCESS_DEPRECATED after the v1-alpha.1 sunset). HTTP status
+  // Deprecation failures never recover by retrying. HTTP status
   // errors are already classified as permanent via the HttpError branch above.
   if (msg.includes('PUBLIC_API_ACCESS_DEPRECATED')) return 'permanent'
   if (

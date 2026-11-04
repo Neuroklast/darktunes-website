@@ -9,10 +9,10 @@
  *   - x-vercel-cron: 1               (legacy — CRON_SECRET must match if set)
  *
  * Runs a targeted sync for a single API source (itunes, spotify, discogs,
- * songkick, bandsintown, odesli, or youtube).
+ * songkick, bandsintown, or youtube).
  *
  * For youtube, this delegates to the same logic as /api/sync-youtube (always separate).
- * Queue sources (spotify, odesli, songkick, bandsintown) enqueue + kick /api/sync.
+ * Queue sources (spotify, songkick, bandsintown) enqueue + kick /api/sync.
  * Remaining sources call syncAll with the onlyApi filter.
  */
 
@@ -24,7 +24,6 @@ import { extractBearerToken, verifySyncTrigger } from '@/lib/adminAuth'
 import { isValidCronSecret } from '@/lib/cronAuth'
 import {
   enqueueBandsintownSyncJobs,
-  enqueueOdesliSyncJob,
   enqueueSongkickSyncJobs,
   enqueueSpotifySyncJobs,
 } from '@/lib/api/syncQueue'
@@ -48,7 +47,7 @@ import {
   VIDEO_SYNC_TAGS,
 } from '@/lib/sync/revalidatePublicContent'
 
-// Odesli resolves every release — allow long runs on Vercel Pro.
+// Artist syncs and external API calls may require a longer worker budget.
 export const maxDuration = 300
 
 export const POST = withErrorHandler(async (request: NextRequest): Promise<NextResponse> => {
@@ -74,6 +73,9 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
   if (!apiSource) {
     throw new ApiError(400, 'Missing required field: apiSource')
   }
+
+  // Explicitly reject retired API jobs before any database traffic.
+  if (apiSource === 'odesli') throw new ApiError(410, 'This integration has been retired.')
 
   // 3. Validate Supabase config
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -137,8 +139,8 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     return NextResponse.json(result)
   }
 
-  // APIs that do not require R2 (no image uploads): odesli, songkick, bandsintown
-  const NO_R2_APIS = new Set(['odesli', 'songkick', 'bandsintown'])
+  // APIs that do not require R2 (no image uploads): songkick, bandsintown
+  const NO_R2_APIS = new Set(['songkick', 'bandsintown'])
 
   // 5. APIs that need R2 — enforce R2 config, or skip for no-upload APIs
   const {
@@ -185,20 +187,6 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     return enqueueAndKick(queued, `${queued} Spotify sync job(s) enqueued.`, 'Spotify')
   }
 
-  if (apiSource === 'odesli') {
-    // Odesli's public v1-alpha.1 API was sunset (2026-07-31). Without a key the
-    // job would only no-op, so fail fast with an actionable message.
-    if (!syncCredentials.odesliApiKey) {
-      throw new ApiError(409, 'Odesli API key is not configured. Add it in Admin → API Keys.')
-    }
-    const queued = await enqueueOdesliSyncJob(db)
-    return enqueueAndKick(
-      queued,
-      queued > 0 ? 'Odesli sync job enqueued.' : 'Odesli sync already pending or running.',
-      'Odesli',
-    )
-  }
-
   if (apiSource === 'songkick') {
     const queued = await enqueueSongkickSyncJobs(db)
     return enqueueAndKick(queued, `${queued} Songkick sync job(s) enqueued.`, 'Songkick')
@@ -238,7 +226,6 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     discogsToken: syncCredentials.discogsToken,
     songkickApiKey: syncCredentials.songkickApiKey,
     bandsintownApiKey: syncCredentials.bandsintownApiKey,
-    odesliApiKey: syncCredentials.odesliApiKey,
     onlyApi: apiSource,
   })
 

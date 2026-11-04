@@ -7,7 +7,7 @@
  *
  * Verifies the caller is authenticated, then runs the full multi-API sync
  * pipeline for the given artist via syncSingleArtist (iTunes, Spotify, Discogs,
- * concerts, Odesli — depending on configured env vars and artist IDs).
+ * concerts — depending on configured credentials and artist IDs).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -65,7 +65,6 @@ export const POST = withErrorHandler(async (request: NextRequest): Promise<NextR
     discogsToken: syncCredentials.discogsToken,
     songkickApiKey: syncCredentials.songkickApiKey,
     bandsintownApiKey: syncCredentials.bandsintownApiKey,
-    odesliApiKey: syncCredentials.odesliApiKey,
   })
 
   revalidatePublicContent(RELEASE_SYNC_TAGS)

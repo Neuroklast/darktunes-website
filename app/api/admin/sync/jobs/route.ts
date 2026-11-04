@@ -23,7 +23,6 @@ const JOB_TYPES: SyncJobType[] = [
   'spotify',
   'discogs',
   'youtube',
-  'odesli',
   'songkick',
   'bandsintown',
 ]

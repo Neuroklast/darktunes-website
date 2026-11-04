@@ -71,18 +71,16 @@ export interface SyncCredentials {
   discogsToken?: string
   songkickApiKey?: string
   bandsintownApiKey?: string
-  odesliApiKey?: string
 }
 
 export async function getSyncCredentials(db: DbClient): Promise<SyncCredentials> {
-  const [clientId, clientSecret, discogsToken, songkickApiKey, bandsintownApiKey, odesliApiKey] =
+  const [clientId, clientSecret, discogsToken, songkickApiKey, bandsintownApiKey] =
     await Promise.all([
       getApiCredential(db, 'spotify_client_id'),
       getApiCredential(db, 'spotify_client_secret'),
       getApiCredential(db, 'discogs_token'),
       getApiCredential(db, 'songkick_api_key'),
       getApiCredential(db, 'bandsintown_api_key'),
-      getApiCredential(db, 'odesli_api_key'),
     ])
 
   return {
@@ -91,7 +89,6 @@ export async function getSyncCredentials(db: DbClient): Promise<SyncCredentials>
     discogsToken: discogsToken ?? undefined,
     songkickApiKey: songkickApiKey ?? undefined,
     bandsintownApiKey: bandsintownApiKey ?? undefined,
-    odesliApiKey: odesliApiKey ?? undefined,
   }
 }
 
@@ -203,7 +200,6 @@ export async function getKnownApiConfiguration(
     discogs: has('discogs_token'),
     songkick: has('songkick_api_key'),
     bandsintown: hasBandsintown,
-    odesli: has('odesli_api_key'),
     lastfm: has('lastfm_api_key'),
     soundcharts: has('soundcharts_api_key'),
     apify: has('apify_token'),
