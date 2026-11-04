@@ -169,7 +169,16 @@ export function applyTrackRevenueAssignments(
 
     if (!match) return [t]
 
-    const owners = resolveAssignmentOwners(match)
+    // Coalesce duplicate artists before splitting. Without this, two owner
+    // entries for the same artist would duplicate the transaction and payout.
+    const ownersByArtist = new Map<string, { artist: string; fraction: number }>()
+    for (const owner of resolveAssignmentOwners(match)) {
+      const key = normalizeArtistNameKey(owner.artist)
+      const previous = ownersByArtist.get(key)
+      if (previous) previous.fraction += owner.fraction
+      else ownersByArtist.set(key, { artist: owner.artist.trim(), fraction: owner.fraction })
+    }
+    const owners = [...ownersByArtist.values()]
     if (owners.length === 0) return [t]
 
     const ownersForSum = owners.map((owner) => ({ percentage: owner.fraction * 100 }))
