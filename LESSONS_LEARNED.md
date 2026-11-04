@@ -81,6 +81,12 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## Session additions
 
+### 2026-11-04 — Approval navigation is not commit progress
+
+- **Finding:** The GPT approval progress bar used the active card index and the current optimistic list size as a completion counter. Its error handler mapped almost any RPC failure to a misleading HTTP 409 saying the proposal had expired. A strict whole-row `updated_at` equality also rejected independent link edits after unrelated record updates.
+- **Rule:** Count only acknowledged decisions, retain failed proposals, map known database conflict reasons explicitly, and compare the actual proposed fields against stored before-values under the same atomic row update. Never silently ignore a real proposed-field conflict.
+
+
 ### 2026-11-04 — Wide switch rows and damaged translation data obscure AI errors
 
 - **Finding:** A full-width `justify-between` settings row separated switches from their labels by the width of the viewport. The German and French AI translation dictionaries contained literal `?` replacement characters, and connection tests displayed opaque step IDs and provider codes instead of explaining failed capabilities.
