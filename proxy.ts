@@ -157,7 +157,7 @@ export async function proxy(request: NextRequest) {
     const hasRecoveryCode = request.nextUrl.searchParams.has('code')
     const hasExchangedCode = request.nextUrl.searchParams.get('exchanged') === '1'
     if (user && (hasRecoveryCode || !hasExchangedCode)) {
-      await supabase.auth.signOut()
+      await supabase.auth.signOut({ scope: 'local' })
     }
     return withRequestContext(supabaseResponse, request)
   }
