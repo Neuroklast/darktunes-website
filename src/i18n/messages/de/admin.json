@@ -40,6 +40,7 @@
     "settings": "Einstellungen",
     "apiKeys": "API-Keys",
     "aiAssistant": "KI-Assistent",
+    "mcpApprovals": "GPT-Freigaben",
     "support": "Support",
     "system": "System",
     "signOut": "Abmelden",
@@ -1275,7 +1276,8 @@
       "portal_message": "Neue Nachricht vom Artist",
       "label_message": "Neue Nachricht vom Label",
       "fan_page_decision": "Fan-Page-Review-Entscheidung",
-      "invoice_submitted": "Neue Rechnung eingereicht"
+      "invoice_submitted": "Neue Rechnung eingereicht",
+      "mcp_approval": "GPT-Änderung wartet auf Freigabe"
     },
     "actions": {
       "review_release": "Release prüfen",
@@ -1284,7 +1286,8 @@
       "review_asset": "Asset prüfen",
       "open_messages": "Nachrichten öffnen",
       "open_fan_page": "Fan-Page öffnen",
-      "open_invoices": "Rechnungen öffnen"
+      "open_invoices": "Rechnungen öffnen",
+      "review_mcp": "Änderung prüfen"
     },
     "typeLabels": {
       "artist_release_submission": "Release-Einreichung (Staff)",
@@ -1300,7 +1303,8 @@
       "invoice_submitted": "Rechnung eingereicht",
       "invoice_payment_received": "Rechnungszahlung",
       "journalist_application_submitted": "Journalist-Bewerbung",
-      "journalist_application_decision": "Journalist-Entscheidung"
+      "journalist_application_decision": "Journalist-Entscheidung",
+      "mcp_approval_pending": "GPT-Änderung wartet auf Freigabe"
     }
   },
   "toast": {
