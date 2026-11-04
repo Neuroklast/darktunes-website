@@ -257,13 +257,20 @@ describe('runAiTurn', () => {
       artistMembershipIds: ['artist-a'],
       availableArtists: [{ id: 'artist-a', name: 'Artist A', slug: 'artist-a' }],
     }
-    const provider = mockProvider([
-      {
-        content: '',
-        tool_calls: [{ id: 'stream-call', name: 'get_artist_analytics', arguments: '{}' }],
-      },
-      { content: '15 reported streams.' },
-    ])
+    const provider: AiProvider = {
+      ...mockProvider([
+        {
+          content: '',
+          tool_calls: [{ id: 'stream-call', name: 'get_artist_analytics', arguments: '{}' }],
+        },
+        { content: '15 reported streams.' },
+      ]),
+      getCapabilities: (modelId) => ({
+        ...getModelProfile(modelId),
+        supports_tools: true,
+        supports_tools_with_streaming: true,
+      }),
+    }
     const events = await collect(runAiTurn({
       actor: artistActor,
       conversationId: 'conv-1',
