@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from '@/lib/errors'
 import type { Database } from '@/types/database'
@@ -57,8 +57,10 @@ export async function createActionConfirmation(
   },
 ): Promise<ActionPreview> {
   const token = `act_${randomBytes(24).toString('hex')}`
+  const confirmationId = randomUUID()
   const expiresAt = new Date(Date.now() + TTL_MS).toISOString()
   const { error } = await db.from('ai_action_confirmations').insert({
+    id: confirmationId,
     token_hash: sha256(token),
     user_id: input.actor.userId,
     artist_id: input.actor.artistId,
@@ -68,6 +70,27 @@ export async function createActionConfirmation(
     expires_at: expiresAt,
   })
   if (error) throw error
+  // Use the existing user notification bell for MCP reviews. Never expose the
+  // one-time token in notifications, whose rows are readable by the recipient.
+  const mcpReview = input.action === 'create_cms_news_draft' ||
+    input.action === 'update_cms_artist' ||
+    input.action === 'update_cms_release' ||
+    input.action === 'update_cms_event'
+  if (mcpReview && input.actor.artistId === null) {
+    try {
+      const { emitNotification } = await import('@/lib/notifications/emit')
+      await emitNotification(db, {
+        type: 'mcp_approval_pending',
+        userIds: [input.actor.userId],
+        entityId: confirmationId,
+        entityName: input.summary,
+        dedupeKey: `mcp_approval:${confirmationId}`,
+      })
+    } catch (notificationError) {
+      // The saved approval remains available in the inbox if notification fails.
+      console.warn('[mcp] Could not send approval notification:', notificationError)
+    }
+  }
   return {
     action: input.action,
     confirmation_token: token,
