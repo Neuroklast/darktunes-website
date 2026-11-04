@@ -8,7 +8,7 @@ The same darkTunes MCP server can serve multiple ChatGPT users. The endpoint is 
 - Supabase OAuth tokens contain a user subject (sub), an OAuth application client ID (client_id), and an assurance level (aal). Several users of the same shared plugin can legitimately share a client ID while having different user subjects.
 - The MCP gateway validates bearer tokens with Supabase Auth, requires MFA assurance aal2, matches token subject against the verified Supabase user and live darkTunes actor, and requires an exact OAuth client ID from MCP_ALLOWED_OAUTH_CLIENT_IDS.
 - Only darkTunes admin and editor accounts enter MCP. RBAC capability checks control which tools appear. The tool executor rechecks live permissions before execution, so revoked CMS privileges immediately prevent further actions.
-- Every attempted tool execution is logged in ai_tool_executions with its individual actor_id, unique request_id, tool name, status and duration. Do not log OAuth tokens or raw input arguments.
+- Every recognized tool invocation is logged in ai_tool_executions with its individual actor_id, unique request_id, tool name, status and duration. Do not log OAuth tokens or raw input arguments.
 - Edit proposals are tied to the preparing darkTunes user. Another editor cannot approve or replay somebody else's one-time confirmation. Publishing and deletion remain unavailable.
 
 ## A shared plugin in a ChatGPT workspace
@@ -57,7 +57,7 @@ These automated tests use mocked OAuth and database responses. They do not prove
 ## Operational limitations
 
 - No arbitrary SQL, financial data, user secrets, publishing or deletion are exposed through MCP.
-- OAuth client allowlisting never replaces each darkTunes user's own RBAC permissions.
+- OAuth client allowlisting at /mcp never replaces each darkTunes user's own RBAC permissions. A Supabase OAuth access token can also be sent directly to the Supabase Data API, so review every exposed table's RLS rules for OAuth users before allowing third-party clients. The /mcp client allowlist is not a database-level access restriction.
 - The currently connected Supabase and Vercel accounts do not provide access to the darkTunes production project. A project administrator must verify the deployed schema, OAuth settings, environment configuration and end-to-end ChatGPT connection.
 - For activity review use ai_tool_executions.actor_id and request_id. Never log access or refresh tokens.
 - The existing transport supports stateless JSON-RPC tools, not every feature of the official MCP SDK.
