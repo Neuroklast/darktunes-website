@@ -962,7 +962,7 @@ export function UniversalFileUploadZone({
         onRetryArchive: manager.retryArchive ? () => manager.retryArchive?.(f.id) : null,
         onRestore: manager.restoreArchivedFile
           ? () => { void manager.restoreArchivedFile!(f.id).catch((err) => {
-              toast.error('Could not restore saved file', {
+              toast.error(t('bronzeArchiveLoadError'), {
                 description: err instanceof Error ? err.message : String(err),
               })
             }) }
@@ -985,7 +985,7 @@ export function UniversalFileUploadZone({
         onRetryArchive: manager.retryArchive ? () => manager.retryArchive?.(f.id) : null,
         onRestore: manager.restoreArchivedFile
           ? () => { void manager.restoreArchivedFile!(f.id).catch((err) => {
-              toast.error('Could not restore saved file', {
+              toast.error(t('bronzeArchiveLoadError'), {
                 description: err instanceof Error ? err.message : String(err),
               })
             }) }
