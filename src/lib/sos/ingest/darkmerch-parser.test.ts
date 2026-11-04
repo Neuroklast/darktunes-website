@@ -56,6 +56,30 @@ describe('Darkmerch archive period metadata', () => {
     expect(result.transactions[0]?.release_title).toBe('Q4 2025 - Q1 2026')
   })
 
+  it('detects shared-year quarter bounds in a five-column Darkmerch report', () => {
+    const csv = [
+      'DATE,ORDER NUMBER,BAND,,NET REVENUE',
+      'Q2 - Q3 2026,,Band A,,10',
+      'Q2 - Q3 2026,,Band B,,330',
+    ].join('\n')
+    const result = parseDarkmerchCSV(csv)
+    expect(result.errors).toHaveLength(0)
+    expect(result).toMatchObject({ periodStart: '2026-04', periodEnd: '2026-09' })
+    expect(result.transactions.map((row) => row.net_revenue)).toEqual([10, 330])
+    expect(result.transactions.every((row) => row.sales_month === '')).toBe(true)
+    expect(result.transactions.every((row) => row.release_title === 'Q2 - Q3 2026')).toBe(true)
+  })
+
+  it('accepts shorthand dash variations and rejects reverse quarter ranges', () => {
+    expect(parseDarkmerchReportingPeriod('Q2–Q3 2026')).toEqual({
+      periodStart: '2026-04', periodEnd: '2026-09',
+    })
+    expect(parseDarkmerchReportingPeriod('Q2 — Q3 2026')).toEqual({
+      periodStart: '2026-04', periodEnd: '2026-09',
+    })
+    expect(parseDarkmerchReportingPeriod('Q3 - Q2 2026')).toBeNull()
+  })
+
   it('combines observed bounds across quarter and actual date rows', () => {
     const csv = [
       'DATE;BAND;NET REVENUE',
