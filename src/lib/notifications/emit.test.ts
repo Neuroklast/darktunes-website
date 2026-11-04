@@ -34,6 +34,13 @@ function mockDb(opts?: {
           }),
         }
       }
+      if (table === 'user_roles') {
+        return {
+          select: () => ({
+            in: async () => ({ data: [], error: null }),
+          }),
+        }
+      }
       if (table === 'artist_members') {
         return {
           select: () => ({
