@@ -87,6 +87,32 @@ describe('atomic MCP approval', () => {
       .rejects.toMatchObject({ code: 'NOT_FOUND' })
     expect(rpc).not.toHaveBeenCalled()
   })
+  it('allows any authenticated administrator to approve another admin\'s proposal', async () => {
+    const { actor, rpc } = fixture({
+      user_id: '00000000-0000-4000-8000-000000000099',
+    })
+    actor.role = 'admin'
+    actor.accessContext = 'admin'
+    await expect(commitMcpApproval(actor, token, 'create_cms_news_draft'))
+      .resolves.toMatchObject({ ok: true })
+    expect(rpc).toHaveBeenCalledOnce()
+  })
+  it('atomically rejects an editor-owned proposal without applying CMS content', async () => {
+    const { actor, rpc } = fixture()
+    rpc.mockResolvedValueOnce({
+      data: {
+        ok: true, detail: 'Declined',
+        location: '/admin/mcp-approvals', entity_id: entityId, replayed: false,
+        decision: 'rejected',
+      }, error: null,
+    })
+    const result = await commitMcpApproval(actor, token, 'create_cms_news_draft', 'reject')
+    expect(result.decision).toBe('rejected')
+    expect(rpc).toHaveBeenCalledWith('reject_mcp_approval', {
+      p_token_hash: hash(token), p_actor_id: userId,
+      p_action: 'create_cms_news_draft', p_payload_hash: hash(canonicalJson(payload)),
+    })
+  })
   it('rejects malformed identifiers without accessing the database', async () => {
     const { actor, rpc } = fixture()
     await expect(commitMcpApproval(actor, 'not-an-approval', 'create_cms_news_draft'))
