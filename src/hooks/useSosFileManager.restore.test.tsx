@@ -57,7 +57,7 @@ describe('useFileManager archive restoration', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.initialFiles = [{ ...archivedMeta }]
-    mocks.download.mockResolvedValue('Sales Month,Artist\\n2026-01,Reaper')
+    mocks.download.mockResolvedValue('Sales Month,Artist\n2026-01,Reaper')
   })
 
   it('restores an existing file in place and never creates a second R2 archive', async () => {
@@ -72,9 +72,10 @@ describe('useFileManager archive restoration', () => {
     expect(result.current.files[0]).toMatchObject({
       id: 'local-file',
       bronzeBatchId: 'completed-batch',
-      data: 'Sales Month,Artist\\n2026-01,Reaper',
+      data: 'Sales Month,Artist\n2026-01,Reaper',
     })
-    expect(mocks.download).toHaveBeenCalledExactlyOnceWith('completed-batch')
+    expect(mocks.download).toHaveBeenCalledTimes(1)
+    expect(mocks.download).toHaveBeenCalledWith('completed-batch')
     expect(mocks.upload).not.toHaveBeenCalled()
 
     act(() => {
@@ -116,7 +117,7 @@ describe('useFileManager archive restoration', () => {
     expect(result.current.files[0]).toMatchObject({
       name: 'Believe_Q1_2026.csv',
       bronzeBatchId: 'completed-batch',
-      data: 'Sales Month,Artist\\n2026-01,Reaper',
+      data: 'Sales Month,Artist\n2026-01,Reaper',
     })
     expect(result.current.fileStates[result.current.files[0].id]?.status).toBe('processing')
 
@@ -165,7 +166,7 @@ describe('useFileManager archive restoration', () => {
       result.current.removeFile('local-file')
     })
     await act(async () => {
-      resolveDownload?.('Sales Month,Artist\\n2026-01,Reaper')
+      resolveDownload?.('Sales Month,Artist\n2026-01,Reaper')
       await request
     })
     expect(result.current.files).toHaveLength(0)
