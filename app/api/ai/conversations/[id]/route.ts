@@ -68,7 +68,12 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
   }
   const parsed = patchSchema.safeParse(raw)
   if (!parsed.success) throw new ApiError(400, 'Invalid conversation title', 'VALIDATION_ERROR')
-  const actor = await requireAiActor(req)
+  const actor = await requireAiActor(req, {
+    artistId: req.nextUrl.searchParams.get('artist_id'),
+    dashboard: parseDashboard(req.nextUrl.searchParams.get('dashboard')),
+  })
+  const existing = await getAiConversationForUser(actor.serviceDb, id, actor.userId)
+  assertConversationContext(existing, actor)
   const conversation = await renameAiConversation(
     actor.serviceDb,
     id,
@@ -85,7 +90,12 @@ export const PATCH = withErrorHandler(async (req: NextRequest): Promise<NextResp
 export const DELETE = withErrorHandler(async (req: NextRequest): Promise<NextResponse> => {
   const id = conversationIdFrom(req)
   if (!id) throw new ApiError(400, 'Missing conversation id')
-  const actor = await requireAiActor(req)
+  const actor = await requireAiActor(req, {
+    artistId: req.nextUrl.searchParams.get('artist_id'),
+    dashboard: parseDashboard(req.nextUrl.searchParams.get('dashboard')),
+  })
+  const existing = await getAiConversationForUser(actor.serviceDb, id, actor.userId)
+  assertConversationContext(existing, actor)
   await deleteAiConversation(actor.serviceDb, id, actor.userId)
   return new NextResponse(null, { status: 204 })
 })
