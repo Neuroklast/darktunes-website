@@ -58,7 +58,6 @@ vi.mock('@/lib/sync/syncAll', () => ({
   syncSingleArtist: vi.fn(async () => {
     throw new Error('api down')
   }),
-  syncOdesliBatch: vi.fn(async () => ({ results: [] })),
 }))
 
 vi.mock('@/lib/sync/queueExecutor', () => ({
