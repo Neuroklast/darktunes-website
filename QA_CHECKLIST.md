@@ -1,6 +1,10 @@
 # Pre-Release QA Checklist
 
 ## AI assistant
+- [ ] GPT Freigaben: progress starts at 0/N, increments only after a successful server response and does not count in-flight or failed Accept/Decline actions
+- [ ] GPT Freigaben: a 409 for a genuinely edited proposed field shows a specific conflict and restores the proposal; an unrelated record update does not block the proposal
+- [ ] GPT Freigaben: a missing RPC or arbitrary database failure does not display an incorrect expired/used conflict message; the operator can distinguish status codes
+- [ ] GPT Freigaben: the existing admin notification bell marks processed proposals read for every notified admin after a successful decision
 - [ ] Admin -> AI Assistant -> General: at desktop and mobile widths, all switches remain visually paired with the correct label and explanation; clicking the label toggles only the matching switch
 - [ ] Role switches retain their stored settings after Save/Reload; enabling a role never bypasses artist data scope or tool authorization
 - [ ] Admin AI tabs wrap without squashing labels or horizontal page overflow
