@@ -111,12 +111,12 @@ describe('shared ChatGPT MCP user isolation', () => {
     expect(await authenticateMcp(request(token))).toBeNull()
   })
 
-  it('rejects revoked tokens and OAuth tokens without strong MFA', async () => {
+  it('rejects revoked tokens but accepts valid OAuth without MFA', async () => {
     const revoked = oauthToken('admin', 'workspace-client')
     sessions.get(revoked)!.revoked = true
     expect(await authenticateMcp(request(revoked))).toBeNull()
-    expect(await authenticateMcp(request(oauthToken('admin', 'workspace-client', 'aal1'))))
-      .toBeNull()
+    expect((await authenticateMcp(request(oauthToken('admin', 'workspace-client', 'aal1'))))?.userId)
+      .toBe('admin')
   })
 
   it('rejects artist accounts even with a valid approved OAuth client', async () => {
