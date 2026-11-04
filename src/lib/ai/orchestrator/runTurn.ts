@@ -100,7 +100,8 @@ export async function* runAiTurn(input: RunTurnInput): AsyncGenerator<ClientSseE
   const requestedRole: AiModelRole = classification.role
   const selectedModel = requestedRole === 'reasoning' ? settings.modelReasoning : settings.modelFast
   const alternateModel = requestedRole === 'reasoning' ? settings.modelFast : settings.modelReasoning
-  const selectedFailed = stored.health[selectedModel]?.ok === false
+  const selectedFailed = Boolean(stored.health[selectedModel]) &&
+    !isModelVerified(stored.health, selectedModel, ['supports_streaming', 'supports_tools'])
   const alternateVerified = isModelVerified(stored.health, alternateModel, [
     'supports_streaming', 'supports_tools',
   ])
