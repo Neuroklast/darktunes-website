@@ -22,6 +22,7 @@ const rpcResult = z.object({
   location: z.string(),
   entity_id: z.string().uuid(),
   replayed: z.boolean(),
+  decision: z.enum(['approved', 'rejected']).optional(),
 })
 
 export const mcpActions = [
@@ -38,6 +39,7 @@ export async function commitMcpApproval(
   actor: AiActor,
   token: string,
   action: McpAction,
+  decision: 'approve' | 'reject' = 'approve',
 ): Promise<z.infer<typeof rpcResult>> {
   const isToken = tokenPattern.test(token)
   if (!isToken && !approvalIdPattern.test(token)) {
@@ -50,7 +52,7 @@ export async function commitMcpApproval(
     isToken ? lookup.eq('token_hash', tokenHash!) : lookup.eq('id', token)
   ).maybeSingle()
   if (lookupError) throw lookupError
-  if (!pending || pending.user_id !== actor.userId ||
+  if (!pending || (pending.user_id !== actor.userId && actor.role !== 'admin') ||
       pending.artist_id !== null || pending.action !== action) {
     throw new ApiError(404, 'Approval not found for this account.', 'NOT_FOUND')
   }
@@ -84,7 +86,8 @@ export async function commitMcpApproval(
   if (!/^[0-9a-f]{64}$/.test(approvalHash)) {
     throw new ApiError(409, 'The stored approval identifier is invalid.', 'CONFLICT')
   }
-  const { data, error } = await actor.serviceDb.rpc('commit_mcp_approval', {
+  const { data, error } = await actor.serviceDb.rpc(
+    decision === 'approve' ? 'commit_mcp_approval' : 'reject_mcp_approval', {
     p_token_hash: approvalHash,
     p_actor_id: actor.userId,
     p_action: action,
@@ -93,7 +96,7 @@ export async function commitMcpApproval(
   if (error) {
     if (error.code === 'PGRST202' || error.code === '42883') {
       throw new ApiError(503,
-        'The atomic CMS approval function is not deployed. Apply the reviewed reset.sql function first.',
+        'The atomic GPT review function is not deployed. Apply the reviewed reset.sql function first.',
         'MCP_DATABASE_NOT_READY')
     }
     throw new ApiError(409,
@@ -109,7 +112,6 @@ export async function commitMcpApproval(
     try {
       await actor.serviceDb.from('notifications')
         .update({ read: true })
-        .eq('user_id', actor.userId)
         .eq('entity_id', pending.id)
         .eq('type', 'mcp_approval_pending')
     } catch {
