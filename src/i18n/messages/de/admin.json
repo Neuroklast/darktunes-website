@@ -12,7 +12,8 @@
     "dashboard": "Dashboard",
     "group_content": "Inhalte",
     "group_submissions": "Einreichungen",
-    "group_press": "Presse",    "artists": "Künstler",
+    "group_press": "Presse",
+    "artists": "Künstler",
     "releases": "Releases",
     "news": "News",
     "videos": "Videos",
@@ -73,7 +74,6 @@
     "review": "Änderungen prüfen",
     "history": "Letzte Freigaben",
     "completed": "Bestätigt",
-
     "expired": "Abgelaufen",
     "back": "Zurück",
     "skip": "Überspringen",
@@ -92,7 +92,8 @@
     "rejected": "Abgelehnt",
     "changes": "Änderungen im Überblick",
     "openHistory": "Letzte Entscheidungen",
-    "preparing": "Alle Werte und der Vorher-Nachher-Vergleich stehen unter Alle Felder prüfen."
+    "preparing": "Alle Werte und der Vorher-Nachher-Vergleich stehen unter Alle Felder prüfen.",
+    "reviewed": "bearbeitet"
   },
   "tour_planner_page_title": "Tourplaner",
   "tour_planner_page_desc": "Nur-Lese-Übersicht der Tour-Production-Daten der Künstler.",
@@ -1559,8 +1560,7 @@
   "submission_download_audio": "Audio herunterladen",
   "submission_download_cover": "Cover herunterladen",
   "submission_files_expire_today": "Audio und Cover laufen heute ab und werden gelöscht. Jetzt herunterladen.",
-  "submission_files_expire_in": "Audio und Cover werden in {days} Tagen automatisch gelöscht. Jetzt herunterladen."
-,
+  "submission_files_expire_in": "Audio und Cover werden in {days} Tagen automatisch gelöscht. Jetzt herunterladen.",
   "overview": {
     "title": "Übersicht",
     "introAdmin": "Was heute Aufmerksamkeit braucht und was sich zuletzt geändert hat.",
@@ -1585,7 +1585,10 @@
         "title": "Artist-Seiten prüfen",
         "hint": "Warten auf Freigabe"
       },
-      "unreadMessages": { "title": "Ungelesene Nachrichten", "hint": "Neu seit deiner letzten Prüfung" },
+      "unreadMessages": {
+        "title": "Ungelesene Nachrichten",
+        "hint": "Neu seit deiner letzten Prüfung"
+      },
       "statementsToReview": {
         "title": "Abrechnungen prüfen",
         "hint": "Entwurf oder freigegeben, noch nicht versendet"
