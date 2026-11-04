@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
-import { withErrorHandler } from '@/lib/errors'
+import { ApiError, withErrorHandler } from '@/lib/errors'
 import { requireAdminWithServiceClient } from '@/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
@@ -27,7 +27,7 @@ interface EventRow {
   latency_ms: number | null
   ttft_ms: number | null
   rounds: number
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown> | null
   created_at: string
 }
 
@@ -70,7 +70,14 @@ export const GET = withErrorHandler(async (req: NextRequest): Promise<NextRespon
       .order('created_at', { ascending: false })
       .limit(20),
   ])
-  if (itemsError) throw itemsError
+  if (itemsError) {
+    // An existing database may be missing additive AI diagnostics columns.
+    // Give operators a specific, actionable error rather than an opaque 500.
+    if (itemsError.code === '42703' || itemsError.code === 'PGRST204') {
+      throw new ApiError(503, 'AI diagnostics schema is out of date. Apply the current Supabase schema update and retry.', 'AI_DIAGNOSTICS_SCHEMA_OUTDATED')
+    }
+    throw itemsError
+  }
 
   const rows = (rawItems ?? []) as EventRow[]
   const hasMore = rows.length > limit
@@ -160,7 +167,8 @@ async function loadRepeatedFailures(
     .slice(0, 10)
 }
 
-function safeTechnical(metadata: Record<string, unknown>): Record<string, unknown> {
+export function safeTechnical(metadata: unknown): Record<string, unknown> {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return {}
   const allowed = [
     'finish_reason',
     'fallback_used',
