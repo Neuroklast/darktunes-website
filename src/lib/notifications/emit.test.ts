@@ -96,6 +96,11 @@ describe('NOTIFICATION_CATALOG', () => {
     }
   })
 
+  it('routes MCP approval notifications into the existing admin inbox', () => {
+    expect(getNotificationHref('mcp_approval_pending', 'admin')).toBe('/admin/mcp-approvals')
+    expect(getNotificationHref('mcp_approval_pending', 'editor')).toBe('/admin/mcp-approvals')
+  })
+
   it('resolves href for all staff catalog types', () => {
     for (const type of ALL_NOTIFICATION_EVENT_TYPES) {
       if (NOTIFICATION_CATALOG[type].audience !== 'staff') continue
