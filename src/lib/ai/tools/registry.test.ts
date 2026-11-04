@@ -55,6 +55,10 @@ describe('tool registry', () => {
     expect(names).not.toContain('get_label_analytics')
     expect(names).not.toContain('get_system_health')
     expect(names).not.toContain('get_pending_submissions')
+    expect(names).toContain('get_artist_analytics')
+    expect(names).not.toContain('get_artist_statements')
+    expect(names).not.toContain('get_artist_invoices')
+    expect(names).not.toContain('get_artist_documents_metadata')
   })
 
   it('gives a label admin label tools but not self-artist tools without an artist', () => {
@@ -82,6 +86,23 @@ describe('tool registry', () => {
     expect(names).toContain('get_system_health')
     expect(names).toContain('get_artist_profile')
     expect(names).toContain('prepare_epk_text')
+    expect(names).toContain('get_artist_statements')
+    expect(names).toContain('get_artist_invoices')
+    expect(names).toContain('get_artist_documents_metadata')
+  })
+
+  it('keeps financial tools out of the artist-facing portal even when the user is an admin', () => {
+    const names = toolNames({
+      role: 'admin',
+      accessContext: 'artist',
+      dashboard: 'portal',
+      capabilities: new Set<Capability>(['admin.panel.full', 'cms.artists.manage']),
+    })
+    expect(names).toContain('get_artist_analytics')
+    expect(names).not.toContain('get_artist_statements')
+    expect(names).not.toContain('get_artist_invoices')
+    expect(names).not.toContain('get_artist_documents_metadata')
+    expect(names).not.toContain('get_label_analytics')
   })
 
   it('limits an editor to editor-capable label tools', () => {
@@ -96,6 +117,8 @@ describe('tool registry', () => {
     expect(names).toContain('get_pending_submissions')
     expect(names).not.toContain('get_system_health')
     expect(names).not.toContain('get_label_analytics')
+    expect(names).not.toContain('get_artist_invoices')
+    expect(names).not.toContain('get_artist_statements')
   })
 
   it('denies a label tool at execution even if a caller bypasses visibility', async () => {
@@ -105,6 +128,27 @@ describe('tool registry', () => {
       { actor: actor({}), requestId: 'r1' },
     )
     expect(result).toMatchObject({ ok: false, error_code: 'AI_TOOL_FORBIDDEN' })
+  })
+
+  it('never grants finance tools to an editor using artist-management permissions', () => {
+    const names = toolNames({
+      role: 'editor',
+      dashboard: 'editor',
+      accessContext: 'editor',
+      artistMembershipIds: [],
+      capabilities: new Set<Capability>(['cms.artists.manage', 'admin.panel.editor']),
+    })
+    expect(names).not.toContain('get_artist_profile')
+    expect(names).not.toContain('get_artist_invoices')
+    expect(names).not.toContain('get_artist_statements')
+    expect(names).not.toContain('get_artist_documents_metadata')
+  })
+
+  it('blocks direct invocation of financial tools, even when they are not advertised', async () => {
+    for (const name of ['get_artist_invoices', 'get_artist_statements', 'get_artist_documents_metadata']) {
+      const result = await executeRegisteredTool(name, {}, { actor: actor({}), requestId: 'finance-denied' })
+      expect(result).toMatchObject({ ok: false, error_code: 'AI_TOOL_FORBIDDEN' })
+    }
   })
 
   it('does not expose artist tools for an artist outside the membership list', () => {
