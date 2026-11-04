@@ -171,6 +171,29 @@ describe('buildArtistRawSheets', () => {
     expect(sheets.get('reaper')?.[0]?.rows).toHaveLength(1)
   })
 
+  it('keeps the original distributor amount and exposes allocated amount for split ownership', () => {
+    const sheets = buildArtistRawSheets([{
+      artist: 'Exstais',
+      transactions: [
+        makeTx({
+          id: 'shared__split__Exstais',
+          source_row_id: 'shared',
+          source_headers: ['Artist Name', 'Net Revenue'],
+          source_values: ['Exstais feat Agnis', '100'],
+          net_revenue: 60,
+          quantity: 60,
+          assignment_allocation_percentage: 60,
+        } as Partial<SalesTransaction> & { source_headers: string[]; source_values: string[] }),
+      ],
+    }])
+    const sheet = sheets.get('exstais')?.[0]
+    expect(sheet?.headers).toEqual([
+      'Artist Name', 'Net Revenue', 'Statement Allocation (%)',
+      'Statement Net Revenue (source currency)', 'Statement Quantity',
+    ])
+    expect(sheet?.rows).toEqual([['Exstais feat Agnis', '100', '60', '60', '60']])
+  })
+
   it('still emits Bandcamp when the artist has no Believe rows', () => {
     const sheets = buildArtistRawSheets([
       {
