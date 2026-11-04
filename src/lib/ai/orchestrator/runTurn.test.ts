@@ -202,6 +202,7 @@ describe('runAiTurn', () => {
     state.creditSettle.mockClear()
     state.creditRefund.mockClear()
     state.execute.mockClear()
+    state.tools = [{ name: 'get_artist_profile', description: 'profile', parameters: { type: 'object' } }]
   })
 
   it('persists a tool round and pairs the tool reply with its call id', async () => {
@@ -239,6 +240,45 @@ describe('runAiTurn', () => {
     expect(state.reserve).toHaveBeenCalledTimes(2)
     expect(state.settle).toHaveBeenCalledTimes(2)
     expect(state.usageEvents.at(-1)).toMatchObject({ success: true })
+  })
+
+  it('requires the scoped analytics tool for a selected artist streaming query', async () => {
+    state.tools = [
+      { name: 'get_artist_profile', description: 'profile', parameters: { type: 'object' } },
+      { name: 'get_artist_analytics', description: 'streams', parameters: { type: 'object' } },
+      { name: 'get_artist_invoices', description: 'invoices', parameters: { type: 'object' } },
+    ]
+    const artistActor: AiActor = {
+      ...actor,
+      role: 'artist',
+      accessContext: 'artist',
+      dashboard: 'portal',
+      artistId: 'artist-a',
+      artistMembershipIds: ['artist-a'],
+      availableArtists: [{ id: 'artist-a', name: 'Artist A', slug: 'artist-a' }],
+    }
+    const provider = mockProvider([
+      {
+        content: '',
+        tool_calls: [{ id: 'stream-call', name: 'get_artist_analytics', arguments: '{}' }],
+      },
+      { content: '15 reported streams.' },
+    ])
+    const events = await collect(runAiTurn({
+      actor: artistActor,
+      conversationId: 'conv-1',
+      userText: 'Wie viele Streamingzahlen habe ich?',
+      locale: 'de',
+      requestId: 'stream-1',
+      providerOverride: provider,
+    }))
+    expect(state.requests[0]?.tool_choice).toBe('required')
+    expect(state.requests[0]?.tools).toEqual([state.tools[1]])
+    expect(state.requests[1]?.tool_choice).toBeUndefined()
+    expect(state.execute).toHaveBeenCalledWith('get_artist_analytics', {}, expect.objectContaining({
+      actor: artistActor,
+    }))
+    expect(events.at(-1)).toMatchObject({ type: 'done', status: 'complete' })
   })
 
   it('repairs an empty answer instead of persisting an empty completion', async () => {
