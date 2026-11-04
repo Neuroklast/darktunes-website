@@ -119,6 +119,36 @@ export async function getDecryptedCredential(
   }
 }
 
+/**
+ * Load all known credentials with one PostgREST request. Only server-side
+ * callers may use plaintext credentials; status endpoints must use
+ * getConfiguredCredentialKeys instead.
+ */
+export async function getDecryptedCredentials(
+  db: DbClient,
+  labelId: string = DEFAULT_LABEL_ID,
+): Promise<Map<CredentialKey, string>> {
+  const { data, error } = await db
+    .from('api_credentials')
+    .select('key, value')
+    .eq('label_id', labelId)
+
+  if (error) throw error
+
+  const credentials = new Map<CredentialKey, string>()
+  for (const row of data ?? []) {
+    if (!isAllowedCredentialKey(row.key) || !isStoredCredential(row.value)) continue
+
+    try {
+      const plaintext = decryptCredential(row.value)
+      if (isNonEmptyCredential(plaintext)) credentials.set(row.key, plaintext)
+    } catch {
+      console.error('[apiCredentials] Failed to decrypt credential: ' + row.key)
+    }
+  }
+  return credentials
+}
+
 export async function getConfiguredCredentialKeys(
   db: DbClient,
   labelId: string = DEFAULT_LABEL_ID,
