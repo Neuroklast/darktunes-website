@@ -214,6 +214,28 @@ describe('POST /api/sync', () => {
     )
   })
 
+  it('completes retired legacy jobs without loading credentials', async () => {
+    claimSyncJobs.mockResolvedValueOnce([{
+      id: 'legacy-job',
+      jobType: 'odesli',
+      artistId: null,
+      cancelRequestedAt: null,
+      attemptCount: 0,
+    }])
+
+    const { POST } = await loadSyncRoute()
+    await POST(cronRequest())
+    await waitUntilPromise
+
+    expect(markSyncJobDone).toHaveBeenCalledWith(expect.anything(), 'legacy-job')
+    expect(getSyncCredentials).not.toHaveBeenCalled()
+    expect(finishSyncRun).toHaveBeenCalledWith(
+      expect.anything(),
+      'run-1',
+      expect.objectContaining({ claimed: 1, completed: 1, failed: 0 }),
+    )
+  })
+
   it('rejects an unauthenticated request', async () => {
     const { POST } = await loadSyncRoute()
     const res = await POST(new NextRequest('https://darktunes.com/api/sync', { method: 'POST' }))
