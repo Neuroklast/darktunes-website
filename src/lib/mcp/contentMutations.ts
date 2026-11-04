@@ -122,7 +122,7 @@ export async function prepareContentUpdate(
     display_name: String(row.name ?? row.title ?? row.event_name ?? input.id),
     before, changes: input.changes,
   } as ContentChangePayload
-  // Verify the exact payload saved into the 10-minute one-time approval token.
+  // Verify the exact payload saved into the review queue.
   const valid = contentChangePayload.parse(payload)
   const preview = await createActionConfirmation(db, {
     actor, action: approvalAction[kind], payload: valid,
@@ -131,7 +131,7 @@ export async function prepareContentUpdate(
   const origin = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/$/, '')
   return {
     needs_confirmation: true as const,
-    approval_url: origin + '/admin/mcp-approvals/' + encodeURIComponent(preview.confirmation_token),
+    approval_url: origin + '/admin/mcp-approvals',
     expires_at: preview.expires_at,
     summary: preview.summary,
   }
