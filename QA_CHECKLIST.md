@@ -351,8 +351,8 @@
 - [ ] Validate schema parity with `supabase/reset.sql`
 - [ ] Validate artist/release/news sync jobs and cron triggers
 - [ ] Validate RLS and role permissions for new tables/features
-- [ ] Admin → Releases → "Sync All APIs": progress climbs with backlog (not stuck at 100% mid-run); spinner stays until drain or ~5 min timeout; toast reflects drained vs still-running; cover art lands on CDN without `getaddrinfo EBUSY` spam in sync logs; Odesli job reschedules cleanly under rate limit
-- [ ] After a full/Odesli sync, System Health **Sync Queue** does not stay at `1 running, 0 pending` once APIs show Success. Releases with only an artist-profile Spotify URL (or Odesli 404/405/422) get a fallback smart link and do not recycle the same Odesli job. Already-CDN covers are not re-fetched. If a leftover `running` row remains from before this fix, cancel it in System → Advanced.
+- [ ] Admin → Releases → "Sync All APIs": progress climbs with backlog (not stuck at 100% mid-run); spinner stays until drain or ~5 min timeout; toast reflects drained vs still-running; cover art lands on CDN without `getaddrinfo EBUSY` spam in sync logs; no retired API jobs are queued
+- [ ] After a full sync, System Health **Sync Queue** returns to idle. Historical smartlinks remain visible, and retired Odesli jobs are not re-enqueued. Already-CDN covers are not re-fetched.
 - [ ] After release sync, public `/releases` and home release section show new visible non-promo releases (hard refresh OK; no need to wait full 1h TTL)
 - [ ] Admin → Videos → "Sync YouTube Channel": admin list updates; public `/videos` updates after revalidation
 - [ ] A scheduled (not yet public) or upcoming-premiere video is **not** synced; after it goes public the next hourly sync adds it with the release date
@@ -360,8 +360,7 @@
 - [ ] `GET /api/sync/queue` with admin Bearer returns `{ pending, running, done, failed }` and does **not** enqueue jobs
 - [ ] Admin → System → **Advanced**: job table lists pending/running; cancel pending removes work; cancel running sets cancel-requested then job ends cancelled; retry failed re-queues
 - [ ] Force Sync / Sync All: many artists drain continuously (pg_cron re-invokes the worker every minute); no manual re-kick while due jobs remain; rate-limited artists pause with cooldown while others proceed
-- [ ] Cron/Admin `apiSource: spotify`, `odesli`, `songkick`, or `bandsintown` via `/api/sync-api` starts the executor immediately (jobs do not wait for the next worker tick)
-- [ ] Odesli 429 does not stop remaining smart-link resolves or skip artist `platform_links`; leftover rows continue on the next batch without a 15-minute park
+- [ ] Cron/Admin `apiSource: spotify`, `songkick`, or `bandsintown` via `/api/sync-api` starts the executor immediately. Retired `odesli` requests return HTTP 410.
 - [ ] Artists with >200 iTunes collections get further pages (not truncated at 200)
 - [ ] Failed Spotify/Discogs cover uploads appear in sync errors (remote URL may remain)
 - [ ] YouTube remains a separate channel action (Force Sync YouTube / pg_cron `sync-youtube-daily`); artist queue jobs do not write videos
