@@ -511,6 +511,8 @@
 
 - [ ] Feature flag off: MCP returns 503 and discovery metadata is not published.
 - [ ] Supabase OAuth authorization-code with PKCE completes only for registered clients; grant and denial paths work.
+- [ ] A valid allowlisted OAuth token issued at `aal1` can connect without TOTP enrollment or an MFA challenge; revoked, wrong-client and ordinary portal tokens remain rejected.
+- [ ] CMS review and approval work with a normal signed-in browser session without `aal2`; cross-account sessions and OAuth bearer-only approval attempts still fail.
 - [ ] Missing token, non-OAuth portal JWT, revoked token, expired token, and artist-only user cannot access MCP tools.
 - [ ] tools/list reflects admin/editor capabilities; sensitive fields and raw SQL are unavailable.
 - [ ] News, releases, artists, and events data is bounded and excludes private fields.
