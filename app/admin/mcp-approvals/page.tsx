@@ -51,6 +51,7 @@ export default async function McpApprovalsInboxPage() {
   const [pendingResult, historyResult] = await Promise.all([pendingQuery, historyQuery])
   const labels: McpReviewLabels = {
     pending: t('pending'),
+    reviewed: t('reviewed'),
     review: t('review'),
     empty: t('empty'),
     history: t('history'),
