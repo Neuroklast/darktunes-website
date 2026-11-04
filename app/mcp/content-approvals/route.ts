@@ -24,6 +24,7 @@ const actions = {
 const schema = z.object({
   token: z.union([z.string().uuid(), z.string().regex(/^act_[a-f0-9]{48}$/)]),
   action: z.enum(['update_cms_artist', 'update_cms_release', 'update_cms_event']),
+  decision: z.enum(['approve', 'reject']).default('approve'),
 }).strict()
 
 function problem(status: number, detail: string) {
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
   }
   let actor: Awaited<ReturnType<typeof requireAiActor>>
   try {
-    actor = await requireAiActor(req, { dashboard: 'admin' })
+    actor = await requireAiActor(req)
   } catch {
     return problem(401, 'Sign in to darkTunes to approve this change.')
   }
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
     return problem(403, 'Your account does not have permission to edit this CMS section.')
   }
   try {
-    const result = await commitMcpApproval(actor, parsed.data.token, parsed.data.action)
+    const result = await commitMcpApproval(actor, parsed.data.token, parsed.data.action, parsed.data.decision)
     revalidatePath('/admin/mcp-approvals')
     revalidatePath('/admin')
     if (kind === 'artist') revalidatePath('/artists')
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
     if (error instanceof ApiError) {
       if (error.status === 503) return problem(503, error.message)
       if (error.status === 410) return problem(410, error.message)
-      if (error.status === 404) return problem(404, 'This approval does not belong to this account.')
+      if (error.status === 404) return problem(404, 'This proposal is unavailable to this account.')
       if (error.status === 403) return problem(403, error.message)
     }
     return problem(409, 'The draft expired, was used, or the record changed. Prepare a new update.')
