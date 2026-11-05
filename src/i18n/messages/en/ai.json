@@ -35,6 +35,7 @@
   "emptyTitle": "How can I help?",
   "empty": "Ask about your releases, statements, system status, or this page.",
   "messageLog": "Assistant conversation",
+  "tableScrollLabel": "Scrollable response table",
   "working": "Working…",
   "jumpToLatest": "Jump to latest",
   "statusReady": "Ready",
