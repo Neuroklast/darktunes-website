@@ -431,7 +431,7 @@ export function AdminAiDashboard() {
         <TabsTrigger className="min-h-9 flex-none px-3" value="models">{t('tabModels')}</TabsTrigger>
         <TabsTrigger className="min-h-9 flex-none px-3" value="health">{t('tabHealth')}</TabsTrigger>
         <TabsTrigger className="min-h-9 flex-none px-3" value="usage">{t('tabTokens')}</TabsTrigger>
-        <TabsTrigger className="min-h-9 flex-none px-3" value="credits">KI-Credits</TabsTrigger>
+        <TabsTrigger className="min-h-9 flex-none px-3" value="credits">{t("admin.credits.tab")}</TabsTrigger>
         <TabsTrigger className="min-h-9 flex-none px-3" value="diagnostics">{t('tabDiagnostics')}</TabsTrigger>
         <TabsTrigger className="min-h-9 flex-none px-3" value="settings">{t('tabGeneral')}</TabsTrigger>
       </TabsList>
