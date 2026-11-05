@@ -6,9 +6,8 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { unstable_cache } from 'next/cache'
 import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
-import { getPublicNewsPostBySlug, getPublicNewsPosts } from '@/lib/api/news'
+import { getPublicNewsPostBySlug } from '@/lib/api/news'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { toBcp47 } from '@/i18n/locales'
 import { MarkdownContent } from '@/components/MarkdownContent'
@@ -23,8 +22,8 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
-/** Opt-in ISR: revalidate every 60 s at the route-segment level. */
-export const revalidate = 60
+/** A scheduled permalink must become available on the first request after its UTC timestamp. */
+export const dynamic = 'force-dynamic'
 
 /**
  * Allow slugs not returned by generateStaticParams to render on-demand
@@ -32,35 +31,9 @@ export const revalidate = 60
  */
 export const dynamicParams = true
 
-/**
- * Pre-render all currently-published news posts at build time so ISR starts
- * from a warm page rather than a cold on-demand render.
- */
-export async function generateStaticParams() {
-  const client = createPublicSupabaseClient()
-  const posts = await getPublicNewsPosts(client).catch((error) => {
-    console.error('generateStaticParams(/news/[slug]) failed:', error)
-    return []
-  })
-  return posts.map((post) => ({ slug: post.slug }))
-}
-
-/**
- * Wrap news post fetch in unstable_cache to attach granular cache tags.
- * Allows targeted revalidation per news slug (via revalidateTag) in addition
- * to the global 'news' tag used by list pages.
- */
+/** No cross-request cache of a scheduled slug's former 404/null response. */
 function makeGetNewsPost(slug: string) {
-  return unstable_cache(
-    async () => {
-      const client = createPublicSupabaseClient()
-      return getPublicNewsPostBySlug(client, slug)
-    },
-    [`news-post-${slug}`],
-    // Granular tags: 'news' invalidates all news lists;
-    // `news-${slug}` invalidates only this specific news article page.
-    { revalidate: 60, tags: ['news', `news-${slug}`] },
-  )
+  return () => getPublicNewsPostBySlug(createPublicSupabaseClient(), slug)
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
