@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { McpReviewQueue, type McpReviewLabels, type McpReviewRow } from '../../../app/admin/mcp-approvals/McpReviewQueue'
 
 const refresh = vi.fn()
@@ -121,8 +121,9 @@ describe('shared GPT approval slider', () => {
     expect(link.closest('p')?.className).toContain('[overflow-wrap:anywhere]')
 
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(screen.getAllByRole('link', { name: url })).toHaveLength(2)
-    expect(screen.getAllByRole('link', { name: oldUrl })).toHaveLength(2)
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByRole('link', { name: url })).toBeTruthy()
+    expect(within(dialog).getByRole('link', { name: oldUrl })).toBeTruthy()
   })
 
   it('linkifies URLs embedded in text without linking unsafe schemes or trailing punctuation', () => {
