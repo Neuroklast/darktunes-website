@@ -12,6 +12,7 @@ import {
   type SosAccountingSettings,
 } from '@/lib/sos/sosAccountingSettings'
 import { toDbRecord } from '@/lib/types/jsonColumns'
+import { compactSosLogo, hydrateSosLogo } from '@/lib/sos/logoAssets.server'
 
 type DbClient = SupabaseClient<Database>
 type Row = Database['public']['Tables']['sos_accounting_workspaces']['Row']
@@ -57,12 +58,12 @@ export interface UpsertAccountingWorkspaceInput {
   expectedRevision?: number | null
 }
 
-function rowToWorkspace(row: Row): SosAccountingWorkspace {
+async function rowToWorkspace(db: DbClient, row: Row): Promise<SosAccountingWorkspace> {
   return {
     id: row.id,
     periodStart: row.period_start,
     periodEnd: row.period_end,
-    config: normalizeAccountingConfig(row.config as Partial<SosAccountingSettings>),
+    config: await hydrateSosLogo(db, normalizeAccountingConfig(row.config as Partial<SosAccountingSettings>)),
     bronzeBatchIds: row.bronze_batch_ids ?? [],
     revision: row.revision ?? 1,
     updatedBy: row.updated_by ?? undefined,
@@ -84,14 +85,14 @@ export async function getWorkspaceForPeriod(
     .maybeSingle()
 
   if (error) throw new Error(error.message)
-  return data ? rowToWorkspace(data as Row) : null
+  return data ? rowToWorkspace(db, data as Row) : null
 }
 
 export async function upsertWorkspaceForPeriod(
   db: DbClient,
   input: UpsertAccountingWorkspaceInput,
 ): Promise<SosAccountingWorkspace> {
-  const config = normalizeAccountingConfig(input.config)
+  const config = await compactSosLogo(db, normalizeAccountingConfig(input.config))
   const payload = {
     config: toDbRecord(config),
     bronze_batch_ids: input.bronzeBatchIds ?? [],
@@ -118,7 +119,7 @@ export async function upsertWorkspaceForPeriod(
       }
       throw new Error(error.message)
     }
-    return rowToWorkspace(data as Row)
+    return rowToWorkspace(db, data as Row)
   }
 
   const { data, error } = await db
@@ -131,7 +132,7 @@ export async function upsertWorkspaceForPeriod(
 
   if (error) throw new Error(error.message)
   if (!data || data.length === 0) throw new WorkspaceRevisionConflictError()
-  return rowToWorkspace(data[0] as Row)
+  return rowToWorkspace(db, data[0] as Row)
 }
 
 export async function listAccountingWorkspaces(db: DbClient): Promise<SosAccountingWorkspace[]> {
@@ -141,7 +142,7 @@ export async function listAccountingWorkspaces(db: DbClient): Promise<SosAccount
     .order('updated_at', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row) => rowToWorkspace(row as Row))
+  return Promise.all((data ?? []).map((row) => rowToWorkspace(db, row as Row)))
 }
 
 export async function deleteWorkspaceForPeriod(
