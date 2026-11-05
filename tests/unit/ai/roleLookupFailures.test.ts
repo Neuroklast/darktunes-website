@@ -34,6 +34,20 @@ function clientWithQueries(options: {
           }),
         }
       }
+      if (table === 'role_permissions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { can_publish_news: false, can_edit_news: false,
+                  can_manage_artists: false, can_manage_releases: false,
+                  can_manage_videos: false, can_view_admin_panel: false },
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
       if (table === 'user_custom_roles') {
         return {
           select: () => ({
@@ -68,10 +82,19 @@ describe('resolveEffectiveAccess session safety', () => {
     }), 'admin-1')).rejects.toThrow('Failed to load user role assignments')
   })
 
-  it('does not silently treat custom-role lookup errors as absent grants', async () => {
+  it('does not silently treat editor custom-role lookup errors as absent grants', async () => {
     await expect(resolveEffectiveAccess(clientWithQueries({
+      profile: { role: 'editor' },
+      roles: [{ role: 'editor' }],
       customError: { message: 'timeout' },
-    }), 'admin-1')).rejects.toThrow('Failed to load custom role assignments')
+    }), 'editor-1')).rejects.toThrow('Failed to load custom role assignments')
+  })
+
+  it('preserves verified admin base access when optional custom grants fail', async () => {
+    const access = await resolveEffectiveAccess(clientWithQueries({
+      customError: { message: 'timeout' },
+    }), 'admin-1')
+    expect(access.isAdmin).toBe(true)
   })
 
   it('accepts an independently valid user_roles grant when primary role is missing', async () => {
