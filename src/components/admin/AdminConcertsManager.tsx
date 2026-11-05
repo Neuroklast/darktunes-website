@@ -165,7 +165,8 @@ export function AdminConcertsManagerEmbedded() {
         supabase
           .from('news_posts')
           .select('id, title')
-          .eq('status', 'published')
+           .in('status', ['published', 'scheduled'])
+          .lte('published_at', new Date().toISOString())
           .order('published_at', { ascending: false })
           .limit(50),
       ])
