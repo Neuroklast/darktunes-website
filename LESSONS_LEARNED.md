@@ -20,6 +20,7 @@ Distilled anti-patterns from project history. **Append session findings before o
 | Anti-pattern | Rule |
 |--------------|------|
 | Sending editors to artist portal help for a public artist/release lookup | Give editorial users named, read-only catalog search tools and role-specific suggestions. An empty portal help search is not proof that no artist or release exists. |
+| Using rich HTML bio snippets as proof of latest releases | Strip HTML before limiting biography text; fetch dated, visible public catalog releases as structured data for artist overviews rather than allowing the model to guess recency from prose. |
 | Loading history `ORDER BY created_at ASC LIMIT n` | Long chats then send the oldest messages to the model. Load newest-first, reverse, and paginate older pages with a keyset cursor |
 | Persisting only user/assistant text | Tool calls and tool replies must be stored with `tool_calls` / `tool_call_id` and paired; never send an incomplete tool group to NVIDIA |
 | Treating a stream without visible text as success | Empty, reasoning-only and length-truncated completions are distinct failures. Classify them before persisting and never store an empty `complete` message |
