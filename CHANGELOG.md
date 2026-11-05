@@ -10,6 +10,10 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **Editor AI artist summaries showed outdated releases:** strip HTML before truncating the bio, include current published releases in single-artist lookup results, and forbid inferring release dates from biographies. Catalog queries exclude future-dated releases.
+
+
 ### System audit hardening
 - Repair artist membership policies, block profile/artist privilege escalation, trust only managed signup metadata, and restrict legacy trigger/submission RPC grants.
 - Add paginated artist/provider sync coverage, isolate integration failures from website liveness, and retain hourly successful provider samples without idle run rows.
