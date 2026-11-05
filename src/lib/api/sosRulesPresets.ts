@@ -11,6 +11,7 @@ import {
   type SosAccountingSettings,
 } from '@/lib/sos/sosAccountingSettings'
 import { toDbRecord } from '@/lib/types/jsonColumns'
+import { compactSosLogo, hydrateSosLogo } from '@/lib/sos/logoAssets.server'
 
 type DbClient = SupabaseClient<Database>
 type Row = Database['public']['Tables']['sos_rules_presets']['Row']
@@ -30,11 +31,11 @@ export interface UpsertRulesPresetInput {
   config: RulesPresetConfig
 }
 
-function rowToPreset(row: Row): SosRulesPreset {
+async function rowToPreset(db: DbClient, row: Row): Promise<SosRulesPreset> {
   return {
     id: row.id,
     name: row.name,
-    config: normalizeAccountingConfig(row.config as Partial<SosAccountingSettings>),
+    config: await hydrateSosLogo(db, normalizeAccountingConfig(row.config as Partial<SosAccountingSettings>)),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -47,7 +48,7 @@ export async function listRulesPresets(db: DbClient): Promise<SosRulesPreset[]> 
     .order('updated_at', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row) => rowToPreset(row as Row))
+  return Promise.all((data ?? []).map((row) => rowToPreset(db, row as Row)))
 }
 
 export async function getRulesPresetByName(
@@ -62,7 +63,7 @@ export async function getRulesPresetByName(
     .maybeSingle()
 
   if (error) throw new Error(error.message)
-  return data ? rowToPreset(data as Row) : null
+  return data ? rowToPreset(db, data as Row) : null
 }
 
 export async function getRulesPresetById(
@@ -76,7 +77,7 @@ export async function getRulesPresetById(
     .maybeSingle()
 
   if (error) throw new Error(error.message)
-  return data ? rowToPreset(data as Row) : null
+  return data ? rowToPreset(db, data as Row) : null
 }
 
 export async function upsertRulesPresetByName(
@@ -85,7 +86,7 @@ export async function upsertRulesPresetByName(
 ): Promise<SosRulesPreset> {
   const trimmedName = input.name.trim()
   const existing = await getRulesPresetByName(db, trimmedName)
-  const config = normalizeAccountingConfig(input.config)
+  const config = await compactSosLogo(db, normalizeAccountingConfig(input.config))
 
   if (existing) {
     const { data, error } = await db
@@ -96,7 +97,7 @@ export async function upsertRulesPresetByName(
       .single()
 
     if (error) throw new Error(error.message)
-    return rowToPreset(data as Row)
+    return rowToPreset(db, data as Row)
   }
 
   const { data, error } = await db
@@ -106,7 +107,7 @@ export async function upsertRulesPresetByName(
     .single()
 
   if (error) throw new Error(error.message)
-  return rowToPreset(data as Row)
+  return rowToPreset(db, data as Row)
 }
 
 export async function updateRulesPreset(
@@ -117,7 +118,7 @@ export async function updateRulesPreset(
   const update: { name?: string; config?: Record<string, unknown> } = {}
   if (input.name !== undefined) update.name = input.name.trim()
   if (input.config !== undefined) {
-    update.config = toDbRecord(normalizeAccountingConfig(input.config))
+    update.config = toDbRecord(await compactSosLogo(db, normalizeAccountingConfig(input.config)))
   }
 
   const { data, error } = await db
@@ -128,7 +129,7 @@ export async function updateRulesPreset(
     .single()
 
   if (error) throw new Error(error.message)
-  return rowToPreset(data as Row)
+  return rowToPreset(db, data as Row)
 }
 
 export async function deleteRulesPreset(db: DbClient, id: string): Promise<void> {
