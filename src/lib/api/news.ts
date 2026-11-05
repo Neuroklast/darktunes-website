@@ -98,26 +98,7 @@ export async function getNewsPosts(db: DbClient): Promise<NewsPost[]> {
   return attachNewsArtists(db, posts)
 }
 
-/**
- * Public-facing: returns published posts and scheduled posts once their publish time is reached.
- */
-/**
- * Promote due scheduled posts to published (replaces legacy pg_cron job).
- * Returns the number of rows updated.
- */
-export async function publishScheduledNewsPosts(db: DbClient): Promise<number> {
-  const now = new Date().toISOString()
-  const { data, error } = await db
-    .from('news_posts')
-    .update({ status: 'published', updated_at: now })
-    .eq('status', 'scheduled')
-    .lte('published_at', now)
-    .select('id')
-
-  if (error) throw new Error(error.message)
-  return data?.length ?? 0
-}
-
+/** Public-facing: only due published/scheduled news passes the date and RLS checks. */
 export async function getPublicNewsPosts(db: DbClient): Promise<NewsPost[]> {
   const now = new Date().toISOString()
   const { data, error } = await db
