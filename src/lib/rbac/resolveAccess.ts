@@ -97,7 +97,10 @@ async function loadCustomGrants(
     .select('role_id, custom_roles(name, custom_role_permissions(permission_name))')
     .eq('user_id', userId)
 
-  if (error || !assignments?.length) {
+  // A temporary database/RLS failure must never look like an empty grant set.
+  // Otherwise an authenticated editor can be misclassified as unauthorized.
+  if (error) throw new Error('Failed to load custom role assignments', { cause: error })
+  if (!assignments?.length) {
     return { permissions, capabilities, roleNames }
   }
 
@@ -124,10 +127,18 @@ export async function resolveEffectiveAccess(
   client: DbClient,
   userId: string,
 ): Promise<EffectiveAccess> {
-  const [{ data: profile }, { data: roleRows }] = await Promise.all([
+  const [{ data: profile, error: profileError }, { data: roleRows, error: roleRowsError }] = await Promise.all([
     client.from('users').select('role').eq('id', userId).maybeSingle(),
     client.from('user_roles').select('role').eq('user_id', userId),
   ])
+
+  // Fail closed on errors, but distinguish an unavailable permission lookup
+  // from a real access denial. Never turn a failed query into "unauthorized".
+  if (profileError || roleRowsError) {
+    throw new Error('Failed to load user role assignments', {
+      cause: profileError ?? roleRowsError,
+    })
+  }
 
   const primaryRole = normalizeRole(profile?.role ?? null)
   const allRoles = normalizeRoles([
