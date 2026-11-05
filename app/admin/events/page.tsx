@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { getArtists } from '@/lib/api/artists'
 import { getConcertsByArtistId } from '@/lib/api/concerts'
 import { getNewsPosts } from '@/lib/api/news'
+import { isNewsPublished } from '@/lib/news/effectiveStatus'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { AdminConcertsManager } from '@/components/admin/AdminConcertsManager'
 import { AdminPageShell } from '../_components/AdminPageShell'
@@ -49,7 +50,7 @@ async function AdminEventsContent({
     getNewsPosts(supabase)
       .then((posts) =>
         posts
-          .filter((p) => p.status === 'published')
+          .filter((p) => isNewsPublished(p))
           .slice(0, 50)
           .map((p) => ({ id: p.id, title: p.title })),
       )
