@@ -155,11 +155,12 @@ export async function proxy(request: NextRequest) {
     },
   )
 
-  // Refresh the session — do not run any code between createServerClient
-  // and getUser() or the session might not update properly.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Verify the signed token and rotate stale SSR cookies before any role reads.
+  // getClaims() is the Supabase SSR-recommended refresh path for Next.js Proxy.
+  const { data: { claims }, error: claimsError } = await supabase.auth.getClaims()
+  const user = !claimsError && typeof claims?.sub === 'string'
+    ? { id: claims.sub }
+    : null
 
   const isLoginPage = route.isLoginPage
   const isPasswordRecoveryLogin =
@@ -193,8 +194,18 @@ export async function proxy(request: NextRequest) {
   let profileRole: UserRole | null = null
   let effectiveAccess: Awaited<ReturnType<typeof resolveEffectiveAccess>> | null = null
   if (user && (isProtectedRoute || isLoginPage)) {
-    effectiveAccess = await resolveEffectiveAccess(supabase, user.id)
-    profileRole = effectiveAccess.primaryRole
+    try {
+      effectiveAccess = await resolveEffectiveAccess(supabase, user.id)
+      profileRole = effectiveAccess.primaryRole
+    } catch {
+      // Fail closed without falsely telling the user that their role was
+      // revoked. Retain any freshly rotated auth cookies for the next retry.
+      const unavailableUrl = request.nextUrl.clone()
+      unavailableUrl.pathname = '/auth/session-unavailable'
+      unavailableUrl.search = ''
+      const unavailable = NextResponse.rewrite(unavailableUrl, { status: 503 })
+      return preserveAuthResponse(supabaseResponse, withRequestContext(unavailable, request))
+    }
   }
 
   // Central Login Redirection Logic for Authenticated Users
