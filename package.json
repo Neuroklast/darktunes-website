@@ -148,7 +148,7 @@
     "uuid": "^14.0.0",
     "vaul": "^1.1.2",
     "web-push": "^3.6.7",
-    "zod": "^4.4.3",
+    "zod": "^4.6.6",
     "zundo": "^2.3.0",
     "zustand": "^5.0.14"
   },
@@ -211,16 +211,7 @@
     "@ts-morph/common": {
       "minimatch": "9.0.7"
     },
-    "archiver-utils": {
-      "minimatch": "9.0.7"
-    },
-    "fstream": {
-      "minimatch": "9.0.7"
-    },
     "rimraf": {
-      "minimatch": "9.0.7"
-    },
-    "zip-stream": {
       "minimatch": "9.0.7"
     },
     "smol-toml": "^1.8.0",
@@ -249,8 +240,27 @@
     "baseline-browser-mapping": "^2.11.24",
     "qs": "^6.16.0",
     "brace-expansion": "^5.0.9",
-    "ip-address": "^10.4.0",
-    "basic-ftp": "^6.2.1"
+    "ip-address": "^10.7.4",
+    "basic-ftp": "^6.2.1",
+    "fast-uri": "^3.1.9",
+    "follow-redirects": "^1.16.2",
+    "@serwist/build": {
+      "glob": "14.0.2",
+      "zod": "4.6.6"
+    },
+    "@serwist/next": {
+      "glob": "14.0.2",
+      "zod": "4.6.6"
+    },
+    "@serwist/webpack-plugin": {
+      "zod": "4.6.6"
+    },
+    "@vercel/nft": {
+      "glob": "14.0.2"
+    },
+    "@vercel/cli-config": {
+      "zod": "4.6.6"
+    }
   },
   "license": "UNLICENSED"
 }
