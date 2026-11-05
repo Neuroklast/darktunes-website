@@ -162,7 +162,11 @@ Health: `GET /api/health` defaults to **lite** (DB liveness); full dashboard sna
 
 ## Scheduled news publishing
 
-No Vercel Cron. Due posts (`status = scheduled`, `published_at <= now`) are promoted to `published` at the start of each `/api/sync` tick (service role). The public list still shows a due scheduled post before that tick. Admin saves trigger `revalidateTag('news')` via `useNews`. Do not promote from the anon public client — it cannot update `news_posts`.
+No news publishing Cron, no scheduled status mutation, and no Vercel Cron. `status=scheduled` is a persistent editorial state; public news queries allow `status IN (published, scheduled)` only when `published_at <= now()`, with Supabase RLS enforcing that predicate for anonymous readers. Drafts, archived posts and future posts stay private; press releases separately enforce `embargo_until`. Admin/editor lists use `effectiveNewsStatus` to display a due scheduled post as published without rewriting its stored status.
+
+The homepage, news list, news permalink, about page, artist page and fan page render dynamically. Time-sensitive news reads bypass Next's cross-request Data Cache, while unrelated catalogues retain their existing caches. Dynamic news detail pages do not cache pre-publication 404s. Sitemap regeneration remains hourly for SEO and does not control publication. Admin saves continue invalidating content caches via `useNews`.
+
+Once the same commit is deployed to the **Cuupa/darktunes-website** fork on the external Vercel account, run `scripts/maintenance/unschedule-news-publishing.sql` once to remove pg_cron job `publish-scheduled-news`. Do not unschedule before the new frontend is live. The `/api/sync` worker no longer calls `publishScheduledNewsPosts`. The separate `sync-worker`, `scheduler-heartbeat`, and `darktunes-technical-retention` jobs are unrelated to news publishing.
 
 ## Emoji-free public text (a11y)
 
