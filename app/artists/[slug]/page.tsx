@@ -2,9 +2,8 @@
  * app/artists/[slug]/page.tsx — Artist profile page (RSC)
  *
  * Fetches artist by slug + their releases and concerts server-side.
- * Uses Next.js route-segment revalidation (60 s ISR) instead of
- * unstable_cache so that newly-created artists are always reachable
- * without a permanent 404 from a stale negative-cache entry.
+ * Other artist data remains cached, while news is always queried live so
+ * publication timestamps take effect at the first request after release.
  *
  * ── Data API Waterfall ──────────────────────────────────────────────────────
  * 1. `params.slug`              → URL slug of the artist
@@ -25,7 +24,6 @@ import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/server'
 import {
   getPublicArtistBySlug,
-  getPublicArtists,
   getPublicRelatedArtists,
 } from '@/lib/api/publicArtist'
 import { getReleasesByArtistId } from '@/lib/api/releases'
@@ -47,8 +45,8 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
-/** Opt-in ISR: revalidate every 60 s at the route-segment level. */
-export const revalidate = 60
+/** News visibility is date-based and must not be frozen in the full route cache. */
+export const dynamic = 'force-dynamic'
 
 /**
  * Allow slugs not returned by generateStaticParams to render on-demand
@@ -73,31 +71,21 @@ function makeGetArtistData(slug: string) {
       const artist = await getPublicArtistBySlug(client, slug)
       if (!artist) return null
       const serviceDb = await createServiceRoleSupabaseClient()
-      const [releases, concerts, videos, news, publicEpk, relatedArtists] = await Promise.all([
+      const [releases, concerts, videos, publicEpk, relatedArtists] = await Promise.all([
         getReleasesByArtistId(client, artist.id),
         getConcertsByArtistId(client, artist.id),
         getPublicVideosByArtistId(client, artist.id),
-        getPublicNewsPostsByArtistId(client, artist.id),
         getPublicArtistEpkByArtistId(serviceDb, artist.id),
         getPublicRelatedArtists(client, artist.id, artist.genres),
       ])
       const galleryPhotos = (publicEpk?.profile.epkGalleryPhotos ?? []).filter(Boolean)
-      return { artist, releases, concerts, videos, news, galleryPhotos, relatedArtists }
+      return { artist, releases, concerts, videos, galleryPhotos, relatedArtists }
     },
     [`artist-${slug}`],
     // Granular tags: 'artists' invalidates all artist lists;
     // `artist-${slug}` invalidates only this specific artist page.
     { revalidate: 60, tags: ['artists', `artist-${slug}`] },
   )
-}
-
-export async function generateStaticParams() {
-  const client = createPublicSupabaseClient()
-  const artists = await getPublicArtists(client).catch((error) => {
-    console.error('generateStaticParams(/artists/[slug]) failed:', error)
-    return []
-  })
-  return artists.map((artist) => ({ slug: artist.slug }))
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -132,7 +120,8 @@ export default async function ArtistDetailPage({ params }: Props) {
     getCachedSiteSettings().catch(() => null),
   ])
   if (!data) notFound()
-  const { artist, releases, concerts, videos, news, galleryPhotos, relatedArtists } = data
+  const { artist, releases, concerts, videos, galleryPhotos, relatedArtists } = data
+  const news = await getPublicNewsPostsByArtistId(createPublicSupabaseClient(), artist.id)
   const videoPreviewRows = clampArtistProfilePreviewRows(
     settings?.artistProfileVideoRows ?? ARTIST_PROFILE_PREVIEW_ROWS_DEFAULT,
   )
