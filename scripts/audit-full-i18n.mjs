@@ -14,7 +14,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const roots = ['app', 'src/components', 'src/hooks']
+const roots = ['app', 'src']
 const paths = []
 
 function walk(folder) {
@@ -38,6 +38,9 @@ function area(file) {
   if (file.startsWith('app/press/') || file.startsWith('src/components/press/')) return 'press'
   if (file.startsWith('app/api/')) return 'api'
   if (file.startsWith('src/components/')) return 'shared'
+  if (file.startsWith('src/lib/')) return 'library'
+  if (file.startsWith('src/contexts/')) return 'context'
+  if (file.startsWith('src/hooks/')) return 'hooks'
   return 'public'
 }
 
@@ -92,6 +95,7 @@ for (const row of rows) {
 const worst = [...byFile.entries()].sort((a,b) => b[1].length - a[1].length)
 const report = {
   filesScanned: paths.length, totalCandidates: rows.length, summary,
+  ...(process.argv.includes('--json') ? { findings: rows } : {}),
   topFiles: worst.slice(0, 40).map(([file, candidates]) => ({
     file, count: candidates.length, samples: candidates.slice(0, 5),
   })),
