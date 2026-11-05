@@ -1,0 +1,35 @@
+name: One-time dependency lockfile refresh
+
+on:
+  push:
+    branches: [fix/security-audit-patches-20261106]
+    paths: [package.json]
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve updated production dependency graph
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit regenerated lockfile to this fix branch only
+        run: |
+          if ! git diff --quiet -- package-lock.json; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add package-lock.json
+            git commit -m 'chore: regenerate secure npm lockfile'
+            git push origin HEAD:fix/security-audit-patches-20261106
+          fi
+      - name: Validate reproducible install
+        run: npm ci --ignore-scripts --no-fund
+      - name: Audit production dependency graph
+        run: npm audit --omit=dev --audit-level=moderate
