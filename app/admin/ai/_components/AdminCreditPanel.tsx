@@ -15,6 +15,28 @@ interface Settings {
   artist_monthly: number; editor_monthly: number; admin_monthly: number
   model_prices: Record<string, Price>
 }
+/** Keep database-only fields out of the strict PATCH contract, including nested tariffs. */
+function creditSettingsPayload(settings: Settings): Settings {
+  return {
+    enabled: settings.enabled,
+    buffer_percent: settings.buffer_percent,
+    artist_monthly: settings.artist_monthly,
+    editor_monthly: settings.editor_monthly,
+    admin_monthly: settings.admin_monthly,
+    model_prices: Object.fromEntries(Object.entries(settings.model_prices).map(([model, price]) => [
+      model,
+      {
+        input_per_million_eur: price.input_per_million_eur,
+        output_per_million_eur: price.output_per_million_eur,
+        ...(price.reasoning_per_million_eur !== undefined
+          ? { reasoning_per_million_eur: price.reasoning_per_million_eur } : {}),
+        ...(price.free_tier_confirmed !== undefined
+          ? { free_tier_confirmed: price.free_tier_confirmed } : {}),
+      },
+    ])),
+  }
+}
+
 interface CostSummary {
   provider_cost_eur: number
   charged_credits: number
@@ -66,7 +88,7 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
     setBusy(true); setError(''); setNotice('')
     try {
       const response = await fetch('/api/admin/ai/credits', {
-        method: 'PATCH', headers: await headers(), body: JSON.stringify(settings),
+        method: 'PATCH', headers: await headers(), body: JSON.stringify(creditSettingsPayload(settings)),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.message ?? data.error ?? 'Could not save credits')
@@ -126,7 +148,21 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
           </div>
           <div className="space-y-1">
             <Label htmlFor="credit-extra-model">Zusätzliches Chatmodell für einen Anbieterwechsel bepreisen</Label>
-            <select id="credit-extra-model" value={extraModel} onChange={e => setExtraModel(e.target.value)}
+            <select id="credit-extra-model" value={extraModel} onChange={e => {
+              const selectedModel = e.target.value
+              setExtraModel(selectedModel)
+              if (selectedModel) {
+                setSettings(old => old && ({
+                  ...old,
+                  model_prices: {
+                    ...old.model_prices,
+                    [selectedModel]: old.model_prices[selectedModel] ?? {
+                      input_per_million_eur: 0, output_per_million_eur: 0,
+                    },
+                  },
+                }))
+              }
+            }}
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
               <option value="">Modell auswählen…</option>
               {availableModels.filter(m => !tariffModels.includes(m.id) || m.id === extraModel).map(m =>
