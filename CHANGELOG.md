@@ -11,6 +11,8 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 ## [Unreleased]
 
 ### Fixed
+- **AI Credits language mismatch:** translated admin credit settings, cost tables, adjustments, the credit balance display and tab labels into English, German and French; dates and currency follow the selected locale instead of always using German.
+- **Global i18n coverage gap:** CI now validates locale-key and placeholder parity across all translation namespaces. A repository-wide audit command inventories remaining hardcoded user-facing strings for follow-up.
 - **Editor AI artist summaries showed outdated releases:** strip HTML before truncating the bio, include current published releases in single-artist lookup results, and forbid inferring release dates from biographies. Catalog queries exclude future-dated releases.
 
 
