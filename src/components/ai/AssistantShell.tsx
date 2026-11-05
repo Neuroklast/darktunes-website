@@ -78,7 +78,7 @@ export function AssistantShell({ dashboard }: AssistantShellProps) {
             'sm:max-w-[min(1120px,calc(100vw-2rem))]',
             session.maximized
               ? 'sm:w-[calc(100vw-1rem)] sm:max-w-none'
-              : 'sm:w-[min(720px,calc(100vw-2rem))]',
+              : 'sm:w-[min(920px,calc(100vw-2rem))]',
           )}
           aria-label={t('title')}
         >
