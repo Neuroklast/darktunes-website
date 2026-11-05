@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { globSync } from 'glob'
 
 // #1db954 is Spotify's official brand color — required for Spotify logo icons
 const ALLOWED_COLORS = new Set(['#493687', '#7e1e37', '#101010', '#292929', '#383838', '#ffffff', '#1db954'])
@@ -17,11 +16,16 @@ type Violation = {
   color: string
 }
 
-function findViolations(): Violation[] {
-  const files = globSync('src/components/**/*.tsx', {
-    cwd: process.cwd(),
-    absolute: true,
+function listTsxFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const absolutePath = path.join(directory, entry.name)
+    if (entry.isDirectory()) return listTsxFiles(absolutePath)
+    return entry.isFile() && entry.name.endsWith('.tsx') ? [absolutePath] : []
   })
+}
+
+function findViolations(): Violation[] {
+  const files = listTsxFiles(path.join(process.cwd(), 'src/components'))
 
   const violations: Violation[] = []
 
