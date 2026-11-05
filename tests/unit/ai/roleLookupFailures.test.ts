@@ -7,6 +7,7 @@ function clientWithQueries(options: {
   profile?: { role: string } | null
   profileError?: DbError
   rolesError?: DbError
+  roles?: Array<{ role: string }>
   customError?: DbError
 }) {
   return {
@@ -27,7 +28,7 @@ function clientWithQueries(options: {
         return {
           select: () => ({
             eq: async () => ({
-              data: [{ role: 'admin' }],
+              data: options.roles ?? [{ role: 'admin' }],
               error: options.rolesError ?? null,
             }),
           }),
@@ -73,10 +74,18 @@ describe('resolveEffectiveAccess session safety', () => {
     }), 'admin-1')).rejects.toThrow('Failed to load custom role assignments')
   })
 
-  it('still refuses access when there is genuinely no assigned role', async () => {
+  it('accepts an independently valid user_roles grant when primary role is missing', async () => {
     const db = clientWithQueries({ profile: null })
     const access = await resolveEffectiveAccess(db, 'admin-1')
     // user_roles remains admin: user_roles is an independently valid grant.
     expect(access.isAdmin).toBe(true)
+  })
+
+  it('returns no access when both role sources are genuinely empty', async () => {
+    const access = await resolveEffectiveAccess(
+      clientWithQueries({ profile: null, roles: [] }), 'user-1',
+    )
+    expect(access.isAdmin).toBe(false)
+    expect(access.capabilities.size).toBe(0)
   })
 })
