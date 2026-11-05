@@ -1,4 +1,3 @@
-import { unstable_cache } from 'next/cache'
 import { createPublicSupabaseClient } from '@/lib/supabase/publicClient'
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
@@ -8,8 +7,7 @@ import { getPublicNewsPosts } from '@/lib/api/news'
 import { AboutContent } from './_components/AboutContent'
 import { getMetadataBrand, pageTitlePipe } from '@/lib/seo/metadata'
 
-const getCachedAboutData = unstable_cache(
-  async () => {
+const getAboutData = async () => {
     const client = createPublicSupabaseClient()
     const [siteSettings, artists, news] = await Promise.all([
       getSiteSettings(client),
@@ -17,10 +15,9 @@ const getCachedAboutData = unstable_cache(
       getPublicNewsPosts(client),
     ])
     return { siteSettings, artists, news }
-  },
-  ['about-page'],
-  { revalidate: 60, tags: ['artists', 'news'] },
-)
+}
+
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata(): Promise<Metadata> {
   const [t, { labelName }] = await Promise.all([
@@ -34,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AboutPage() {
-  const { siteSettings, artists, news } = await getCachedAboutData().catch(() => ({
+  const { siteSettings, artists, news } = await getAboutData().catch(() => ({
     siteSettings: null,
     artists: [],
     news: [],
