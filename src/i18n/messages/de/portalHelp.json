@@ -73,7 +73,7 @@
   "topic_analytics_tab_settlement_title": "Tab Settlement Ledger",
   "topic_analytics_tab_settlement_body": "Das Settlement Ledger zeigt laufende Salden, Carry-forwards und Tour-Settlements, wenn Finanzmodule aktiv sind. Prüfe vor Merch-Settlements oder SOS-Rechnungen. Ledger-Einträge sollten nach finalisierten Perioden mit Statements übereinstimmen.",
   "topic_analytics_tab_engagement_title": "Tab Engagement",
-  "topic_analytics_tab_engagement_body": "Engagement misst Traffic auf Artist Page, Fan Page und verwandten Web-Properties. Pageviews, Referrer und Geräte zeigen, wie Fans außerhalb von DSPs dich finden. Vergleiche mit Social-Posts oder Newsletter-Sends. Erfordert aktiviertes Site-Tracking für deinen Slug.",
+  "topic_analytics_tab_engagement_body": "Engagement misst die Aufrufe deiner {labelShortName}-Artist-Seite, deiner Fan-Seite und weiterer verbundener Websites. Seitenaufrufe, Verweisquellen und Geräte zeigen, wie Fans dich außerhalb von Streaming-Apps finden. Vergleiche Veränderungen mit Social-Media-Beiträgen oder Newsletter-Versand. Dafür muss die Website-Analyse für deinen Artist-Slug aktiviert sein.",
   "topic_analytics_tab_merch_title": "Tab Merch",
   "topic_analytics_tab_merch_body": "Bei verknüpftem Shopify- oder kompatiblem Merch-Store: Bestellungen, Umsatz und Top-Produkte. Kombiniere mit Tour-Merch-Settlement im Tour Planner. Sync-Frequenz hängt von der Store-Integration ab.",
   "topic_analytics_workflow_title": "Daten-Sync-Workflow",
