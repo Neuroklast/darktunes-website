@@ -98,7 +98,7 @@ describe('editor assistant catalog', () => {
     expect(result).toMatchObject({
       matches: [{
         name: 'NEUROKLAST',
-        bio: 'NEUROKLAST makes Hard Techno & industrial bass.\\n2026 is the current era.',
+        bio: 'NEUROKLAST makes Hard Techno & industrial bass.\n2026 is the current era.',
         latest_releases: [
           { title: 'Recent 2026', release_date: '2026-10-01' },
           { title: 'Older 2025', release_date: '2025-09-19' },
