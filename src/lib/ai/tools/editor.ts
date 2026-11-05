@@ -4,6 +4,8 @@
  */
 import { z } from 'zod'
 import { registerTool } from '@/lib/ai/tools/registry'
+import type { AiActor } from '@/lib/ai/auth/requireAiActor'
+import { stripHtml } from '@/lib/epk/migrate/stripHtml'
 
 const artistSearch = z.string().trim().min(2).max(100)
 const maxItems = z.number().int().min(1).max(15).optional()
@@ -27,9 +29,78 @@ const releaseSummary = z.object({
   smartlink_url: z.string().nullable(),
 })
 
+// Bios are saved as rich HTML. Strip markup BEFORE limiting the text so a
+// decorated paragraph cannot push the newest content out of the result.
+function publicBioText(html: string | null): string | null {
+  const plain = stripHtml(html)
+  if (!plain) return null
+  const maxLength = 1000
+  if (plain.length <= maxLength) return plain
+
+  const excerpt = plain.slice(0, maxLength)
+  const sentenceEnd = Math.max(
+    excerpt.lastIndexOf('. '),
+    excerpt.lastIndexOf('! '),
+    excerpt.lastIndexOf('? '),
+  )
+  if (sentenceEnd > maxLength / 2) return `${excerpt.slice(0, sentenceEnd + 1).trim()}…`
+  const lastSpace = excerpt.lastIndexOf(' ')
+  return `${excerpt.slice(0, lastSpace > 0 ? lastSpace : maxLength).trim()}…`
+}
+
+/** Shared source of truth for artist overviews and detailed catalog questions. */
+async function latestPublishedReleases(
+  db: AiActor['serviceDb'],
+  artistId: string,
+  limit: number,
+): Promise<z.infer<typeof releaseSummary>[]> {
+  const today = new Date().toISOString().slice(0, 10)
+  const [direct, related] = await Promise.all([
+    db.from('releases')
+      .select(publicReleaseSelect)
+      .eq('artist_id', artistId)
+      .eq('is_visible', true)
+      .eq('is_promo', false)
+      .lte('release_date', today)
+      .order('release_date', { ascending: false })
+      .limit(40),
+    db.from('release_artists')
+      .select('release_id')
+      .eq('artist_id', artistId)
+      .limit(60),
+  ])
+  if (direct.error || related.error) throw new Error('Published release lookup failed.')
+  const ids = [...new Set((related.data ?? []).map((row) => row.release_id))].slice(0, 40)
+  const linked = ids.length > 0
+    ? await db.from('releases')
+        .select(publicReleaseSelect)
+        .in('id', ids)
+        .eq('is_visible', true)
+        .eq('is_promo', false)
+        .lte('release_date', today)
+        .limit(40)
+    : { data: [], error: null }
+  if (linked.error) throw new Error('Published release credits lookup failed.')
+
+  return [...new Map([...(direct.data ?? []), ...(linked.data ?? [])]
+    .map((row) => [row.id, row] as const)).values()]
+    .sort((a, b) => b.release_date.localeCompare(a.release_date))
+    .slice(0, limit)
+    .map((row) => ({
+      title: row.title,
+      release_date: row.release_date,
+      type: row.type,
+      spotify_url: row.spotify_url,
+      apple_music_url: row.apple_music_url,
+      youtube_url: row.youtube_url,
+      bandcamp_url: row.bandcamp_url,
+      smartlink_url: row.smartlink_url,
+    }))
+}
+
 registerTool({
   name: 'search_editorial_artists',
-  description: 'Search the public darkTunes artist roster by name for published artist profiles, bios, genres and public links. Use for editorial artist background questions, not portal help. Does not access private artist or financial data.',
+  description: 'Search published artist profiles, clean bios, genres and public links. For a single matching artist this also returns the newest released catalog items with verified dates. Use for artist overviews; do not infer releases from biographies. Public data only.',
   input: z.object({ query: artistSearch, limit: maxItems }).strict(),
   output: z.object({
     matches: z.array(z.object({
@@ -41,6 +112,7 @@ registerTool({
       spotify_url: z.string().nullable(),
       apple_music_url: z.string().nullable(),
       instagram_url: z.string().nullable(),
+      latest_releases: z.array(releaseSummary),
     })),
   }),
   capabilities: [...EDITOR_CAPABILITIES],
@@ -50,21 +122,28 @@ registerTool({
   timeoutMs: 8_000,
   execute: async ({ query, limit }, { actor }) => {
     const { data, error } = await actor.serviceDb.from('artists')
-      .select('name,slug,bio,genres,website_url,spotify_url,apple_music_url,instagram_url')
+      .select('id,name,slug,bio,genres,website_url,spotify_url,apple_music_url,instagram_url')
       .eq('is_visible', true)
       .ilike('name', likePattern(query))
       .order('name')
       .limit(limit ?? 8)
     if (error) throw new Error('Published artist search failed.')
+    // A single artist overview must include catalog facts even when the
+    // model chooses only the profile tool and never calls the release tool.
+    const singleArtist = (data ?? []).length === 1 ? data![0] : null
+    const releases = singleArtist
+      ? await latestPublishedReleases(actor.serviceDb, singleArtist.id, 5)
+      : []
     return { matches: (data ?? []).map((row) => ({
       name: row.name,
       slug: row.slug,
-      bio: row.bio?.slice(0, 1000) ?? null,
+      bio: publicBioText(row.bio),
       genres: row.genres ?? [],
       website_url: row.website_url,
       spotify_url: row.spotify_url,
       apple_music_url: row.apple_music_url,
       instagram_url: row.instagram_url,
+      latest_releases: singleArtist ? releases : [],
     })) }
   },
 })
@@ -98,47 +177,10 @@ registerTool({
       return { artist: null, candidates: (artists ?? []).map((row) => row.name), releases: [] }
     }
 
-    const [direct, related] = await Promise.all([
-      db.from('releases')
-        .select(publicReleaseSelect)
-        .eq('artist_id', selected.id)
-        .eq('is_visible', true)
-        .eq('is_promo', false)
-        .order('release_date', { ascending: false })
-        .limit(40),
-      db.from('release_artists')
-        .select('release_id')
-        .eq('artist_id', selected.id)
-        .limit(60),
-    ])
-    if (direct.error || related.error) throw new Error('Published release lookup failed.')
-    const ids = [...new Set((related.data ?? []).map((row) => row.release_id))].slice(0, 40)
-    const linked = ids.length > 0
-      ? await db.from('releases')
-          .select(publicReleaseSelect)
-          .in('id', ids)
-          .eq('is_visible', true)
-          .eq('is_promo', false)
-          .limit(40)
-      : { data: [], error: null }
-    if (linked.error) throw new Error('Published release credits lookup failed.')
-    const unique = [...new Map([...(direct.data ?? []), ...(linked.data ?? [])]
-      .map((row) => [row.id, row] as const)).values()]
-      .sort((a, b) => b.release_date.localeCompare(a.release_date))
-      .slice(0, limit ?? 10)
     return {
       artist: selected.name,
       candidates: [],
-      releases: unique.map((row) => ({
-        title: row.title,
-        release_date: row.release_date,
-        type: row.type,
-        spotify_url: row.spotify_url,
-        apple_music_url: row.apple_music_url,
-        youtube_url: row.youtube_url,
-        bandcamp_url: row.bandcamp_url,
-        smartlink_url: row.smartlink_url,
-      })),
+      releases: await latestPublishedReleases(db, selected.id, limit ?? 10),
     }
   },
 })
