@@ -2,7 +2,7 @@
  * Enterprise i18n contract (CI).
  *
  * Fails on:
- * 1. en/de key-tree parity for portal + admin (and nested leaves)
+ * 1. en/de/fr key-tree parity and ICU placeholders for every namespace
  * 2. Static t('key') / tToast('key') / portalKey('key') missing from dictionaries
  * 3. Hardcoded toast.*( '…' ) / window.confirm( '…' ) user-facing English in scoped UI
  * 4. ROUTE_BUNDLES missing portal on /admin and /editor (shared portal components)
@@ -67,30 +67,53 @@ const errors = []
 const warnings = []
 
 // ── 1. Parity ──────────────────────────────────────────────────────────────
-const portalEn = loadJson('src/i18n/messages/en/portal.json')
-const portalDe = loadJson('src/i18n/messages/de/portal.json')
-const portalFr = loadJson('src/i18n/messages/fr/portal.json')
-const adminEn = loadJson('src/i18n/messages/en/admin.json')
-const adminDe = loadJson('src/i18n/messages/de/admin.json')
-const adminFr = loadJson('src/i18n/messages/fr/admin.json')
+const localeRoot = path.join(root, 'src/i18n/messages')
+const namespaces = fs.readdirSync(path.join(localeRoot, 'en'))
+  .filter((filename) => filename.endsWith('.json'))
+  .map((filename) => filename.replace(/\.json$/, ''))
 
-const pairs = [
-  ['portal.de', portalEn, portalDe],
-  ['portal.fr', portalEn, portalFr],
-  ['admin.de', adminEn, adminDe],
-  ['admin.fr', adminEn, adminFr],
-]
+function placeholders(message) {
+  return [...String(message).matchAll(/\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*(?:[,}])/g)]
+    .map((match) => match[1])
+    .sort()
+}
 
-for (const [name, en, de] of pairs) {
-  const enK = flatKeys(en)
-  const deK = flatKeys(de)
-  for (const k of enK) {
-    if (!deK.has(k)) errors.push(`[parity] ${name} missing in de: ${k}`)
+function flattenValues(obj, prefix = '', out = {}) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return out
+  for (const [key, value] of Object.entries(obj)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      flattenValues(value, fullKey, out)
+    } else {
+      out[fullKey] = value
+    }
   }
-  for (const k of deK) {
-    if (!enK.has(k)) errors.push(`[parity] ${name} missing in en: ${k}`)
+  return out
+}
+
+for (const namespace of namespaces) {
+  const en = flattenValues(loadJson(`src/i18n/messages/en/${namespace}.json`))
+  for (const locale of ['de', 'fr']) {
+    const relPath = `src/i18n/messages/${locale}/${namespace}.json`
+    if (!fs.existsSync(path.join(root, relPath))) {
+      errors.push(`[parity] missing locale file: ${relPath}`)
+      continue
+    }
+    const translated = flattenValues(loadJson(relPath))
+    for (const key of Object.keys(en)) {
+      if (!(key in translated)) {
+        errors.push(`[parity] ${namespace}.${locale} missing key: ${key}`)
+      } else if (JSON.stringify(placeholders(en[key])) !== JSON.stringify(placeholders(translated[key]))) {
+        errors.push(`[parameters] ${namespace}.${locale} placeholder mismatch: ${key}`)
+      }
+    }
+    for (const key of Object.keys(translated)) {
+      if (!(key in en)) errors.push(`[parity] ${namespace}.${locale} extra key: ${key}`)
+    }
   }
 }
+const portalEn = loadJson('src/i18n/messages/en/portal.json')
+const adminEn = loadJson('src/i18n/messages/en/admin.json')
 
 // ── 2. ROUTE_BUNDLES must load portal on admin/editor ─────────────────────
 const loadMessagesSrc = fs.readFileSync(path.join(root, 'src/i18n/loadMessages.ts'), 'utf8')
@@ -281,5 +304,5 @@ if (errors.length) {
 }
 
 console.log(
-  `[i18n] OK — parity, bundles, key refs, zero toast/confirm hardcodes${fs.existsSync(baselinePath) ? ', baseline growth check' : ''}`,
+  `[i18n] OK — all-namespace parity and placeholders, bundles, key refs, zero toast/confirm hardcodes${fs.existsSync(baselinePath) ? ', baseline growth check' : ''}`,
 )
