@@ -51,6 +51,24 @@ export interface Database {
           }
         ]
       }
+      sos_logo_assets: {
+        Row: {
+          id: string
+          data_url: string
+          created_at: string
+        }
+        Insert: {
+          id: string
+          data_url: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          data_url?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       sos_rules_presets: {
         Row: {
           id: string
