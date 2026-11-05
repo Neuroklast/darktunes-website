@@ -158,7 +158,10 @@ export async function resolveEffectiveAccess(
 
   if (isAdmin) {
     applyRoleBaseCapabilities('admin', permissions, capabilities)
-    const custom = await loadCustomGrants(client, userId)
+    // Base admin access is already established by the verified primary role.
+    // Optional custom role labels must not make admins unavailable during an
+    // unrelated custom-role table outage.
+    const custom = await loadCustomGrants(client, userId).catch(() => ({ roleNames: [] }))
     return {
       primaryRole: effectivePrimary,
       allRoles,
