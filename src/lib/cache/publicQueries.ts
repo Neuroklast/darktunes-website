@@ -30,8 +30,8 @@ import type { Release, NewsPost, Video, Concert, SiteSettings } from '@/types'
 
 // Rely on on-demand revalidateTag() webhooks (/api/revalidate-content) rather than
 // short-lived TTLs. A 1-hour TTL caps staleness when webhooks miss; content
-// maintenance (scheduled publish, hero enforcement, emoji cleanup) now runs via
-// the Supabase Cron → Edge Function pipeline to keep the read path read-only.
+// non-news maintenance runs separately. Scheduled news is evaluated by its
+// publish date during each public request without any background status write.
 const TTL = 3600 // seconds
 
 /**
@@ -93,13 +93,14 @@ export const getCachedCalendarConcerts: () => Promise<Concert[]> = withUncachedF
   'portal-calendar-concerts',
 )
 
-/** All public news posts, cache-keyed to the `news` tag. */
+/**
+ * News is time-sensitive: storing a due-only query in the Data Cache would
+ * hide posts scheduled after the cache entry was created until the TTL expires.
+ * React cache() coalesces multiple calls within one server request only.
+ * Other site catalogues keep their tagged Data Cache entries.
+ */
 export const getCachedPublicNews: () => Promise<NewsPost[]> = withUncachedFallback(
-  unstable_cache(
-    async (): Promise<NewsPost[]> => getPublicNewsPosts(createPublicSupabaseClient()),
-    ['public-news'],
-    { revalidate: TTL, tags: ['news'] },
-  ),
+  async (): Promise<NewsPost[]> => getPublicNewsPosts(createPublicSupabaseClient()),
   [],
   'public-news',
 )
