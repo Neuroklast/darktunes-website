@@ -99,4 +99,44 @@ describe('shared GPT approval slider', () => {
     expect(screen.getByRole('heading', { name: 'First' })).toBeTruthy()
     expect(fetchMock).not.toHaveBeenCalled()
   })
+  it('shows complete secure release links in the compact card and full details', () => {
+    const url = 'https://frozenplasma.bandcamp.com/album/safe-dead-harm?source=' + 'release-review-'.repeat(18)
+    const oldUrl = 'https://example.com/old-release'
+    const row: McpReviewRow = {
+      ...approval('00000000-0000-4000-8000-000000000004', 'Release update'),
+      action: 'update_cms_release',
+      payload: {
+        display_name: 'Safe.Dead.Harm',
+        before: { bandcamp_url: oldUrl },
+        changes: { bandcamp_url: url },
+      },
+    }
+    render(<McpReviewQueue initialPending={[row]} recentHistory={[]} labels={labels} locale="en" />)
+
+    const link = screen.getByRole('link', { name: url })
+    expect(link.getAttribute('href')).toBe(url)
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toContain('noopener')
+    expect(link.closest('p')?.className).not.toContain('truncate')
+    expect(link.closest('p')?.className).toContain('[overflow-wrap:anywhere]')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+    expect(screen.getAllByRole('link', { name: url })).toHaveLength(2)
+    expect(screen.getAllByRole('link', { name: oldUrl })).toHaveLength(2)
+  })
+
+  it('linkifies URLs embedded in text without linking unsafe schemes or trailing punctuation', () => {
+    const row: McpReviewRow = {
+      ...approval('00000000-0000-4000-8000-000000000005', 'Links'),
+      action: 'update_cms_release',
+      payload: { changes: { notes: 'See https://example.com/release?a=1&b=2. Not javascript:alert(1)' } },
+    }
+    render(<McpReviewQueue initialPending={[row]} recentHistory={[]} labels={labels} locale="en" />)
+
+    const link = screen.getByRole('link', { name: 'https://example.com/release?a=1&b=2' })
+    expect(link.getAttribute('href')).toBe('https://example.com/release?a=1&b=2')
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+    expect(screen.getByText(/javascript:alert/)).toBeTruthy()
+  })
+
 })
