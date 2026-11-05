@@ -34,12 +34,13 @@ export const getUserRole = cache(async (userId: string): Promise<ActiveUserRole 
       },
     },
   )
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('users')
     .select('role')
     .eq('id', userId)
     .maybeSingle()
 
+  if (error) throw new Error('Failed to load user role', { cause: error })
   return normalizeRole(profile?.role ?? null)
 })
 
@@ -51,12 +52,13 @@ export const getUserRoleWithClient = cache(async (
   client: ReturnType<typeof createClient<Database>>,
   userId: string,
 ): Promise<ActiveUserRole | null> => {
-  const { data: profile } = await client
+  const { data: profile, error } = await client
     .from('users')
     .select('role')
     .eq('id', userId)
     .maybeSingle()
 
+  if (error) throw new Error('Failed to load user role', { cause: error })
   return normalizeRole(profile?.role ?? null)
 })
 
@@ -65,10 +67,14 @@ export const getUserRolesWithClient = cache(async (
   client: ReturnType<typeof createClient<Database>>,
   userId: string,
 ): Promise<ActiveUserRole[]> => {
-  const [{ data: profile }, { data: roleRows }] = await Promise.all([
+  const [{ data: profile, error: profileError }, { data: roleRows, error: rolesError }] = await Promise.all([
     client.from('users').select('role').eq('id', userId).maybeSingle(),
     client.from('user_roles').select('role').eq('user_id', userId),
   ])
+
+  if (profileError || rolesError) {
+    throw new Error('Failed to load assigned user roles', { cause: profileError ?? rolesError })
+  }
 
   return normalizeRoles([
     profile?.role ?? '',
