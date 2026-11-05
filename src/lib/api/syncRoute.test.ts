@@ -6,7 +6,6 @@ const ORIGINAL_ENV = { ...process.env }
 let waitUntilPromise: Promise<unknown> | null = null
 
 const recordCronTick = vi.fn(async () => {})
-const publishScheduledNewsPosts = vi.fn(async () => 0)
 const getSyncCredentials = vi.fn(async () => ({}))
 const acquireSyncWorkerLease = vi.fn(async () => true)
 const releaseSyncWorkerLease = vi.fn(async () => {})
@@ -48,10 +47,6 @@ vi.mock('@/lib/r2Utils', () => ({
 
 vi.mock('@/lib/secrets/getExternalCredentials', () => ({
   getSyncCredentials,
-}))
-
-vi.mock('@/lib/api/news', () => ({
-  publishScheduledNewsPosts,
 }))
 
 vi.mock('@/lib/sync/syncAll', () => ({
@@ -121,7 +116,6 @@ describe('POST /api/sync', () => {
 
     expect(res.status).toBe(200)
     expect(body).toEqual({ accepted: true, alreadyRunning: false })
-    expect(publishScheduledNewsPosts).toHaveBeenCalled()
     expect(recordCronTick).toHaveBeenCalledWith(expect.anything(), 'worker', 'ok')
     expect(startSyncRun).toHaveBeenCalledWith(expect.anything(), 'cron')
 
@@ -241,6 +235,5 @@ describe('POST /api/sync', () => {
     const res = await POST(new NextRequest('https://darktunes.com/api/sync', { method: 'POST' }))
     expect(res.status).toBe(401)
     expect(acquireSyncWorkerLease).not.toHaveBeenCalled()
-    expect(publishScheduledNewsPosts).not.toHaveBeenCalled()
   })
 })
