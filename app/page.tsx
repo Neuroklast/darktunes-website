@@ -2,14 +2,14 @@
  * app/page.tsx — Home page (React Server Component)
  *
  * Data is fetched server-side here using the Supabase server client.
- * Next.js 15 no longer caches fetch/GET by default, so we explicitly use
- * the unstable_cache helpers from src/lib/cache/publicQueries.ts (tagged, 1h TTL
- * plus on-demand revalidation).
- * This prevents per-request Supabase queries while keeping data fresh.
+ * Other catalogues stay tagged/cached, but scheduled news must use a fresh
+ * publication-time query so that future news cannot be delayed by a stale TTL.
  *
  * The fetched data is passed as props to HomePageContent (Client Component)
  * following the IoC principle: RSC owns data fetching, client owns rendering.
  */
+
+export const dynamic = 'force-dynamic'
 
 import type { Metadata } from 'next'
 import { HomePageContent } from './_components/HomePageContent'
