@@ -81,7 +81,7 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
       setAdjustments(result.adjustments)
       setError('')
     } catch (err) { setError(err instanceof Error ? err.message : t('loadFailed')) }
-  }, [])
+  }, [t])
   useEffect(() => { void load() }, [load])
 
   const save = async () => {
@@ -223,7 +223,7 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
           <td className="whitespace-nowrap p-2">{new Date(row.created_at).toLocaleString(locale)}</td>
           <td className="p-2">{row.scope}: {row.scope_id}</td>
           <td className="break-all p-2">{row.model}</td>
-          <td className="p-2">{row.refunded_at ? `0 (${t('refunded', { count: row.original_charged_credits ?? 0 })})` : row.settled_at ? row.charged_credits  : t('reserved')}</td>
+          <td className="p-2">{row.refunded_at ? `0 (${t('refunded', { count: row.original_charged_credits ?? 0 })})` : row.settled_at ? row.charged_credits : t('reserved')}</td>
           <td className="p-2">{row.provider_cost_eur === null ? '–' : Number(row.provider_cost_eur).toFixed(6)}</td>
         </tr>)}</tbody>
       </table>
