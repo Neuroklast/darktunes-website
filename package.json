@@ -192,27 +192,8 @@
     "exceljs": {
       "uuid": "^11.1.1"
     },
-    "@typescript-eslint/typescript-estree": {
-      "minimatch": "9.0.7"
-    },
-    "@eslint/config-array": {
-      "minimatch": "9.0.7"
-    },
     "@eslint/eslintrc": {
-      "minimatch": "9.0.7",
       "js-yaml": "^4.3.2"
-    },
-    "eslint": {
-      "minimatch": "9.0.7"
-    },
-    "eslint-config-next": {
-      "minimatch": "9.0.7"
-    },
-    "@ts-morph/common": {
-      "minimatch": "9.0.7"
-    },
-    "rimraf": {
-      "minimatch": "9.0.7"
     },
     "smol-toml": "^1.8.0",
     "postcss": "^8.5.18",
