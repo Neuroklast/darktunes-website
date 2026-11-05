@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
@@ -75,13 +75,52 @@ function shortValue(value: unknown): string {
   return Object.keys(asRecord(value)).length + ' fields'
 }
 
+// Linkify plain text only. React escapes the remaining content and we accept
+// only absolute HTTP(S) URLs, never user-supplied markup or script schemes.
+const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/gi
+
+function LinkedText({ text }: { text: string }) {
+  const parts: ReactNode[] = []
+  let cursor = 0
+
+  for (const match of text.matchAll(URL_PATTERN)) {
+    const start = match.index
+    const url = match[0].replace(/[.,;:!?)}\]]+$/g, '')
+    if (!url) continue
+    try {
+      const parsed = new URL(url)
+      if (!['http:', 'https:'].includes(parsed.protocol)) continue
+    } catch {
+      continue
+    }
+
+    parts.push(text.slice(cursor, start))
+    parts.push(
+      <a key={start} href={url} target="_blank" rel="noopener noreferrer"
+        className="text-primary underline underline-offset-2 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+        {url}
+      </a>,
+    )
+    cursor = start + url.length
+  }
+  parts.push(text.slice(cursor))
+  return <>{parts}</>
+}
+
+function PreviewValue({ value }: { value: unknown }) {
+  // URLs must be complete even in the compact review card, not ellipsized.
+  const text = typeof value === 'string' && /https?:\/\//i.test(value)
+    ? value : shortValue(value)
+  return <LinkedText text={text} />
+}
+
 function FullValue({ value }: { value: unknown }) {
   if (value === undefined || value === null || value === '') {
     return <span className="text-muted-foreground">—</span>
   }
   return (
-    <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/40 p-3 font-mono text-xs">
-      {typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
+    <pre className="max-h-72 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded-md border border-border bg-muted/40 p-3 font-mono text-xs">
+      <LinkedText text={typeof value === 'string' ? value : JSON.stringify(value, null, 2)} />
     </pre>
   )
 }
@@ -271,20 +310,20 @@ export function McpReviewQueue({
                 onClick={() => setDetailOpen(true)}>{labels.details}</button>
             </div>
             {changes.length ? (
-              <div className="grid min-h-0 content-start gap-2 overflow-hidden md:grid-cols-2">
+              <div className="grid min-h-0 content-start gap-2 overflow-y-auto overscroll-contain md:grid-cols-2">
                 {changes.filter(([key]) => key !== 'display_name').slice(0, 4).map(([key, before, after], i) => (
                   <div key={key} className={'min-w-0 rounded-md border border-border bg-muted/30 p-3 ' + (i > 1 ? 'hidden md:block' : '')}>
                     <p className="truncate text-xs font-semibold">{labelField(key)}</p>
                     {active.action !== 'create_cms_news_draft' ?
-                      <p className="mt-2 truncate text-xs text-muted-foreground">{labels.before}: {shortValue(before)}</p> : null}
-                    <p className="mt-1 truncate text-sm" title={shortValue(after)}>
-                      {labels.after}: {shortValue(after)}
+                      <p className="mt-2 min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere] text-xs text-muted-foreground">{labels.before}: <PreviewValue value={before} /></p> : null}
+                    <p className="mt-1 min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm">
+                      {labels.after}: <PreviewValue value={after} />
                     </p>
                   </div>
                 ))}
               </div>
             ) : <p className="text-sm text-muted-foreground">{labels.noChanges}</p>}
-            <p className="mt-auto shrink-0 text-xs text-muted-foreground">{labels.preparing}</p>
+            <p className="mt-auto shrink-0 pt-2 text-xs text-muted-foreground">{labels.preparing}</p>
           </div>
           <footer aria-label={labels.review} className="grid shrink-0 grid-cols-2 gap-2 border-t border-border p-3 sm:grid-cols-4 sm:px-6">
             <button type="button" onClick={() => navigate(-1)} disabled={queue.length < 2}
