@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 
 interface Price { input_per_million_eur: number; output_per_million_eur: number; reasoning_per_million_eur?: number; free_tier_confirmed?: boolean }
 interface Settings {
@@ -53,6 +53,7 @@ async function headers() {
 
 export function AdminCreditPanel({ models, availableModels = [] }: { models: string[]; availableModels?: Array<{ id: string; name: string }> }) {
   const t = useTranslations('ai.admin.credits')
+  const locale = useLocale()
   const [settings, setSettings] = useState<Settings | null>(null)
   const [extraModel, setExtraModel] = useState('')
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -71,7 +72,7 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
   const load = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/ai/credits', { headers: await headers(), cache: 'no-store' })
-      if (!response.ok) throw new Error('Credit database unavailable. Apply supabase/reset.sql first.')
+      if (!response.ok) throw new Error(t('databaseUnavailable'))
       const result = await response.json() as { settings: Settings; accounts: Account[]; summary: CostSummary; recent: Transaction[]; adjustments: Adjustment[] }
       setSettings(result.settings)
       setAccounts(result.accounts)
@@ -79,7 +80,7 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
       setRecent(result.recent)
       setAdjustments(result.adjustments)
       setError('')
-    } catch (err) { setError(err instanceof Error ? err.message : 'Failed to load credits') }
+    } catch (err) { setError(err instanceof Error ? err.message : t('loadFailed')) }
   }, [])
   useEffect(() => { void load() }, [load])
 
@@ -91,11 +92,11 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
         method: 'PATCH', headers: await headers(), body: JSON.stringify(creditSettingsPayload(settings)),
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.message ?? data.error ?? 'Could not save credits')
+      if (!response.ok) throw new Error(data.message ?? data.error ?? t('settingsFailed'))
       setSettings(data.settings as Settings)
-      setNotice('Credit settings saved.')
+      setNotice(t('settingsSaved'))
       await load()
-    } catch (err) { setError(err instanceof Error ? err.message : 'Could not save credits') }
+    } catch (err) { setError(err instanceof Error ? err.message : t('settingsFailed')) }
     finally { setBusy(false) }
   }
   const submitAdjustment = async () => {
@@ -110,12 +111,12 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
           delta_credits: Number(adjustDelta), reason: adjustReason.trim() }),
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.message ?? data.error ?? 'Credit adjustment failed')
+      if (!response.ok) throw new Error(data.message ?? data.error ?? t('adjustmentFailed'))
       adjustmentRequestId.current = null
       await load()
-      setNotice('Creditbuchung gespeichert.')
+      setNotice(t('adjustmentSaved'))
       setAdjustReason('')
-    } catch (err) { setError(err instanceof Error ? err.message : 'Credit adjustment failed') }
+    } catch (err) { setError(err instanceof Error ? err.message : t('adjustmentFailed')) }
     finally { setBusy(false) }
   }
 
@@ -130,8 +131,8 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
   const tariffModels = Array.from(new Set([...models.filter(Boolean), ...Object.keys(settings?.model_prices ?? {}), extraModel].filter(Boolean)))
   return <div className="space-y-4">
     <Card>
-      <CardHeader><CardTitle>KI-Credits</CardTitle>
-        <CardDescription>1 Credit = 0,001 € kalkulierte KI-Kosten. Credits werden pro Artist gemeinsam verwaltet. Preise in Euro je 1 Million Tokens. Bis zur Aktivierung gelten weiterhin die bisherigen Tokenlimits.</CardDescription>
+      <CardHeader><CardTitle>{t('title')}</CardTitle>
+        <CardDescription>{t('description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
@@ -139,15 +140,15 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
         {settings && <>
           <div className="flex items-center gap-3"><Switch id="credit-enabled" checked={settings.enabled}
             onCheckedChange={enabled => setSettings(old => old && ({ ...old, enabled }))} />
-            <Label htmlFor="credit-enabled">Creditlimits aktivieren</Label></div>
+            <Label htmlFor="credit-enabled">{t("enableLimits")}</Label></div>
           <div className="grid gap-3 sm:grid-cols-4">
-            {numberField('artist_monthly', 'Artist pro Monat')}
-            {numberField('editor_monthly', 'Editor pro Monat')}
-            {numberField('admin_monthly', 'Admin pro Monat')}
-            {numberField('buffer_percent', 'Puffer %')}
+            {numberField('artist_monthly', t('artistPerMonth'))}
+            {numberField('editor_monthly', t('editorPerMonth'))}
+            {numberField('admin_monthly', t('adminPerMonth'))}
+            {numberField('buffer_percent', t('bufferPercent'))}
           </div>
           <div className="space-y-1">
-            <Label htmlFor="credit-extra-model">Zusätzliches Chatmodell für einen Anbieterwechsel bepreisen</Label>
+            <Label htmlFor="credit-extra-model">{t("extraModel")}</Label>
             <select id="credit-extra-model" value={extraModel} onChange={e => {
               const selectedModel = e.target.value
               setExtraModel(selectedModel)
@@ -164,7 +165,7 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
               }
             }}
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="">Modell auswählen…</option>
+              <option value="">{t("selectModel")}</option>
               {availableModels.filter(m => !tariffModels.includes(m.id) || m.id === extraModel).map(m =>
                 <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
@@ -179,7 +180,7 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
               <div className="grid gap-3 sm:grid-cols-3">
                 {(['input_per_million_eur','output_per_million_eur','reasoning_per_million_eur'] as const).map(key =>
                   <div key={key} className="space-y-1">
-                    <Label>{key === 'input_per_million_eur' ? 'Input €/M' : key === 'output_per_million_eur' ? 'Output €/M' : 'Reasoning €/M (optional)'}</Label>
+                    <Label>{key === 'input_per_million_eur' ? t('inputPerMillion') : key === 'output_per_million_eur' ? t('outputPerMillion') : t('reasoningPerMillion')}</Label>
                     <Input type="number" min="0" step="0.001" value={p[key] ?? ''}
                       onChange={e => change(key, Number(e.target.value) || 0)} />
                   </div>)}
@@ -189,24 +190,24 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
                   onChange={e => setSettings(old => old && ({
                     ...old, model_prices: { ...old.model_prices, [model]: { ...p, free_tier_confirmed: e.target.checked } },
                   }))} />
-                Nulltarif von diesem Anbieter/Konto ausdrücklich bestätigt
+                {t('freeTierConfirmed')}
               </label>
             </div>
           })}
-          <Button onClick={() => void save()} disabled={busy}>{busy ? 'Speichern…' : 'Credits speichern'}</Button>
+          <Button onClick={() => void save()} disabled={busy}>{busy ? t('saving') : t('saveSettings')}</Button>
         </>}
       </CardContent>
     </Card>
-    <Card><CardHeader><CardTitle>KI-Kosten im aktuellen Monat</CardTitle>
-      <CardDescription>Providerkosten und interne Credits aus den tatsächlich abgeschlossenen Buchungen.</CardDescription>
+    <Card><CardHeader><CardTitle>{t('costTitle')}</CardTitle>
+      <CardDescription>{t('costDescription')}</CardDescription>
     </CardHeader><CardContent className="space-y-3">
       <div className="flex flex-wrap gap-6 text-sm">
-        <div>Providerkosten: <strong>{Number(summary?.provider_cost_eur ?? 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 4, maximumFractionDigits: 6 })}</strong></div>
-        <div>Credits: <strong>{summary?.charged_credits ?? 0}</strong></div>
-        <div>Abgerechnete Runden: <strong>{summary?.calls ?? 0}</strong></div>
+        <div>{t('providerCosts')}: <strong>{Number(summary?.provider_cost_eur ?? 0).toLocaleString(locale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 4, maximumFractionDigits: 6 })}</strong></div>
+        <div>{t('credits')}: <strong>{summary?.charged_credits ?? 0}</strong></div>
+        <div>{t('billedCalls')}: <strong>{summary?.calls ?? 0}</strong></div>
       </div>
       <div className="overflow-auto">
-        <table className="w-full text-left text-sm"><thead><tr><th className="p-2">Modell</th><th className="p-2">Kosten €</th><th className="p-2">Credits</th><th className="p-2">Runden</th></tr></thead>
+        <table className="w-full text-left text-sm"><thead><tr><th className="p-2">{t('model')}</th><th className="p-2">{t('costsEur')}</th><th className="p-2">{t('credits')}</th><th className="p-2">{t('calls')}</th></tr></thead>
           <tbody>{summary?.by_model.map(m => <tr key={m.model} className="border-t">
             <td className="break-all p-2">{m.model}</td><td className="p-2">{Number(m.provider_cost_eur).toFixed(6)}</td>
             <td className="p-2">{m.charged_credits}</td><td className="p-2">{m.calls}</td>
@@ -214,54 +215,54 @@ export function AdminCreditPanel({ models, availableModels = [] }: { models: str
         </table>
       </div>
     </CardContent></Card>
-    <Card><CardHeader><CardTitle>Letzte Creditbuchungen</CardTitle>
-      <CardDescription>Die letzten 30 Reservierungen mit ihren tatsächlichen Providerkosten und berechneten Credits.</CardDescription>
+    <Card><CardHeader><CardTitle>{t("recentTitle")}</CardTitle>
+      <CardDescription>{t('recentDescription')}</CardDescription>
     </CardHeader><CardContent className="overflow-auto">
-      <table className="w-full text-left text-sm"><thead><tr><th className="p-2">Zeit</th><th className="p-2">Konto</th><th className="p-2">Modell</th><th className="p-2">Credits</th><th className="p-2">Kosten €</th></tr></thead>
+      <table className="w-full text-left text-sm"><thead><tr><th className="p-2">{t('time')}</th><th className="p-2">{t('account')}</th><th className="p-2">{t('model')}</th><th className="p-2">{t('credits')}</th><th className="p-2">{t('costsEur')}</th></tr></thead>
         <tbody>{recent.map(row => <tr key={row.request_id} className="border-t">
-          <td className="whitespace-nowrap p-2">{new Date(row.created_at).toLocaleString('de-DE')}</td>
+          <td className="whitespace-nowrap p-2">{new Date(row.created_at).toLocaleString(locale)}</td>
           <td className="p-2">{row.scope}: {row.scope_id}</td>
           <td className="break-all p-2">{row.model}</td>
-          <td className="p-2">{row.refunded_at ? `0 (erstattet: ${row.original_charged_credits ?? 0})` : row.settled_at ? row.charged_credits : 'reserviert'}</td>
+          <td className="p-2">{row.refunded_at ? `0 (${t('refunded', { count: row.original_charged_credits ?? 0 })})` : row.settled_at ? row.charged_credits  : t('reserved')}</td>
           <td className="p-2">{row.provider_cost_eur === null ? '–' : Number(row.provider_cost_eur).toFixed(6)}</td>
         </tr>)}</tbody>
       </table>
     </CardContent></Card>
-    <Card><CardHeader><CardTitle>Credits manuell anpassen</CardTitle>
-      <CardDescription>Gutschriften und Korrekturen gelten für den laufenden UTC-Monat und werden mit Grund und Admin-ID protokolliert.</CardDescription>
+    <Card><CardHeader><CardTitle>{t('adjustTitle')}</CardTitle>
+      <CardDescription>{t('adjustDescription')}</CardDescription>
     </CardHeader><CardContent className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-4">
-        <div className="space-y-1"><Label>Kontotyp</Label>
+        <div className="space-y-1"><Label>{t('accountType')}</Label>
           <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
             value={adjustScope} onChange={e => { setAdjustScope(e.target.value as 'artist' | 'editor' | 'admin'); adjustmentRequestId.current = null }}>
-            <option value="artist">Artist</option><option value="editor">Editor</option><option value="admin">Label / Admin</option>
+            <option value="artist">{t("scopeArtist")}</option><option value="editor">{t("scopeEditor")}</option><option value="admin">{t("scopeAdmin")}</option>
           </select></div>
-        <div className="space-y-1"><Label>Artist- oder Nutzer-ID</Label>
+        <div className="space-y-1"><Label>{t('artistOrUserId')}</Label>
           <Input value={adjustScope === 'admin' ? 'label' : adjustId}
             disabled={adjustScope === 'admin'} placeholder="UUID" onChange={e => { setAdjustId(e.target.value); adjustmentRequestId.current = null }} /></div>
         <div className="space-y-1"><Label>Credits (+/-)</Label>
           <Input type="number" step="1" value={adjustDelta} onChange={e => { setAdjustDelta(e.target.value); adjustmentRequestId.current = null }} /></div>
-        <div className="space-y-1"><Label>Begründung</Label>
+        <div className="space-y-1"><Label>{t('reason')}</Label>
           <Input value={adjustReason} maxLength={500} onChange={e => { setAdjustReason(e.target.value); adjustmentRequestId.current = null }} /></div>
       </div>
       <Button disabled={busy || adjustReason.trim().length < 3 || Number(adjustDelta) === 0}
-        onClick={() => void submitAdjustment()}>Creditbuchung speichern</Button>
+        onClick={() => void submitAdjustment()}>{t('saveAdjustment')}</Button>
     </CardContent></Card>
-    <Card><CardHeader><CardTitle>Letzte Admin-Korrekturen</CardTitle></CardHeader>
+    <Card><CardHeader><CardTitle>{t('recentAdjustments')}</CardTitle></CardHeader>
       <CardContent className="overflow-auto"><table className="w-full text-left text-sm">
-        <thead><tr><th className="p-2">Datum</th><th className="p-2">Konto</th><th className="p-2">Credits</th><th className="p-2">Grund</th></tr></thead>
+        <thead><tr><th className="p-2">{t('date')}</th><th className="p-2">{t('account')}</th><th className="p-2">{t('credits')}</th><th className="p-2">{t('reason')}</th></tr></thead>
         <tbody>{adjustments.map(a => <tr key={a.id} className="border-t">
-          <td className="whitespace-nowrap p-2">{new Date(a.created_at).toLocaleString('de-DE')}</td>
+          <td className="whitespace-nowrap p-2">{new Date(a.created_at).toLocaleString(locale)}</td>
           <td className="p-2">{a.scope}: {a.scope_id}</td><td className="p-2">{a.delta_credits > 0 ? '+' : ''}{a.delta_credits}</td>
           <td className="p-2">{a.reason}</td>
         </tr>)}</tbody>
       </table></CardContent></Card>
-    <Card><CardHeader><CardTitle>Creditkonten</CardTitle>
-      <CardDescription>Verbrauch inklusive laufender Reservierungen. Die Auswertung basiert auf Kontosalden und ist nicht auf 5.000 Events beschränkt.</CardDescription>
+    <Card><CardHeader><CardTitle>{t('accountsTitle')}</CardTitle>
+      <CardDescription>{t('accountsDescription')}</CardDescription>
     </CardHeader><CardContent>
       <div className="overflow-auto">
         <table className="w-full text-left text-sm">
-          <thead><tr><th className="p-2">Konto</th><th className="p-2">Monat</th><th className="p-2">Verbraucht</th><th className="p-2">Reserviert</th><th className="p-2">Verfügbar</th></tr></thead>
+          <thead><tr><th className="p-2">{t('account')}</th><th className="p-2">{t('month')}</th><th className="p-2">{t('used')}</th><th className="p-2">{t('reserved')}</th><th className="p-2">{t('available')}</th></tr></thead>
           <tbody>{accounts.map(a => <tr key={a.scope + a.scope_id + a.period_start} className="border-t">
             <td className="p-2"><button type="button" className="text-left underline-offset-2 hover:underline"
             title={t('selectAccountForAdjustment')}
