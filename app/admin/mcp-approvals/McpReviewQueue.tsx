@@ -84,7 +84,7 @@ function LinkedText({ text }: { text: string }) {
   let cursor = 0
 
   for (const match of text.matchAll(URL_PATTERN)) {
-    const start = match.index
+    const start = match.index ?? 0
     const url = match[0].replace(/[.,;:!?)}\]]+$/g, '')
     if (!url) continue
     try {
@@ -120,7 +120,7 @@ function FullValue({ value }: { value: unknown }) {
   }
   return (
     <pre className="max-h-72 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded-md border border-border bg-muted/40 p-3 font-mono text-xs">
-      <LinkedText text={typeof value === 'string' ? value : JSON.stringify(value, null, 2)} />
+      <LinkedText text={typeof value === 'string' ? value : JSON.stringify(value, null, 2) ?? '—'} />
     </pre>
   )
 }
