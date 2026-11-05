@@ -252,6 +252,8 @@ export interface LabelInfo {
   logo?: string
   /** Base64-encoded logo image used for display and export. Kept in sync with logo. */
   logoBase64?: string
+  /** Private content-addressed logo stored once for all SOS presets/workspaces. */
+  logoAssetId?: string
   /** Steuernummer (domestic German tax number, e.g. "123/456/78901"). */
   taxNumber?: string
   /** Umsatzsteuer-Identifikationsnummer (EU VAT ID, e.g. "DE123456789"). */
