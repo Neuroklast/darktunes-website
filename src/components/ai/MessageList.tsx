@@ -76,12 +76,12 @@ export function MessageList({
       <ScrollPanel
         ref={containerRef}
         onScroll={onScroll}
-        className="flex-1 px-3 py-4 sm:px-4"
+        className="min-w-0 flex-1 px-3 py-5 sm:px-6"
         role="log"
         aria-label={t('messageLog')}
         aria-live="off"
       >
-        <div className="mx-auto flex max-w-3xl flex-col gap-4">
+        <div className="mx-auto flex w-full max-w-[58rem] flex-col gap-5">
           {hasOlder ? (
             <div className="flex justify-center">
               <Button
@@ -196,8 +196,8 @@ function MessageBlock({
 
   if (message.role === 'user') {
     return (
-      <div className="flex w-full justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary/15 px-3.5 py-2.5 text-sm leading-relaxed text-foreground ring-1 ring-primary/25 [content-visibility:auto]">
+      <div className="flex min-w-0 w-full justify-end">
+        <div className="max-w-[90%] rounded-2xl rounded-br-md bg-primary/10 px-4 py-3 text-sm leading-[1.6] text-foreground ring-1 ring-primary/20 [content-visibility:auto] sm:max-w-[78%]">
           <p className="whitespace-pre-wrap break-words">{message.content}</p>
         </div>
       </div>
@@ -222,12 +222,12 @@ function MessageBlock({
   return (
     <article
       className={cn(
-        'group w-full max-w-[min(100%,52rem)] rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3 [content-visibility:auto]',
+        'group min-w-0 w-full rounded-xl border border-border/60 bg-card/60 px-4 py-4 shadow-sm [content-visibility:auto] sm:px-5',
         message.status === 'failed' && 'border-destructive/25',
       )}
     >
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
           <Sparkle className="h-3.5 w-3.5 text-primary" aria-hidden />
           <span>{t('assistantName')}</span>
         </div>
