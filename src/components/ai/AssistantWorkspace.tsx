@@ -50,6 +50,7 @@ export function AssistantWorkspace({
 }) {
   const t = useTranslations('ai')
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyCollapsed, setHistoryCollapsed] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const {
@@ -183,8 +184,14 @@ export function AssistantWorkspace({
               type="button"
               size="icon"
               variant="ghost"
-              className="h-8 w-8 md:hidden"
-              onClick={() => setHistoryOpen((value) => !value)}
+              className="h-8 w-8"
+              onClick={() => {
+                if (maximized && window.matchMedia('(min-width: 768px)').matches) {
+                  setHistoryCollapsed((value) => !value)
+                } else {
+                  setHistoryOpen((value) => !value)
+                }
+              }}
               aria-label={t('history')}
               aria-expanded={historyOpen}
             >
@@ -277,15 +284,28 @@ export function AssistantWorkspace({
       ) : null}
 
       <div className="relative flex min-h-0 flex-1">
+        {historyOpen ? (
+          <button
+            type="button"
+            className={cn('absolute inset-0 z-20 bg-black/50', maximized && 'md:hidden')}
+            aria-label={t('closeHistory')}
+            onClick={() => setHistoryOpen(false)}
+          />
+        ) : null}
         <aside
           className={cn(
-            'absolute inset-0 z-20 bg-background md:static md:z-auto md:w-64 md:shrink-0 md:border-r md:border-border',
-            historyOpen ? 'block' : 'hidden md:block',
+            'absolute inset-y-0 left-0 z-30 hidden w-[min(85vw,17rem)] bg-background shadow-xl',
+            historyOpen && 'block',
+            maximized && 'md:static md:z-auto md:w-[220px] md:shrink-0 md:border-r md:border-border md:shadow-none',
+            maximized && !historyCollapsed ? 'md:block' : 'md:hidden',
           )}
           aria-label={t('history')}
         >
           <div className="flex h-full min-h-0 flex-col">
-            <div className="flex items-center justify-between border-b border-border px-3 py-2 md:hidden">
+            <div className={cn(
+                'flex items-center justify-between border-b border-border px-3 py-2',
+                maximized && 'md:hidden',
+              )}>
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {t('history')}
               </span>
@@ -338,7 +358,7 @@ export function AssistantWorkspace({
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {!enabled && capabilities ? (
             <div className="border-b border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
               {capabilities.enabled ? t('featureDisabled') : t('disabled')}
