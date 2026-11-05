@@ -420,6 +420,7 @@ exports[`RLS Policies – supabase/reset.sql > snapshot: all tables with RLS ena
   "settlement_periods",
   "site_settings",
   "sos_accounting_workspaces",
+  "sos_logo_assets",
   "sos_period_summaries",
   "sos_rules_presets",
   "spotify_track_play_snapshots",
