@@ -10,7 +10,7 @@ import { Suspense } from 'react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { resolvePortalArtist } from '@/lib/api/artistProfiles'
 import { getConcertsByArtistId } from '@/lib/api/concerts'
-import { getNewsPosts } from '@/lib/api/news'
+import { getPublicNewsPosts } from '@/lib/api/news'
 import { getArtists } from '@/lib/api/artists'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EventManager } from './_components/EventManager'
@@ -40,7 +40,7 @@ async function EventsContent({ searchParams }: { searchParams: Promise<{ artistI
   const [concerts, allArtists, newsPosts] = await Promise.all([
     artist ? getConcertsByArtistId(supabase, artist.id).catch(() => []) : Promise.resolve([]),
     getArtists(supabase).catch(() => []),
-    getNewsPosts(supabase).catch(() => []),
+    getPublicNewsPosts(supabase).catch(() => []),
   ])
 
   return (
