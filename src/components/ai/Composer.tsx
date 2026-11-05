@@ -35,13 +35,13 @@ export function Composer({
 
   return (
     <form
-      className="shrink-0 border-t border-border bg-card/60 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      className="shrink-0 border-t border-border/70 bg-card/60 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6"
       onSubmit={(event) => {
         event.preventDefault()
         if (!busy && value.trim() && !disabled) onSend()
       }}
     >
-      <div className="flex items-end gap-2">
+      <div className="mx-auto flex max-w-[58rem] items-end gap-2 rounded-xl border border-input bg-background p-1.5 shadow-sm transition-colors focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/15">
         <textarea
           ref={ref}
           value={value}
@@ -51,13 +51,13 @@ export function Composer({
           disabled={disabled}
           aria-label={placeholder}
           className={cn(
-            'max-h-40 min-h-11 flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2.5',
+            'max-h-40 min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-2.5 py-2',
             'text-sm leading-relaxed text-foreground placeholder:text-muted-foreground',
-            'focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+            'focus-visible:outline-none',
             'disabled:cursor-not-allowed disabled:opacity-60',
           )}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
+            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault()
               if (!busy && value.trim() && !disabled) onSend()
             }
@@ -70,7 +70,7 @@ export function Composer({
             variant="secondary"
             onClick={onStop}
             aria-label={t('stop')}
-            className="h-11 w-11 shrink-0"
+            className="h-10 w-10 shrink-0 rounded-lg"
           >
             <Square className="h-4 w-4" aria-hidden />
           </Button>
@@ -86,7 +86,7 @@ export function Composer({
           </Button>
         )}
       </div>
-      <p className="mt-1.5 hidden text-[11px] text-muted-foreground sm:block">
+      <p className="mx-auto mt-1.5 hidden max-w-[58rem] text-right text-[11px] text-muted-foreground sm:block">
         {t('composerHint')}
       </p>
     </form>
