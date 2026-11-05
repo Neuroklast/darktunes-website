@@ -193,7 +193,7 @@ export function AssistantWorkspace({
                 }
               }}
               aria-label={t('history')}
-              aria-expanded={historyOpen}
+              aria-expanded={maximized ? !historyCollapsed : historyOpen}
             >
               <ClockCounterClockwise className="h-4 w-4" aria-hidden />
             </Button>
