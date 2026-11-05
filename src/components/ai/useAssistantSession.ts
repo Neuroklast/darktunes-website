@@ -610,6 +610,10 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
   )
 
   const stopInternal = useCallback(() => {
+    // Capture the context before selecting another artist changes the refs.
+    // Only cancel a conversation when this client actually has an in-flight turn.
+    const cancellingConversationId = sendingRef.current ? conversationIdRef.current : null
+    const cancellingArtistId = artistIdRef.current
     stoppedRef.current = true
     streamSeqRef.current += 1
     sendingRef.current = false
@@ -620,10 +624,9 @@ export function useAssistantSession(input: UseAssistantSessionInput) {
     setPhase('idle')
     setBusy(false)
     setActiveRequestId(null)
-    const id = conversationIdRef.current
-    if (id) {
+    if (cancellingConversationId) {
       void headers().then((auth) =>
-        fetch(`/api/ai/conversations/${id}/cancellations?${new URLSearchParams({ dashboard: input.dashboard, ...(artistIdRef.current ? { artist_id: artistIdRef.current } : {}) })}`, {
+        fetch(`/api/ai/conversations/${cancellingConversationId}/cancellations?${new URLSearchParams({ dashboard: input.dashboard, ...(cancellingArtistId ? { artist_id: cancellingArtistId } : {}) })}`, {
           method: 'POST',
           headers: auth,
         }).catch(() => undefined),
