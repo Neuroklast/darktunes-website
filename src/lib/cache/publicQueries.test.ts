@@ -33,9 +33,11 @@ vi.mock('@/lib/api/siteSettings', () => ({ getSiteSettings: vi.fn() }))
 import { logError } from '@/lib/observability/logger'
 import { getPublicReleases } from '@/lib/api/releases'
 import { getPublicVideos } from '@/lib/api/videos'
+import { getPublicNewsPosts } from '@/lib/api/news'
 import { getSiteSettings } from '@/lib/api/siteSettings'
 import {
   getCachedPublicReleases,
+  getCachedPublicNews,
   getCachedPublicVideos,
   getCachedSiteSettings,
 } from './publicQueries'
@@ -75,6 +77,15 @@ describe('publicQueries: errors are never cached', () => {
     await expect(callback(key)()).rejects.toBe(boom)
     await expect(getCachedPublicVideos(options)).resolves.toEqual([])
     expect(logError).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not use cross-request Data Cache for time-sensitive news', async () => {
+    const articles = [{ id: 'n1' }] as never
+    vi.mocked(getPublicNewsPosts).mockResolvedValue(articles)
+    expect(recorded.callbacks.has('public-news')).toBe(false)
+    await expect(getCachedPublicNews()).resolves.toBe(articles)
+    await expect(getCachedPublicNews()).resolves.toBe(articles)
+    expect(getPublicNewsPosts).toHaveBeenCalledTimes(2)
   })
 
   it('returns fetcher data on success', async () => {
