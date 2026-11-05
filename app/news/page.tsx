@@ -2,6 +2,8 @@
  * app/news/page.tsx — News list page [RSC]
  */
 
+export const dynamic = 'force-dynamic'
+
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
