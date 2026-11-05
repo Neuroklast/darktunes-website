@@ -1,7 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Plus, PencilSimple, Trash, MagnifyingGlass, Archive, Star, Copy } from '@phosphor-icons/react'
@@ -45,6 +45,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import type { NewsPost } from '@/types'
+import { effectiveNewsStatus, isNewsPublished } from '@/lib/news/effectiveStatus'
 
 type StatusFilter = 'all' | 'published' | 'draft' | 'scheduled' | 'archived'
 
@@ -77,6 +78,13 @@ export function NewsManager() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [bandFilter, setBandFilter] = useState<string>('all')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  // Update the derived status while the admin page stays open. No server polling.
+  useEffect(() => {
+    const handle = setInterval(() => setNowMs(Date.now()), 30_000)
+    return () => clearInterval(handle)
+  }, [])
 
   const allBandNames = useMemo(() => {
     const names = new Set<string>()
@@ -88,7 +96,7 @@ export function NewsManager() {
     const q = search.toLowerCase()
     return news
       .filter((p) => {
-        if (statusFilter !== 'all' && p.status !== statusFilter) return false
+        if (statusFilter !== 'all' && effectiveNewsStatus(p, nowMs) !== statusFilter) return false
         if (bandFilter !== 'all' && !p.artists?.some((a) => a.name === bandFilter)) return false
         if (!q) return true
         return (
@@ -101,7 +109,7 @@ export function NewsManager() {
         const cmp = new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime()
         return sortDir === 'desc' ? -cmp : cmp
       })
-  }, [news, search, statusFilter, bandFilter, sortDir])
+  }, [news, search, statusFilter, bandFilter, sortDir, nowMs])
 
   const handleArchive = async (post: NewsPost) => {
     try {
@@ -264,9 +272,9 @@ export function NewsManager() {
       <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
         <TabsList className="flex flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="all">All ({news.length})</TabsTrigger>
-          <TabsTrigger value="published">Published ({news.filter((p) => p.status === 'published').length})</TabsTrigger>
+          <TabsTrigger value="published">Published ({news.filter((p) => isNewsPublished(p, nowMs)).length})</TabsTrigger>
           <TabsTrigger value="draft">Draft ({news.filter((p) => p.status === 'draft').length})</TabsTrigger>
-          <TabsTrigger value="scheduled">Scheduled ({news.filter((p) => p.status === 'scheduled').length})</TabsTrigger>
+          <TabsTrigger value="scheduled">Scheduled ({news.filter((p) => effectiveNewsStatus(p, nowMs) === 'scheduled').length})</TabsTrigger>
           <TabsTrigger value="archived">Archived ({news.filter((p) => p.status === 'archived').length})</TabsTrigger>
         </TabsList>
       </Tabs>
@@ -301,7 +309,7 @@ export function NewsManager() {
             </TableRow>
           ) : (
             filtered.map((post) => {
-              const badge = STATUS_BADGE[post.status] ?? STATUS_BADGE['draft']
+              const badge = STATUS_BADGE[effectiveNewsStatus(post, nowMs)] ?? STATUS_BADGE['draft']
               return (
                 <TableRow key={post.id}>
                   <TableCell className="font-medium max-w-[200px] truncate">
@@ -349,7 +357,7 @@ export function NewsManager() {
                   </TableCell>
                   <TableCell>
                     <Switch
-                      checked={post.status === 'published'}
+                      checked={isNewsPublished(post, nowMs)}
                       onCheckedChange={(checked) => void handleTogglePublished(post, checked)}
                       disabled={togglingId === post.id}
                       aria-label={`Toggle published for "${post.title}"`}
