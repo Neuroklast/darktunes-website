@@ -157,9 +157,9 @@ export async function proxy(request: NextRequest) {
 
   // Verify the signed token and rotate stale SSR cookies before any role reads.
   // getClaims() is the Supabase SSR-recommended refresh path for Next.js Proxy.
-  const { data: { claims }, error: claimsError } = await supabase.auth.getClaims()
-  const user = !claimsError && typeof claims?.sub === 'string'
-    ? { id: claims.sub }
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims()
+  const user = !claimsError && typeof claimsData?.claims?.sub === 'string'
+    ? { id: claimsData.claims.sub }
     : null
 
   const isLoginPage = route.isLoginPage
