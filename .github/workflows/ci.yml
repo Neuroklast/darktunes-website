@@ -54,6 +54,9 @@ jobs:
       - name: i18n contract
         run: npm run check:i18n
 
+      - name: Full i18n inventory
+        run: npm run audit:i18n
+
       - name: Portal RLS verify
         run: npm run verify:portal-rls
 
