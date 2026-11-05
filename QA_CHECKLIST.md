@@ -2,6 +2,9 @@
 
 ## AI assistant
 - [ ] Editor assistant resolves a published artist by name (e.g. Frozen Plasma), returns only public bio and links, and does not expose contact, financial or private notes.
+- [ ] Editor artist overview with one exact match (e.g. NEUROKLAST) renders the full meaningful bio text after HTML stripping and uses the most recent already-released visible catalog entries with correct dates, including secondary artist credits, even if the model invokes only artist profile search.
+- [ ] Editor assistant never calls an older release the latest based solely on an artist biography; future-dated, hidden and promo catalog records are excluded from latest-released claims.
+- [ ] Ambiguous artist search does not attach another artist's release catalog, while all bio/release tool results omit financial and private data.
 - [ ] Editor assistant finds the newest published release for an exact artist name (e.g. Extize), includes releases credited through the release_artists junction, and excludes hidden/promo releases.
 - [ ] An ambiguous artist name offers candidates; an unknown artist is not misreported as having no releases anywhere outside darkTunes.
 - [ ] Editor published-news search excludes unpublished drafts, press-only news and scheduled news with future publication dates.
