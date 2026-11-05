@@ -1,6 +1,8 @@
 # Pre-Release QA Checklist
 
 ## AI assistant
+- [ ] Switch the website language among English, German and French. Admin → AI Assistant → Credits and the chat credit balance show localized titles, controls, notices, table headers, dates and currency values with no German text in English mode.
+- [ ] Repository-wide i18n contract checks every namespace for EN/DE/FR key and placeholder parity. Run `npm run audit:i18n` and review remaining hardcoded UI candidates across public, portal, press, admin and shared pages.
 - [ ] Editor assistant resolves a published artist by name (e.g. Frozen Plasma), returns only public bio and links, and does not expose contact, financial or private notes.
 - [ ] Editor artist overview with one exact match (e.g. NEUROKLAST) renders the full meaningful bio text after HTML stripping and uses the most recent already-released visible catalog entries with correct dates, including secondary artist credits, even if the model invokes only artist profile search.
 - [ ] Editor assistant never calls an older release the latest based solely on an artist biography; future-dated, hidden and promo catalog records are excluded from latest-released claims.
