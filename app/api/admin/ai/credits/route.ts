@@ -24,7 +24,9 @@ const patch = z.object({
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const { serviceClient } = await requireAdminWithServiceClient(req)
   const [{ data: config, error }, { data: accounts, error: accountsError }, { data: summary, error: summaryError }, { data: recent, error: recentError }, { data: adjustments, error: adjustmentsError }] = await Promise.all([
-    serviceClient.from('ai_credit_settings').select('*').eq('id', true).single(),
+    serviceClient.from('ai_credit_settings')
+      .select('enabled, buffer_percent, artist_monthly, editor_monthly, admin_monthly, model_prices')
+      .eq('id', true).single(),
     serviceClient.from('ai_credit_accounts').select('scope, scope_id, period_start, monthly_allowance, used_credits, reserved_credits').order('period_start', { ascending: false }).limit(200),
     serviceClient.rpc('ai_credit_cost_summary'),
     serviceClient.from('ai_credit_reservations')
