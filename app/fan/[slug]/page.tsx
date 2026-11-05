@@ -21,7 +21,8 @@ interface Props {
   searchParams: Promise<{ preview?: string }>
 }
 
-export const revalidate = 60
+/** Fan news must be evaluated after its scheduled UTC publication boundary. */
+export const dynamic = 'force-dynamic'
 export const dynamicParams = true
 
 function makeGetFanPageData(slug: string) {
@@ -36,11 +37,10 @@ function makeGetFanPageData(slug: string) {
       const artist = await getPublicArtistBySlug(client, slug)
       if (!artist) return null
 
-      const [releases, concerts, videos, labelNews, artistNews, epk] = await Promise.all([
+      const [releases, concerts, videos, artistNews, epk] = await Promise.all([
         getReleasesByArtistId(client, artist.id),
         getConcertsByArtistId(client, artist.id),
         getPublicVideosByArtistId(client, artist.id),
-        getPublicNewsPostsByArtistId(client, artist.id),
         getPublishedArtistNewsByArtistId(client, artist.id),
         getPublicArtistEpkByArtistId(client, artist.id),
       ])
@@ -51,7 +51,7 @@ function makeGetFanPageData(slug: string) {
         releases,
         concerts,
         videos,
-        news: mergeFanPageNews(labelNews, artistNews),
+        artistNews,
         galleryPhotos: epk?.profile.epkGalleryPhotos ?? [],
       }
     },
@@ -146,6 +146,8 @@ export default async function FanPageRoute({ params, searchParams }: Props) {
   // (uncached) rather than render a false 404.
   const data = await makeGetFanPageData(slug)()
   if (!data) notFound()
+  const labelNews = await getPublicNewsPostsByArtistId(createPublicSupabaseClient(), data.artist.id)
+  const news = mergeFanPageNews(labelNews, data.artistNews)
 
   return (
     <main id="main-content">
@@ -155,7 +157,7 @@ export default async function FanPageRoute({ params, searchParams }: Props) {
         releases={data.releases}
         concerts={data.concerts}
         videos={data.videos}
-        news={data.news}
+        news={news}
         galleryPhotos={data.galleryPhotos}
       />
     </main>
