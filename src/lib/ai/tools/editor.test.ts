@@ -48,11 +48,18 @@ describe('editor assistant catalog', () => {
   it('searches only visible artists using an explicit public projection', async () => {
     const selected: string[] = []
     const builder = chain([{
-      name: 'Frozen Plasma', slug: 'frozen-plasma', bio: 'Biography',
+      id: 'artist-1', name: 'Frozen Plasma', slug: 'frozen-plasma', bio: 'Biography',
       genres: ['Electronic'], website_url: 'https://example.com',
       spotify_url: null, apple_music_url: null, instagram_url: null,
     }], selected)
-    const db = { from: vi.fn(() => builder) }
+    const direct = chain([], selected)
+    const credits = chain([], selected)
+    const db = { from: vi.fn((table: string) => {
+      if (table === 'artists') return builder
+      if (table === 'releases') return direct
+      if (table === 'release_artists') return credits
+      throw new Error('Unexpected table')
+    }) }
     const tool = getRegisteredTool('search_editorial_artists')
     expect(tool).toBeDefined()
     const result = await tool!.execute({ query: 'Frozen Plasma' }, { actor: actor(db), requestId: 'test' })
@@ -61,6 +68,65 @@ describe('editor assistant catalog', () => {
     expect(result).toMatchObject({ matches: [{ name: 'Frozen Plasma', slug: 'frozen-plasma' }] })
     expect(selected[0]).not.toContain('*')
     expect(selected[0]).not.toMatch(/email|notes|revenue|api_key/)
+  })
+
+  it('gets complete cleaned artist background and fresh releases in one profile lookup', async () => {
+    const selected: string[] = []
+    const html = `<p style="${'x'.repeat(1100)}">NEUROKLAST makes Hard Techno &amp; industrial bass.</p><p>2026 is the current era.</p>`
+    const artistRow = {
+      id: 'artist-1', name: 'NEUROKLAST', slug: 'neuroklast', bio: html,
+      genres: ['Techno'], website_url: null, spotify_url: null,
+      apple_music_url: null, instagram_url: null,
+    }
+    const release = (id: string, title: string, date: string) => ({
+      id, title, release_date: date, type: 'single', spotify_url: null,
+      apple_music_url: null, youtube_url: null, bandcamp_url: null, smartlink_url: null,
+    })
+    const artists = chain([artistRow], selected)
+    const direct = chain([release('release-1', 'Recent 2026', '2026-10-01')], selected)
+    const credits = chain([{ release_id: 'release-2' }], selected)
+    const linked = chain([release('release-2', 'Older 2025', '2025-09-19')], selected)
+    let releaseCalls = 0
+    const db = { from: vi.fn((table: string) => {
+      if (table === 'artists') return artists
+      if (table === 'release_artists') return credits
+      if (table === 'releases') return ++releaseCalls === 1 ? direct : linked
+      throw new Error('Unexpected table')
+    }) }
+    const tool = getRegisteredTool('search_editorial_artists')
+    const result = await tool!.execute({ query: 'NEUROKLAST' }, { actor: actor(db), requestId: 'test' })
+    expect(result).toMatchObject({
+      matches: [{
+        name: 'NEUROKLAST',
+        bio: 'NEUROKLAST makes Hard Techno & industrial bass.\\n2026 is the current era.',
+        latest_releases: [
+          { title: 'Recent 2026', release_date: '2026-10-01' },
+          { title: 'Older 2025', release_date: '2025-09-19' },
+        ],
+      }],
+    })
+    expect(JSON.stringify(result)).not.toContain('<p')
+    expect(direct.eq).toHaveBeenCalledWith('is_visible', true)
+    expect(linked.eq).toHaveBeenCalledWith('is_promo', false)
+    expect(direct.lte).toHaveBeenCalledWith('release_date', expect.any(String))
+    expect(linked.lte).toHaveBeenCalledWith('release_date', expect.any(String))
+    expect(selected.every((columns) => !columns.includes('*'))).toBe(true)
+    expect(JSON.stringify(result)).not.toMatch(/revenue|notes|invoice|artist_id/)
+  })
+
+  it('does not load releases for ambiguous multi-artist matches', async () => {
+    const selected: string[] = []
+    const artists = chain([
+      { id: 'a', name: 'Neo One', slug: 'neo-one', bio: null, genres: [] },
+      { id: 'b', name: 'Neo Two', slug: 'neo-two', bio: null, genres: [] },
+    ], selected)
+    const db = { from: vi.fn(() => artists) }
+    const tool = getRegisteredTool('search_editorial_artists')
+    const result = await tool!.execute({ query: 'Neo' }, { actor: actor(db), requestId: 'test' })
+    expect(result).toMatchObject({
+      matches: [{ latest_releases: [] }, { latest_releases: [] }],
+    })
+    expect(db.from).toHaveBeenCalledTimes(1)
   })
 
   it('excludes future and press-only news using server-side filters', async () => {
@@ -103,6 +169,8 @@ describe('editor assistant catalog', () => {
     expect(builders.releasesLinked.eq).toHaveBeenCalledWith('is_visible', true)
     expect(builders.releasesDirect.eq).toHaveBeenCalledWith('is_promo', false)
     expect(builders.releasesLinked.eq).toHaveBeenCalledWith('is_promo', false)
+    expect(builders.releasesDirect.lte).toHaveBeenCalledWith('release_date', expect.any(String))
+    expect(builders.releasesLinked.lte).toHaveBeenCalledWith('release_date', expect.any(String))
     expect(selected.every((columns) => !columns.includes('*'))).toBe(true)
     expect(JSON.stringify(result)).not.toMatch(/revenue|notes|invoice|artist_id/)
   })
