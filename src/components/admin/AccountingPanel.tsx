@@ -19,7 +19,6 @@ import {
 } from '@/lib/sos/accountingPeriod'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { horizontalScrollClass } from '@/components/ui/scroll-panel'
-import { cn } from '@/lib/utils'
 import { useArtists } from '@/hooks/useArtists'
 import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { useCSVProcessor } from '@/hooks/useSosCSVProcessor'
@@ -886,9 +885,9 @@ function SosGeneratorPanel() {
       : undefined
 
   const uploadPanel = (
-    <div className="p-6 space-y-4">
+    <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="grid gap-3 sm:grid-cols-2 flex-1 min-w-[16rem]">
+        <div className="grid w-full max-w-3xl min-w-0 flex-1 gap-3 sm:grid-cols-2">
           <MonthField
             id="sos-period-start"
             label={t.setupPeriodFrom}
@@ -1182,7 +1181,7 @@ function SosGeneratorPanel() {
   )
 
   return (
-    <div className="space-y-0">
+    <div className="mx-auto w-full max-w-[1680px] space-y-0">
       {currencyBanner}
       {/* Primary destinations stay separate from tools for the current workspace. */}
       <div className="border-b border-border bg-card/20 px-4 py-3 sm:px-6">
@@ -1329,15 +1328,10 @@ function SosGeneratorPanel() {
 
       {periodBanner}
 
-      {/* PDF Settings collapsible */}
-      {showPdfSettings && (
-        <PdfExportSettingsPanel settings={pdfSettings} onUpdate={setPdfSettings} />
-      )}
-
       {rulesStatusBanner}
 
       {/* Billing flow: Files → Checks → Amounts → Statements */}
-      <div className="min-h-[500px]">
+      <div className="min-h-[500px] min-w-0">
         {!secondaryView && (
           <AccountingGuidedWizard
             hasData={hasData}
