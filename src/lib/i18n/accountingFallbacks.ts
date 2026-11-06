@@ -94,6 +94,8 @@ export const ACCOUNTING_FALLBACK = {
   uiPageNext: "Next",
   uiRulePagination: "Page {page} of {total}",
   uiDeleteSplitConfirm: "Delete the split for “{artist}”? This changes future payout calculations.",
+  uiBrowseArchives: "Browse saved source archives",
+  uiHideArchives: "Hide archive list",
   uiSearchCompilations: "Search compilation filters",
   uiNoMatchingCompilations: "No matching compilation filters.",
   uiFiltersShown: "{shown} of {total} filters shown",
