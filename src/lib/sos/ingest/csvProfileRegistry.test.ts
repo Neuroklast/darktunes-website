@@ -56,4 +56,12 @@ describe('CSV profile registry', () => {
     expect(registry.profiles.some(profile => profile.id === custom.id)).toBe(true)
     expect(registry.shadowedProfiles).toHaveLength(0)
   })
+  it('does not activate a legacy custom profile with a built-in system ID', () => {
+    const system = DEFAULT_CSV_PROFILES[0]
+    const oldCopy = { ...system, isSystemDefault: false, columnMapping: { ...system.columnMapping, netRevenue: 'old balance' } }
+    const registry = buildCsvProfileRegistry([oldCopy])
+    expect(registry.profiles.filter(profile => profile.id === system.id)).toHaveLength(1)
+    expect(registry.shadowedProfiles).toContain(oldCopy)
+  })
+
 })
