@@ -163,7 +163,7 @@ export interface WorkerResult {
 }
 
 export type WorkerRequest =
-  | { type: 'add-file'; fileId: string; content: string; source: 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch'; customAliases: Record<string, string[]> }
+  | { type: 'add-file'; fileId: string; content: string; source: 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch'; customAliases: Record<string, string[]>; columnMapping?: Record<string, string> }
   | { type: 'remove-file'; fileId: string }
   | { type: 'process'; config: WorkerProcessConfig; requestId?: number }
   | { type: 'reset' }
@@ -470,7 +470,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
 
   switch (msg.type) {
     case 'add-file': {
-      const { fileId, content, source, customAliases } = msg
+      const { fileId, content, source, customAliases, columnMapping } = msg
       try {
         if (source === 'shopify') {
           // Stage raw orders for reconciliation — do NOT convert to SalesTransactions yet.
@@ -512,7 +512,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
                 totalRows: progress.totalRows,
               })
             },
-            undefined,
+            columnMapping,
             customAliases
           )
           fileTransactions.set(fileId, result.transactions)

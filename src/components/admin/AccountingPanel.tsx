@@ -485,6 +485,7 @@ function SosGeneratorPanel() {
       expenses,
       excludePhysical: false,
       csvAliases,
+      csvImportProfiles,
       labelArtists,
       ignoredEntries,
       distributionFeePercentage: appDefaults.distributionFeePercentage ?? 0,
