@@ -28,6 +28,22 @@ describe('normalizeDateToMonth', () => {
     expect(normalizeDateToMonth('02/13/2024', 'bandcamp')).toBe('2024-02')
   })
 
+  it('rejects impossible calendar months and days rather than importing invalid periods', () => {
+    expect(normalizeDateToMonth('2026-00')).toBe('')
+    expect(normalizeDateToMonth('2026-13')).toBe('')
+    expect(normalizeDateToMonth('2026-02-30')).toBe('')
+    expect(normalizeDateToMonth('2026-12-11garbage')).toBe('')
+    expect(normalizeDateToMonth('29/02/2025', 'believe')).toBe('')
+    expect(normalizeDateToMonth('29/02/2024', 'believe')).toBe('2024-02')
+  })
+
+  it('does not silently override an explicitly confirmed date order', () => {
+    expect(normalizeDateToMonth('13/02/2026', 'believe', 'month-first')).toBe('')
+    expect(normalizeDateToMonth('04/05/2026', 'believe', 'month-first')).toBe('2026-04')
+    expect(normalizeDateToMonth('04/05/2026', 'bandcamp', 'day-first')).toBe('2026-05')
+    expect(normalizeDateToMonth('04/05/2026', 'believe', 'iso')).toBe('')
+  })
+
   it('keeps 2-digit years American only for Bandcamp', () => {
     expect(normalizeDateToMonth('9/30/25 5:39pm', 'bandcamp')).toBe('2025-09')
     expect(normalizeDateToMonth('01/09/24', 'believe')).toBe('2024-09')
