@@ -161,8 +161,8 @@ export function RulesPanel({
   }
 
   return (
-    <div className="space-y-0">
-      <div className="border-b border-border bg-card/30 px-4 py-3 sm:px-6">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="shrink-0 border-b border-border bg-card/30 px-4 py-3 sm:px-6">
         <nav aria-label={t.ruleGroupNavigation} className="flex flex-wrap gap-2">
           {groups.map(group => {
             const selected = activeGroup.id === group.id
@@ -182,7 +182,7 @@ export function RulesPanel({
           })}
         </nav>
       </div>
-      <div className="border-b border-border px-4 py-2 sm:px-6">
+      <div className="shrink-0 border-b border-border px-4 py-2 sm:px-6">
         <nav aria-label={t.ruleCategoryNavigation} className="flex flex-wrap gap-2">
           {tabs.filter(tab => activeGroup.tabIds.includes(tab.id)).map(({ id, label }) => (
             <button
@@ -199,7 +199,9 @@ export function RulesPanel({
         </nav>
       </div>
 
-      <div className="w-full min-w-0 p-4 sm:p-6">
+      <div className={['splits', 'compilations', 'track-splits'].includes(activeTab)
+          ? 'min-h-0 w-full min-w-0 flex-1 overflow-hidden p-3 sm:p-4'
+          : 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6'} data-lenis-prevent>
         {activeTab === 'label' && (
           <LabelIdentityManager
             labelInfo={labelInfo}
