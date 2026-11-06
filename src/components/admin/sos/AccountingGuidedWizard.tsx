@@ -193,8 +193,8 @@ export function AccountingGuidedWizard({
   const activeStepLabel = t[STEP_META[activeStep].labelKey]
 
   return (
-    <div className="flex min-h-[500px] flex-col">
-      <div className="border-b border-border bg-muted/10 px-4 py-3 sm:px-6">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0 border-b border-border bg-muted/10 px-4 py-3 sm:px-6">
         <nav aria-label={t.guidedStepperAria}>
           <ol className="flex flex-wrap items-center gap-2 sm:gap-3">
             {stepIds.map((id, index) => {
@@ -244,7 +244,7 @@ export function AccountingGuidedWizard({
         {stepHint}
       </p>
 
-      <div className="flex-1">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-lenis-prevent>
         {activeStep === 'upload' && uploadPanel}
         {activeStep === 'validate' && validatePanel}
         {activeStep === 'review' && reviewPanel}
@@ -255,7 +255,7 @@ export function AccountingGuidedWizard({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card/40 px-4 py-4 sm:px-6">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-card/40 px-4 py-3 sm:px-6">
         <div className="flex flex-col gap-1 min-w-0">
           <Button type="button" variant="outline" disabled={!canGoBack} onClick={goBack} className="min-h-11 w-fit">
             <ArrowLeft size={16} className="mr-1.5" aria-hidden="true" />
