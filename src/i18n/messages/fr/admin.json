@@ -134,6 +134,7 @@
     "loadingEvents": "Chargement des événements"
   },
   "labelIntelligence": {
+    "syncToolsTitle": "Synchronisation des données",
     "pageTitle": "Analytics",
     "pageDescription": "Tendances de revenus label persistées, santé du roster, engagement presse et piste d’audit financière.",
     "emptyTrendsHint": "Aucune synthèse de période enregistrée pour le moment.",
@@ -253,6 +254,7 @@
     "ruleGroupNavigation": "Groupes de règles",
     "ruleCategoryNavigation": "Catégories de règles",
     "uiLogoTitle": "Logo du label pour les relevés PDF",
+    "uiLogoAlt": "Logo actuel du label",
     "uiLogoMissing": "Aucun logo de label configuré.",
     "uiLogoHelp": "PNG, JPEG ou WebP. 4 Mo maximum. Affiché dans l'en-tête du PDF.",
     "uiLogoRemove": "Supprimer le logo du label",
