@@ -23,6 +23,7 @@ import { useCallback, useMemo, useState } from 'react'
 import type { CompilationFilter } from '@/lib/sos/types'
 import { useAccountingLabels } from '@/lib/i18n/accountingFallbacks'
 import { SosConfirmDialog } from './SosConfirmDialog'
+import { AccountingListPagination, ACCOUNTING_PAGE_SIZE } from './AccountingListPagination'
 
 export interface CompilationFilterManagerProps {
   filters: CompilationFilter[]
@@ -59,11 +60,14 @@ export function CompilationFilterManager({
   const [identifier, setIdentifier] = useState('')
   const [releaseSearch, setReleaseSearch] = useState('')
   const [filterSearch, setFilterSearch] = useState('')
+  const [page, setPage] = useState(0)
   const duplicateValue = isDuplicate(filters, identifier, type, editId ?? undefined)
   const visibleFilters = useMemo(() => {
     const query = filterSearch.toLocaleLowerCase().trim()
     return query ? filters.filter(f => `${f.label} ${f.identifier} ${FILTER_TYPE_LABELS[f.type]}`.toLocaleLowerCase().includes(query)) : filters
   }, [filters, filterSearch])
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(visibleFilters.length / ACCOUNTING_PAGE_SIZE) - 1))
+  const pagedFilters = visibleFilters.slice(currentPage * ACCOUNTING_PAGE_SIZE, (currentPage + 1) * ACCOUNTING_PAGE_SIZE)
 
   const handleClose = useCallback(() => {
     setOpen(false)
@@ -102,7 +106,7 @@ export function CompilationFilterManager({
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="w-full min-w-0 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <FunnelSimple size={20} weight="bold" className="text-primary" />
@@ -191,7 +195,7 @@ export function CompilationFilterManager({
           <MagnifyingGlass size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
             value={filterSearch}
-            onChange={event => setFilterSearch(event.target.value)}
+            onChange={event => { setFilterSearch(event.target.value); setPage(0) }}
             className="h-10 pl-9 text-sm"
             placeholder={t.uiSearchCompilations}
             aria-label={t.uiSearchCompilations}
@@ -201,7 +205,7 @@ export function CompilationFilterManager({
 
       {visibleFilters.length > 0 ? (
         <div className="overflow-hidden rounded-lg border border-border bg-card/30">
-          {visibleFilters.map(filter => (
+          {pagedFilters.map(filter => (
             <div key={filter.id} className="flex min-h-14 items-center gap-3 border-b border-border/70 px-3 py-2 last:border-b-0 sm:px-4">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground" title={filter.label}>{filter.label}</p>
@@ -240,6 +244,7 @@ export function CompilationFilterManager({
           {t.uiFiltersShown.replace('{shown}', String(visibleFilters.length)).replace('{total}', String(filters.length))}
         </p>
       )}
+      <AccountingListPagination count={visibleFilters.length} page={currentPage} onPageChange={setPage} />
       <SosConfirmDialog open={deleteTarget !== null} onOpenChange={open => { if (!open) setDeleteTarget(null) }}
         title={t.uiRemoveCompilation}
         description={t.uiCompilationDeleteConfirm.replace('{name}', deleteTarget?.label ?? '')}
