@@ -24,6 +24,7 @@ export const ACCOUNTING_FALLBACK = {
   subTabPayout: 'SEPA Payout',
   subTabTrends: 'Trends',
   subTabRules: 'Rules',
+  accountingTools: 'Settings & tools',
   presets: 'Presets',
   presetsTitle: 'Rule Presets',
   csvProfiles: 'CSV Profiles',
