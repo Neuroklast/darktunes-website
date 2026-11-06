@@ -19,6 +19,7 @@ export default function AccountingPage() {
     <AdminPageShell
       title={t('pageTitle')}
       description={t('pageDescription')}
+      fill
     >
       <AccountingPanel />
     </AdminPageShell>
