@@ -139,28 +139,20 @@ export function matchProfile(
   )
   if (exact) return exact
 
-  let bestProfile: CsvImportProfile | null = null
-  let bestScore = 0
-
-  for (const profile of profiles) {
-    const required = profile.autoDetectHeaders.map(h => h.toLowerCase().trim())
-    if (required.length === 0) continue
-
-    const matches = required.filter((h) =>
-      normalized.some((col) => col === h || col.includes(h) || h.includes(col)),
-    ).length
-    const minRequired = Math.min(2, required.length)
-
-    if (matches < minRequired) continue
-
-    const score = matches / required.length
-    if (score > bestScore) {
-      bestScore = score
-      bestProfile = profile
-    }
-  }
-
-  return bestProfile
+  // A legacy profile without a confirmed fingerprint can match only when
+  // at least three headers agree exactly and the match is unambiguous.
+  const candidates = profiles
+    .filter((profile) => profile.type === 'financial' && profile.autoDetectHeaders.length >= 3)
+    .map((profile) => {
+      const expected = profile.autoDetectHeaders.map((header) => header.toLowerCase().trim())
+      const matches = expected.filter((header) => normalized.includes(header)).length
+      return { profile, matches, score: matches / expected.length }
+    })
+    .filter(({ matches, score }) => matches >= 3 && score >= 0.8)
+    .sort((left, right) => right.score - left.score || right.matches - left.matches)
+  if (candidates.length > 1 && candidates[0].score === candidates[1].score &&
+    candidates[0].matches === candidates[1].matches) return null
+  return candidates[0]?.profile ?? null
 }
 
 // ── Column mapping helpers ────────────────────────────────────────────────────

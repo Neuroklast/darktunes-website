@@ -53,6 +53,9 @@ export const FINANCIAL_KEY_TO_INTERNAL: Readonly<Record<FinancialFieldKey, strin
 // ── System default profiles ───────────────────────────────────────────────────
 
 const BANDCAMP_DDS_PAYOUTS: CsvImportProfile = {
+  parserSource: 'bandcamp',
+  dateSemantics: 'sale-date',
+  dateOrder: 'month-first',
   id: SYSTEM_BANDCAMP_DDS_PROFILE_ID,
   name: 'Bandcamp DDS / Darktunes Payouts',
   type: 'financial',
@@ -72,6 +75,9 @@ const BANDCAMP_DDS_PAYOUTS: CsvImportProfile = {
 }
 
 const BANDCAMP_STANDARD: CsvImportProfile = {
+  parserSource: 'bandcamp',
+  dateSemantics: 'sale-date',
+  dateOrder: 'month-first',
   id: SYSTEM_BANDCAMP_PROFILE_ID,
   name: 'Bandcamp Standard',
   type: 'financial',
@@ -98,6 +104,9 @@ const BANDCAMP_STANDARD: CsvImportProfile = {
 }
 
 const BELIEVE_DIGITAL: CsvImportProfile = {
+  parserSource: 'believe',
+  dateSemantics: 'sale-date',
+  dateOrder: 'day-first',
   id: SYSTEM_BELIEVE_PROFILE_ID,
   name: 'Believe Digital',
   type: 'financial',
@@ -122,6 +131,9 @@ const BELIEVE_DIGITAL: CsvImportProfile = {
 }
 
 const SHOPIFY_ORDERS: CsvImportProfile = {
+  parserSource: 'shopify',
+  dateSemantics: 'sale-date',
+  dateOrder: 'month-first',
   id: SYSTEM_SHOPIFY_PROFILE_ID,
   name: 'Shopify Orders',
   type: 'financial',
@@ -138,6 +150,9 @@ const SHOPIFY_ORDERS: CsvImportProfile = {
 }
 
 const PRINTFUL_COSTS: CsvImportProfile = {
+  parserSource: 'printful',
+  dateSemantics: 'sale-date',
+  dateOrder: 'day-first',
   id: SYSTEM_PRINTFUL_PROFILE_ID,
   name: 'Printful Costs',
   type: 'financial',
@@ -153,6 +168,9 @@ const PRINTFUL_COSTS: CsvImportProfile = {
 }
 
 const DARKMERCH_ORDERS: CsvImportProfile = {
+  parserSource: 'darkmerch',
+  dateSemantics: 'report-period',
+  dateOrder: 'iso',
   id: SYSTEM_DARKMERCH_PROFILE_ID,
   name: 'Darkmerch Orders',
   type: 'financial',

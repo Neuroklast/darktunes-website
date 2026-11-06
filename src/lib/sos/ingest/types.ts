@@ -6,7 +6,10 @@
  */
 
 export type ProfileType = 'financial' | 'master-data'
-export type ProfileDelimiter = ',' | ';'
+export type ProfileDelimiter = ',' | ';' | '\t'
+export type ImportParserSource = 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch'
+export type ImportDateSemantics = 'sale-date' | 'report-period' | 'none'
+export type ImportDateOrder = 'day-first' | 'month-first' | 'iso'
 
 export type FinancialFieldKey =
   | 'artistName'
@@ -45,4 +48,8 @@ export interface CsvImportProfile {
   isSystemDefault?: boolean
   /** Exact structural signature for user-confirmed formats. */
   headerFingerprint?: string
+  parserSource?: ImportParserSource
+  dateSemantics?: ImportDateSemantics
+  dateOrder?: ImportDateOrder
+  revision?: number
 }

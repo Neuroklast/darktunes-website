@@ -25,6 +25,7 @@ function isMonthDaySource(source: DateParseSource | undefined): boolean {
 export function normalizeDateToMonth(
   dateStr: string,
   source?: DateParseSource,
+  dateOrder?: 'day-first' | 'month-first' | 'iso',
 ): string {
   if (!dateStr) return ''
   const s = dateStr.trim()
@@ -32,6 +33,8 @@ export function normalizeDateToMonth(
 
   const isoMatch = s.match(/^(\d{4})-(\d{2})(?:-\d{2})?/)
   if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}`
+
+  if (dateOrder === 'iso') return ''
 
   const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/)
   if (slashMatch) {
@@ -49,14 +52,14 @@ export function normalizeDateToMonth(
       return ''
     }
 
-    if (rawYear < 100 && source === 'bandcamp') {
+    if (rawYear < 100 && source === 'bandcamp' && !dateOrder) {
       return `${year}-${String(a).padStart(2, '0')}`
     }
 
-    if (isMonthDaySource(source)) {
+    if (dateOrder === 'month-first' || (!dateOrder && isMonthDaySource(source))) {
       return `${year}-${String(a).padStart(2, '0')}`
     }
-    if (isDayMonthSource(source) || rawYear >= 100) {
+    if (dateOrder === 'day-first' || (!dateOrder && (isDayMonthSource(source) || rawYear >= 100))) {
       if (b >= 1 && b <= 12) return `${year}-${String(b).padStart(2, '0')}`
       return ''
     }
