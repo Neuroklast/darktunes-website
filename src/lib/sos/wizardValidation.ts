@@ -31,6 +31,8 @@ export interface WizardValidationInput {
   skippedRowCount?: number
   skipReasons?: string[]
   emptyCurrencyRowCount?: number
+  skippedRowsBySource?: { name: string; count: number }[]
+  emptyCurrencyRowsBySource?: { name: string; count: number }[]
   /** Unmodified source-reporting bounds for traceability, not a replacement billing period. */
   sourcePeriods?: { name: string; start?: string; end?: string }[]
   /** Session files that parsed but have no bronze archive id. */
@@ -83,6 +85,8 @@ export const WIZARD_VALIDATION_FALLBACK = {
   validationEmptyCurrencyTitle: '{count} rows had no currency and were treated as EUR',
   validationEmptyCurrencyDesc:
     'Believe sometimes leaves the currency cell empty. Those rows stay in EUR. Missing or zero FX rates still abort processing.',
+  validationCurrencySources: 'Affected source files: {sources}.',
+  validationSkipSources: 'Rows skipped by source: {sources}.',
   validationIncompleteArchiveTitle: 'Source files are not archived',
   validationIncompleteArchiveDesc:
     'These files are not in storage yet: {files}. Retry archive before creating statements. Preview and Excel still work.',
@@ -268,6 +272,13 @@ export function validateSosWizardState(
     }
   }
 
+  const formatSources = (sources: { name: string; count: number }[]) => {
+    const sorted = sources.filter(source => Number.isFinite(source.count) && source.count > 0)
+      .sort((a, b) => b.count - a.count)
+    return sorted.slice(0, 5).map(source => `${source.name} (${source.count.toLocaleString()})`).join(', ') +
+      (sorted.length > 5 ? ` (+${sorted.length - 5})` : '')
+  }
+
   if ((input.skippedRowCount ?? 0) > 0) {
     const reasons = (input.skipReasons ?? []).filter(Boolean)
     issues.push({
@@ -276,7 +287,8 @@ export function validateSosWizardState(
       title: interpolate(labels.validationParseSkipsTitle, { count: String(input.skippedRowCount) }),
       description: interpolate(labels.validationParseSkipsDesc, {
         reasons: reasons.length > 0 ? reasons.join(', ') : 'filtered rows',
-      }),
+      }) + ((input.skippedRowsBySource?.length ?? 0) > 0 ? ' ' +
+        interpolate(labels.validationSkipSources, { sources: formatSources(input.skippedRowsBySource ?? []) }) : ''),
       actionLabel: labels.validationNoFilesAction,
       actionTarget: 'upload',
     })
@@ -289,7 +301,11 @@ export function validateSosWizardState(
       title: interpolate(labels.validationEmptyCurrencyTitle, {
         count: String(input.emptyCurrencyRowCount),
       }),
-      description: labels.validationEmptyCurrencyDesc,
+      description: labels.validationEmptyCurrencyDesc +
+        ((input.emptyCurrencyRowsBySource?.length ?? 0) > 0 ? ' ' +
+          interpolate(labels.validationCurrencySources, {
+            sources: formatSources(input.emptyCurrencyRowsBySource ?? []),
+          }) : ''),
       actionTarget: 'upload',
     })
   }
