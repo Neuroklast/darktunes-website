@@ -43,6 +43,20 @@ describe('CSV profile registry', () => {
     expect(matchProfile(columns, registry.profiles)?.id).toBe(confirmed.id)
   })
 
+  it('never shadows a distinct financial semantic profile', () => {
+    const system = DEFAULT_CSV_PROFILES[0]
+    const custom = {
+      ...system,
+      id: 'alternate-dates',
+      isSystemDefault: false,
+      dateSemantics: 'report-period' as const,
+      amountConvention: 'de' as const,
+    }
+    const registry = buildCsvProfileRegistry([custom])
+    expect(registry.profiles).toContain(custom)
+    expect(registry.shadowedProfiles).not.toContain(custom)
+  })
+
   it('does not remove a custom definition with distinct header mappings', () => {
     const system = DEFAULT_CSV_PROFILES[0]
     const custom = {
