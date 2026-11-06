@@ -66,28 +66,27 @@ export function CurrencyRatesBanner({
 
   if (source === 'ecb') {
     return (
-      <Alert className={className ?? 'mx-6 mt-4 border-emerald-500/30 bg-emerald-500/5'}>
-        <CheckCircle size={16} className="text-emerald-400" aria-hidden="true" />
-        <AlertTitle className="text-sm">{t.currencyRatesLive}</AlertTitle>
-        <AlertDescription className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
-          <span>{t.currencyRatesLiveHint}</span>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1.5 text-xs"
-            disabled={loading}
-            onClick={() => void onRefresh()}
-          >
-            {loading ? (
-              <CircleNotch size={12} className="animate-spin" aria-hidden="true" />
-            ) : (
-              <ArrowsClockwise size={12} aria-hidden="true" />
-            )}
-            {t.currencyRefreshButton}
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <div
+        role="status"
+        className={className ?? 'mx-4 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 text-sm sm:mx-6'}
+      >
+        <CheckCircle size={16} className="shrink-0 text-emerald-400" aria-hidden="true" />
+        <strong className="font-medium text-foreground">{t.currencyRatesLive}</strong>
+        <span className="text-xs text-muted-foreground">{t.currencyRatesLiveHint}</span>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-8 gap-1.5 px-2 text-xs sm:ml-auto"
+          disabled={loading}
+          onClick={() => void onRefresh()}
+        >
+          {loading
+            ? <CircleNotch size={14} className="animate-spin" aria-hidden="true" />
+            : <ArrowsClockwise size={14} aria-hidden="true" />}
+          {t.currencyRefreshButton}
+        </Button>
+      </div>
     )
   }
 
