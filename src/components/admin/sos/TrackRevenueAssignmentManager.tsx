@@ -20,7 +20,7 @@ import { PercentField } from '@/components/admin/sos/fields/AccountingNumberFiel
 import { parseOptionalPercent, parseRequiredPercent } from '@/lib/sos/accountingInputValidation'
 import { useAccountingLabels } from '@/lib/i18n/accountingFallbacks'
 import { v4 as uuidv4 } from 'uuid'
-import { AccountingListPagination, ACCOUNTING_PAGE_SIZE } from './AccountingListPagination'
+import { AccountingListPagination, useAccountingAdaptivePageSize } from './AccountingListPagination'
 
 interface TrackRevenueAssignmentManagerProps {
   assignments: TrackRevenueAssignment[]
@@ -104,13 +104,14 @@ export function TrackRevenueAssignmentManager({
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
+  const { listRef, pageSize } = useAccountingAdaptivePageSize(128, assignments.length > 0)
   const filteredAssignments = assignments.filter(assignment => {
     const query = search.trim().toLocaleLowerCase()
     return !query || assignment.trackTitle.toLocaleLowerCase().includes(query) ||
       (assignment.owners ?? []).some(owner => owner.artist.toLocaleLowerCase().includes(query))
   })
-  const currentPage = Math.min(page, Math.max(0, Math.ceil(filteredAssignments.length / ACCOUNTING_PAGE_SIZE) - 1))
-  const pagedAssignments = filteredAssignments.slice(currentPage * ACCOUNTING_PAGE_SIZE, (currentPage + 1) * ACCOUNTING_PAGE_SIZE)
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(filteredAssignments.length / pageSize) - 1))
+  const pagedAssignments = filteredAssignments.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
 
   const ownerSum = owners.reduce((s, o) => {
     const parsed = parseOptionalPercent(o.percentage)
@@ -253,7 +254,7 @@ export function TrackRevenueAssignmentManager({
               className="h-10 w-full max-w-sm text-sm" placeholder={t.uiTrackSearch}
               aria-label={t.uiTrackSearch} />
           </div>
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain" data-lenis-prevent>
+          <div ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain" data-lenis-prevent>
           {pagedAssignments.map(a => {
             const ownerList = a.owners && a.owners.length > 0
               ? a.owners
@@ -291,7 +292,7 @@ export function TrackRevenueAssignmentManager({
             <p className="rounded-md border border-dashed border-border p-5 text-center text-sm text-muted-foreground">{t.uiTrackNoMatches}</p>
           )}
           </div>
-          <AccountingListPagination count={filteredAssignments.length} page={currentPage} onPageChange={setPage} />
+          <AccountingListPagination count={filteredAssignments.length} page={currentPage} pageSize={pageSize} onPageChange={setPage} />
         </div>
       )}
 
