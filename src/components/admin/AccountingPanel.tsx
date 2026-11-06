@@ -1129,6 +1129,8 @@ function SosGeneratorPanel() {
             (sum, file) => sum + (file.emptyCurrencyRows ?? 0),
             0,
           ),
+          skippedRowsBySource: sessionFiles.map(file => ({ name: file.name, count: file.rowsSkipped ?? 0 })),
+          emptyCurrencyRowsBySource: sessionFiles.map(file => ({ name: file.name, count: file.emptyCurrencyRows ?? 0 })),
           unarchivedSourceFiles,
           sourcePeriods: sessionFiles.map(file => ({ name: file.name, start: file.periodStart, end: file.periodEnd })),
         },
