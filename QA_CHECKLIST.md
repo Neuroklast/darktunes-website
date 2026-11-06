@@ -4,6 +4,7 @@
 - [ ] Confirm Q2–Q3 2026 is interpreted as source reporting metadata, not the sales month of each row. A row with no revenue can still define the reporting period.
 - [ ] Custom profile mapping overrides conflicting fuzzy aliases and rejects mapping one physical source column to multiple financial fields.
 - [ ] Dates with ambiguous day/month order use the selected format; ambiguous amounts (1,234) require an explicit decimal convention.
+- [ ] Impossible dates (e.g. 2026-13, 2026-02-30 or a month-first 13/02/2026) are rejected, not silently normalized.
 - [ ] A profile is only auto-selected for the same header signature and delimiter. Header modifications and ambiguous profile matches require manual confirmation.
 - [ ] An unknown XLSX is sniffed locally and is not routed to Darkmerch by filename extension. Convert a confirmed non-Darkmerch workbook to CSV only when importing.
 - [ ] Simultaneously uploading multiple unknown formats opens a queue of dialogs without losing any file.
