@@ -333,8 +333,8 @@ export function ReportingPanel({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-white/10 bg-card/60 sticky top-0 z-10">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/50 px-4 py-3 sm:px-6">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm text-muted-foreground">
             {selectedCount > 0
               ? `${selectedCount} artist${selectedCount !== 1 ? 's' : ''} selected`
@@ -350,11 +350,11 @@ export function ReportingPanel({
             {allSelected ? 'Deselect All' : 'Select All'}
           </Button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
             variant="outline"
-            className="gap-1.5 text-xs"
+            className="min-h-9 gap-1.5 text-sm"
             disabled={disabled || selectedCount === 0}
             onClick={exportSelected}
           >
@@ -374,9 +374,9 @@ export function ReportingPanel({
         </div>
       </div>
 
-      <div className="px-6 py-4 border-b border-white/5">
-        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-          <div className="relative max-w-sm flex-1">
+      <div className="border-b border-border/60 px-4 py-3 sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative w-full max-w-md">
             <MagnifyingGlass
               size={14}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -386,7 +386,7 @@ export function ReportingPanel({
               placeholder="Filter by artist…"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="pl-8 h-9 text-sm border-border/60 bg-background/50 focus:border-primary/60"
+              className="h-10 pl-8 text-sm border-border/60 bg-background/50 focus:border-primary/60"
             />
           </div>
           <select
@@ -396,7 +396,7 @@ export function ReportingPanel({
               setSortMode(mode)
               setSorting(sortModeToSorting(mode))
             }}
-            className="h-9 rounded-md border border-border/60 bg-background/50 px-3 text-xs text-foreground"
+            className="h-10 rounded-md border border-border/60 bg-background/50 px-3 text-sm text-foreground"
           >
             <option value="payout">Sort: payout</option>
             <option value="artist-asc">Sort: artist A-Z</option>
