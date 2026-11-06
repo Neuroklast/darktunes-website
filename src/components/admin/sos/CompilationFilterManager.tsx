@@ -22,11 +22,13 @@ import {
 import { useCallback, useMemo, useState } from 'react'
 import type { CompilationFilter } from '@/lib/sos/types'
 import { useAccountingLabels } from '@/lib/i18n/accountingFallbacks'
+import { SosConfirmDialog } from './SosConfirmDialog'
 
 export interface CompilationFilterManagerProps {
   filters: CompilationFilter[]
   onAddFilter: (filter: Omit<CompilationFilter, 'id'>) => void
   onRemoveFilter: (id: string) => void
+  onUpdateFilter?: (id: string, filter: Omit<CompilationFilter, 'id'>) => void
   availableReleases?: string[]
 }
 
@@ -38,22 +40,26 @@ const FILTER_TYPE_LABELS: Record<FilterType, string> = {
   catalog: 'Catalog Number',
 }
 
-function isDuplicate(filters: CompilationFilter[], identifier: string) {
-  return filters.some(f => f.identifier.toLowerCase() === identifier.toLowerCase())
+function isDuplicate(filters: CompilationFilter[], identifier: string, type: FilterType, exceptId?: string) {
+  return filters.some(f => f.id !== exceptId && f.type === type && f.identifier.trim().toLowerCase() === identifier.trim().toLowerCase())
 }
 
 export function CompilationFilterManager({
   filters,
   onAddFilter,
   onRemoveFilter,
+  onUpdateFilter,
   availableReleases = [],
 }: CompilationFilterManagerProps) {
   const t = useAccountingLabels()
   const [open, setOpen] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<CompilationFilter | null>(null)
   const [type, setType] = useState<FilterType>('ean')
   const [identifier, setIdentifier] = useState('')
   const [releaseSearch, setReleaseSearch] = useState('')
   const [filterSearch, setFilterSearch] = useState('')
+  const duplicateValue = isDuplicate(filters, identifier, type, editId ?? undefined)
   const visibleFilters = useMemo(() => {
     const query = filterSearch.toLocaleLowerCase().trim()
     return query ? filters.filter(f => `${f.label} ${f.identifier} ${FILTER_TYPE_LABELS[f.type]}`.toLocaleLowerCase().includes(query)) : filters
@@ -61,6 +67,7 @@ export function CompilationFilterManager({
 
   const handleClose = useCallback(() => {
     setOpen(false)
+    setEditId(null)
     setType('ean')
     setIdentifier('')
     setReleaseSearch('')
@@ -68,20 +75,29 @@ export function CompilationFilterManager({
 
   const handleAddManual = useCallback(() => {
     const trimmed = identifier.trim()
-    if (!trimmed) return
-    onAddFilter({ identifier: trimmed, type, label: trimmed })
+    if (!trimmed || isDuplicate(filters, trimmed, type, editId ?? undefined)) return
+    if (editId && onUpdateFilter) onUpdateFilter(editId, { identifier: trimmed, type, label: trimmed })
+    else if (!editId) onAddFilter({ identifier: trimmed, type, label: trimmed })
     handleClose()
-  }, [identifier, type, onAddFilter, handleClose])
+  }, [identifier, type, filters, editId, onAddFilter, onUpdateFilter, handleClose])
 
   const handleAddFromRelease = useCallback((releaseTitle: string) => {
+    if (isDuplicate(filters, releaseTitle, 'title')) return
     onAddFilter({ identifier: releaseTitle, type: 'title', label: releaseTitle })
     handleClose()
-  }, [onAddFilter, handleClose])
+  }, [filters, onAddFilter, handleClose])
 
   const filteredReleases = useMemo(() => {
     const q = releaseSearch.toLowerCase()
     return q ? availableReleases.filter(r => r.toLowerCase().includes(q)) : availableReleases
   }, [availableReleases, releaseSearch])
+
+  const startEdit = (filter: CompilationFilter) => {
+    setEditId(filter.id)
+    setIdentifier(filter.identifier)
+    setType(filter.type)
+    setOpen(true)
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
@@ -96,13 +112,13 @@ export function CompilationFilterManager({
           <DialogTrigger asChild>
             <Button size="sm" className="gap-2">
               <Plus size={16} weight="bold" />
-              Add Filter
+              {t.uiAddCompilation}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Exclude Compilation</DialogTitle>
-              <DialogDescription>Add a compilation to exclude from artist statements.</DialogDescription>
+              <DialogTitle>{editId ? t.uiEditCompilation : t.uiAddCompilation}</DialogTitle>
+              <DialogDescription>{t.uiCompilationExplanation}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
@@ -146,12 +162,12 @@ export function CompilationFilterManager({
                       <button
                         key={title}
                         type="button"
-                        disabled={isDuplicate(filters, title)}
+                        disabled={isDuplicate(filters, title, 'title')}
                         onClick={() => handleAddFromRelease(title)}
                         className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-accent disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between"
                       >
                         <span className="truncate">{title}</span>
-                        {isDuplicate(filters, title) && <Badge variant="outline" className="text-[10px] shrink-0">Added</Badge>}
+                        {isDuplicate(filters, title, 'title') && <Badge variant="outline" className="text-[10px] shrink-0">Added</Badge>}
                       </button>
                     ))}
                     {filteredReleases.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">No releases found</p>}
@@ -161,8 +177,9 @@ export function CompilationFilterManager({
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
-              <Button onClick={handleAddManual} disabled={!identifier.trim()}>Add Filter</Button>
+              <Button onClick={handleAddManual} disabled={!identifier.trim() || duplicateValue}>{editId ? t.uiSaveCompilation : t.uiAddCompilation}</Button>
             </DialogFooter>
+            {duplicateValue && <p role="alert" className="text-xs text-amber-300">{t.uiDuplicateCompilation}</p>
           </DialogContent>
         </Dialog>
       </div>
@@ -188,13 +205,19 @@ export function CompilationFilterManager({
                 <p className="truncate text-sm font-medium text-foreground" title={filter.label}>{filter.label}</p>
                 <p className="text-xs text-muted-foreground">{FILTER_TYPE_LABELS[filter.type]}</p>
               </div>
+              {onUpdateFilter && (
+                <Button type="button" variant="outline" size="sm" className="h-9 px-3 text-xs"
+                  onClick={() => startEdit(filter)} aria-label={`${t.uiEditCompilation}: ${filter.label}`}>
+                  {t.uiEditCompilation}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                aria-label={`Remove compilation filter ${filter.label}`}
-                title={`Remove ${filter.label}`}
-                onClick={() => onRemoveFilter(filter.id)}
+                aria-label={`${t.uiRemoveCompilation}: ${filter.label}`}
+                title={t.uiRemoveCompilation}
+                onClick={() => setDeleteTarget(filter)}
                 className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash size={17} aria-hidden="true" />
@@ -215,6 +238,12 @@ export function CompilationFilterManager({
           {t.uiFiltersShown.replace('{shown}', String(visibleFilters.length)).replace('{total}', String(filters.length))}
         </p>
       )}
+      <SosConfirmDialog open={deleteTarget !== null} onOpenChange={open => { if (!open) setDeleteTarget(null) }}
+        title={t.uiRemoveCompilation}
+        description={t.uiCompilationDeleteConfirm.replace('{name}', deleteTarget?.label ?? '')}
+        confirmLabel={t.uiRemoveCompilation} cancelLabel={t.uiCancel} destructive
+        onConfirm={() => { if (deleteTarget) onRemoveFilter(deleteTarget.id); setDeleteTarget(null) }}
+      />
     </div>
   )
 }
