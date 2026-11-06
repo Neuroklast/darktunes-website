@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { ArrowsClockwise, Database, Trash, DownloadSimple } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { AccountingListPagination, ACCOUNTING_PAGE_SIZE } from './AccountingListPagination'
 import { horizontalScrollClass } from '@/components/ui/scroll-panel'
 import { Badge } from '@/components/ui/badge'
 import type { DistributorImportBatch } from '@/lib/api/distributorImportBatches'
@@ -61,6 +62,7 @@ export function ImportBatchesPanel({
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [page, setPage] = useState(0)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -171,6 +173,8 @@ export function ImportBatchesPanel({
       .some(value => String(value ?? '').toLocaleLowerCase().includes(search))
     return matchesSearch && (statusFilter === 'all' || batch.status === statusFilter)
   }), [batches, query, statusFilter])
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(visibleBatches.length / ACCOUNTING_PAGE_SIZE) - 1))
+  const pagedBatches = visibleBatches.slice(currentPage * ACCOUNTING_PAGE_SIZE, (currentPage + 1) * ACCOUNTING_PAGE_SIZE)
 
   if (loading && batches.length === 0 && !loadError) {
     return <p className="text-sm text-muted-foreground p-4">{t.bronzeLoading}</p>
@@ -220,10 +224,10 @@ export function ImportBatchesPanel({
         </div>
       )}
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-        <Input value={query} onChange={event => setQuery(event.target.value)}
+        <Input value={query} onChange={event => { setQuery(event.target.value); setPage(0) }}
           placeholder={t.uiArchiveSearch} aria-label={t.uiArchiveSearch}
           className="h-10 w-full max-w-sm text-sm" />
-        <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}
+        <select value={statusFilter} onChange={event => { setStatusFilter(event.target.value); setPage(0) }}
           className="h-10 rounded-md border border-border bg-background px-3 text-sm"
           aria-label={t.uiArchiveValidation}>
           <option value="all">{t.uiArchiveAllStatuses}</option>
@@ -245,7 +249,7 @@ export function ImportBatchesPanel({
             </tr>
           </thead>
           <tbody>
-            {visibleBatches.map((batch) => (
+            {pagedBatches.map((batch) => (
               <tr key={batch.id} className="border-b border-border/50">
                 <td className="px-4 py-2 capitalize">{batch.distributor}</td>
                 <td className="px-4 py-2 tabular-nums">
@@ -312,6 +316,7 @@ export function ImportBatchesPanel({
           </tbody>
         </table>
       </div>
+      <div className="px-4 py-3"><AccountingListPagination count={visibleBatches.length} page={currentPage} onPageChange={setPage} /></div>
     </div>
     <SosConfirmDialog
       open={deleteTargetId != null}
