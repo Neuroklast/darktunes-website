@@ -36,6 +36,7 @@
 
 import { normalizeRevenueToEur } from '../lib/sos/currency'
 import { parseCSVContentStreaming } from '../lib/sos/ingest/streaming-csv-parser'
+import type { ImportDateOrder, ImportDateSemantics } from '../lib/sos/ingest/types'
 import { parseShopifyRaw, reconcileMerchTransactions } from '../lib/sos/ingest/ecommerce-merger'
 import type { ShopifyRawOrder } from '../lib/sos/ingest/ecommerce-merger'
 import { parsePrintfulCSV } from '../lib/sos/ingest/printful-parser'
@@ -163,7 +164,7 @@ export interface WorkerResult {
 }
 
 export type WorkerRequest =
-  | { type: 'add-file'; fileId: string; content: string; source: 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch'; customAliases: Record<string, string[]>; columnMapping?: Record<string, string> }
+  | { type: 'add-file'; fileId: string; content: string; source: 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch'; customAliases: Record<string, string[]>; columnMapping?: Record<string, string>; dateSemantics?: ImportDateSemantics; dateOrder?: ImportDateOrder }
   | { type: 'remove-file'; fileId: string }
   | { type: 'process'; config: WorkerProcessConfig; requestId?: number }
   | { type: 'reset' }
@@ -470,7 +471,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
 
   switch (msg.type) {
     case 'add-file': {
-      const { fileId, content, source, customAliases, columnMapping } = msg
+      const { fileId, content, source, customAliases, columnMapping, dateSemantics, dateOrder } = msg
       try {
         if (source === 'shopify') {
           // Stage raw orders for reconciliation — do NOT convert to SalesTransactions yet.
@@ -513,7 +514,9 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
               })
             },
             columnMapping,
-            customAliases
+            customAliases,
+            dateSemantics,
+            dateOrder,
           )
           fileTransactions.set(fileId, result.transactions)
           postParseDone(
@@ -521,7 +524,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
             result.transactions.length,
             result.errors.length + result.skipped.length,
             result.uniqueArtists.length,
-            result.transactions.map((tx) => tx.sales_month),
+            result.periodStart && result.periodEnd ? [result.periodStart, result.periodEnd] : result.transactions.map((tx) => tx.sales_month),
             {
               emptyCurrencyRows: result.emptyCurrencyRows,
               skipReasons: [...new Set(result.skipped.map((skip) => skip.reason))],

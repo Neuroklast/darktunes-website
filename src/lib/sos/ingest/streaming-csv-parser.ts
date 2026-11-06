@@ -2,6 +2,8 @@ import Papa, { type ParseResult, type Parser } from 'papaparse'
 import type { SalesTransaction } from './csv-parser'
 import { mapCSVHeadersToModel } from './csv-parser'
 import { normalizeDateToMonth } from './normalizeDateToMonth'
+import { parseDarkmerchReportingPeriod } from './darkmerch-parser'
+import type { ImportDateOrder, ImportDateSemantics } from './types'
 import { parseAmount, parseIntegerAmount, SOURCE_AMOUNT_CONVENTION } from './amountParsing'
 
 export { normalizeDateToMonth } from './normalizeDateToMonth'
@@ -21,6 +23,8 @@ export interface ParseSkip {
 }
 
 export interface StreamingParseResult {
+  periodStart?: string
+  periodEnd?: string
   transactions: SalesTransaction[]
   uniqueArtists: string[]
   errors: Array<{ row: number; reason: string; data: string }>
@@ -48,14 +52,20 @@ function processChunk(
   mapping: Record<string, string>,
   source: 'believe' | 'bandcamp',
   startIndex: number,
-  parseTag: string
+  parseTag: string,
+  dateSemantics: ImportDateSemantics = 'sale-date',
+  dateOrder?: ImportDateOrder,
 ): {
   transactions: SalesTransaction[]
   artists: Set<string>
+  periodStart?: string
+  periodEnd?: string
   errors: Array<{ row: number; reason: string; data: string }>
   skipped: ParseSkip[]
   emptyCurrencyRows: number
 } {
+  let periodStart: string | undefined
+  let periodEnd: string | undefined
   const transactions: SalesTransaction[] = []
   const artists = new Set<string>()
   const errors: Array<{ row: number; reason: string; data: string }> = []
@@ -195,7 +205,14 @@ function processChunk(
 
       // Normalise the date to YYYY-MM for all sources.
       const rawMonth = (mappedData.sales_month ?? '').trim()
-      const salesMonth = normalizeDateToMonth(rawMonth, source)
+      const salesMonth = dateSemantics === 'sale-date' ? normalizeDateToMonth(rawMonth, source, dateOrder) : ''
+      if (dateSemantics === 'report-period' && rawMonth) {
+        const bounds = parseDarkmerchReportingPeriod(rawMonth)
+        if (bounds) {
+          if (!periodStart || bounds.periodStart < periodStart) periodStart = bounds.periodStart
+          if (!periodEnd || bounds.periodEnd > periodEnd) periodEnd = bounds.periodEnd
+        }
+      }
 
       // Bandcamp CSVs have no dedicated platform column; default to "Bandcamp".
       const platform = (mappedData.platform ?? '').trim() || (source === 'bandcamp' ? 'Bandcamp' : '')
@@ -233,7 +250,7 @@ function processChunk(
     }
   }
 
-  return { transactions, artists, errors, skipped, emptyCurrencyRows }
+  return { transactions, artists, periodStart, periodEnd, errors, skipped, emptyCurrencyRows }
 }
 
 /**
@@ -249,13 +266,17 @@ export async function parseCSVContentStreaming(
   source: 'believe' | 'bandcamp',
   onProgress?: (progress: ParseProgress) => void,
   columnMapping?: Record<string, string>,
-  customAliases?: Record<string, string[]>
+  customAliases?: Record<string, string[]>,
+  dateSemantics: ImportDateSemantics = 'sale-date',
+  dateOrder?: ImportDateOrder,
 ): Promise<StreamingParseResult> {
   const allTransactions: SalesTransaction[] = []
   const uniqueArtistsSet = new Set<string>()
   const allErrors: Array<{ row: number; reason: string; data: string }> = []
   const allSkipped: ParseSkip[] = []
   let emptyCurrencyRows = 0
+  let reportStart: string | undefined
+  let reportEnd: string | undefined
 
   onProgress?.({
     processedRows: 0,
@@ -318,9 +339,17 @@ export async function parseCSVContentStreaming(
               })
               return
             }
-            mapping = columnMapping
-              ? { ...mapCSVHeadersToModel(headerCells, customAliases), ...columnMapping }
-              : mapCSVHeadersToModel(headerCells, customAliases)
+            mapping = mapCSVHeadersToModel(headerCells, customAliases)
+            if (columnMapping) {
+              // Confirmed mappings win even when an alias resolves to the same
+              // field under another column later in the source CSV.
+              for (const [header, field] of Object.entries(columnMapping)) {
+                for (const [otherHeader, otherField] of Object.entries(mapping)) {
+                  if (otherHeader !== header && otherField === field) delete mapping[otherHeader]
+                }
+                mapping[header] = field
+              }
+            }
             continue
           }
 
@@ -330,7 +359,9 @@ export async function parseCSVContentStreaming(
 
         if (!sawHeader || !headers || !mapping || dataRows.length === 0) return
 
-        const result = processChunk(dataRows, headers, mapping, source, processedRows, parseTag)
+        const result = processChunk(dataRows, headers, mapping, source, processedRows, parseTag, dateSemantics, dateOrder)
+        if (result.periodStart && (!reportStart || result.periodStart < reportStart)) reportStart = result.periodStart
+        if (result.periodEnd && (!reportEnd || result.periodEnd > reportEnd)) reportEnd = result.periodEnd
 
         for (const t of result.transactions) allTransactions.push(t)
         result.artists.forEach((a) => uniqueArtistsSet.add(a))
@@ -375,6 +406,7 @@ export async function parseCSVContentStreaming(
           errors: allErrors,
           skipped: allSkipped,
           emptyCurrencyRows,
+          ...(reportStart && reportEnd ? { periodStart: reportStart, periodEnd: reportEnd } : {}),
         })
       },
       error: (err: Error) => reject(err instanceof Error ? err : new Error(String(err))),
