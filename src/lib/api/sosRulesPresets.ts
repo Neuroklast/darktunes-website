@@ -16,6 +16,8 @@ import { compactSosLogo, hydrateSosLogo } from '@/lib/sos/logoAssets.server'
 type DbClient = SupabaseClient<Database>
 type Row = Database['public']['Tables']['sos_rules_presets']['Row']
 
+export const GLOBAL_IMPORT_PROFILES_PRESET_NAME = 'SOS Import Profiles'
+
 export type RulesPresetConfig = SosAccountingSettings
 
 export interface SosRulesPreset {
@@ -48,7 +50,8 @@ export async function listRulesPresets(db: DbClient): Promise<SosRulesPreset[]> 
     .order('updated_at', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return Promise.all((data ?? []).map((row) => rowToPreset(db, row as Row)))
+  // Isolated internal storage is not a user-selectable rules preset.
+  return Promise.all((data ?? []).filter((row) => row.name !== GLOBAL_IMPORT_PROFILES_PRESET_NAME).map((row) => rowToPreset(db, row as Row)))
 }
 
 export async function getRulesPresetByName(
@@ -85,6 +88,9 @@ export async function upsertRulesPresetByName(
   input: UpsertRulesPresetInput,
 ): Promise<SosRulesPreset> {
   const trimmedName = input.name.trim()
+  if (trimmedName.toLowerCase() === GLOBAL_IMPORT_PROFILES_PRESET_NAME.toLowerCase()) {
+    throw new Error('The global import profile store is not an editable rules preset')
+  }
   const existing = await getRulesPresetByName(db, trimmedName)
   const config = await compactSosLogo(db, normalizeAccountingConfig(input.config))
 
@@ -115,6 +121,10 @@ export async function updateRulesPreset(
   id: string,
   input: { name?: string; config?: RulesPresetConfig },
 ): Promise<SosRulesPreset> {
+  const existing = await getRulesPresetById(db, id)
+  if (existing?.name === GLOBAL_IMPORT_PROFILES_PRESET_NAME || input.name?.trim() === GLOBAL_IMPORT_PROFILES_PRESET_NAME) {
+    throw new Error('The global import profile store is not an editable rules preset')
+  }
   const update: { name?: string; config?: Record<string, unknown> } = {}
   if (input.name !== undefined) update.name = input.name.trim()
   if (input.config !== undefined) {
@@ -134,6 +144,9 @@ export async function updateRulesPreset(
 
 export async function deleteRulesPreset(db: DbClient, id: string): Promise<void> {
   const existing = await getRulesPresetById(db, id)
+  if (existing?.name === GLOBAL_IMPORT_PROFILES_PRESET_NAME) {
+    throw new Error('The global import profile store cannot be deleted')
+  }
   if (existing?.name.toLowerCase() === DEFAULT_PRESET_NAME.toLowerCase()) {
     throw new Error('The Default preset cannot be deleted')
   }
