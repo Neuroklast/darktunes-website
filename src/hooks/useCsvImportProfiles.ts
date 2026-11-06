@@ -1,17 +1,18 @@
 'use client'
 
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
-import { DEFAULT_CSV_PROFILES } from '@/lib/sos/ingest/default-profiles'
+import { buildCsvProfileRegistry } from '@/lib/sos/ingest/csvProfileRegistry'
 import type { CsvImportProfile } from '@/lib/sos/ingest/types'
 
 export function useCsvImportProfiles(
   customProfiles: CsvImportProfile[],
   setCustomProfiles: Dispatch<SetStateAction<CsvImportProfile[]>>,
 ) {
-  const profiles = useMemo(
-    () => [...customProfiles, ...DEFAULT_CSV_PROFILES],
+  const registry = useMemo(
+    () => buildCsvProfileRegistry(customProfiles),
     [customProfiles],
   )
+  const { profiles, shadowedProfiles, nameConflicts } = registry
 
   const saveProfile = useCallback(
     (profile: CsvImportProfile) => {
@@ -39,6 +40,8 @@ export function useCsvImportProfiles(
 
   return {
     profiles,
+    shadowedProfiles,
+    nameConflicts,
     customProfiles,
     saveProfile,
     deleteProfile,
