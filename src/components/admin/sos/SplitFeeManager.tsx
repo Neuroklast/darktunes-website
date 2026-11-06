@@ -21,6 +21,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { SosConfirmDialog } from './SosConfirmDialog'
+import { AccountingListPagination, ACCOUNTING_PAGE_SIZE } from './AccountingListPagination'
 import type { SplitFee } from '@/lib/sos/types'
 import { PercentField } from '@/components/admin/sos/fields/AccountingNumberFields'
 import { clampPercent, parseOptionalPercent, parseRequiredPercent } from '@/lib/sos/accountingInputValidation'
@@ -202,7 +203,7 @@ export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, on
   const [page, setPage] = useState(0)
   const [deleteTarget, setDeleteTarget] = useState<SplitFee | null>(null)
   const filtered = splitFees.filter(fee => fee.artist.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))
-  const perPage = 40
+  const perPage = ACCOUNTING_PAGE_SIZE
   const pageCount = Math.max(1, Math.ceil(filtered.length / perPage))
   const currentPage = Math.min(page, pageCount - 1)
   const visible = filtered.slice(currentPage * perPage, (currentPage + 1) * perPage)
@@ -212,7 +213,7 @@ export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, on
   const existingArtists = splitFees.map(f => f.artist)
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="w-full min-w-0 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <ChartPieSlice size={20} weight="bold" className="text-primary" />
@@ -285,17 +286,7 @@ export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, on
           {splitFees.length ? t.uiNoMatchingSplits : t.uiNoConfiguredSplits}
         </Card>
       )}
-      {filtered.length > perPage && (
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <Button variant="outline" size="sm" disabled={currentPage <= 0}
-            onClick={() => setPage(currentPage - 1)}>{t.uiPagePrevious}</Button>
-          <span className="text-xs tabular-nums text-muted-foreground">
-            {t.uiRulePagination.replace('{page}', String(currentPage + 1)).replace('{total}', String(pageCount))}
-          </span>
-          <Button variant="outline" size="sm" disabled={currentPage >= pageCount - 1}
-            onClick={() => setPage(currentPage + 1)}>{t.uiPageNext}</Button>
-        </div>
-      )}
+      <AccountingListPagination count={filtered.length} page={currentPage} onPageChange={setPage} />
       <SosConfirmDialog open={deleteTarget !== null} onOpenChange={open => { if (!open) setDeleteTarget(null) }}
         title={t.uiRemoveSplit}
         description={t.uiDeleteSplitConfirm.replace('{artist}', deleteTarget?.artist ?? '')}
