@@ -1,6 +1,16 @@
 # Pre-Release QA Checklist
 
 ## AI import assistant
+- [ ] Confirm Q2–Q3 2026 is interpreted as source reporting metadata, not the sales month of each row. A row with no revenue can still define the reporting period.
+- [ ] Custom profile mapping overrides conflicting fuzzy aliases and rejects mapping one physical source column to multiple financial fields.
+- [ ] Dates with ambiguous day/month order use the selected format; ambiguous amounts (1,234) require an explicit decimal convention.
+- [ ] A profile is only auto-selected for the same header signature and delimiter. Header modifications and ambiguous profile matches require manual confirmation.
+- [ ] An unknown XLSX is sniffed locally and is not routed to Darkmerch by filename extension. Convert a confirmed non-Darkmerch workbook to CSV only when importing.
+- [ ] Simultaneously uploading multiple unknown formats opens a queue of dialogs without losing any file.
+- [ ] A profile POST/PUT conflict does not show a success toast or import financial data; edits remain available to retry.
+- [ ] Profiles saved while viewing one reporting period are available from a different period and after refreshing the page.
+- [ ] A partially failed or R2-skipped file offers a mapping repair without adding a duplicate preview. Corrected parse metadata re-arms archival when appropriate.
+- [ ] All field mappings suggested by AI (currency, platform, quantity, release, track etc.) appear in the confirmation editor and reach the worker.
 - [ ] A known Believe, Bandcamp, Shopify, Printful or Darkmerch file imports without a call to the AI endpoint.
 - [ ] A >50 MB unknown CSV is sampled via a bounded Blob slice; only headers and at most three preview rows reach the server.
 - [ ] An unknown format opens a manual mapping dialog. AI analysis runs only after clicking Analyze.

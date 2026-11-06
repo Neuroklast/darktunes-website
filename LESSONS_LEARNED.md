@@ -233,6 +233,11 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 ## State & UI
 
+- Import profiles must be global and server-confirmed before use; period workspaces cannot be their source of truth. On concurrent edits, fail with 409 and retain the administrator's draft.
+- A report-wide period is not a per-sale month. Keep source period metadata separate from transaction dates and require explicit format semantics.
+- Matching the first two generic CSV headers is not proof of a format. Confirm exact structural signatures, delimiters and unique matches before auto-importing.
+- Treat parsed source rows as financial data: confirmed mappings and decimal conventions override heuristics, and failures must be visible rather than silently imported.
+
 | Anti-pattern | Rule |
 |--------------|------|
 | Treating AI import suggestions as executable financial instructions | AI sees only bounded sanitized headers + three rows, returns a schema-validated suggestion, and never persists or imports before explicit user confirmation. |

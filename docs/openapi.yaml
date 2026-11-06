@@ -82,6 +82,38 @@ components:
         must have the `partner_api` feature enabled.
 
   schemas:
+    SosImportProfilesUpdate:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, profiles]
+      properties:
+        expected_revision: { type: [string, "null"] }
+        profiles:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, name, type, delimiter, autoDetectHeaders, columnMapping]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              type: { type: string, enum: [financial] }
+              delimiter: { type: string }
+              autoDetectHeaders: { type: array, items: { type: string } }
+              columnMapping: { type: object, additionalProperties: { type: string } }
+              headerFingerprint: { type: string }
+              parserSource: { type: string }
+              dateSemantics: { type: string }
+              dateOrder: { type: string }
+              amountConvention: { type: string }
+              revision: { type: integer }
+    SosImportProfilesResponse:
+      type: object
+      required: [profiles, revision]
+      properties:
+        revision: { type: [string, "null"] }
+        profiles: { type: array, items: { type: object } }
     SosImportProfileSuggestionRequest:
       type: object
       additionalProperties: false
@@ -4377,6 +4409,49 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/sos/import-profiles:
+    get:
+      operationId: getadmin_sos_import-profiles
+      tags: [Admin]
+      summary: List global, versioned import profiles
+      security:
+        - AdminBearer: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosImportProfilesResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: putadmin_sos_import-profiles
+      tags: [Admin]
+      summary: Save confirmed global import profiles with optimistic concurrency
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosImportProfilesUpdate"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosImportProfilesResponse"
+        '409':
+          description: A concurrent admin changed these profiles; reload required.
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }

@@ -10,6 +10,10 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## [Unreleased]
 
+### Fixed
+- **SOS AI import safety:** explicit profile date semantics (sale dates vs report periods), parser family, decimal and date locale, strict header/delimiter matching, confirmed-over-fuzzy column mapping, XLSX source inspection, queued unknown uploads and repaired R2 provenance.
+- **Global import profiles:** isolated server-side profile store with optimistic revision checks; imported files start only after the saved profile is acknowledged.
+
 ### Added
 - **Sample-only AI import assistance:** unknown financial reports offer explicit AI analysis of column headings and at most three local preview rows; no full CSV is sent. AI suggestions ask clarifying questions and cannot change data or profiles before confirmation. Confirmed format signatures and column mappings are reused by the worker without further AI calls.
 

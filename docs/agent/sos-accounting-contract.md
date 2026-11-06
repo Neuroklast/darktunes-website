@@ -529,6 +529,26 @@ entgegen) sowie die Restore-Übung in einer getrennten Testumgebung mit Produkti
 
 ### AI import profile guidance
 
+Versioned user CSV profiles are global, not keyed by settlement period. The
+admin-only `GET/PUT /api/admin/sos/import-profiles` interface stores them
+in an isolated named rules-preset record with optimistic `updated_at`
+concurrency. A 409 means no change was persisted, and no file may be imported
+as if its corrected profile had saved. Profile metadata includes parser family,
+date semantics, date order, amount convention, optional mappings and revision.
+
+Financial semantics are explicit: report-wide quarter ranges contribute source
+provenance but never fabricated per-row sales months. Both ISO and localized
+single-sale dates must be interpreted under the confirmed profile's order;
+ambiguous amounts are errors unless a specific numbering convention is chosen.
+Special supplier parsers remain authoritative for their native schema.
+
+Unmatched multiple uploads must queue; an XLSX is inspected before deciding
+whether it belongs to Darkmerch or a generic streaming profile. The AI receives
+a capped preview only. Repairing a loaded source reuses its original bytes and
+re-arms archive validation when no Bronze archive exists.
+
+### AI import profile guidance
+
 The upload path is deterministic for known system and confirmed custom profiles.
 Unknown CSV formats are sampled from a maximum 256 KiB local Blob slice,
 and only headings and the first three rows can reach the optional AI endpoint.

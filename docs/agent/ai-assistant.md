@@ -81,6 +81,14 @@ Hosted NVIDIA inference can return HTTP 503 `ResourceExhausted: Worker local tot
 
 ## Sample-only SOS import assistance
 
+The model may propose `parser_source`, `date_semantics`, `date_order`,
+`amount_convention` and mappings for all supported financial fields, but
+these are never executable instructions. The operator explicitly confirms
+the values. Incorrect or incomplete suggestions cannot modify a saved
+profile or statement. Confirmed profiles live in a separate, version-checked
+server store; existing profiles are never updated by the model itself.
+
+
 The admin-only `POST /api/admin/sos/import-profile-suggestions` endpoint is
 independent of assistant chat history. It accepts a strictly validated list
 of column headings and no more than three short sample rows (maximum 16 KiB
