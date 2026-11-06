@@ -63,13 +63,7 @@ const TOOLTIP_STYLE = {
   fontSize: 12,
 }
 
-export function TrendsDashboard({
-  revenues = [],
-  periodStart = '',
-  periodEnd = '',
-  bronzeBatchIds = [],
-}: TrendsDashboardProps) {
-  const trendsFallback = {
+const TRENDS_FALLBACK = {
     trendsSavePeriod: 'Save period {period}',
     trendsUpdatePeriod: 'Update period {period}',
     trendsLoadFailed: 'Failed to load period summaries',
@@ -87,8 +81,15 @@ export function TrendsDashboard({
     trendsChartTitle: 'Revenue & Payout Over Time',
     trendsOnePeriodHint: '1 period saved. Save at least one more to see a trend chart.',
     trendsSaveFailed: 'Failed to save period summary',
-  } as const
-  const t = useMergedAccountingLabels(trendsFallback)
+} as const
+
+export function TrendsDashboard({
+  revenues = [],
+  periodStart = '',
+  periodEnd = '',
+  bronzeBatchIds = [],
+}: TrendsDashboardProps) {
+  const t = useMergedAccountingLabels(TRENDS_FALLBACK)
 
   const [summaries, setSummaries] = useState<PeriodSummary[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -152,11 +153,11 @@ export function TrendsDashboard({
     }
   }, [revenues, periodStart, periodEnd, bronzeBatchIds, loadSummaries, t])
 
-  const chartData = summaries.map(s => ({
+  const chartData = useMemo(() => summaries.map(s => ({
     period: s.period_start,
     Revenue: Number(s.total_revenue),
     Payout: Number(s.total_payout),
-  }))
+  })), [summaries])
 
   const latestRevenue = summaries.at(-1)?.total_revenue ?? 0
   const latestPayout = summaries.at(-1)?.total_payout ?? 0
@@ -171,7 +172,7 @@ export function TrendsDashboard({
   )
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-w-0 space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <TrendUp size={20} weight="bold" className="text-primary" />
@@ -226,10 +227,11 @@ export function TrendsDashboard({
         </div>
       )}
 
-      {!isLoading && chartData.length >= 2 && (
-        <Card className="p-4">
-          <p className="text-sm font-semibold mb-4">{t.trendsChartTitle}</p>
-          <ResponsiveContainer width="100%" height={300}>
+      {chartData.length >= 2 && (
+        <Card className="min-w-0 p-4">
+          <p className="mb-4 text-sm font-semibold">{t.trendsChartTitle}</p>
+          <div className="h-[300px] min-w-0 w-full">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={150}>
             <AreaChart data={chartData} margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
               <defs>
                 <linearGradient id="revGrad2" x1="0" y1="0" x2="0" y2="1">
@@ -255,6 +257,7 @@ export function TrendsDashboard({
                 stroke="oklch(0.65 0.28 295)"
                 fill="url(#revGrad2)"
                 strokeWidth={2}
+                 isAnimationActive={false}
               />
               <Area
                 type="monotone"
@@ -262,13 +265,15 @@ export function TrendsDashboard({
                 stroke="oklch(0.60 0.25 300)"
                 fill="url(#payGrad)"
                 strokeWidth={2}
+                 isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>
+          </div>
         </Card>
       )}
 
-      {!isLoading && chartData.length === 1 && (
+      {chartData.length === 1 && (
         <Card className="p-4 text-sm text-muted-foreground text-center">
           {t.trendsOnePeriodHint}
         </Card>
