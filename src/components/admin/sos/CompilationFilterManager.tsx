@@ -82,10 +82,12 @@ export function CompilationFilterManager({
   }, [identifier, type, filters, editId, onAddFilter, onUpdateFilter, handleClose])
 
   const handleAddFromRelease = useCallback((releaseTitle: string) => {
-    if (isDuplicate(filters, releaseTitle, 'title')) return
-    onAddFilter({ identifier: releaseTitle, type: 'title', label: releaseTitle })
+    if (isDuplicate(filters, releaseTitle, 'title', editId ?? undefined)) return
+    const value = { identifier: releaseTitle, type: 'title' as const, label: releaseTitle }
+    if (editId && onUpdateFilter) onUpdateFilter(editId, value)
+    else if (!editId) onAddFilter(value)
     handleClose()
-  }, [filters, onAddFilter, handleClose])
+  }, [filters, editId, onAddFilter, onUpdateFilter, handleClose])
 
   const filteredReleases = useMemo(() => {
     const q = releaseSearch.toLowerCase()
@@ -162,12 +164,12 @@ export function CompilationFilterManager({
                       <button
                         key={title}
                         type="button"
-                        disabled={isDuplicate(filters, title, 'title')}
+                        disabled={isDuplicate(filters, title, 'title', editId ?? undefined)}
                         onClick={() => handleAddFromRelease(title)}
                         className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-accent disabled:opacity-40 disabled:pointer-events-none flex items-center justify-between"
                       >
                         <span className="truncate">{title}</span>
-                        {isDuplicate(filters, title, 'title') && <Badge variant="outline" className="text-[10px] shrink-0">Added</Badge>}
+                        {isDuplicate(filters, title, 'title', editId ?? undefined) && <Badge variant="outline" className="text-[10px] shrink-0">Added</Badge>}
                       </button>
                     ))}
                     {filteredReleases.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">No releases found</p>}
