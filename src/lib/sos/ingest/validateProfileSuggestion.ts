@@ -23,6 +23,7 @@ export function validateProfileSuggestion(
   parser_source: 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch' | null
   date_semantics: 'sale-date' | 'report-period' | 'none' | null
   date_order: 'day-first' | 'month-first' | 'iso' | null
+  amount_convention: 'de' | 'en' | 'auto' | null
 } {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new ApiError(422, 'The AI returned no valid mapping. Select columns manually.', 'AI_MAPPING_INVALID')
@@ -53,6 +54,8 @@ export function validateProfileSuggestion(
       ? candidate.date_semantics as 'sale-date' | 'report-period' | 'none' : null,
     date_order: ['day-first','month-first','iso'].includes(String(candidate.date_order))
       ? candidate.date_order as 'day-first' | 'month-first' | 'iso' : null,
+    amount_convention: ['de','en','auto'].includes(String(candidate.amount_convention))
+      ? candidate.amount_convention as 'de' | 'en' | 'auto' : null,
   }
 }
 

@@ -374,6 +374,7 @@ function ProfileSelectionDialog({
   const [extraMappings, setExtraMappings] = useState<Partial<Record<FinancialFieldKey, string>>>({})
   const [dateSemantics, setDateSemantics] = useState<ImportDateSemantics>('sale-date')
   const [dateOrder, setDateOrder] = useState<ImportDateOrder>('day-first')
+  const [amountConvention, setAmountConvention] = useState<'en' | 'de' | 'auto'>('auto')
   const [parserSource, setParserSource] = useState<'believe' | 'bandcamp'>(repairSource ?? 'believe')
   const [savingProfile, setSavingProfile] = useState(false)
   const tImport = useTranslations('admin.accounting')
@@ -407,6 +408,7 @@ function ProfileSelectionDialog({
         parser_source?: ImportParserSource | null
         date_semantics?: ImportDateSemantics | null
         date_order?: ImportDateOrder | null
+        amount_convention?: 'en' | 'de' | 'auto' | null
       }
       const mapping = suggestion.field_mapping ?? {}
       if (mapping.artist_name && headers.includes(mapping.artist_name)) setArtist(mapping.artist_name)
@@ -422,6 +424,7 @@ function ProfileSelectionDialog({
       setExtraMappings(extras)
       if (suggestion.date_semantics) setDateSemantics(suggestion.date_semantics)
       if (suggestion.date_order) setDateOrder(suggestion.date_order)
+      if (suggestion.amount_convention) setAmountConvention(suggestion.amount_convention)
       if (suggestion.parser_source === 'believe' || suggestion.parser_source === 'bandcamp') {
         if (!isRepair) setParserSource(suggestion.parser_source)
       }
@@ -451,6 +454,7 @@ function ProfileSelectionDialog({
     }
     setDateSemantics(profile.dateSemantics ?? 'sale-date')
     setDateOrder(profile.dateOrder ?? 'day-first')
+    setAmountConvention(profile.amountConvention ?? 'auto')
     setMode('manual')
   }
 
@@ -465,6 +469,7 @@ function ProfileSelectionDialog({
       parserSource: repairSource ?? parserSource,
       dateSemantics,
       dateOrder,
+      amountConvention,
       delimiter,
       autoDetectHeaders: headers.slice(0, 12),
       headerFingerprint: fingerprintHeaders(headers),
@@ -641,6 +646,17 @@ function ProfileSelectionDialog({
                 </SelectContent>
               </Select>
             </div>}
+            <div className="space-y-2">
+              <Label>{tImport('aiImportDecimal')}</Label>
+              <Select value={amountConvention} onValueChange={(value) => setAmountConvention(value as 'en' | 'de' | 'auto')}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">{tImport('aiImportAutoUnambiguous')}</SelectItem>
+                  <SelectItem value="en">{tImport('aiImportEnglishDecimal')}</SelectItem>
+                  <SelectItem value="de">{tImport('aiImportGermanDecimal')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <details className="rounded-md border border-border p-2">
               <summary className="cursor-pointer text-sm">{tImport('aiImportOptionalFields')}</summary>
               <div className="grid gap-2 pt-3">
