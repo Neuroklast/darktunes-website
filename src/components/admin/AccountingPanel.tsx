@@ -18,7 +18,6 @@ import {
   resolveAccountingPeriod,
 } from '@/lib/sos/accountingPeriod'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { horizontalScrollClass } from '@/components/ui/scroll-panel'
 import { useArtists } from '@/hooks/useArtists'
 import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { useCSVProcessor } from '@/hooks/useSosCSVProcessor'
@@ -200,6 +199,7 @@ function SosGeneratorPanel() {
   const [emailConfig, setEmailConfig] = useState<Partial<EmailConfig>>(DEFAULT_EMAIL_CONFIG)
   const [settingsPanel, setSettingsPanel] = useState<'presets' | 'csv' | 'workspace' | 'pdf' | null>(null)
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('upload')
+  const previousWorkflowStep = useRef<SubTab>('upload')
   const [activeRuleTab, setActiveRuleTab] = useState<RulesTab>('label')
   const [manualPeriodStart, setManualPeriodStart] = useState('')
   const [manualPeriodEnd, setManualPeriodEnd] = useState('')
@@ -286,8 +286,17 @@ function SosGeneratorPanel() {
   }, [])
 
   const handleSubTabChange = useCallback((subTab: SubTab) => {
+    if (subTab !== 'rules' && subTab !== 'analytics') previousWorkflowStep.current = subTab
     setActiveSubTab(subTab)
   }, [])
+  const returnToWorkflow = useCallback(() => {
+    setActiveSubTab(previousWorkflowStep.current)
+  }, [])
+  useEffect(() => {
+    if (activeSubTab !== 'rules' && activeSubTab !== 'analytics') {
+      previousWorkflowStep.current = activeSubTab
+    }
+  }, [activeSubTab])
 
   // Artist mapping handlers
   const handleAddMapping = useCallback((m: Omit<ArtistMapping, 'id'>) => {
@@ -1097,7 +1106,7 @@ function SosGeneratorPanel() {
         ) {
           setActiveRuleTab(
             issue.actionTarget === 'rules-mappings' ? 'mappings' :
-            issue.actionTarget === 'rules-splits' ? 'splits' : 'defaults'
+            issue.actionTarget === 'rules-splits' ? (issue.id.startsWith('track-split-') ? 'track-splits' : 'splits') : 'defaults'
           )
           setActiveSubTab('rules')
           return
@@ -1195,7 +1204,7 @@ function SosGeneratorPanel() {
               size="sm"
               className="min-h-9 gap-2 text-sm"
               aria-current={!secondaryView ? 'page' : undefined}
-              onClick={() => handleSubTabChange('upload')}
+              onClick={returnToWorkflow}
             >
               <Wallet size={16} aria-hidden="true" />
               {t.accountingWorkflow}
@@ -1363,7 +1372,7 @@ function SosGeneratorPanel() {
               variant="outline"
               size="sm"
               className="h-8 gap-1.5 text-xs"
-              onClick={() => handleSubTabChange('upload')}
+              onClick={returnToWorkflow}
             >
               <ArrowLeft size={13} aria-hidden="true" /> {t.guidedBack}
             </Button>
