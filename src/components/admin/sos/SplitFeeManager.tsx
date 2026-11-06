@@ -20,7 +20,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { motion, AnimatePresence } from 'framer-motion'
+import { SosConfirmDialog } from './SosConfirmDialog'
 import type { SplitFee } from '@/lib/sos/types'
 import { PercentField } from '@/components/admin/sos/fields/AccountingNumberFields'
 import { clampPercent, parseOptionalPercent, parseRequiredPercent } from '@/lib/sos/accountingInputValidation'
@@ -197,14 +197,23 @@ function FeeForm({
 }
 
 export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, onUpdateSplitFee, artists = [] }: SplitFeeManagerProps) {
+  const t = useAccountingLabels()
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [deleteTarget, setDeleteTarget] = useState<SplitFee | null>(null)
+  const filtered = splitFees.filter(fee => fee.artist.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))
+  const perPage = 40
+  const pageCount = Math.max(1, Math.ceil(filtered.length / perPage))
+  const currentPage = Math.min(page, pageCount - 1)
+  const visible = filtered.slice(currentPage * perPage, (currentPage + 1) * perPage)
   const [addOpen, setAddOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<SplitFee | null>(null)
 
   const existingArtists = splitFees.map(f => f.artist)
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <ChartPieSlice size={20} weight="bold" className="text-primary" />
           <h3 className="font-semibold">Split Fees</h3>
@@ -229,52 +238,70 @@ export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, on
         </Dialog>
       </div>
 
-      <AnimatePresence mode="popLayout">
-        {splitFees.length > 0 ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-            {splitFees.map((fee, index) => (
-              <motion.div key={fee.artist} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ delay: index * 0.04 }}>
-                <Card className="p-3 flex items-center gap-3 bg-card hover:shadow-md transition-shadow">
-                  <Percent size={18} className="text-primary shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{fee.artist}</p>
-                    <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                      <span className="text-xs text-muted-foreground">{fee.percentage}% default</span>
-                      {fee.digitalPercentage !== undefined && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">{fee.digitalPercentage}% digital</Badge>
-                      )}
-                      {fee.physicalPercentage !== undefined && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">{fee.physicalPercentage}% physical</Badge>
-                      )}
-                      {fee.sourceOverrides?.map((override) => (
-                        <Badge key={override.source} variant="outline" className="text-[10px] px-1.5 py-0">
-                          {override.percentage}% {override.source}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {onUpdateSplitFee && (
-                      <Button variant="ghost" size="sm" onClick={() => setEditTarget(fee)} className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary">
-                        <Pencil size={14} />
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm" onClick={() => onRemoveSplitFee(fee.artist)} className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive">
-                      <Trash size={16} />
-                    </Button>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
-        ) : (
-          <Card className="p-8 text-center border-dashed">
-            <ChartPieSlice size={32} className="mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No split fees configured.</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Add a split to define how much revenue each artist receives.</p>
-          </Card>
-        )}
-      </AnimatePresence>
+      {splitFees.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Input value={search} onChange={event => { setSearch(event.target.value); setPage(0) }}
+            aria-label={t.uiSearchSplits} placeholder={t.uiSearchSplits}
+            className="h-10 w-full max-w-md text-sm" />
+          <span className="text-xs tabular-nums text-muted-foreground">{filtered.length} / {splitFees.length}</span>
+        </div>
+      )}
+      {visible.length > 0 ? (
+        <div className="overflow-hidden rounded-lg border border-border bg-card/30">
+          {visible.map(fee => (
+            <div key={fee.artist} className="flex min-h-14 flex-wrap items-center gap-3 border-b border-border/70 px-3 py-2 last:border-0 sm:flex-nowrap sm:px-4">
+              <Percent size={17} className="shrink-0 text-primary" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold" title={fee.artist}>{fee.artist}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="tabular-nums">{fee.percentage}%</span>
+                  {fee.digitalPercentage !== undefined && <Badge variant="outline" className="text-xs">{fee.digitalPercentage}% digital</Badge>}
+                  {fee.physicalPercentage !== undefined && <Badge variant="outline" className="text-xs">{fee.physicalPercentage}% physical</Badge>}
+                  {fee.sourceOverrides?.map(override => (
+                    <Badge key={override.source} variant="outline" className="text-xs">{override.percentage}% {override.source}</Badge>
+                  ))}
+                </div>
+              </div>
+              <div className="ml-auto flex shrink-0 items-center gap-1">
+                {onUpdateSplitFee && (
+                  <Button type="button" variant="ghost" size="sm"
+                    aria-label={`${t.uiEditSplit}: ${fee.artist}`} title={t.uiEditSplit}
+                    onClick={() => setEditTarget(fee)} className="h-9 w-9 p-0">
+                    <Pencil size={17} aria-hidden="true" />
+                  </Button>
+                )}
+                <Button type="button" variant="ghost" size="sm"
+                  aria-label={`${t.uiRemoveSplit}: ${fee.artist}`} title={t.uiRemoveSplit}
+                  onClick={() => setDeleteTarget(fee)}
+                  className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive">
+                  <Trash size={17} aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Card className="border-dashed p-6 text-center text-sm text-muted-foreground">
+          {splitFees.length ? t.uiNoMatchingSplits : t.uiNoConfiguredSplits}
+        </Card>
+      )}
+      {filtered.length > perPage && (
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <Button variant="outline" size="sm" disabled={currentPage <= 0}
+            onClick={() => setPage(currentPage - 1)}>{t.uiPagePrevious}</Button>
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {t.uiRulePagination.replace('{page}', String(currentPage + 1)).replace('{total}', String(pageCount))}
+          </span>
+          <Button variant="outline" size="sm" disabled={currentPage >= pageCount - 1}
+            onClick={() => setPage(currentPage + 1)}>{t.uiPageNext}</Button>
+        </div>
+      )}
+      <SosConfirmDialog open={deleteTarget !== null} onOpenChange={open => { if (!open) setDeleteTarget(null) }}
+        title={t.uiRemoveSplit}
+        description={t.uiDeleteSplitConfirm.replace('{artist}', deleteTarget?.artist ?? '')}
+        confirmLabel={t.uiRemoveSplit} cancelLabel={t.uiCancel} destructive
+        onConfirm={() => { if (deleteTarget) onRemoveSplitFee(deleteTarget.artist); setDeleteTarget(null) }}
+      />
 
       <Dialog open={!!editTarget} onOpenChange={open => !open && setEditTarget(null)}>
         <DialogContent>

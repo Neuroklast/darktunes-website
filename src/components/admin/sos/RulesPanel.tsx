@@ -7,7 +7,7 @@
  * Embedded inside AccountingPanel as the "Rules" sub-tab.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type {
   ArtistMapping, CompilationFilter, SplitFee,
   ManualRevenue, ExpenseEntry, IgnoredEntry,
@@ -64,6 +64,7 @@ export interface RulesPanelProps {
 
   onAddCompilationFilter: (f: Omit<CompilationFilter, 'id'>) => void
   onRemoveCompilationFilter: (id: string) => void
+  onUpdateCompilationFilter?: (id: string, update: Omit<CompilationFilter, 'id'>) => void
 
   onAddSplitFee: (fee: SplitFee) => void
   onRemoveSplitFee: (artist: string) => void
@@ -101,7 +102,7 @@ export function RulesPanel({
   ignoredEntries, csvAliases, trackRevenueAssignments, appDefaults, emailConfig,
   labelInfo, onUpdateLabelInfo,
   onAddArtistMapping, onRemoveArtistMapping, onUpdateArtistMapping,
-  onAddCompilationFilter, onRemoveCompilationFilter,
+  onAddCompilationFilter, onRemoveCompilationFilter, onUpdateCompilationFilter,
   onAddSplitFee, onRemoveSplitFee, onUpdateSplitFee,
   onAddManualRevenue, onRemoveManualRevenue, onUpdateManualRevenue,
   onAddExpense, onRemoveExpense, onUpdateExpense,
@@ -116,6 +117,7 @@ export function RulesPanel({
 }: RulesPanelProps) {
   const t = useAccountingLabels()
   const [internalTab, setInternalTab] = useState<RulesTab>('label')
+  const [lastGroupTab, setLastGroupTab] = useState<Partial<Record<string, RulesTab>>>({})
   const activeTab = activeRuleTab ?? internalTab
   const setActiveTab = (tab: RulesTab) => {
     setInternalTab(tab)
@@ -124,16 +126,16 @@ export function RulesPanel({
 
   const tabs: { id: RulesTab; label: string }[] = [
     { id: 'label', label: t.rulesTabLabel },
-    { id: 'email', label: 'Email' },
-    { id: 'mappings', label: 'Artist Mappings' },
-    { id: 'splits', label: 'Splits' },
-    { id: 'track-splits', label: 'Track Splits' },
-    { id: 'revenues', label: 'Manual Revenue' },
-    { id: 'expenses', label: 'Expenses' },
-    { id: 'compilations', label: 'Compilations' },
-    { id: 'ignored', label: 'Ignored' },
-    { id: 'aliases', label: 'CSV Columns' },
-    { id: 'defaults', label: 'Defaults' },
+    { id: 'email', label: t.uiRuleEmail },
+    { id: 'mappings', label: t.uiRuleMappings },
+    { id: 'splits', label: t.uiRuleSplits },
+    { id: 'track-splits', label: t.uiRuleTrackSplits },
+    { id: 'revenues', label: t.uiRuleRevenue },
+    { id: 'expenses', label: t.uiRuleExpenses },
+    { id: 'compilations', label: t.uiRuleCompilations },
+    { id: 'ignored', label: t.uiRuleIgnored },
+    { id: 'aliases', label: t.uiRuleColumns },
+    { id: 'defaults', label: t.uiRuleDefaults },
   ]
 
   const groups: { id: string; label: string; tabIds: RulesTab[] }[] = [
@@ -143,6 +145,9 @@ export function RulesPanel({
     { id: 'defaults', label: t.ruleGroupDefaults, tabIds: ['defaults'] },
   ]
   const activeGroup = groups.find(group => group.tabIds.includes(activeTab)) ?? groups[0]
+  useEffect(() => {
+    setLastGroupTab(previous => previous[activeGroup.id] === activeTab ? previous : { ...previous, [activeGroup.id]: activeTab })
+  }, [activeTab, activeGroup.id])
 
   const counts: Partial<Record<RulesTab, number>> = {
     mappings:     artistMappings.length + autoMappings.length,
@@ -167,7 +172,7 @@ export function RulesPanel({
                 key={group.id}
                 type="button"
                 aria-current={selected ? 'page' : undefined}
-                onClick={() => setActiveTab(group.tabIds[0])}
+                onClick={() => setActiveTab(lastGroupTab[group.id] ?? group.tabIds[0])}
                 className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${selected ? 'border-primary/40 bg-primary/10 text-foreground' : 'border-border bg-background/60 text-muted-foreground hover:text-foreground'}`}
               >
                 {group.label}
@@ -217,6 +222,7 @@ export function RulesPanel({
             filters={compilationFilters}
             onAddFilter={onAddCompilationFilter}
             onRemoveFilter={onRemoveCompilationFilter}
+            onUpdateFilter={onUpdateCompilationFilter}
             availableReleases={availableReleases}
           />
         )}

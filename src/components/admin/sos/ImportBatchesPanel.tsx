@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { SosConfirmDialog } from '@/components/admin/sos/SosConfirmDialog'
 import { toast } from 'sonner'
 import { ArrowsClockwise, Database, Trash, DownloadSimple } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { horizontalScrollClass } from '@/components/ui/scroll-panel'
 import { Badge } from '@/components/ui/badge'
 import type { DistributorImportBatch } from '@/lib/api/distributorImportBatches'
@@ -58,6 +59,8 @@ export function ImportBatchesPanel({
   const t = useMergedAccountingLabels(BRONZE_FALLBACK)
   const [batches, setBatches] = useState<DistributorImportBatch[]>([])
   const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -162,6 +165,13 @@ export function ImportBatchesPanel({
     })
   }
 
+  const visibleBatches = useMemo(() => batches.filter(batch => {
+    const search = query.toLocaleLowerCase().trim()
+    const matchesSearch = !search || [batch.distributor, batch.periodStart, batch.periodEnd, batch.status]
+      .some(value => String(value ?? '').toLocaleLowerCase().includes(search))
+    return matchesSearch && (statusFilter === 'all' || batch.status === statusFilter)
+  }), [batches, query, statusFilter])
+
   if (loading && batches.length === 0 && !loadError) {
     return <p className="text-sm text-muted-foreground p-4">{t.bronzeLoading}</p>
   }
@@ -209,6 +219,20 @@ export function ImportBatchesPanel({
           </Button>
         </div>
       )}
+      <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+        <Input value={query} onChange={event => setQuery(event.target.value)}
+          placeholder={t.uiArchiveSearch} aria-label={t.uiArchiveSearch}
+          className="h-10 w-full max-w-sm text-sm" />
+        <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}
+          className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+          aria-label={t.uiArchiveValidation}>
+          <option value="all">{t.uiArchiveAllStatuses}</option>
+          {[...new Set(batches.map(batch => batch.status))].map(status => (
+            <option key={status} value={status}>{status}</option>
+          ))}
+        </select>
+        <span className="text-xs tabular-nums text-muted-foreground">{visibleBatches.length} / {batches.length}</span>
+      </div>
       <div className={horizontalScrollClass} data-lenis-prevent>
         <table className="w-full text-sm">
           <thead>
@@ -221,7 +245,7 @@ export function ImportBatchesPanel({
             </tr>
           </thead>
           <tbody>
-            {batches.map((batch) => (
+            {visibleBatches.map((batch) => (
               <tr key={batch.id} className="border-b border-border/50">
                 <td className="px-4 py-2 capitalize">{batch.distributor}</td>
                 <td className="px-4 py-2 tabular-nums">
@@ -229,8 +253,9 @@ export function ImportBatchesPanel({
                 </td>
                 <td className="px-4 py-2 tabular-nums">{batch.rowCount.toLocaleString()}</td>
                 <td className="px-4 py-2">
-                  <Badge variant="outline" className="text-xs capitalize">
-                    {batch.status}
+                  <Badge variant="outline" className="text-xs capitalize"
+                    title={batch.status === 'completed' && batch.fileHash ? t.uiArchiveReady : t.uiArchiveIncomplete}>
+                    {batch.status === 'completed' && batch.fileHash ? t.uiArchiveReady : batch.status}
                   </Badge>
                 </td>
                 <td className="px-4 py-2 text-right space-x-1">
@@ -281,6 +306,9 @@ export function ImportBatchesPanel({
                 </td>
               </tr>
             ))}
+            {visibleBatches.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">{t.uiArchiveNoMatches}</td></tr>
+            )}
           </tbody>
         </table>
       </div>
