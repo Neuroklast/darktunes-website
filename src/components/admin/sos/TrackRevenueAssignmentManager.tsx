@@ -181,7 +181,7 @@ export function TrackRevenueAssignmentManager({
       {/* The creation form stays available but does not consume the entire list view. */}
       <details className="rounded-lg border border-border bg-card/30">
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-          Add assignment rule
+          {t.uiTrackAddRule}
         </summary>
       <Card className="m-3 space-y-4 border-border p-4">
         <h4 className="text-sm font-semibold">Add Assignment Rule</h4>
@@ -250,8 +250,8 @@ export function TrackRevenueAssignmentManager({
             <h4 className="text-sm font-semibold">Active Assignments ({assignments.length})</h4>
             <Input value={search}
               onChange={event => { setSearch(event.target.value); setPage(0) }}
-              className="h-10 w-full max-w-sm text-sm" placeholder="Search tracks or artists"
-              aria-label="Search track assignments" />
+              className="h-10 w-full max-w-sm text-sm" placeholder={t.uiTrackSearch}
+              aria-label={t.uiTrackSearch} />
           </div>
           {pagedAssignments.map(a => {
             const ownerList = a.owners && a.owners.length > 0
@@ -287,7 +287,7 @@ export function TrackRevenueAssignmentManager({
             )
           })}
           {filteredAssignments.length === 0 && (
-            <p className="rounded-md border border-dashed border-border p-5 text-center text-sm text-muted-foreground">No matching track assignments.</p>
+            <p className="rounded-md border border-dashed border-border p-5 text-center text-sm text-muted-foreground">{t.uiTrackNoMatches}</p>
           )}
           <AccountingListPagination count={filteredAssignments.length} page={currentPage} onPageChange={setPage} />
         </div>
