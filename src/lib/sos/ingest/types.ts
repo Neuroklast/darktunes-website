@@ -43,4 +43,6 @@ export interface CsvImportProfile {
   autoDetectHeaders: string[]
   columnMapping: Partial<Record<FinancialFieldKey | MasterDataFieldKey, string>>
   isSystemDefault?: boolean
+  /** Exact structural signature for user-confirmed formats. */
+  headerFingerprint?: string
 }

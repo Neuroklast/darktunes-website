@@ -15,6 +15,7 @@
  *  - 'master-data' → LabelArtist[]      (artist roster store)
  */
 import type { SalesTransaction } from './csv-parser'
+import { fingerprintHeaders } from './importSample'
 import { parseCSVLine } from './csv-parser'
 import { parseCSVContentStreaming } from './streaming-csv-parser'
 import type { StreamingParseResult } from './streaming-csv-parser'
@@ -128,6 +129,15 @@ export function matchProfile(
   profiles: CsvImportProfile[]
 ): CsvImportProfile | null {
   const normalized = headers.map(h => h.toLowerCase().trim())
+  const signature = fingerprintHeaders(headers)
+  // A user-confirmed schema is authoritative; do not let a broad system
+  // heuristic misclassify an identical file and override its mapping.
+  const exact = profiles.find((profile) =>
+    profile.type === 'financial' &&
+    profile.headerFingerprint === signature &&
+    signature.length > 0,
+  )
+  if (exact) return exact
 
   let bestProfile: CsvImportProfile | null = null
   let bestScore = 0
