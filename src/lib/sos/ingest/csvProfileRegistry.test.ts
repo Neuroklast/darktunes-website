@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CSV_PROFILES } from './default-profiles'
 import { buildCsvProfileRegistry, csvProfileDefinitionKey } from './csvProfileRegistry'
+import { matchProfile } from './parser-facade'
+import { fingerprintHeaders } from './importSample'
 
 describe('CSV profile registry', () => {
   it('hides exact built-in clones without modifying persisted settings', () => {
@@ -27,5 +29,31 @@ describe('CSV profile registry', () => {
     const confirmed = { ...system, id: 'confirmed', headerFingerprint: 'a\u001fb' }
     const result = buildCsvProfileRegistry([confirmed])
     expect(result.profiles).toContain(confirmed)
+  })
+  it('honors a confirmed exact header fingerprint over system heuristics', () => {
+    const system = DEFAULT_CSV_PROFILES[0]
+    const columns = ['payout date', 'paid to you', 'bandcamp id', 'item date', 'item type']
+    const confirmed = {
+      ...system,
+      id: 'user-confirmed-layout',
+      isSystemDefault: false,
+      headerFingerprint: fingerprintHeaders(columns),
+    }
+    const registry = buildCsvProfileRegistry([confirmed])
+    expect(matchProfile(columns, registry.profiles)?.id).toBe(confirmed.id)
+  })
+
+  it('does not remove a custom definition with distinct header mappings', () => {
+    const system = DEFAULT_CSV_PROFILES[0]
+    const custom = {
+      ...system,
+      id: 'custom-export',
+      name: 'My custom export',
+      isSystemDefault: false,
+      autoDetectHeaders: ['custom field', 'custom amount'],
+    }
+    const registry = buildCsvProfileRegistry([custom])
+    expect(registry.profiles.some(profile => profile.id === custom.id)).toBe(true)
+    expect(registry.shadowedProfiles).toHaveLength(0)
   })
 })
