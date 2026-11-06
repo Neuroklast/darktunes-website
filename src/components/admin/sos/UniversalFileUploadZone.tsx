@@ -129,12 +129,6 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
-  return String(n)
-}
-
 function humanizeError(error: string | undefined): string {
   if (!error) return 'Processing failed'
   if (error.toLowerCase().includes('call stack') || error.toLowerCase().includes('maximum'))
@@ -610,6 +604,7 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
   const hasData = Boolean(file.data)
   const needsRestore = !hasData && Boolean(file.bronzeBatchId) && !isProcessingFile
   const needsReupload = isDone && !hasData
+  const isArchived = Boolean(file.bronzeBatchId)
   const prefersReducedMotion = useReducedMotion()
 
   return (
@@ -649,8 +644,24 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
               <FileStatusIcon state={state} hasData={hasData} archived={Boolean(file.bronzeBatchId)} />
               <p className="text-sm font-medium truncate">{file.name}</p>
               <SourceBadge source={source} />
+              {isArchived && hasData && <Badge variant="outline" className="text-xs text-emerald-400">{t('uiArchiveLoaded')}</Badge>}
+              {isArchived && !hasData && <Badge variant="outline" className="text-xs">{t('uiArchiveNotLoaded')}</Badge>}
+              {!isArchived && state?.bronzeStatus === 'uploading' && <Badge variant="outline" className="text-xs">{t('uiArchivePending')}</Badge>}
+              {!isArchived && (state?.bronzeStatus === 'error' || state?.bronzeStatus === 'skipped') && (
+                <Badge variant="outline" className="text-xs text-amber-400">{t('uiArchiveFailed')}</Badge>
+              )}
+              {!isArchived && !isProcessingFile && state?.bronzeStatus !== 'error' && state?.bronzeStatus !== 'skipped' && (
+                <Badge variant="outline" className="text-xs text-muted-foreground">{t('uiArchiveNotSaved')}</Badge>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">{formatFileSize(file.size)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {formatFileSize(file.size)}
+              {file.periodStart && (
+                <span className="ml-3 tabular-nums">
+                  {t('uiArchiveSourcePeriod')}: {file.periodStart}{file.periodEnd && file.periodEnd !== file.periodStart ? ` – ${file.periodEnd}` : ''}
+                </span>
+              )}
+            </p>
 
             {isDone && (file.rowsParsed != null || file.rowsSkipped != null) && (
               <div className="flex flex-wrap gap-1 mt-1.5">
@@ -661,37 +672,13 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
                 {file.rowsSkipped != null && file.rowsSkipped > 0 && (
                   <StatPill label="skipped" value={formatInteger(file.rowsSkipped)} />
                 )}
-                {file.bronzeBatchId && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
-                    <CloudArrowUp size={11} weight="bold" />
-                    R2 archived
-                  </span>
-                )}
-                {state?.bronzeStatus === 'uploading' && !file.bronzeBatchId && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                    <Spinner size={11} className="animate-spin" />
-                    Archiving…
-                  </span>
-                )}
-                {state?.bronzeStatus === 'error' && !file.bronzeBatchId && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400">
-                    R2 archive failed
-                  </span>
-                )}
-                {state?.bronzeStatus === 'skipped' && !file.bronzeBatchId && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400">
-                    R2 archive skipped
-                  </span>
-                )}
               </div>
             )}
 
             {needsReupload && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <p className={file.bronzeBatchId ? "text-xs text-muted-foreground" : "text-xs text-amber-400"}>
-                  {file.bronzeBatchId
-                    ? 'Saved in archive. Restore the data to continue.'
-                    : 'The original file data is no longer loaded. Select the file again.'}
+                  {file.bronzeBatchId ? t('uiArchiveRestoreHint') : t('uiArchiveReupload')}
                 </p>
                 {file.bronzeBatchId && onRestore && (
                   <Button
@@ -703,7 +690,7 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
                     className="h-8 gap-1.5"
                   >
                     <CloudArrowDown size={15} />
-                    Restore data
+                    {t('uiArchiveRestore')}
                   </Button>
                 )}
               </div>
@@ -711,7 +698,7 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
             {!isProcessingFile && !hasData && !isDone && file.bronzeBatchId && onRestore && (
               <Button type="button" size="sm" variant="outline" onClick={onRestore} className="mt-2 h-8 gap-1.5">
                 <CloudArrowDown size={15} />
-                Retry restore
+                {t('uiArchiveRetryRestore')}
               </Button>
             )}
 
@@ -1186,6 +1173,15 @@ export function UniversalFileUploadZone({
         </div>
       )}
 
+      {/* Explicitly distinguish archived backups from data loaded for calculation. */}
+      {allFiles.length > 0 && (
+        <div role="status" className="rounded-lg border border-border bg-card/30 px-4 py-2 text-sm text-muted-foreground">
+          {t('uiArchiveSummary')
+            .replace('{loaded}', String(allFiles.filter(entry => Boolean(entry.file.data)).length))
+            .replace('{saved}', String(allFiles.filter(entry => Boolean(entry.file.bronzeBatchId) && !entry.file.data).length))
+            .replace('{missing}', String(allFiles.filter(entry => !entry.file.bronzeBatchId).length))}
+        </div>
+      )}
       {/* Combined file list */}
       <AnimatePresence mode="popLayout">
         {allFiles.length > 0 && (
