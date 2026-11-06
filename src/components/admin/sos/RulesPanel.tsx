@@ -8,8 +8,6 @@
  */
 
 import { useState } from 'react'
-import { horizontalScrollClass } from '@/components/ui/scroll-panel'
-import { cn } from '@/lib/utils'
 import type {
   ArtistMapping, CompilationFilter, SplitFee,
   ManualRevenue, ExpenseEntry, IgnoredEntry,
@@ -29,7 +27,7 @@ import { TrackRevenueAssignmentManager } from './TrackRevenueAssignmentManager'
 import { LabelIdentityManager } from './LabelIdentityManager'
 import { useAccountingLabels } from '@/lib/i18n/accountingFallbacks'
 
-type RulesTab =
+export type RulesTab =
   | 'label'
   | 'mappings'
   | 'compilations'
@@ -43,6 +41,8 @@ type RulesTab =
   | 'email'
 
 export interface RulesPanelProps {
+  activeRuleTab?: RulesTab
+  onRuleTabChange?: (tab: RulesTab) => void
   // State (passed in from parent so rules persist across sub-tab changes)
   artistMappings: ArtistMapping[]
   compilationFilters: CompilationFilter[]
@@ -96,6 +96,7 @@ export interface RulesPanelProps {
 }
 
 export function RulesPanel({
+  activeRuleTab, onRuleTabChange,
   artistMappings, compilationFilters, splitFees, manualRevenues, expenses,
   ignoredEntries, csvAliases, trackRevenueAssignments, appDefaults, emailConfig,
   labelInfo, onUpdateLabelInfo,
@@ -114,21 +115,34 @@ export function RulesPanel({
   autoMappings = [],
 }: RulesPanelProps) {
   const t = useAccountingLabels()
-  const [activeTab, setActiveTab] = useState<RulesTab>('label')
+  const [internalTab, setInternalTab] = useState<RulesTab>('label')
+  const activeTab = activeRuleTab ?? internalTab
+  const setActiveTab = (tab: RulesTab) => {
+    setInternalTab(tab)
+    onRuleTabChange?.(tab)
+  }
 
   const tabs: { id: RulesTab; label: string }[] = [
     { id: 'label', label: t.rulesTabLabel },
+    { id: 'email', label: 'Email' },
     { id: 'mappings', label: 'Artist Mappings' },
-    { id: 'compilations', label: 'Compilations' },
     { id: 'splits', label: 'Splits' },
     { id: 'track-splits', label: 'Track Splits' },
     { id: 'revenues', label: 'Manual Revenue' },
     { id: 'expenses', label: 'Expenses' },
+    { id: 'compilations', label: 'Compilations' },
     { id: 'ignored', label: 'Ignored' },
     { id: 'aliases', label: 'CSV Columns' },
     { id: 'defaults', label: 'Defaults' },
-    { id: 'email', label: 'Email' },
   ]
+
+  const groups: { id: string; label: string; tabIds: RulesTab[] }[] = [
+    { id: 'identity', label: t.ruleGroupIdentity, tabIds: ['label', 'email'] },
+    { id: 'royalties', label: t.ruleGroupPayouts, tabIds: ['mappings', 'splits', 'track-splits', 'revenues', 'expenses'] },
+    { id: 'data', label: t.ruleGroupImports, tabIds: ['compilations', 'ignored', 'aliases'] },
+    { id: 'defaults', label: t.ruleGroupDefaults, tabIds: ['defaults'] },
+  ]
+  const activeGroup = groups.find(group => group.tabIds.includes(activeTab)) ?? groups[0]
 
   const counts: Partial<Record<RulesTab, number>> = {
     mappings:     artistMappings.length + autoMappings.length,
@@ -143,29 +157,44 @@ export function RulesPanel({
 
   return (
     <div className="space-y-0">
-      {/* Rules sub-navigation */}
-      <div className={cn('flex items-center gap-0.5 border-b border-border px-2 pt-1', horizontalScrollClass)} data-lenis-prevent>
-        {tabs.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={`px-3 py-2 text-xs font-medium rounded-t-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === id
-                ? 'border border-b-0 border-border bg-background text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {label}
-            {(counts[id] ?? 0) > 0 && (
-              <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
-                {counts[id]}
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="border-b border-border bg-card/30 px-4 py-3 sm:px-6">
+        <nav aria-label={t.ruleGroupNavigation} className="flex flex-wrap gap-2">
+          {groups.map(group => {
+            const selected = activeGroup.id === group.id
+            const count = group.tabIds.reduce((sum, id) => sum + (counts[id] ?? 0), 0)
+            return (
+              <button
+                key={group.id}
+                type="button"
+                aria-current={selected ? 'page' : undefined}
+                onClick={() => setActiveTab(group.tabIds[0])}
+                className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${selected ? 'border-primary/40 bg-primary/10 text-foreground' : 'border-border bg-background/60 text-muted-foreground hover:text-foreground'}`}
+              >
+                {group.label}
+                {count > 0 && <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs tabular-nums">{count}</span>}
+              </button>
+            )
+          })}
+        </nav>
+      </div>
+      <div className="border-b border-border px-4 py-2 sm:px-6">
+        <nav aria-label={t.ruleCategoryNavigation} className="flex flex-wrap gap-2">
+          {tabs.filter(tab => activeGroup.tabIds.includes(tab.id)).map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              aria-current={activeTab === id ? 'page' : undefined}
+              onClick={() => setActiveTab(id)}
+              className={`inline-flex min-h-9 items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${activeTab === id ? 'bg-secondary text-foreground font-semibold' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+            >
+              {label}
+              {(counts[id] ?? 0) > 0 && <span className="text-xs tabular-nums text-muted-foreground">{counts[id]}</span>}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      <div className="p-6">
+      <div className="mx-auto w-full max-w-6xl p-4 sm:p-6">
         {activeTab === 'label' && (
           <LabelIdentityManager
             labelInfo={labelInfo}
