@@ -299,6 +299,8 @@
     "uiPageNext": "Suivant",
     "uiRulePagination": "Page {page} sur {total}",
     "uiDeleteSplitConfirm": "Supprimer le partage de « {artist} » ? Cela modifiera les calculs futurs.",
+    "uiBrowseArchives": "Afficher les archives des sources",
+    "uiHideArchives": "Masquer les archives",
     "uiSearchCompilations": "Rechercher des filtres de compilation",
     "uiNoMatchingCompilations": "Aucun filtre de compilation correspondant.",
     "uiFiltersShown": "{shown} filtres sur {total} affichés",
