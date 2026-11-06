@@ -56,15 +56,12 @@ import { UniversalFileUploadZone } from '@/components/admin/sos/UniversalFileUpl
 import { ReportingPanel } from '@/components/admin/sos/ReportingPanel'
 import { CurrencyRatesBanner } from '@/components/admin/sos/CurrencyRatesBanner'
 import { SettlementCenterPanel } from '@/components/admin/sos/SettlementCenterPanel'
-import { OperatorPlaybook } from '@/components/admin/sos/OperatorPlaybook'
 import { PayoutManager } from '@/components/admin/sos/PayoutManager'
 import { PdfExportSettingsPanel } from '@/components/admin/sos/PdfExportSettingsPanel'
 import { RulesPanel, type RulesTab } from '@/components/admin/sos/RulesPanel'
 import { SosAnalyticsPersistPanel } from '@/components/admin/sos/SosAnalyticsPersistPanel'
 import { ImportBatchesPanel } from '@/components/admin/sos/ImportBatchesPanel'
 import { SosConfirmDialog } from '@/components/admin/sos/SosConfirmDialog'
-import { ExternalMetricsSyncPanel } from '@/components/admin/sos/ExternalMetricsSyncPanel'
-import { ApifySpotifySyncPanel } from '@/components/admin/sos/ApifySpotifySyncPanel'
 import dynamic from 'next/dynamic'
 const TrendsDashboard = dynamic(() => import('@/components/admin/sos/TrendsDashboard').then(mod => mod.TrendsDashboard), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> })
 import { CsvProfileManager } from '@/components/admin/sos/CsvProfileManager'
@@ -1501,21 +1498,6 @@ function SosGeneratorPanel() {
                 </span>
               </div>
 
-              <OperatorPlaybook
-                title={t.playbookTitle}
-                step1={t.playbookStep1}
-                step2={t.playbookStep2}
-                step3={t.playbookStep3}
-              />
-              <ImportBatchesPanel
-                labelArtists={labelArtists}
-                onLoadBatch={loadBronzeBatch}
-                exchangeRates={exchangeRates}
-                historicalRates={historicalRates ?? undefined}
-                carryForwardByArtist={carryForwardByArtist}
-              />
-              <ExternalMetricsSyncPanel />
-              <ApifySpotifySyncPanel />
               {hasData ? (
                 <SosAnalyticsPersistPanel
                   periodStart={effectivePeriodStart}
