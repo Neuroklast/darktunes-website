@@ -1,8 +1,8 @@
-import { jsPDF, GState } from 'jspdf'
+import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { SafeProcessedArtistData, LabelInfo, PdfExportSettings, LabelArtist, CompilationFilter } from '../types'
 import { resolveTemplate } from '../utils'
-import { APP_CREDITS, APP_LOGO, APP_NAME } from '@/config/softwareBranding'
+import { APP_NAME } from '@/config/softwareBranding'
 import {
   DEFAULT_PDF_SETTINGS,
   formatCurrency,
@@ -12,12 +12,8 @@ import {
   computeFitDimensions,
   LABEL_LOGO_MAX_WIDTH_MM,
   LABEL_LOGO_MAX_HEIGHT_MM,
-  APP_LOGO_FOOTER_SIZE_MM,
-  FOOTER_LOGO_LEFT_OFFSET_MM,
-  FOOTER_LOGO_VERTICAL_NUDGE_MM,
   FOOTER_BOTTOM_MARGIN_MM,
   FOOTER_ROW_SPACING_MM,
-  FOOTER_TEXT_WIDTH_RATIO,
   FOOTER_RESERVED_MM,
   MAX_BREAKDOWN_ROWS,
   MIN_SPACE_FOR_SECTION_HEADING_MM,
@@ -28,6 +24,32 @@ import {
   buildDigitalSplitLabel,
   type DigitalSourceSplit,
 } from './shared'
+
+async function preparePdfLogo(src: string): Promise<string> {
+  if (/^data:image\/(png|jpeg|jpg);base64,/i.test(src)) return src
+  if (!/^data:image\/webp;base64,/i.test(src)) {
+    throw new Error('Unsupported label logo format. Use PNG, JPEG or WebP.')
+  }
+  return new Promise<string>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => {
+      try {
+        const ratio = Math.min(1, 1200 / image.naturalWidth, 800 / image.naturalHeight)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio))
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio))
+        const context = canvas.getContext('2d')
+        if (!context) throw new Error('Canvas context unavailable')
+        context.drawImage(image, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/png'))
+      } catch (error) {
+        reject(error)
+      }
+    }
+    image.onerror = () => reject(new Error('Could not decode WebP label logo'))
+    image.src = src
+  })
+}
 
 export async function generatePDF(
   artistData: SafeProcessedArtistData,
@@ -46,20 +68,26 @@ export async function generatePDF(
 ): Promise<Blob> {
   // Pre-load label logo dimensions so buildPDF can preserve the aspect ratio.
   let logoDimensions: { w: number; h: number } | undefined
-  const logoSrc = labelInfo.logoBase64 ?? labelInfo.logo
-  if (logoSrc) {
-    const naturalDims = await resolveImageDimensions(logoSrc)
-    // Only compute fit dimensions when both axes are valid positive values;
-    // otherwise leave logoDimensions undefined so buildPDF falls back to the
-    // default 25×25 square rather than rendering a potentially distorted image.
-    if (naturalDims && naturalDims.width > 0 && naturalDims.height > 0) {
-      logoDimensions = computeFitDimensions(naturalDims.width, naturalDims.height, LABEL_LOGO_MAX_WIDTH_MM, LABEL_LOGO_MAX_HEIGHT_MM)
+  let preparedLogo: string | undefined
+  const rawLogo = labelInfo.logoBase64 || labelInfo.logo
+  if (!rawLogo && labelInfo.logoAssetId) {
+    throw new Error('The saved label logo could not be loaded. Reload the billing workspace before exporting.')
+  }
+  if (rawLogo) {
+    preparedLogo = await preparePdfLogo(rawLogo)
+    const naturalDims = await resolveImageDimensions(preparedLogo)
+    if (!naturalDims || naturalDims.width <= 0 || naturalDims.height <= 0) {
+      throw new Error('The label logo image is not readable. Upload a valid PNG or JPEG.')
     }
+    logoDimensions = computeFitDimensions(
+      naturalDims.width, naturalDims.height,
+      LABEL_LOGO_MAX_WIDTH_MM, LABEL_LOGO_MAX_HEIGHT_MM,
+    )
   }
 
   try {
     const settings = { ...DEFAULT_PDF_SETTINGS, ...pdfSettings }
-    return buildPDF(artistData, labelInfo, periodStart, periodEnd, invoiceNumber, settings, emailOptions, artistInfo, logoDimensions, compilationFilters)
+    return buildPDF(artistData, labelInfo, periodStart, periodEnd, invoiceNumber, settings, emailOptions, artistInfo, logoDimensions, compilationFilters, preparedLogo)
   } catch (err) {
     throw new Error(
       `PDF generation failed for "${artistData.artist}": ${err instanceof Error ? err.message : String(err)}`
@@ -77,7 +105,8 @@ function buildPDF(
   emailOptions?: { financeEmail: string; deadlineDate: string; donationOrg: string },
   artistInfo?: LabelArtist,
   logoDimensions?: { w: number; h: number },
-  compilationFilters: CompilationFilter[] = []
+  compilationFilters: CompilationFilter[] = [],
+  preparedLogo?: string,
 ): Blob {
   const doc = new jsPDF({ compress: true })
   const margin = 20
@@ -120,17 +149,15 @@ function buildPDF(
   // Add label logo in the header, filling the right third of the page width.
   // Uses pre-computed dimensions (logoDimensions) to preserve the original
   // aspect ratio — equivalent to CSS object-contain within the right-third area.
-  const logoSrc = labelInfo.logoBase64 ?? labelInfo.logo
-  if (logoSrc) {
+  if (preparedLogo) {
     try {
       const pageWidth = doc.internal.pageSize.getWidth()
       const { w, h } = logoDimensions ?? { w: LABEL_LOGO_MAX_WIDTH_MM, h: LABEL_LOGO_MAX_HEIGHT_MM }
-      // Right-align against the right margin so the logo never overflows.
-      const logoX = pageWidth - margin - w
-      const logoY = yPos - 5
-      doc.addImage(logoSrc, 'PNG', logoX, logoY, w, h)
-    } catch {
-      // Logo rendering failed, continue without it
+      const format = /^data:image\/jpe?g;base64,/i.test(preparedLogo) ? 'JPEG' : 'PNG'
+      doc.addImage(preparedLogo, format, pageWidth - margin - w, yPos - 5, w, h)
+    } catch (err) {
+      throw new Error('The label logo could not be embedded in the PDF: ' +
+        (err instanceof Error ? err.message : String(err)))
     }
   }
 
@@ -202,66 +229,32 @@ function buildPDF(
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
 
-  // ── Page footer helper ────────────────────────────────────────────────────
-  // Two-row footer layout to prevent element overlap:
-  //   Row 1 (footerTopY): label bank / contact info, left-aligned
-  //   Row 2 (footerBotY): [NR logo left] [APP_CREDITS center] [Page N/M right]
-  // The logo is rendered here (not in a separate post-loop) so draw order is
-  // deterministic and text is never painted underneath the logo.
-  const drawPageFooter = (data: { pageNumber: number }) => {
+  // ── Statement footer: label identity and page numbering only ─────────────
+  const drawPageFooter = ({ pageNumber }: { pageNumber: number }) => {
     const pageHeight = doc.internal.pageSize.getHeight()
     const pageWidth = doc.internal.pageSize.getWidth()
+    const bottomY = pageHeight - FOOTER_BOTTOM_MARGIN_MM
+    const detailsY = bottomY - FOOTER_ROW_SPACING_MM
 
-    // Row 2 baseline — leaves FOOTER_BOTTOM_MARGIN_MM from the bottom edge for readability.
-    const footerBotY = pageHeight - FOOTER_BOTTOM_MARGIN_MM
-    // Row 1 baseline — FOOTER_ROW_SPACING_MM above Row 2 for label bank/contact text.
-    const footerTopY = footerBotY - FOOTER_ROW_SPACING_MM
-
-    // Reset font to a known state so bold/italic set by previous drawing calls (e.g.
-    // section headings, autoTable internals) never bleeds into the footer text.
+    doc.setDrawColor(220, 223, 229)
+    doc.setLineWidth(0.25)
+    doc.line(margin, detailsY - 4, pageWidth - margin, detailsY - 4)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7)
-    doc.setTextColor(150, 150, 150)
+    doc.setTextColor(110, 116, 126)
 
-    // ── Row 1: label-specific footer text or bank details ─────────────────
-    // Constrained to FOOTER_TEXT_WIDTH_RATIO of the page so it never reaches the
-    // center credit text on Row 2.
-    const footerLeft = labelInfo.footerText
-      ? labelInfo.footerText.replace(/\n/g, ' · ')
-      : labelInfo.bankAccount
-        ? labelInfo.bankAccount.replace(/\n/g, ' · ')
-        : ''
-    if (footerLeft) {
-      doc.text(footerLeft, margin, footerTopY, { maxWidth: pageWidth * FOOTER_TEXT_WIDTH_RATIO - margin })
+    const details = (labelInfo.footerText || labelInfo.bankAccount || '').replace(/\s*\n\s*/g, ' · ').trim()
+    if (details) {
+      let display = details
+      const maxWidth = pageWidth - 2 * margin
+      while (display.length > 3 && doc.getTextWidth(display) > maxWidth) {
+        display = display.slice(0, -4) + '...'
+      }
+      doc.text(display, margin, detailsY)
     }
 
-    // ── Row 2 left: software branding logo ────────────────────────────────
-    try {
-      doc.saveGraphicsState()
-      doc.setGState(new GState({ opacity: 0.5 }))
-      doc.addImage(
-        APP_LOGO,
-        'PNG',
-        margin - FOOTER_LOGO_LEFT_OFFSET_MM,
-        footerBotY - APP_LOGO_FOOTER_SIZE_MM + FOOTER_LOGO_VERTICAL_NUDGE_MM,
-        APP_LOGO_FOOTER_SIZE_MM,
-        APP_LOGO_FOOTER_SIZE_MM
-      )
-      doc.restoreGraphicsState()
-    } catch (err) {
-      console.warn('Failed to render app logo in PDF footer:', err)
-    }
-
-    // ── Row 2 center: software branding credit ────────────────────────────
-    doc.setTextColor(150, 150, 150)
-    doc.text(APP_CREDITS, pageWidth / 2, footerBotY, { align: 'center' })
-
-    // ── Row 2 right: page number "Page X of Y" ────────────────────────────
-    // `TOTAL_PAGES_PLACEHOLDER` is replaced by the real page count via
-    // `doc.putTotalPages()` at the end of `buildPDF`, ensuring every page
-    // shows the correct final total rather than the count at render time.
-    doc.text(`Page ${data.pageNumber} of ${TOTAL_PAGES_PLACEHOLDER}`, pageWidth - margin, footerBotY, { align: 'right' })
-
+    doc.text(labelInfo.name || APP_NAME, margin, bottomY)
+    doc.text(`Page ${pageNumber} of ${TOTAL_PAGES_PLACEHOLDER}`, pageWidth - margin, bottomY, { align: 'right' })
     doc.setTextColor(0, 0, 0)
   }
 
