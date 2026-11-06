@@ -80,7 +80,7 @@ export function LabelIdentityManager({
         <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border/70 p-3">
           {logoPreview ? (
             <div className="flex h-24 w-48 items-center justify-center rounded-md bg-white p-2">
-              <Image src={logoPreview} width={184} height={80} alt="Current label logo"
+              <Image src={logoPreview} width={184} height={80} alt={t.uiLogoAlt}
                 unoptimized className="max-h-full max-w-full object-contain" />
             </div>
           ) : (
