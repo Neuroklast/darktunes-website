@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { FloppyDisk, Plus, Trash, Lock } from '@phosphor-icons/react'
+import { FloppyDisk, Plus, Trash, Lock, MagnifyingGlass } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -46,6 +46,10 @@ export function CsvImportProfileEditor({
   onDelete,
 }: CsvImportProfileEditorProps) {
   const [draft, setDraft] = useState<CsvImportProfile | null>(null)
+  const [query, setQuery] = useState('')
+  const matches = (profile: CsvImportProfile) => profile.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
+  const systemProfiles = profiles.filter(profile => profile.isSystemDefault && matches(profile))
+  const userProfiles = profiles.filter(profile => !profile.isSystemDefault && matches(profile))
 
   const startNew = () => {
     setDraft({
@@ -73,7 +77,7 @@ export function CsvImportProfileEditor({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           CSV profiles drive auto-detection in the unified upload zone.
         </p>
@@ -82,34 +86,58 @@ export function CsvImportProfileEditor({
         </Button>
       </div>
 
-      <div className="space-y-2">
-        {profiles.map((profile) => (
-          <div
-            key={profile.id}
-            className="flex items-center justify-between gap-2 p-3 border border-border rounded-lg bg-card/40"
-          >
-            <div>
-              <p className="text-sm font-medium flex items-center gap-1.5">
-                {profile.isSystemDefault && <Lock size={12} className="text-muted-foreground" />}
-                {profile.name}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {profile.type} · delimiter &quot;{profile.delimiter}&quot; · {profile.autoDetectHeaders.length} detect headers
-              </p>
-            </div>
-            {!profile.isSystemDefault && (
-              <div className="flex gap-1">
-                <Button type="button" size="sm" variant="ghost" onClick={() => startEdit(profile)}>
-                  Edit
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => onDelete(profile.id)}>
-                  <Trash size={14} />
-                </Button>
-              </div>
-            )}
-          </div>
-        ))}
+      <div className="relative">
+        <MagnifyingGlass size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+          className="h-10 pl-9 text-sm"
+          placeholder="Search import profiles…"
+          aria-label="Search import profiles"
+        />
       </div>
+      {([
+        { key: 'system', title: 'System profiles', items: systemProfiles },
+        { key: 'custom', title: 'Custom profiles', items: userProfiles },
+      ] as const).map(group => group.items.length > 0 && (
+        <section key={group.key} className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {group.title} <span className="ml-1 tabular-nums">({group.items.length})</span>
+          </h3>
+          <div className="overflow-hidden rounded-lg border border-border">
+            {group.items.map(profile => (
+              <div key={profile.id} className="flex items-center justify-between gap-3 border-b border-border/70 bg-card/30 px-3 py-2 last:border-0">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-2 truncate text-sm font-medium">
+                    {profile.isSystemDefault && <Lock size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />}
+                    <span className="truncate" title={profile.name}>{profile.name}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {profile.type} · {profile.autoDetectHeaders.length} detect headers
+                  </p>
+                </div>
+                {!profile.isSystemDefault && (
+                  <div className="flex shrink-0 gap-1">
+                    <Button type="button" size="sm" variant="outline" onClick={() => startEdit(profile)}>
+                      Edit
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => onDelete(profile.id)}
+                      className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
+                      title={`Delete ${profile.name}`} aria-label={`Delete profile ${profile.name}`}>
+                      <Trash size={16} aria-hidden="true" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+      {systemProfiles.length === 0 && userProfiles.length === 0 && (
+        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          No profiles match your search.
+        </p>
+      )}
 
       {draft && (
         <div className="border border-border rounded-lg p-4 space-y-3 bg-card/50">
