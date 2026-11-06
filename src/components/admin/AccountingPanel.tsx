@@ -281,7 +281,7 @@ function SosGeneratorPanel() {
     setEmailConfig(bundle.emailConfig)
     setLabelBranding(bundle.labelInfo ?? DEFAULT_LABEL_INFO)
     setPdfSettings(bundle.pdfSettings ?? DEFAULT_PDF_EXPORT_SETTINGS)
-    setCsvImportProfilesCustom(bundle.csvImportProfiles ?? [])
+    // Global import profiles are loaded and saved independently from period workspaces.
     setExcelExport(bundle.excelExport ?? DEFAULT_EXCEL_EXPORT_STATE)
   }, [])
 

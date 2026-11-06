@@ -36,8 +36,8 @@ const FINANCIAL_FIELDS: FinancialFieldKey[] = [
 interface CsvImportProfileEditorProps {
   profiles: CsvImportProfile[]
   customProfiles: CsvImportProfile[]
-  onSave: (profile: CsvImportProfile) => void
-  onDelete: (id: string) => void
+  onSave: (profile: CsvImportProfile) => Promise<void>
+  onDelete: (id: string) => Promise<void>
 }
 
 export function CsvImportProfileEditor({
@@ -49,6 +49,8 @@ export function CsvImportProfileEditor({
   const t = useAccountingLabels()
   const [draft, setDraft] = useState<CsvImportProfile | null>(null)
   const [query, setQuery] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const matches = (profile: CsvImportProfile) => profile.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
   const systemProfiles = profiles.filter(profile => profile.isSystemDefault && matches(profile))
   const userProfiles = profiles.filter(profile => !profile.isSystemDefault && matches(profile))
@@ -65,16 +67,36 @@ export function CsvImportProfileEditor({
   }
 
   const startEdit = (profile: CsvImportProfile) => {
+    setSaveError('')
     setDraft({ ...profile, columnMapping: { ...profile.columnMapping } })
   }
+  const removeProfile = async (id: string) => {
+    setSaving(true)
+    setSaveError('')
+    try {
+      await onDelete(id)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Deleting the profile failed.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
-  const saveDraft = () => {
-    if (!draft?.name.trim()) return
+  const saveDraft = async () => {
+    if (!draft?.name.trim() || saving) return
     const headers = draft.autoDetectHeaders.length > 0
       ? draft.autoDetectHeaders
       : Object.values(draft.columnMapping).filter((v): v is string => Boolean(v))
-    onSave({ ...draft, autoDetectHeaders: headers })
-    setDraft(null)
+    setSaving(true)
+    setSaveError('')
+    try {
+      await onSave({ ...draft, autoDetectHeaders: headers })
+      setDraft(null)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Saving the profile failed.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -123,7 +145,7 @@ export function CsvImportProfileEditor({
                     <Button type="button" size="sm" variant="outline" onClick={() => startEdit(profile)}>
                       Edit
                     </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => onDelete(profile.id)}
+                    <Button type="button" size="sm" variant="ghost" onClick={() => { void removeProfile(profile.id) }} disabled={saving}
                       className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
                       title={`Delete ${profile.name}`} aria-label={`Delete profile ${profile.name}`}>
                       <Trash size={16} aria-hidden="true" />
@@ -141,6 +163,7 @@ export function CsvImportProfileEditor({
         </p>
       )}
 
+      {saveError && <p role="alert" className="text-sm text-destructive">{saveError}</p>}
       {draft && (
         <div className="border border-border rounded-lg p-4 space-y-3 bg-card/50">
           <p className="text-sm font-medium">{customProfiles.some((p) => p.id === draft.id) ? 'Edit' : 'New'} CSV Profile</p>
@@ -199,7 +222,7 @@ export function CsvImportProfileEditor({
             <Button type="button" variant="outline" size="sm" onClick={() => setDraft(null)}>
               Cancel
             </Button>
-            <Button type="button" size="sm" onClick={saveDraft}>
+            <Button type="button" size="sm" disabled={saving} onClick={() => { void saveDraft() }}>
               <FloppyDisk size={14} className="mr-1" /> Save profile
             </Button>
           </div>
