@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { DEFAULT_CSV_PROFILES } from '@/lib/sos/ingest/default-profiles'
+import { buildCsvProfileRegistry } from '@/lib/sos/ingest/csvProfileRegistry'
 import type { CsvImportProfile } from '@/lib/sos/ingest/types'
 
 interface GlobalProfileResponse {
@@ -47,8 +47,8 @@ export function useCsvImportProfiles(
     return () => { cancelled = true }
   }, [setCustomProfiles])
 
-  const profiles = useMemo(
-    () => [...customProfiles, ...DEFAULT_CSV_PROFILES],
+  const { profiles, shadowedProfiles, nameConflicts } = useMemo(
+    () => buildCsvProfileRegistry(customProfiles),
     [customProfiles],
   )
 
@@ -97,5 +97,5 @@ export function useCsvImportProfiles(
     await persist(profilesRef.current.filter((p) => p.id !== id))
   }, [persist])
 
-  return { profiles, customProfiles, saveProfile, deleteProfile, ready, saving, editorOpen, setEditorOpen }
+  return { profiles, shadowedProfiles, nameConflicts, customProfiles, saveProfile, deleteProfile, ready, saving, editorOpen, setEditorOpen }
 }

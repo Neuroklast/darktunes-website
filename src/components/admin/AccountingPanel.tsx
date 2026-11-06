@@ -18,7 +18,6 @@ import {
   resolveAccountingPeriod,
 } from '@/lib/sos/accountingPeriod'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { horizontalScrollClass } from '@/components/ui/scroll-panel'
 import { useArtists } from '@/hooks/useArtists'
 import { useSiteSettings } from '@/hooks/useSiteSettings'
 import { useCSVProcessor } from '@/hooks/useSosCSVProcessor'
@@ -159,6 +158,8 @@ function SosGeneratorPanel() {
   const {
     profiles: csvImportProfiles,
     customProfiles,
+    shadowedProfiles,
+    nameConflicts,
     saveProfile: saveCsvProfile,
     deleteProfile: deleteCsvProfile,
   } = useCsvImportProfiles(csvImportProfilesCustom, setCsvImportProfilesCustom)
@@ -200,12 +201,15 @@ function SosGeneratorPanel() {
   const [emailConfig, setEmailConfig] = useState<Partial<EmailConfig>>(DEFAULT_EMAIL_CONFIG)
   const [settingsPanel, setSettingsPanel] = useState<'presets' | 'csv' | 'workspace' | 'pdf' | null>(null)
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('upload')
+  const previousWorkflowStep = useRef<SubTab>('upload')
   const [activeRuleTab, setActiveRuleTab] = useState<RulesTab>('label')
   const [manualPeriodStart, setManualPeriodStart] = useState('')
   const [manualPeriodEnd, setManualPeriodEnd] = useState('')
   const [workspaceDeleteOpen, setWorkspaceDeleteOpen] = useState(false)
   const [workspaceDeleting, setWorkspaceDeleting] = useState(false)
   const [restoringArchives, setRestoringArchives] = useState(false)
+  const [showArchiveRegistry, setShowArchiveRegistry] = useState(false)
+  const [restoreProgress, setRestoreProgress] = useState<{ completed: number; total: number } | null>(null)
 
   useEffect(() => {
     const subTab = searchParams.get('subTab')
@@ -281,13 +285,22 @@ function SosGeneratorPanel() {
     setEmailConfig(bundle.emailConfig)
     setLabelBranding(bundle.labelInfo ?? DEFAULT_LABEL_INFO)
     setPdfSettings(bundle.pdfSettings ?? DEFAULT_PDF_EXPORT_SETTINGS)
-    // Global import profiles are loaded and saved independently from period workspaces.
+    // Global import profiles are loaded and saved independently of period settings.
     setExcelExport(bundle.excelExport ?? DEFAULT_EXCEL_EXPORT_STATE)
   }, [])
 
   const handleSubTabChange = useCallback((subTab: SubTab) => {
+    if (subTab !== 'rules' && subTab !== 'analytics') previousWorkflowStep.current = subTab
     setActiveSubTab(subTab)
   }, [])
+  const returnToWorkflow = useCallback(() => {
+    setActiveSubTab(previousWorkflowStep.current)
+  }, [])
+  useEffect(() => {
+    if (activeSubTab !== 'rules' && activeSubTab !== 'analytics') {
+      previousWorkflowStep.current = activeSubTab
+    }
+  }, [activeSubTab])
 
   // Artist mapping handlers
   const handleAddMapping = useCallback((m: Omit<ArtistMapping, 'id'>) => {
@@ -306,6 +319,9 @@ function SosGeneratorPanel() {
   }, [])
   const handleRemoveFilter = useCallback((id: string) => {
     setCompilationFilters(prev => prev.filter(f => f.id !== id))
+  }, [])
+  const handleUpdateFilter = useCallback((id: string, update: Omit<CompilationFilter, 'id'>) => {
+    setCompilationFilters(prev => prev.map(filter => filter.id === id ? { id, ...update } : filter))
   }, [])
 
   // Split fee handlers
@@ -805,6 +821,7 @@ function SosGeneratorPanel() {
     const workspaceOnly = serverBronzeBatchIds.filter((id) => !bronzeBatchIds.includes(id))
     if (unloaded.length === 0 && workspaceOnly.length === 0) return
     setRestoringArchives(true)
+    setRestoreProgress({ completed: 0, total: unloaded.length + workspaceOnly.length })
     let restored = 0
     let failed = 0
     try {
@@ -821,6 +838,8 @@ function SosGeneratorPanel() {
           restored++
         } catch {
           failed++
+        } finally {
+          setRestoreProgress(previous => previous ? { ...previous, completed: previous.completed + 1 } : null)
         }
       }
       if (workspaceOnly.length > 0) {
@@ -851,6 +870,8 @@ function SosGeneratorPanel() {
             restored++
           } catch {
             failed++
+          } finally {
+            setRestoreProgress(previous => previous ? { ...previous, completed: previous.completed + 1 } : null)
           }
         }
       }
@@ -860,6 +881,7 @@ function SosGeneratorPanel() {
       toast.error(err instanceof Error ? err.message : t.bronzeArchiveLoadError)
     } finally {
       setRestoringArchives(false)
+      setRestoreProgress(null)
     }
   }, [
     sessionFiles,
@@ -932,10 +954,18 @@ function SosGeneratorPanel() {
       </p>
       {(recoverableSessionFiles.length > 0 ||
         serverBronzeBatchIds.some((id) => !bronzeBatchIds.includes(id))) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
-          <p className="text-xs text-foreground">
-            Your source files are saved. Restore their data to continue the calculation.
-          </p>
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card/40 p-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">
+              {t.uiArchiveNotLoaded}: {recoverableSessionFiles.length + serverBronzeBatchIds.filter(id => !bronzeBatchIds.includes(id)).length}
+            </p>
+            <p className="text-xs text-muted-foreground">{t.uiArchiveRestoreHint}</p>
+            {restoreProgress && (
+              <p className="text-xs tabular-nums text-muted-foreground">
+                {t.uiArchiveRestoreProgress.replace('{done}', String(restoreProgress.completed)).replace('{total}', String(restoreProgress.total))}
+              </p>
+            )}
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -943,7 +973,7 @@ function SosGeneratorPanel() {
             onClick={() => void restoreArchivedSources()}
             disabled={restoringArchives || isProcessing}
           >
-            {restoringArchives ? 'Restoring saved files…' : 'Restore all saved files'}
+            {restoringArchives ? t.workspaceLoading : t.uiArchiveRestoreAll}
           </Button>
         </div>
       )}
@@ -958,6 +988,28 @@ function SosGeneratorPanel() {
         pipelineProgress={pipelineProgress}
         onSaveProfile={saveCsvProfile}
       />
+      <section className="space-y-3 border-t border-border pt-4" aria-label={t.uiBrowseArchives}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">{t.uiBrowseArchives}</h3>
+            <p className="text-xs text-muted-foreground">{t.uiArchiveRestoreHint}</p>
+          </div>
+          <Button type="button" variant="outline" size="sm"
+            aria-expanded={showArchiveRegistry}
+            onClick={() => setShowArchiveRegistry(open => !open)}>
+            {showArchiveRegistry ? t.uiHideArchives : t.uiBrowseArchives}
+          </Button>
+        </div>
+        {showArchiveRegistry && (
+          <ImportBatchesPanel
+            labelArtists={labelArtists}
+            onLoadBatch={loadBronzeBatch}
+            exchangeRates={exchangeRates}
+            historicalRates={historicalRates ?? undefined}
+            carryForwardByArtist={carryForwardByArtist}
+          />
+        )}
+      </section>
     </div>
   )
 
@@ -1094,7 +1146,7 @@ function SosGeneratorPanel() {
         ) {
           setActiveRuleTab(
             issue.actionTarget === 'rules-mappings' ? 'mappings' :
-            issue.actionTarget === 'rules-splits' ? 'splits' : 'defaults'
+            issue.actionTarget === 'rules-splits' ? (issue.id.startsWith('track-split-') ? 'track-splits' : 'splits') : 'defaults'
           )
           setActiveSubTab('rules')
           return
@@ -1192,7 +1244,7 @@ function SosGeneratorPanel() {
               size="sm"
               className="min-h-9 gap-2 text-sm"
               aria-current={!secondaryView ? 'page' : undefined}
-              onClick={() => handleSubTabChange('upload')}
+              onClick={returnToWorkflow}
             >
               <Wallet size={16} aria-hidden="true" />
               {t.accountingWorkflow}
@@ -1284,6 +1336,8 @@ function SosGeneratorPanel() {
             <CsvImportProfileEditor
               profiles={csvImportProfiles}
               customProfiles={customProfiles}
+              shadowedProfiles={shadowedProfiles}
+              nameConflicts={nameConflicts}
               onSave={saveCsvProfile}
               onDelete={deleteCsvProfile}
             />
@@ -1341,7 +1395,7 @@ function SosGeneratorPanel() {
             hasBlockingValidation={hasBlockingValidation}
             ratesReady={exchangeRatesReady}
             labels={recoverableSessionFiles.length > 0
-              ? { blockedUploadNoData: 'Restore the saved file data above to continue.' }
+              ? { blockedUploadNoData: t.uiArchiveRestoreHint }
               : undefined}
             uploadPanel={uploadPanel}
             validatePanel={validatePanel}
@@ -1360,7 +1414,7 @@ function SosGeneratorPanel() {
               variant="outline"
               size="sm"
               className="h-8 gap-1.5 text-xs"
-              onClick={() => handleSubTabChange('upload')}
+              onClick={returnToWorkflow}
             >
               <ArrowLeft size={13} aria-hidden="true" /> {t.guidedBack}
             </Button>
@@ -1518,6 +1572,7 @@ function SosGeneratorPanel() {
             onUpdateArtistMapping={handleUpdateMapping}
             onAddCompilationFilter={handleAddFilter}
             onRemoveCompilationFilter={handleRemoveFilter}
+            onUpdateCompilationFilter={handleUpdateFilter}
             onAddSplitFee={handleAddSplitFee}
             onRemoveSplitFee={handleRemoveSplitFee}
             onUpdateSplitFee={handleUpdateSplitFee}
