@@ -64,6 +64,7 @@ export interface RulesPanelProps {
 
   onAddCompilationFilter: (f: Omit<CompilationFilter, 'id'>) => void
   onRemoveCompilationFilter: (id: string) => void
+  onUpdateCompilationFilter?: (id: string, update: Omit<CompilationFilter, 'id'>) => void
 
   onAddSplitFee: (fee: SplitFee) => void
   onRemoveSplitFee: (artist: string) => void
@@ -101,7 +102,7 @@ export function RulesPanel({
   ignoredEntries, csvAliases, trackRevenueAssignments, appDefaults, emailConfig,
   labelInfo, onUpdateLabelInfo,
   onAddArtistMapping, onRemoveArtistMapping, onUpdateArtistMapping,
-  onAddCompilationFilter, onRemoveCompilationFilter,
+  onAddCompilationFilter, onRemoveCompilationFilter, onUpdateCompilationFilter,
   onAddSplitFee, onRemoveSplitFee, onUpdateSplitFee,
   onAddManualRevenue, onRemoveManualRevenue, onUpdateManualRevenue,
   onAddExpense, onRemoveExpense, onUpdateExpense,
@@ -221,6 +222,7 @@ export function RulesPanel({
             filters={compilationFilters}
             onAddFilter={onAddCompilationFilter}
             onRemoveFilter={onRemoveCompilationFilter}
+            onUpdateFilter={onUpdateCompilationFilter}
             availableReleases={availableReleases}
           />
         )}
