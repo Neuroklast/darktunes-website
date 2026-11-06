@@ -10,7 +10,6 @@ import {
   ShieldCheck,
 } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   GUIDED_WIZARD_STEP_IDS,
   canAdvanceGuidedStep,
@@ -194,10 +193,10 @@ export function AccountingGuidedWizard({
   const activeStepLabel = t[STEP_META[activeStep].labelKey]
 
   return (
-    <div className="flex flex-col min-h-[500px]">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 border-b border-border bg-muted/10">
+    <div className="flex min-h-[500px] flex-col">
+      <div className="border-b border-border bg-muted/10 px-4 py-3 sm:px-6">
         <nav aria-label={t.guidedStepperAria}>
-          <ol className="flex flex-wrap items-center gap-2 sm:gap-4">
+          <ol className="flex flex-wrap items-center gap-2 sm:gap-3">
             {stepIds.map((id, index) => {
               const meta = STEP_META[id]
               const Icon = meta.icon
@@ -215,7 +214,7 @@ export function AccountingGuidedWizard({
                       if (canNavigate) onActiveStepChange(id)
                     }}
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                      'inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
                       isActive
                         ? 'border-primary/50 bg-primary/10 text-foreground'
                         : isComplete
@@ -224,7 +223,7 @@ export function AccountingGuidedWizard({
                       canNavigate ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
                     )}
                   >
-                    <Icon size={14} aria-hidden="true" />
+                    <Icon size={16} aria-hidden="true" />
                     {t[meta.labelKey]}
                   </button>
                   {index < stepIds.length - 1 && (
@@ -241,9 +240,9 @@ export function AccountingGuidedWizard({
 
       {statusBanner}
 
-      <Alert className="mx-6 mt-3 border-border bg-card/40">
-        <AlertDescription className="text-xs">{stepHint}</AlertDescription>
-      </Alert>
+      <p className="mx-4 mt-3 rounded-md border border-border/70 bg-card/30 px-4 py-2 text-sm text-muted-foreground sm:mx-6" role="status">
+        {stepHint}
+      </p>
 
       <div className="flex-1">
         {activeStep === 'upload' && uploadPanel}
@@ -256,13 +255,13 @@ export function AccountingGuidedWizard({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4 bg-card/40">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card/40 px-4 py-4 sm:px-6">
         <div className="flex flex-col gap-1 min-w-0">
           <Button type="button" variant="outline" disabled={!canGoBack} onClick={goBack} className="min-h-11 w-fit">
             <ArrowLeft size={16} className="mr-1.5" aria-hidden="true" />
             {t.guidedBack}
           </Button>
-          <span className="text-[11px] text-muted-foreground tabular-nums">
+          <span className="text-xs text-muted-foreground tabular-nums">
             {stepProgress} · {activeStepLabel}
           </span>
         </div>
