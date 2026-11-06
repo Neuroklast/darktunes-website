@@ -427,15 +427,15 @@ function ProfileSelectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onCancel() }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto" data-lenis-prevent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Info size={20} className="text-amber-400" />
-            Unknown CSV Format
+            {tImport('aiImportUnknownTitle')}
           </DialogTitle>
           <DialogDescription>
             <strong className="text-foreground">{fileName}</strong> doesn&apos;t match a known format.
-            Select a profile or map columns manually.
+            {tImport('aiImportUnknownDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -446,7 +446,7 @@ function ProfileSelectionDialog({
             onClick={() => setMode('profile')}
             className="flex-1 text-xs"
           >
-            Select Profile
+            {tImport('aiImportSelectProfile')}
           </Button>
           <Button
             size="sm"
@@ -454,7 +454,7 @@ function ProfileSelectionDialog({
             onClick={() => setMode('manual')}
             className="flex-1 text-xs"
           >
-            Map Manually
+            {tImport('aiImportMapManually')}
           </Button>
         </div>
 
@@ -477,10 +477,10 @@ function ProfileSelectionDialog({
 
         {mode === 'profile' && (
           <div className="space-y-3 py-2">
-            <Label className="text-xs font-medium">CSV Import Profile</Label>
+            <Label className="text-xs font-medium">{tImport('aiImportProfile')}</Label>
             <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose a profile…" />
+                <SelectValue placeholder={tImport('aiImportChooseProfile')} />
               </SelectTrigger>
               <SelectContent>
                 {financialProfiles.map(p => (
@@ -494,7 +494,7 @@ function ProfileSelectionDialog({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              The profile&apos;s column mapping will be applied. Add profiles in Settings → CSV-Profile.
+              {tImport('aiImportProfileHelp')}
             </p>
           </div>
         )}
@@ -502,27 +502,27 @@ function ProfileSelectionDialog({
         {mode === 'manual' && (
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Artist / Künstler column</Label>
+              <Label className="text-xs font-medium">{tImport('aiImportArtistColumn')}</Label>
               <Select value={artist} onValueChange={setArtist}>
-                <SelectTrigger><SelectValue placeholder="Select column…" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={tImport('aiImportSelectColumn')} /></SelectTrigger>
                 <SelectContent>
                   {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Revenue / Umsatz column</Label>
+              <Label className="text-xs font-medium">{tImport('aiImportRevenueColumn')}</Label>
               <Select value={revenue} onValueChange={setRevenue}>
-                <SelectTrigger><SelectValue placeholder="Select column…" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={tImport('aiImportSelectColumn')} /></SelectTrigger>
                 <SelectContent>
                   {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Date / Datum column</Label>
+              <Label className="text-xs font-medium">{tImport('aiImportDateColumn')}</Label>
               <Select value={date} onValueChange={setDate}>
-                <SelectTrigger><SelectValue placeholder="Select column…" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={tImport('aiImportSelectColumn')} /></SelectTrigger>
                 <SelectContent>
                   {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                 </SelectContent>
@@ -551,7 +551,7 @@ function ProfileSelectionDialog({
         )}
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onCancel} size="sm">Cancel</Button>
+          <Button variant="outline" onClick={onCancel} size="sm">{tImport('aiImportCancel')}</Button>
           {mode === 'profile' ? (
             <Button
               onClick={() => {
@@ -561,7 +561,7 @@ function ProfileSelectionDialog({
               disabled={!canConfirmProfile}
               size="sm"
             >
-              Import with Profile
+              {tImport('aiImportWithProfile')}
             </Button>
           ) : (
             <>
@@ -574,98 +574,6 @@ function ProfileSelectionDialog({
                 size="sm">{tImport('aiImportSaveProfile')}</Button>
             </>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-// ── Legacy Unknown CSV mapping dialog (kept for non-profile fallback) ──────────
-
-interface MappingDialogProps {
-  open: boolean
-  headers: string[]
-  fileName: string
-  onConfirm: (mapping: { artist: string; revenue: string; date: string }) => void
-  onCancel: () => void
-}
-
-function UnknownCSVMappingDialog({ open, headers, fileName, onConfirm, onCancel }: MappingDialogProps) {
-  const [artist, setArtist] = useState('')
-  const [revenue, setRevenue] = useState('')
-  const [date, setDate] = useState('')
-
-  useEffect(() => {
-    if (!open) return
-    const suggestions = suggestColumnMappings(headers)
-    if (suggestions.artistName) setArtist(suggestions.artistName)
-    if (suggestions.netRevenue) setRevenue(suggestions.netRevenue)
-    if (suggestions.salesMonth) setDate(suggestions.salesMonth)
-  }, [open, headers])
-
-  const canConfirm = artist && revenue && date
-
-  return (
-    <Dialog open={open} onOpenChange={o => { if (!o) onCancel() }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Info size={20} className="text-amber-400" />
-            Unknown CSV Format
-          </DialogTitle>
-          <DialogDescription>
-            <strong className="text-foreground">{fileName}</strong> doesn&apos;t match a known format.
-            Please assign the correct columns below.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Artist / Künstler column</Label>
-            <Select value={artist} onValueChange={setArtist}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select column…" />
-              </SelectTrigger>
-              <SelectContent>
-                {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Revenue / Umsatz column</Label>
-            <Select value={revenue} onValueChange={setRevenue}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select column…" />
-              </SelectTrigger>
-              <SelectContent>
-                {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Date / Datum column</Label>
-            <Select value={date} onValueChange={setDate}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select column…" />
-              </SelectTrigger>
-              <SelectContent>
-                {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onCancel} size="sm">Cancel</Button>
-          <Button
-            onClick={() => canConfirm && onConfirm({ artist, revenue, date })}
-            disabled={!canConfirm}
-            size="sm"
-          >
-            Import File
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
