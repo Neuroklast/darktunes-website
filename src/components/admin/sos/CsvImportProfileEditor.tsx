@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { v4 as uuidv4 } from 'uuid'
 import { FloppyDisk, Plus, Trash, Lock, MagnifyingGlass } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
@@ -47,6 +48,7 @@ export function CsvImportProfileEditor({
   onDelete,
 }: CsvImportProfileEditorProps) {
   const t = useAccountingLabels()
+  const ti = useTranslations('admin.accounting')
   const [draft, setDraft] = useState<CsvImportProfile | null>(null)
   const [query, setQuery] = useState('')
   const [saving, setSaving] = useState(false)
@@ -62,6 +64,10 @@ export function CsvImportProfileEditor({
       type: 'financial',
       delimiter: ',',
       autoDetectHeaders: [],
+      parserSource: 'believe',
+      dateSemantics: 'sale-date',
+      dateOrder: 'day-first',
+      amountConvention: 'auto',
       columnMapping: {},
     })
   }
@@ -87,6 +93,15 @@ export function CsvImportProfileEditor({
     const headers = draft.autoDetectHeaders.length > 0
       ? draft.autoDetectHeaders
       : Object.values(draft.columnMapping).filter((v): v is string => Boolean(v))
+    if (headers.length < 3) {
+      setSaveError('Choose at least three identifying column headers before saving.')
+      return
+    }
+    if (!draft.columnMapping.netRevenue || !draft.columnMapping.artistName ||
+        (draft.dateSemantics !== 'none' && !draft.columnMapping.salesMonth)) {
+      setSaveError('Map Artist, Net Revenue and Date (unless the source has no dates).')
+      return
+    }
     setSaving(true)
     setSaveError('')
     try {
@@ -137,7 +152,7 @@ export function CsvImportProfileEditor({
                     <span className="truncate" title={profile.name}>{profile.name}</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {profile.type} · {profile.autoDetectHeaders.length} detect headers
+                    {profile.type} · {profile.parserSource ?? 'legacy'} · {profile.dateSemantics ?? 'unspecified date'} · v{profile.revision ?? 1}
                   </p>
                 </div>
                 {!profile.isSystemDefault && (
@@ -179,12 +194,62 @@ export function CsvImportProfileEditor({
               <Label className="text-xs">Delimiter</Label>
               <Select
                 value={draft.delimiter}
-                onValueChange={(v) => setDraft({ ...draft, delimiter: v as ',' | ';' })}
+                onValueChange={(v) => setDraft({ ...draft, delimiter: v as ',' | ';' | '\t', headerFingerprint: undefined })}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value=",">Comma (,)</SelectItem>
                   <SelectItem value=";">Semicolon (;)</SelectItem>
+                  <SelectItem value="\t">Tab (TSV)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label className="text-xs">{ti('aiImportSource')}</Label>
+              <Select value={draft.parserSource ?? 'believe'} onValueChange={(value) =>
+                setDraft({ ...draft, parserSource: value as 'believe' | 'bandcamp' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="believe">{ti('aiImportStandardSource')}</SelectItem>
+                  <SelectItem value="bandcamp">Bandcamp</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">{ti('aiImportDateSemantics')}</Label>
+              <Select value={draft.dateSemantics ?? 'sale-date'} onValueChange={(value) =>
+                setDraft({ ...draft, dateSemantics: value as 'sale-date' | 'report-period' | 'none' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sale-date">{ti('aiImportSaleDate')}</SelectItem>
+                  <SelectItem value="report-period">{ti('aiImportReportPeriod')}</SelectItem>
+                  <SelectItem value="none">{ti('aiImportNoDate')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {(draft.dateSemantics ?? 'sale-date') === 'sale-date' && <div className="space-y-1">
+              <Label className="text-xs">{ti('aiImportDateFormat')}</Label>
+              <Select value={draft.dateOrder ?? 'day-first'} onValueChange={(value) =>
+                setDraft({ ...draft, dateOrder: value as 'day-first' | 'month-first' | 'iso' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day-first">DD/MM/YYYY</SelectItem>
+                  <SelectItem value="month-first">MM/DD/YYYY</SelectItem>
+                  <SelectItem value="iso">YYYY-MM-DD</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>}
+            <div className="space-y-1">
+              <Label className="text-xs">{ti('aiImportDecimal')}</Label>
+              <Select value={draft.amountConvention ?? 'auto'} onValueChange={(value) =>
+                setDraft({ ...draft, amountConvention: value as 'de' | 'en' | 'auto' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">{ti('aiImportAutoUnambiguous')}</SelectItem>
+                  <SelectItem value="en">{ti('aiImportEnglishDecimal')}</SelectItem>
+                  <SelectItem value="de">{ti('aiImportGermanDecimal')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -197,6 +262,7 @@ export function CsvImportProfileEditor({
                 setDraft({
                   ...draft,
                   autoDetectHeaders: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+                  headerFingerprint: undefined,
                 })
               }
             />
