@@ -61,7 +61,7 @@ import { SettlementCenterPanel } from '@/components/admin/sos/SettlementCenterPa
 import { OperatorPlaybook } from '@/components/admin/sos/OperatorPlaybook'
 import { PayoutManager } from '@/components/admin/sos/PayoutManager'
 import { PdfExportSettingsPanel } from '@/components/admin/sos/PdfExportSettingsPanel'
-import { RulesPanel } from '@/components/admin/sos/RulesPanel'
+import { RulesPanel, type RulesTab } from '@/components/admin/sos/RulesPanel'
 import { SosAnalyticsPersistPanel } from '@/components/admin/sos/SosAnalyticsPersistPanel'
 import { ImportBatchesPanel } from '@/components/admin/sos/ImportBatchesPanel'
 import { SosConfirmDialog } from '@/components/admin/sos/SosConfirmDialog'
@@ -201,6 +201,7 @@ function SosGeneratorPanel() {
   const [emailConfig, setEmailConfig] = useState<Partial<EmailConfig>>(DEFAULT_EMAIL_CONFIG)
   const [settingsPanel, setSettingsPanel] = useState<'presets' | 'csv' | 'workspace' | 'pdf' | null>(null)
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('upload')
+  const [activeRuleTab, setActiveRuleTab] = useState<RulesTab>('label')
   const [manualPeriodStart, setManualPeriodStart] = useState('')
   const [manualPeriodEnd, setManualPeriodEnd] = useState('')
   const [workspaceDeleteOpen, setWorkspaceDeleteOpen] = useState(false)
@@ -1093,6 +1094,10 @@ function SosGeneratorPanel() {
           issue.actionTarget === 'rules-splits' ||
           issue.actionTarget === 'rules-defaults'
         ) {
+          setActiveRuleTab(
+            issue.actionTarget === 'rules-mappings' ? 'mappings' :
+            issue.actionTarget === 'rules-splits' ? 'splits' : 'defaults'
+          )
           setActiveSubTab('rules')
           return
         }
@@ -1501,6 +1506,8 @@ function SosGeneratorPanel() {
         {activeSubTab === 'rules' && (
           <div id="accounting-rules-panel">
           <RulesPanel
+            activeRuleTab={activeRuleTab}
+            onRuleTabChange={setActiveRuleTab}
             artistMappings={artistMappings}
             compilationFilters={compilationFilters}
             splitFees={splitFees}
