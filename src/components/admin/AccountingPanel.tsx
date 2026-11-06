@@ -208,6 +208,7 @@ function SosGeneratorPanel() {
   const [workspaceDeleteOpen, setWorkspaceDeleteOpen] = useState(false)
   const [workspaceDeleting, setWorkspaceDeleting] = useState(false)
   const [restoringArchives, setRestoringArchives] = useState(false)
+  const [restoreProgress, setRestoreProgress] = useState<{ completed: number; total: number } | null>(null)
 
   useEffect(() => {
     const subTab = searchParams.get('subTab')
@@ -819,6 +820,7 @@ function SosGeneratorPanel() {
     const workspaceOnly = serverBronzeBatchIds.filter((id) => !bronzeBatchIds.includes(id))
     if (unloaded.length === 0 && workspaceOnly.length === 0) return
     setRestoringArchives(true)
+    setRestoreProgress({ completed: 0, total: unloaded.length + workspaceOnly.length })
     let restored = 0
     let failed = 0
     try {
@@ -835,6 +837,8 @@ function SosGeneratorPanel() {
           restored++
         } catch {
           failed++
+        } finally {
+          setRestoreProgress(previous => previous ? { ...previous, completed: previous.completed + 1 } : null)
         }
       }
       if (workspaceOnly.length > 0) {
@@ -865,6 +869,8 @@ function SosGeneratorPanel() {
             restored++
           } catch {
             failed++
+          } finally {
+            setRestoreProgress(previous => previous ? { ...previous, completed: previous.completed + 1 } : null)
           }
         }
       }
@@ -874,6 +880,7 @@ function SosGeneratorPanel() {
       toast.error(err instanceof Error ? err.message : t.bronzeArchiveLoadError)
     } finally {
       setRestoringArchives(false)
+      setRestoreProgress(null)
     }
   }, [
     sessionFiles,
@@ -946,10 +953,18 @@ function SosGeneratorPanel() {
       </p>
       {(recoverableSessionFiles.length > 0 ||
         serverBronzeBatchIds.some((id) => !bronzeBatchIds.includes(id))) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
-          <p className="text-xs text-foreground">
-            Your source files are saved. Restore their data to continue the calculation.
-          </p>
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card/40 p-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">
+              {t.uiArchiveNotLoaded}: {recoverableSessionFiles.length + serverBronzeBatchIds.filter(id => !bronzeBatchIds.includes(id)).length}
+            </p>
+            <p className="text-xs text-muted-foreground">{t.uiArchiveRestoreHint}</p>
+            {restoreProgress && (
+              <p className="text-xs tabular-nums text-muted-foreground">
+                {t.uiArchiveRestoreProgress.replace('{done}', String(restoreProgress.completed)).replace('{total}', String(restoreProgress.total))}
+              </p>
+            )}
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -957,7 +972,7 @@ function SosGeneratorPanel() {
             onClick={() => void restoreArchivedSources()}
             disabled={restoringArchives || isProcessing}
           >
-            {restoringArchives ? 'Restoring saved files…' : 'Restore all saved files'}
+            {restoringArchives ? t.uiArchivePending : t.uiArchiveRestoreAll}
           </Button>
         </div>
       )}
@@ -1360,7 +1375,7 @@ function SosGeneratorPanel() {
             hasBlockingValidation={hasBlockingValidation}
             ratesReady={exchangeRatesReady}
             labels={recoverableSessionFiles.length > 0
-              ? { blockedUploadNoData: 'Restore the saved file data above to continue.' }
+              ? { blockedUploadNoData: t.uiArchiveRestoreHint }
               : undefined}
             uploadPanel={uploadPanel}
             validatePanel={validatePanel}
