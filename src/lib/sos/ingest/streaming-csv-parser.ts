@@ -405,6 +405,14 @@ export async function parseCSVContentStreaming(
           phase: 'parsing',
         })
 
+        // A confirmed report-period profile cannot produce payable rows without
+        // a report period. Reject the entire parse instead of silently booking
+        // undated revenue or archiving a partial statement.
+        if (dateSemantics === 'report-period' && allTransactions.length > 0 && (!reportStart || !reportEnd)) {
+          reject(new Error('No valid reporting period found in the selected date column. Correct the import profile.'))
+          return
+        }
+
         resolve({
           transactions: allTransactions,
           uniqueArtists: Array.from(uniqueArtistsSet).sort(),

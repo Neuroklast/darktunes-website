@@ -221,7 +221,8 @@ async function detectCSVSource(
     return { source: 'believe', headers: normalizedHeaders, sample }
   }
   // Darkmerch CSV: has BAND and NET REVENUE columns
-  if (normalizedHeaders.some(h => h === 'band') && normalizedHeaders.some(h => h === 'net revenue')) {
+  if (normalizedHeaders.includes('date') && normalizedHeaders.includes('order number') &&
+      normalizedHeaders.includes('band') && normalizedHeaders.includes('net revenue')) {
     return { source: 'darkmerch', headers: rawHeaders, sample }
   }
   // Artist roster CSVs are intentionally not auto-detected — roster comes from the portal DB.
@@ -850,7 +851,7 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
           </div>
 
           <div className="flex items-center gap-1 flex-shrink-0">
-            {onRepair && state?.status === 'error' && (
+            {onRepair && hasData && !isArchived && !isProcessingFile && (
               <Button type="button" variant="outline" size="sm" onClick={onRepair}
                 title={t('aiImportRepair')}>{t('aiImportRepair')}</Button>
             )}
@@ -1099,6 +1100,12 @@ export function UniversalFileUploadZone({
     if (repairFileId && repairSource && source !== repairSource) {
       throw new Error('A repair cannot change the source parser. Re-import the file if the source type is different.')
     }
+    if (repairFileId) {
+      const old = [...believeManager.files, ...bandcampManager.files].find((item) => item.id === repairFileId)
+      if (!old || !old.data || old.bronzeBatchId) {
+        throw new Error('The original file is unavailable or already archived. Remove and re-import it instead.')
+      }
+    }
     if (source !== 'believe' && source !== 'bandcamp') {
       throw new Error('This custom mapping requires the complete supplier schema. Select Standard or Bandcamp.')
     }
@@ -1119,7 +1126,7 @@ export function UniversalFileUploadZone({
   }, [pendingFile, repairFileId, repairSource, onSaveProfile, believeManager, bandcampManager, finishPending, t])
 
   const openRepair = useCallback((file: UploadedFile) => {
-    if (!file.data || pendingActiveRef.current) return
+    if (!file.data || file.bronzeBatchId || pendingActiveRef.current) return
     try {
       const preview = parseImportSample(file.data.slice(0, 256 * 1024))
       pendingActiveRef.current = true
@@ -1153,7 +1160,7 @@ export function UniversalFileUploadZone({
         replaceRef: makeRefSetter(f.id),
         onReplaceInput: (e: React.ChangeEvent<HTMLInputElement>) => handleReplaceInput(manager, f.id, e),
         onRetryArchive: manager.retryArchive ? () => manager.retryArchive?.(f.id) : null,
-        onRepair: f.data && (
+        onRepair: f.data && !f.bronzeBatchId && (
           manager.fileStates[f.id]?.status === 'error' ||
           manager.fileStates[f.id]?.bronzeStatus === 'skipped' ||
           manager.fileStates[f.id]?.bronzeStatus === 'error' ||

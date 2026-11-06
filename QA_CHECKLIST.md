@@ -1,6 +1,11 @@
 # Pre-Release QA Checklist
 
 ## AI import assistant
+- [ ] Unknown files with only BAND and NET REVENUE must open the mapping dialog, never auto-route to Darkmerch.
+- [ ] Partial row errors, skipped archive, or skipped CSV rows show Repair mapping when raw data is still available.
+- [ ] Already archived files cannot be repaired in-place: they must be explicitly re-imported.
+- [ ] A confirmed report-period profile with payable rows and no valid period rejects the import.
+- [ ] Artist names and contact information in the three-row AI preview are redacted.
 - [ ] Confirm Q2–Q3 2026 is interpreted as source reporting metadata, not the sales month of each row. A row with no revenue can still define the reporting period.
 - [ ] Custom profile mapping overrides conflicting fuzzy aliases and rejects mapping one physical source column to multiple financial fields.
 - [ ] Dates with ambiguous day/month order use the selected format; ambiguous amounts (1,234) require an explicit decimal convention.
