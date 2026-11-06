@@ -67,7 +67,28 @@ import {
   SYSTEM_DARKMERCH_PROFILE_ID,
 } from '@/lib/sos/ingest/default-profiles'
 import { suggestColumnMappings } from '@/lib/sos/ingest/columnMappingSuggestions'
-import type { CsvImportProfile } from '@/lib/sos/ingest/types'
+import type { CsvImportProfile, FinancialFieldKey, ImportDateSemantics, ImportDateOrder, ImportParserSource } from '@/lib/sos/ingest/types'
+
+const OPTIONAL_FIELDS: Array<{ field: FinancialFieldKey; label: string }> = [
+  { field: 'currency', label: 'Currency' },
+  { field: 'quantity', label: 'Quantity' },
+  { field: 'platform', label: 'Platform' },
+  { field: 'country', label: 'Country' },
+  { field: 'releaseTitle', label: 'Release' },
+  { field: 'trackTitle', label: 'Track' },
+  { field: 'releaseType', label: 'Release type' },
+  { field: 'isrc', label: 'ISRC' },
+  { field: 'upcEan', label: 'UPC / EAN' },
+  { field: 'catalogNumber', label: 'Catalogue number' },
+]
+
+const AI_FIELD_TO_PROFILE: Record<string, FinancialFieldKey> = {
+  artist_name: 'artistName', net_revenue: 'netRevenue', sales_month: 'salesMonth',
+  release_title: 'releaseTitle', track_title: 'trackTitle', quantity: 'quantity',
+  currency: 'currency', platform: 'platform', country: 'country',
+  isrc: 'isrc', upc_ean: 'upcEan', catalog_number: 'catalogNumber',
+  release_type: 'releaseType',
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -320,10 +341,10 @@ interface ProfileSelectionDialogProps {
   sampleRows: string[][]
   delimiter: ',' | ';' | '\t'
   profiles: CsvImportProfile[]
-  onSaveAndImport: (profile: CsvImportProfile) => void
+  onSaveAndImport: (profile: CsvImportProfile) => Promise<void>
   isRepair?: boolean
-  onSelectProfile: (profile: CsvImportProfile) => void
-  onFallbackMapping: (mapping: { artist: string; revenue: string; date: string }) => void
+  repairSource?: 'believe' | 'bandcamp'
+  onSelectProfile: (profile: CsvImportProfile) => Promise<void>
   onCancel: () => void
 }
 
@@ -336,8 +357,8 @@ function ProfileSelectionDialog({
   profiles,
   onSaveAndImport,
   isRepair = false,
+  repairSource,
   onSelectProfile,
-  onFallbackMapping,
   onCancel,
 }: ProfileSelectionDialogProps) {
   const [selectedProfileId, setSelectedProfileId] = useState('')
@@ -352,6 +373,11 @@ function ProfileSelectionDialog({
   const [profileName, setProfileName] = useState('')
   const [updateId, setUpdateId] = useState('')
   const [aiError, setAiError] = useState('')
+  const [extraMappings, setExtraMappings] = useState<Partial<Record<FinancialFieldKey, string>>>({})
+  const [dateSemantics, setDateSemantics] = useState<ImportDateSemantics>('sale-date')
+  const [dateOrder, setDateOrder] = useState<ImportDateOrder>('day-first')
+  const [parserSource, setParserSource] = useState<'believe' | 'bandcamp'>(repairSource ?? 'believe')
+  const [savingProfile, setSavingProfile] = useState(false)
   const tImport = useTranslations('admin.accounting')
 
   // This request is only possible in the unknown-format dialog. The main
@@ -380,11 +406,27 @@ function ProfileSelectionDialog({
         field_mapping?: Record<string, string>
         question?: string | null
         explanation?: string
+        parser_source?: ImportParserSource | null
+        date_semantics?: ImportDateSemantics | null
+        date_order?: ImportDateOrder | null
       }
       const mapping = suggestion.field_mapping ?? {}
       if (mapping.artist_name && headers.includes(mapping.artist_name)) setArtist(mapping.artist_name)
       if (mapping.net_revenue && headers.includes(mapping.net_revenue)) setRevenue(mapping.net_revenue)
       if (mapping.sales_month && headers.includes(mapping.sales_month)) setDate(mapping.sales_month)
+      const extras: Partial<Record<FinancialFieldKey, string>> = {}
+      for (const [key, value] of Object.entries(mapping)) {
+        const field = AI_FIELD_TO_PROFILE[key]
+        if (field && !['artistName', 'netRevenue', 'salesMonth'].includes(field) && headers.includes(value)) {
+          extras[field] = value
+        }
+      }
+      setExtraMappings(extras)
+      if (suggestion.date_semantics) setDateSemantics(suggestion.date_semantics)
+      if (suggestion.date_order) setDateOrder(suggestion.date_order)
+      if (suggestion.parser_source === 'believe' || suggestion.parser_source === 'bandcamp') {
+        if (!isRepair) setParserSource(suggestion.parser_source)
+      }
       if (suggestion.profile_name) setProfileName(suggestion.profile_name)
       setAiQuestion(suggestion.question ?? null)
       setAiExplanation(suggestion.explanation ?? '')
@@ -396,38 +438,56 @@ function ProfileSelectionDialog({
     }
   }
 
-  const saveConfirmedProfile = () => {
-    if (!artist || !revenue || !date || !profileName.trim()) return
+  const saveConfirmedProfile = async () => {
+    if (!artist || !revenue || (dateSemantics !== 'none' && !date) || !profileName.trim() || savingProfile) return
     const existing = profiles.find((p) => p.id === updateId && !p.isSystemDefault)
-    onSaveAndImport({
+    const profile: CsvImportProfile = {
       ...existing,
       id: existing?.id ?? crypto.randomUUID(),
       name: profileName.trim(),
       type: 'financial',
-      delimiter: delimiter === '\t' ? ',' : delimiter,
+      parserSource: repairSource ?? parserSource,
+      dateSemantics,
+      dateOrder,
+      delimiter,
       autoDetectHeaders: headers.slice(0, 12),
       headerFingerprint: fingerprintHeaders(headers),
       columnMapping: {
-        ...existing?.columnMapping,
+        ...extraMappings,
         artistName: artist,
         netRevenue: revenue,
-        salesMonth: date,
+        ...(dateSemantics === 'none' ? {} : { salesMonth: date }),
       },
-    })
+    }
+    setSavingProfile(true)
+    setAiError('')
+    try {
+      await onSaveAndImport(profile)
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : tImport('aiImportFailed'))
+    } finally {
+      setSavingProfile(false)
+    }
   }
 
   useEffect(() => {
     if (!open) return
-    if (isRepair) setMode('manual')
+    if (isRepair) {
+      setMode('manual')
+      if (repairSource) setParserSource(repairSource)
+    }
+    if (sampleRows.some((row) => row.some((cell) => /\bQ[1-4]\s*(?:[-–—]\s*Q[1-4])?\s+20\d{2}/i.test(cell)))) {
+      setDateSemantics('report-period')
+    }
     const suggestions = suggestColumnMappings(headers)
     if (suggestions.artistName) setArtist(suggestions.artistName)
     if (suggestions.netRevenue) setRevenue(suggestions.netRevenue)
     if (suggestions.salesMonth) setDate(suggestions.salesMonth)
-  }, [open, headers, isRepair])
+  }, [open, headers, isRepair, repairSource, sampleRows])
 
   const financialProfiles = profiles.filter(p => p.type === 'financial')
   const canConfirmProfile = selectedProfileId !== ''
-  const canConfirmManual = artist && revenue && date
+  const canConfirmManual = artist && revenue && (dateSemantics === 'none' || date)
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onCancel() }}>
@@ -525,13 +585,64 @@ function ProfileSelectionDialog({
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">{tImport('aiImportDateColumn')}</Label>
-              <Select value={date} onValueChange={setDate}>
+              <Select value={date} onValueChange={setDate} disabled={dateSemantics === 'none'}>
                 <SelectTrigger><SelectValue placeholder={tImport('aiImportSelectColumn')} /></SelectTrigger>
                 <SelectContent>
                   {headers.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>{tImport('aiImportSource')}</Label>
+              <Select value={parserSource} onValueChange={(value) => setParserSource(value as 'believe' | 'bandcamp')} disabled={Boolean(repairSource)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="believe">{tImport('aiImportStandardSource')}</SelectItem>
+                  <SelectItem value="bandcamp">Bandcamp</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{tImport('aiImportSpecializedHelp')}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>{tImport('aiImportDateSemantics')}</Label>
+              <Select value={dateSemantics} onValueChange={(value) => setDateSemantics(value as ImportDateSemantics)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sale-date">{tImport('aiImportSaleDate')}</SelectItem>
+                  <SelectItem value="report-period">{tImport('aiImportReportPeriod')}</SelectItem>
+                  <SelectItem value="none">{tImport('aiImportNoDate')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {dateSemantics === 'sale-date' && <div className="space-y-2">
+              <Label>{tImport('aiImportDateFormat')}</Label>
+              <Select value={dateOrder} onValueChange={(value) => setDateOrder(value as ImportDateOrder)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day-first">DD/MM/YYYY</SelectItem>
+                  <SelectItem value="month-first">MM/DD/YYYY</SelectItem>
+                  <SelectItem value="iso">YYYY-MM-DD</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>}
+            <details className="rounded-md border border-border p-2">
+              <summary className="cursor-pointer text-sm">{tImport('aiImportOptionalFields')}</summary>
+              <div className="grid gap-2 pt-3">
+                {OPTIONAL_FIELDS.map(({ field, label }) => (
+                  <div key={field} className="space-y-1">
+                    <Label>{label}</Label>
+                    <Select value={extraMappings[field] ?? '__none__'} onValueChange={(value) =>
+                      setExtraMappings((prev) => ({ ...prev, [field]: value === '__none__' ? undefined : value }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">{tImport('aiImportNotMapped')}</SelectItem>
+                        {headers.map((header) => <SelectItem key={header} value={header}>{header}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            </details>
           <div className="space-y-2">
             <Label>{tImport('aiImportProfileName')}</Label>
             <Input value={profileName} onChange={(e) => setProfileName(e.target.value)}
@@ -569,12 +680,7 @@ function ProfileSelectionDialog({
             </Button>
           ) : (
             <>
-              <Button variant="outline"
-                onClick={() => canConfirmManual && onFallbackMapping({ artist, revenue, date })}
-                disabled={!canConfirmManual}
-                size="sm"
-              >{tImport('aiImportOnce')}</Button>
-              <Button onClick={saveConfirmedProfile} disabled={!canConfirmManual || !profileName.trim()}
+              <Button onClick={() => { void saveConfirmedProfile() }} disabled={!canConfirmManual || !profileName.trim() || savingProfile}
                 size="sm">{tImport('aiImportSaveProfile')}</Button>
             </>
           )}
