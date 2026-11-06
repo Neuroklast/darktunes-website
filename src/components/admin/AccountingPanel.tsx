@@ -201,6 +201,7 @@ function SosGeneratorPanel() {
   const [emailConfig, setEmailConfig] = useState<Partial<EmailConfig>>(DEFAULT_EMAIL_CONFIG)
   const [settingsPanel, setSettingsPanel] = useState<'presets' | 'csv' | 'workspace' | 'pdf' | null>(null)
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('upload')
+  const [insightsView, setInsightsView] = useState<'operations' | 'reports' | 'trends'>('operations')
   const previousWorkflowStep = useRef<SubTab>('upload')
   const [activeRuleTab, setActiveRuleTab] = useState<RulesTab>('label')
   const [manualPeriodStart, setManualPeriodStart] = useState('')
@@ -1422,8 +1423,25 @@ function SosGeneratorPanel() {
         )}
 
         {activeSubTab === 'analytics' && (
-          <div id="accounting-analytics-panel" className="p-6 space-y-6">
-            <section className="space-y-4" aria-labelledby="analytics-ops-heading">
+          <div id="accounting-analytics-panel" className="w-full min-w-0 space-y-5 p-4 sm:p-6">
+            <nav role="tablist" aria-label={t.subTabAnalytics} className="flex flex-wrap gap-2 border-b border-border pb-3">
+              {([
+                { id: 'operations', label: t.analyticsOpsHeading, disabled: false },
+                { id: 'reports', label: t.analyticsPreviewHeading, disabled: !hasData },
+                { id: 'trends', label: t.subTabTrends, disabled: false },
+              ] as const).map(view => (
+                <button key={view.id} type="button" role="tab"
+                  aria-selected={insightsView === view.id}
+                  aria-controls={`accounting-insights-${view.id}`}
+                  disabled={view.disabled}
+                  onClick={() => setInsightsView(view.id)}
+                  className={`min-h-10 rounded-md border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-40 ${insightsView === view.id ? 'border-primary/40 bg-primary/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                  {view.label}
+                </button>
+              ))}
+            </nav>
+            {insightsView === 'operations' && (
+            <section id="accounting-insights-operations" role="tabpanel" className="space-y-4" aria-labelledby="analytics-ops-heading">
               <h3 id="analytics-ops-heading" className="text-sm font-semibold text-foreground">
                 {t.analyticsOpsHeading}
               </h3>
@@ -1516,9 +1534,10 @@ function SosGeneratorPanel() {
                 </div>
               )}
             </section>
+            )}
 
-            {hasData && (
-              <section className="space-y-4" aria-labelledby="analytics-preview-heading">
+            {insightsView === 'reports' && hasData && (
+              <section id="accounting-insights-reports" role="tabpanel" className="space-y-4" aria-labelledby="analytics-preview-heading">
                 <div className="space-y-2">
                   <h3 id="analytics-preview-heading" className="text-sm font-semibold text-foreground">
                     {t.analyticsPreviewHeading}
@@ -1536,7 +1555,8 @@ function SosGeneratorPanel() {
               </section>
             )}
 
-            <section className="space-y-3" aria-labelledby="analytics-trends-heading">
+            {insightsView === 'trends' && (
+            <section id="accounting-insights-trends" role="tabpanel" className="space-y-3" aria-labelledby="analytics-trends-heading">
               <h3 id="analytics-trends-heading" className="text-sm font-semibold text-foreground">
                 {t.subTabTrends}
               </h3>
@@ -1547,6 +1567,7 @@ function SosGeneratorPanel() {
                 bronzeBatchIds={bronzeBatchIds}
               />
             </section>
+            )}
           </div>
         )}
 
