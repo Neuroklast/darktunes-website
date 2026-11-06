@@ -20,6 +20,7 @@ import { PercentField } from '@/components/admin/sos/fields/AccountingNumberFiel
 import { parseOptionalPercent, parseRequiredPercent } from '@/lib/sos/accountingInputValidation'
 import { useAccountingLabels } from '@/lib/i18n/accountingFallbacks'
 import { v4 as uuidv4 } from 'uuid'
+import { AccountingListPagination, ACCOUNTING_PAGE_SIZE } from './AccountingListPagination'
 
 interface TrackRevenueAssignmentManagerProps {
   assignments: TrackRevenueAssignment[]
@@ -101,6 +102,15 @@ export function TrackRevenueAssignmentManager({
   const [trackTitle, setTrackTitle] = useState('')
   const [owners, setOwners] = useState<OwnerDraft[]>([EMPTY_DRAFT])
   const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const filteredAssignments = assignments.filter(assignment => {
+    const query = search.trim().toLocaleLowerCase()
+    return !query || assignment.trackTitle.toLocaleLowerCase().includes(query) ||
+      (assignment.owners ?? []).some(owner => owner.artist.toLocaleLowerCase().includes(query))
+  })
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(filteredAssignments.length / ACCOUNTING_PAGE_SIZE) - 1))
+  const pagedAssignments = filteredAssignments.slice(currentPage * ACCOUNTING_PAGE_SIZE, (currentPage + 1) * ACCOUNTING_PAGE_SIZE)
 
   const ownerSum = owners.reduce((s, o) => {
     const parsed = parseOptionalPercent(o.percentage)
@@ -151,7 +161,7 @@ export function TrackRevenueAssignmentManager({
   }, [trackTitle, owners, onAddAssignment, t])
 
   return (
-    <div className="space-y-5">
+    <div className="w-full min-w-0 space-y-4">
       <div className="flex items-center gap-2">
         <MusicNote size={20} weight="bold" className="text-primary" />
         <h3 className="font-semibold">Track Revenue Assignments</h3>
@@ -168,8 +178,12 @@ export function TrackRevenueAssignmentManager({
         </div>
       </Card>
 
-      {/* Add new assignment */}
-      <Card className="p-4 space-y-4">
+      {/* The creation form stays available but does not consume the entire list view. */}
+      <details className="rounded-lg border border-border bg-card/30">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+          Add assignment rule
+        </summary>
+      <Card className="m-3 space-y-4 border-border p-4">
         <h4 className="text-sm font-semibold">Add Assignment Rule</h4>
 
         <div className="space-y-2">
@@ -227,12 +241,19 @@ export function TrackRevenueAssignmentManager({
           <Plus size={15} weight="bold" /> Add Assignment
         </Button>
       </Card>
+      </details>
 
       {/* Existing assignments */}
       {assignments.length > 0 && (
         <div className="space-y-3">
-          <h4 className="text-sm font-semibold">Active Assignments ({assignments.length})</h4>
-          {assignments.map(a => {
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h4 className="text-sm font-semibold">Active Assignments ({assignments.length})</h4>
+            <Input value={search}
+              onChange={event => { setSearch(event.target.value); setPage(0) }}
+              className="h-10 w-full max-w-sm text-sm" placeholder="Search tracks or artists"
+              aria-label="Search track assignments" />
+          </div>
+          {pagedAssignments.map(a => {
             const ownerList = a.owners && a.owners.length > 0
               ? a.owners
               : a.ownerArtist ? [{ artist: a.ownerArtist, percentage: 100 }] : []
@@ -265,6 +286,10 @@ export function TrackRevenueAssignmentManager({
               </Card>
             )
           })}
+          {filteredAssignments.length === 0 && (
+            <p className="rounded-md border border-dashed border-border p-5 text-center text-sm text-muted-foreground">No matching track assignments.</p>
+          )}
+          <AccountingListPagination count={filteredAssignments.length} page={currentPage} onPageChange={setPage} />
         </div>
       )}
 
