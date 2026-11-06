@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { buildCsvProfileRegistry } from '@/lib/sos/ingest/csvProfileRegistry'
+import { flushSync } from 'react-dom'
 import type { CsvImportProfile } from '@/lib/sos/ingest/types'
 
 interface GlobalProfileResponse {
@@ -69,7 +70,9 @@ export function useCsvImportProfiles(
       }
       const result = await response.json() as GlobalProfileResponse
       revisionRef.current = result.revision
-      setCustomProfiles(result.profiles)
+      // A subsequent file upload must observe the confirmed mapping in the
+      // worker configuration immediately, not a previous React render.
+      flushSync(() => setCustomProfiles(result.profiles))
     } finally {
       busyRef.current = false
       setSaving(false)

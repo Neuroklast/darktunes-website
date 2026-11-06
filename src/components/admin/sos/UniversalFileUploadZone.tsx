@@ -937,12 +937,14 @@ export function UniversalFileUploadZone({
   const [pendingHeaders, setPendingHeaders] = useState<string[]>([])
   const [pendingSample, setPendingSample] = useState<ImportSample | null>(null)
   const [repairFileId, setRepairFileId] = useState<string | null>(null)
+  const [pendingDialogEpoch, setPendingDialogEpoch] = useState(0)
   const [repairSource, setRepairSource] = useState<'believe' | 'bandcamp' | undefined>()
   const pendingQueueRef = useRef<Array<{ file: File; headers: string[]; sample: ImportSample }>>([])
   const pendingActiveRef = useRef(false)
 
   const showPending = useCallback((job: { file: File; headers: string[]; sample: ImportSample }) => {
     pendingActiveRef.current = true
+    setPendingDialogEpoch((epoch) => epoch + 1)
     setPendingFile(job.file)
     setPendingHeaders(job.headers)
     setPendingSample(job.sample)
@@ -1121,6 +1123,7 @@ export function UniversalFileUploadZone({
     try {
       const preview = parseImportSample(file.data.slice(0, 256 * 1024))
       pendingActiveRef.current = true
+      setPendingDialogEpoch((epoch) => epoch + 1)
       setPendingFile(new File([], file.name))
       setPendingHeaders(preview.headers)
       setPendingSample(preview)
@@ -1365,7 +1368,7 @@ export function UniversalFileUploadZone({
 
       {/* Unknown CSV dialog — profile selection or manual mapping */}
       {pendingFile && pendingSample && (
-        <ProfileSelectionDialog
+        <ProfileSelectionDialog key={pendingDialogEpoch}
           open={true}
           fileName={pendingFile.name}
           headers={pendingHeaders}
