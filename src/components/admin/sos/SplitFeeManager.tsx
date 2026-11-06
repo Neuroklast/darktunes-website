@@ -213,8 +213,8 @@ export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, on
   const existingArtists = splitFees.map(f => f.artist)
 
   return (
-    <div className="w-full min-w-0 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <ChartPieSlice size={20} weight="bold" className="text-primary" />
           <h3 className="font-semibold">Split Fees</h3>
@@ -240,7 +240,7 @@ export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, on
       </div>
 
       {splitFees.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
           <Input value={search} onChange={event => { setSearch(event.target.value); setPage(0) }}
             aria-label={t.uiSearchSplits} placeholder={t.uiSearchSplits}
             className="h-10 w-full max-w-md text-sm" />
@@ -248,7 +248,7 @@ export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, on
         </div>
       )}
       {visible.length > 0 ? (
-        <div className="overflow-hidden rounded-lg border border-border bg-card/30">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-card/30" data-lenis-prevent>
           {visible.map(fee => (
             <div key={fee.artist} className="flex min-h-14 flex-wrap items-center gap-3 border-b border-border/70 px-3 py-2 last:border-0 sm:flex-nowrap sm:px-4">
               <Percent size={17} className="shrink-0 text-primary" aria-hidden="true" />
