@@ -245,6 +245,8 @@ export const ACCOUNTING_FALLBACK = {
   validationParseSkipsDesc:
     'Intentional filters (Bandcamp payout, empty lines, transfers without artist). Reasons: {reasons}.',
   validationEmptyCurrencyTitle: '{count} rows had no currency and were treated as EUR',
+  validationCurrencySources: "Affected source files: {sources}.",
+  validationSkipSources: "Rows skipped by source: {sources}.",
   validationEmptyCurrencyDesc:
     'Believe sometimes leaves the currency cell empty. Those rows stay in EUR. Missing or zero FX rates still abort processing.',
   validationIncompleteArchiveTitle: 'Source files are not archived',
