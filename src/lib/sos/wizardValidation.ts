@@ -2,6 +2,7 @@ import type { ArtistRevenue, LabelArtist, SplitFee, TrackRevenueAssignment } fro
 import { normalizeArtistNameKey } from '@/lib/sos/artistNameKey'
 import { ownerPercentagesSumTo100, resolveAssignmentOwners } from '@/lib/sos/trackAssignmentSplits'
 import { interpolate } from '@/lib/i18n/interpolate'
+import { accountingPeriodMonths, sourcePeriodOutside } from '@/lib/sos/accountingPeriod'
 
 export type WizardIssueSeverity = 'error' | 'warning'
 
@@ -30,6 +31,8 @@ export interface WizardValidationInput {
   skippedRowCount?: number
   skipReasons?: string[]
   emptyCurrencyRowCount?: number
+  /** Unmodified source-reporting bounds for traceability, not a replacement billing period. */
+  sourcePeriods?: { name: string; start?: string; end?: string }[]
   /** Session files that parsed but have no bronze archive id. */
   unarchivedSourceFiles?: string[]
 }
@@ -84,6 +87,10 @@ export const WIZARD_VALIDATION_FALLBACK = {
   validationIncompleteArchiveDesc:
     'These files are not in storage yet: {files}. Retry archive before creating statements. Preview and Excel still work.',
   validationIncompleteArchiveAction: 'Go to Upload',
+  validationLongPeriodTitle: 'Billing period spans {count} months',
+  validationLongPeriodDesc: 'This is longer than one year. Check that all source dates belong to this statement before approving payouts.',
+  validationSourcePeriodOutsideTitle: '{count} source file(s) extend beyond this period',
+  validationSourcePeriodOutsideDesc: 'Source reporting dates are outside the selected billing period: {files}. Confirm that these rows were deliberately included.',
 } as const
 
 export type WizardValidationLabels = {
@@ -136,6 +143,37 @@ export function validateSosWizardState(
       actionLabel: labels.validationMissingPeriodAction,
       actionTarget: 'setup',
     })
+  }
+
+  const months = accountingPeriodMonths(input.periodStart, input.periodEnd)
+  if (months != null && months > 12) {
+    issues.push({
+      id: 'unusually-long-period',
+      severity: 'warning',
+      title: interpolate(labels.validationLongPeriodTitle, { count: String(months) }),
+      description: labels.validationLongPeriodDesc,
+      actionTarget: 'setup',
+    })
+  }
+
+  if (months != null) {
+    const outside = (input.sourcePeriods ?? []).filter(source =>
+      source.start && source.end &&
+      sourcePeriodOutside(input.periodStart, input.periodEnd, source.start, source.end),
+    )
+    if (outside.length > 0) {
+      const shown = outside.slice(0, 6).map(source => source.name)
+      issues.push({
+        id: 'source-period-outside',
+        severity: 'warning',
+        title: interpolate(labels.validationSourcePeriodOutsideTitle, { count: String(outside.length) }),
+        description: interpolate(labels.validationSourcePeriodOutsideDesc, {
+          files: shown.join(', ') + (outside.length > shown.length ? ` (+${outside.length - shown.length})` : ''),
+        }),
+        actionLabel: labels.validationIncompleteArchiveAction,
+        actionTarget: 'upload',
+      })
+    }
   }
 
   if (input.revenues.length === 0) {
