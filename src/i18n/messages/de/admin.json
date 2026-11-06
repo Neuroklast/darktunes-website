@@ -582,6 +582,8 @@
     "validationParseSkipsTitle": "{count} Zeilen beim Import übersprungen",
     "validationParseSkipsDesc": "Absichtliche Filter (Bandcamp-Payout, leere Zeilen, Transfers ohne Artist). Gründe: {reasons}.",
     "validationEmptyCurrencyTitle": "{count} Zeilen ohne Währung wurden als EUR behandelt",
+    "validationCurrencySources": "Betroffene Quelldateien: {sources}.",
+    "validationSkipSources": "Übersprungene Zeilen je Quelle: {sources}.",
     "validationEmptyCurrencyDesc": "Believe lässt die Währung manchmal leer. Diese Zeilen bleiben in EUR. Fehlender oder nicht positiver Kurs bricht die Verarbeitung weiterhin ab.",
     "setupTitle": "Abrechnungszeitraum einrichten",
     "setupSubtitle": "Geben Sie den Abrechnungszeitraum und die Label-Standardwerte für PDFs ein. Erweiterte Regeln bleiben im Erweiterten Modus verfügbar.",
