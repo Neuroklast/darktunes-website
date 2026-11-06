@@ -179,7 +179,7 @@ export function CompilationFilterManager({
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
               <Button onClick={handleAddManual} disabled={!identifier.trim() || duplicateValue}>{editId ? t.uiSaveCompilation : t.uiAddCompilation}</Button>
             </DialogFooter>
-            {duplicateValue && <p role="alert" className="text-xs text-amber-300">{t.uiDuplicateCompilation}</p>
+            {duplicateValue && <p role="alert" className="text-xs text-amber-300">{t.uiDuplicateCompilation}</p>}
           </DialogContent>
         </Dialog>
       </div>
