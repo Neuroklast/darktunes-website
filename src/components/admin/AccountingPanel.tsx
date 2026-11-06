@@ -208,6 +208,7 @@ function SosGeneratorPanel() {
   const [workspaceDeleteOpen, setWorkspaceDeleteOpen] = useState(false)
   const [workspaceDeleting, setWorkspaceDeleting] = useState(false)
   const [restoringArchives, setRestoringArchives] = useState(false)
+  const [showArchiveRegistry, setShowArchiveRegistry] = useState(false)
   const [restoreProgress, setRestoreProgress] = useState<{ completed: number; total: number } | null>(null)
 
   useEffect(() => {
@@ -990,6 +991,28 @@ function SosGeneratorPanel() {
         }}
         onSaveProfile={saveCsvProfile}
       />
+      <section className="space-y-3 border-t border-border pt-4" aria-label={t.uiBrowseArchives}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">{t.uiBrowseArchives}</h3>
+            <p className="text-xs text-muted-foreground">{t.uiArchiveRestoreHint}</p>
+          </div>
+          <Button type="button" variant="outline" size="sm"
+            aria-expanded={showArchiveRegistry}
+            onClick={() => setShowArchiveRegistry(open => !open)}>
+            {showArchiveRegistry ? t.uiHideArchives : t.uiBrowseArchives}
+          </Button>
+        </div>
+        {showArchiveRegistry && (
+          <ImportBatchesPanel
+            labelArtists={labelArtists}
+            onLoadBatch={loadBronzeBatch}
+            exchangeRates={exchangeRates}
+            historicalRates={historicalRates ?? undefined}
+            carryForwardByArtist={carryForwardByArtist}
+          />
+        )}
+      </section>
     </div>
   )
 
