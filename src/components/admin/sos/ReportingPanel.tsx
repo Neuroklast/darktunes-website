@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { ArtistPayoutBreakdown } from '@/components/admin/sos/ArtistPayoutBreakdown'
+import { AccountingListPagination, useAccountingAdaptivePageSize } from './AccountingListPagination'
 import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -62,6 +63,32 @@ const reportingFallback = {
   reportingColDue: 'Amount due',
   reportingNoEmailTemplate:
     'No email template configured. Add one under Branding → Email template.',
+  reportingSummaryGross: 'Total gross revenue',
+  reportingSummaryPayout: 'Total period payouts',
+  reportingSummaryDue: 'Total amount due',
+  reportingSummaryExpenses: 'Expenses',
+  reportingSummaryFee: 'Distribution fees',
+  reportingSummaryNegative: 'Artists with negative payouts: {count}',
+  reportingFilteredCount: '{shown} of {total} artists',
+  reportingSelectionCount: '{count} artists selected',
+  reportingSelectionEmpty: 'No artists selected',
+  reportingSelectAll: 'Select all matching artists',
+  reportingDeselectAll: 'Deselect matching artists',
+  reportingExportSelected: 'Export selected to ZIP',
+  reportingExportAll: 'Export all',
+  reportingSearch: 'Search artists',
+  reportingSortLabel: 'Sort artist payouts',
+  reportingSortPayout: 'Highest payout first',
+  reportingSortArtistAsc: 'Artist A–Z',
+  reportingSortArtistDesc: 'Artist Z–A',
+  reportingActions: 'Actions',
+  reportingBreakdownAria: 'View payout breakdown for {artist}',
+  reportingSendEmailAria: 'Send e-mail to {artist}',
+  reportingPdfAria: 'Download statement PDF for {artist}',
+  reportingExcelAria: 'Download Excel for {artist}',
+  reportingSelectArtist: 'Select {artist}',
+  reportingNoMatches: 'No artists match your search.',
+  reportingNoData: 'No revenue data yet. Import sales files to begin.',
 } as const
 
 type SortMode = 'payout' | 'artist-asc' | 'artist-desc'
@@ -91,6 +118,8 @@ export function ReportingPanel({
   const t = useMergedAccountingLabels(reportingFallback)
   const [selectedArtists, setSelectedArtists] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState('')
+  const [page, setPage] = useState(0)
+  const { listRef, pageSize } = useAccountingAdaptivePageSize(66, revenues.length > 0)
   const [sortMode, setSortMode] = useState<SortMode>('payout')
   const [sorting, setSorting] = useState<SortingState>(sortModeToSorting('payout'))
   const [breakdownArtist, setBreakdownArtist] = useState<ArtistRevenue | null>(null)
@@ -129,6 +158,29 @@ export function ReportingPanel({
     () => revenues.filter((r) => r.artist.toLowerCase().includes(filter.toLowerCase())),
     [revenues, filter],
   )
+
+  const sorted = useMemo(() => [...filtered].sort((a, b) => {
+    if (sortMode === 'artist-asc') return a.artist.localeCompare(b.artist)
+    if (sortMode === 'artist-desc') return b.artist.localeCompare(a.artist)
+    return b.finalAmount - a.finalAmount || a.artist.localeCompare(b.artist)
+  }), [filtered, sortMode])
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(sorted.length / pageSize) - 1))
+  const paged = sorted.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+  const summary = useMemo(() => revenues.reduce((total, row) => ({
+    revenue: total.revenue + row.totalRevenue,
+    payout: total.payout + row.finalAmount,
+    due: total.due + (row.amountDueEur ?? row.finalAmount),
+    expenses: total.expenses + row.totalExpenses,
+    fees: total.fees + row.distributionFeeDeducted,
+    negative: total.negative + (row.finalAmount < 0 ? 1 : 0),
+  }), { revenue: 0, payout: 0, due: 0, expenses: 0, fees: 0, negative: 0 }), [revenues])
+  useEffect(() => {
+    const currentNames = new Set(revenues.map(row => row.artist))
+    setSelectedArtists(previous => {
+      const remaining = [...previous].filter(name => currentNames.has(name))
+      return remaining.length === previous.size ? previous : new Set(remaining)
+    })
+  }, [revenues])
 
   const allSelected = filtered.length > 0 && filtered.every((r) => selectedArtists.has(r.artist))
   const someSelected = filtered.some((r) => selectedArtists.has(r.artist))
@@ -176,7 +228,7 @@ export function ReportingPanel({
           checked={allSelected}
           data-indeterminate={someSelected && !allSelected}
           onCheckedChange={toggleSelectAll}
-          aria-label="Select all artists"
+          aria-label={t.reportingSelectAll}
           className="border-2 border-white/40 data-[state=checked]:border-primary data-[state=checked]:bg-primary"
         />
       ),
@@ -184,7 +236,7 @@ export function ReportingPanel({
         <Checkbox
           checked={selectedArtists.has(row.original.artist)}
           onCheckedChange={() => toggleArtist(row.original.artist)}
-          aria-label={`Select ${row.original.artist}`}
+          aria-label={t.reportingSelectArtist.replace('{artist}', row.original.artist)}
           className="border-2 border-white/40 data-[state=checked]:border-primary data-[state=checked]:bg-primary"
         />
       ),
@@ -201,7 +253,8 @@ export function ReportingPanel({
             type="button"
             className="truncate block font-medium text-left hover:text-primary hover:underline"
             style={{ maxWidth: column.getSize() - ARTIST_CELL_RESERVED_PX }}
-            title={`${row.original.artist} — payout breakdown`}
+            title={t.reportingBreakdownAria.replace('{artist}', row.original.artist)}
+            aria-label={t.reportingBreakdownAria.replace('{artist}', row.original.artist)}
             onClick={() => setBreakdownArtist(row.original)}
           >
             {row.original.artist}
@@ -245,7 +298,7 @@ export function ReportingPanel({
     },
     {
       id: 'actions',
-      header: () => <span className="px-4">Actions</span>,
+      header: () => <span className="px-4">{t.reportingActions}</span>,
       size: 200,
       minSize: 200,
       maxSize: 200,
@@ -262,7 +315,8 @@ export function ReportingPanel({
                 variant="ghost"
                 className="h-7 px-2 gap-1 text-xs"
                 onClick={() => handleSendEmail(r)}
-                title={`Send e-mail to ${r.artist}`}
+                title={t.reportingSendEmailAria.replace('{artist}', r.artist)}
+                aria-label={t.reportingSendEmailAria.replace('{artist}', r.artist)}
                 disabled={disabled}
               >
                 <EnvelopeSimple size={13} />
@@ -274,7 +328,8 @@ export function ReportingPanel({
               variant="ghost"
               className="h-7 px-2 gap-1 text-xs"
               onClick={() => onDownloadPDF(r.artist)}
-              title={`Download PDF for ${r.artist}`}
+              title={t.reportingPdfAria.replace('{artist}', r.artist)}
+              aria-label={t.reportingPdfAria.replace('{artist}', r.artist)}
               disabled={disabled}
             >
               <FileText size={13} />
@@ -285,7 +340,8 @@ export function ReportingPanel({
               variant="ghost"
               className="h-7 px-2 gap-1 text-xs"
               onClick={() => onDownloadExcel(r.artist)}
-              title={`Download Excel for ${r.artist}`}
+              title={t.reportingExcelAria.replace('{artist}', r.artist)}
+              aria-label={t.reportingExcelAria.replace('{artist}', r.artist)}
               disabled={disabled}
             >
               <TableIcon size={13} />
@@ -298,7 +354,7 @@ export function ReportingPanel({
   ]
 
   const table = useResizableAdminTable({
-    data: filtered,
+    data: paged,
     columns,
     getRowId: (row) => row.artist,
     initialColumnOrder: ['select', 'artist', 'totalRevenue', 'finalAmount', 'openingBalanceEur', 'amountDueEur', 'actions'],
@@ -316,7 +372,7 @@ export function ReportingPanel({
   })
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {onGoToSettlementCenter && (
         <div className="px-6 pt-4">
           <Alert className="border-primary/30 bg-primary/5">
@@ -333,12 +389,31 @@ export function ReportingPanel({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/50 px-4 py-3 sm:px-6">
+      <div className="grid shrink-0 grid-cols-2 gap-2 border-b border-border px-4 py-3 sm:grid-cols-3 xl:grid-cols-5">
+        {([
+          [t.reportingSummaryGross, fmtEur(summary.revenue)],
+          [t.reportingSummaryPayout, fmtEur(summary.payout)],
+          [t.reportingSummaryDue, fmtEur(summary.due)],
+          [t.reportingSummaryExpenses, fmtEur(summary.expenses)],
+          [t.reportingSummaryFee, fmtEur(summary.fees)],
+        ] as const).map(([label, value]) => (
+          <div key={label} className="min-w-0 rounded-md border border-border bg-card/30 p-2">
+            <p className="truncate text-xs text-muted-foreground" title={label}>{label}</p>
+            <p className="truncate text-sm font-semibold tabular-nums" title={value}>{value}</p>
+          </div>
+        ))}
+        {summary.negative > 0 && (
+          <p role="status" className="col-span-full text-xs text-amber-300">
+            {t.reportingSummaryNegative.replace('{count}', String(summary.negative))}
+          </p>
+        )}
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-card/50 px-4 py-3 sm:px-6">
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm text-muted-foreground">
             {selectedCount > 0
-              ? `${selectedCount} artist${selectedCount !== 1 ? 's' : ''} selected`
-              : 'No artists selected'}
+              ? t.reportingSelectionCount.replace('{count}', String(selectedCount))
+              : t.reportingSelectionEmpty}
           </span>
           <Button
             variant="ghost"
@@ -347,7 +422,7 @@ export function ReportingPanel({
             onClick={toggleSelectAll}
             disabled={filtered.length === 0}
           >
-            {allSelected ? 'Deselect All' : 'Select All'}
+            {allSelected ? t.reportingDeselectAll : t.reportingSelectAll}
           </Button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -359,7 +434,7 @@ export function ReportingPanel({
             onClick={exportSelected}
           >
             <Archive size={14} />
-            Export Selected to ZIP
+            {t.reportingExportSelected}
           </Button>
           <Button
             size="sm"
@@ -369,12 +444,12 @@ export function ReportingPanel({
             onClick={onDownloadAll}
           >
             <DownloadSimple size={14} />
-            Export All
+            {t.reportingExportAll}
           </Button>
         </div>
       </div>
 
-      <div className="border-b border-border/60 px-4 py-3 sm:px-6">
+      <div className="shrink-0 border-b border-border/60 px-4 py-3 sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative w-full max-w-md">
             <MagnifyingGlass
@@ -383,24 +458,27 @@ export function ReportingPanel({
             />
             <Input
               type="text"
-              placeholder="Filter by artist…"
+              placeholder={t.reportingSearch}
+              aria-label={t.reportingSearch}
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              onChange={(e) => { setFilter(e.target.value); setPage(0) }}
               className="h-10 pl-8 text-sm border-border/60 bg-background/50 focus:border-primary/60"
             />
           </div>
           <select
+            aria-label={t.reportingSortLabel}
             value={sortMode}
             onChange={(e) => {
               const mode = e.target.value as SortMode
               setSortMode(mode)
+              setPage(0)
               setSorting(sortModeToSorting(mode))
             }}
             className="h-10 rounded-md border border-border/60 bg-background/50 px-3 text-sm text-foreground"
           >
-            <option value="payout">Sort: payout</option>
-            <option value="artist-asc">Sort: artist A-Z</option>
-            <option value="artist-desc">Sort: artist Z-A</option>
+            <option value="payout">{t.reportingSortPayout}</option>
+            <option value="artist-asc">{t.reportingSortArtistAsc}</option>
+            <option value="artist-desc">{t.reportingSortArtistDesc}</option>
           </select>
         </div>
       </div>
@@ -408,15 +486,22 @@ export function ReportingPanel({
       {revenues.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3 text-muted-foreground">
           <DownloadSimple size={32} className="opacity-30" />
-          <p className="text-sm">No revenue data yet. Upload a CSV to get started.</p>
+          <p className="text-sm">{t.reportingNoData}</p>
         </div>
       ) : (
-        <AdminResizableDataTable
-          table={table}
-          emptyMessage="No artists match your filter."
-        />
+        <div ref={listRef} className="min-h-0 flex-1 overflow-hidden">
+          <AdminResizableDataTable
+            table={table}
+            className="h-full min-h-0 overflow-auto"
+            emptyMessage={t.reportingNoMatches}
+          />
+        </div>
       )}
 
+      <div className="shrink-0 px-4 py-2 sm:px-6">
+        <AccountingListPagination count={sorted.length} page={currentPage}
+          pageSize={pageSize} onPageChange={setPage} />
+      </div>
       <ArtistPayoutBreakdown
         revenue={breakdownArtist}
         open={breakdownArtist != null}
