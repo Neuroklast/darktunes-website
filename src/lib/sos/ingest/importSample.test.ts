@@ -28,6 +28,11 @@ describe('sample-only import detection', () => {
     expect(sanitizeAiSample(sample).sampleRows[0]).toEqual(['Alpha', '[redacted]', '5'])
   })
 
+  it('redacts IBAN and phone-like identifiers in unlabelled cells', () => {
+    const sample = parseImportSample('Artist,Notes\nAlpha,DE89370400440532013000')
+    expect(sanitizeAiSample(sample).sampleRows[0]?.[1]).toBe('[redacted]')
+  })
+
   it('reads only a slice of a CSV even if the file is much larger', async () => {
     const file = new File(['Date,Band,Net Revenue\nQ2 2026,A,2\n'], 'export.csv')
     Object.defineProperty(file, 'arrayBuffer', { value: () => { throw new Error('whole file read') } })

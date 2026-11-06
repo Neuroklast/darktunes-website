@@ -20,6 +20,9 @@ export function validateProfileSuggestion(
   field_mapping: Record<string, string>
   explanation: string
   question: string | null
+  parser_source: 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch' | null
+  date_semantics: 'sale-date' | 'report-period' | 'none' | null
+  date_order: 'day-first' | 'month-first' | 'iso' | null
 } {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new ApiError(422, 'The AI returned no valid mapping. Select columns manually.', 'AI_MAPPING_INVALID')
@@ -44,6 +47,12 @@ export function validateProfileSuggestion(
     explanation: typeof candidate.explanation === 'string'
       ? candidate.explanation.trim().slice(0, 350) : '',
     question,
+    parser_source: ['believe','bandcamp','shopify','printful','darkmerch'].includes(String(candidate.parser_source))
+      ? candidate.parser_source as 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch' : null,
+    date_semantics: ['sale-date','report-period','none'].includes(String(candidate.date_semantics))
+      ? candidate.date_semantics as 'sale-date' | 'report-period' | 'none' : null,
+    date_order: ['day-first','month-first','iso'].includes(String(candidate.date_order))
+      ? candidate.date_order as 'day-first' | 'month-first' | 'iso' : null,
   }
 }
 

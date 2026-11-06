@@ -20,6 +20,16 @@ describe('AI import profile suggestion validation', () => {
     })
   })
 
+  it('refuses untrusted parser or date modes from the AI', () => {
+    const result = validateProfileSuggestion({
+      parser_source: 'DROP TABLE', date_semantics: 'forced', date_order: 'fake',
+      field_mapping: { artist_name: 'Band', net_revenue: 'Net Revenue' },
+    }, headers)
+    expect(result.parser_source).toBeNull()
+    expect(result.date_semantics).toBeNull()
+    expect(result.date_order).toBeNull()
+  })
+
   it('does not accept duplicate source columns', () => {
     expect(validateProfileSuggestion({
       field_mapping: { artist_name: 'Date', net_revenue: 'Date' },

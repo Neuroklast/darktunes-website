@@ -41,13 +41,16 @@ export function parseImportSample(content: string): ImportSample {
 
 /** Redact obvious personal/contact identifiers before a sample leaves the browser. */
 export function sanitizeAiSample(sample: ImportSample): ImportSample {
-  const sensitiveHeader = /(?:e-?mail|iban|bic|address|adresse|street|phone|telefon|mobile|customer|buyer name|first name|last name)/i
+  const sensitiveHeader = /(?:e-?mail|iban|swift|bic|address|adresse|street|phone|telefon|mobile|customer|buyer|recipient|contact|invoice|tax.?id|account.?holder|first.?name|last.?name|full.?name|person)/i
   return {
     ...sample,
     sampleRows: sample.sampleRows.slice(0, 3).map((row) =>
       sample.headers.map((header, i) => {
         if (sensitiveHeader.test(header)) return '[redacted]'
-        return (row[i] ?? '').replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted]')
+        return (row[i] ?? '')
+          .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted]')
+          .replace(/\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]){11,30}\b/gi, '[redacted]')
+          .replace(/\+?\d[\d\s()./-]{8,}\d/g, '[redacted]')
       }),
     ),
   }
