@@ -25,6 +25,7 @@ export const ACCOUNTING_FALLBACK = {
   subTabTrends: 'Trends',
   subTabRules: 'Rules',
   accountingTools: 'Settings & tools',
+  accountingWorkflow: 'Workflow',
   ruleGroupIdentity: 'Label & communication',
   ruleGroupPayouts: 'Payout rules',
   ruleGroupImports: 'Import & exclusions',
