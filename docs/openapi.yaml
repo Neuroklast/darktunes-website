@@ -82,6 +82,38 @@ components:
         must have the `partner_api` feature enabled.
 
   schemas:
+    SosImportProfileSuggestionRequest:
+      type: object
+      additionalProperties: false
+      required: [headers, sample_rows, delimiter]
+      properties:
+        headers:
+          type: array
+          minItems: 2
+          maxItems: 80
+          items: { type: string, maxLength: 100 }
+        sample_rows:
+          type: array
+          maxItems: 3
+          items:
+            type: array
+            maxItems: 80
+            items: { type: string, maxLength: 160 }
+        delimiter:
+          type: string
+          enum: [",", ";", "\\t"]
+        user_answer: { type: string, maxLength: 350 }
+    SosImportProfileSuggestionResponse:
+      type: object
+      required: [profile_name, field_mapping, explanation, question]
+      properties:
+        profile_name: { type: string }
+        field_mapping:
+          type: object
+          additionalProperties: { type: string }
+        explanation: { type: string }
+        question:
+          type: [string, "null"]
     ErrorResponse:
       type: object
       required: [error]
@@ -4345,6 +4377,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/sos/import-profile-suggestions:
+    post:
+      operationId: postadmin_sos_import-profile-suggestions
+      tags: [Admin]
+      summary: Suggest mappings for a bounded three-row financial CSV preview
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosImportProfileSuggestionRequest"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosImportProfileSuggestionResponse"
+        '503':
+          description: The AI service is disabled or not configured.
+        '413':
+          description: Only bounded preview data is accepted.
+        '422':
+          description: AI output did not produce a valid column mapping.
+        '429':
+          description: The admin has exceeded the AI import analysis limit.
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }

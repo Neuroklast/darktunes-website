@@ -257,6 +257,7 @@ lines.push('        organization_api_keys; revoked keys are rejected. The owning
 lines.push('        must have the `partner_api` feature enabled.');
 lines.push('');
 lines.push('  schemas:');
+lines.push(..."    SosImportProfileSuggestionRequest:\n      type: object\n      additionalProperties: false\n      required: [headers, sample_rows, delimiter]\n      properties:\n        headers:\n          type: array\n          minItems: 2\n          maxItems: 80\n          items: { type: string, maxLength: 100 }\n        sample_rows:\n          type: array\n          maxItems: 3\n          items:\n            type: array\n            maxItems: 80\n            items: { type: string, maxLength: 160 }\n        delimiter:\n          type: string\n          enum: [\",\", \";\", \"\\\\t\"]\n        user_answer: { type: string, maxLength: 350 }\n    SosImportProfileSuggestionResponse:\n      type: object\n      required: [profile_name, field_mapping, explanation, question]\n      properties:\n        profile_name: { type: string }\n        field_mapping:\n          type: object\n          additionalProperties: { type: string }\n        explanation: { type: string }\n        question:\n          type: [string, \"null\"]".split('\n'))
 lines.push('    ErrorResponse:');
 lines.push('      type: object');
 lines.push('      required: [error]');
@@ -945,6 +946,19 @@ lines.push('paths:');
 lines.push(..."  /mcp/content-approvals:\n    post:\n      operationId: reviewMcpContentProposal\n      tags: [Admin]\n      summary: Accept or decline a GPT-proposed artist, release or event edit\n      description: >\n        Requires a same-origin, cookie-authenticated darkTunes admin/editor\n        browser session. OAuth bearer requests are rejected. All administrators\n        may review the shared queue; editors may review only their own proposals.\n        Decisions are atomic and idempotent; pending proposals do not expire. Content changes require the\n        corresponding current CMS capability.\n      security: []\n      requestBody:\n        required: true\n        content:\n          application/json:\n            schema:\n              type: object\n              additionalProperties: false\n              required: [token, action]\n              properties:\n                token:\n                  type: string\n                  description: Server-generated proposal UUID or legacy one-time token.\n                action:\n                  type: string\n                  enum: [update_cms_artist, update_cms_release, update_cms_event]\n                decision:\n                  type: string\n                  enum: [approve, reject]\n                  default: approve\n      responses:\n        '200':\n          description: Proposal accepted or declined in a database transaction.\n          content:\n            application/json:\n              schema:\n                $ref: '#/components/schemas/McpReviewResult'\n        '400': { description: Invalid identifier or action }\n        '401': { description: Login required }\n        '403': { description: Insufficient CMS permission or origin rejected }\n        '409': { description: Proposal changed, already decided or no longer applicable }\n        '429': { description: Too many review attempts }\n        '503': { description: MCP disabled or database function not deployed }\n  /mcp/news-draft-approvals:\n    post:\n      operationId: reviewMcpNewsProposal\n      tags: [Admin]\n      summary: Accept or decline a GPT-prepared unpublished news draft\n      description: >\n        Same-origin browser session required. All administrators may review\n        any pending label proposal while editors can review only their own.\n        Accept creates an unpublished draft; decline never mutates CMS content.\n      security: []\n      requestBody:\n        required: true\n        content:\n          application/json:\n            schema:\n              type: object\n              additionalProperties: false\n              required: [token]\n              properties:\n                token:\n                  type: string\n                decision:\n                  type: string\n                  enum: [approve, reject]\n                  default: approve\n      responses:\n        '200':\n          description: Proposal declined or replay of a previously committed decision.\n          content:\n            application/json:\n              schema:\n                $ref: '#/components/schemas/McpReviewResult'\n        '201':\n          description: An unpublished news draft was created.\n          content:\n            application/json:\n              schema:\n                $ref: '#/components/schemas/McpReviewResult'\n        '400': { description: Invalid identifier }\n        '401': { description: Login required }\n        '403': { description: Insufficient CMS permission or origin rejected }\n        '409': { description: Proposal changed or already decided }\n        '429': { description: Too many review attempts }\n        '503': { description: MCP disabled or database function not deployed }".split('\n'));
 
 const schemaOverrides = {
+  '/api/admin/sos/import-profile-suggestions': {
+    POST: {
+      summary: 'Suggest mappings for a bounded three-row financial CSV preview',
+      requestBody: { schema: 'SosImportProfileSuggestionRequest' },
+      responses: {
+        200: { schema: 'SosImportProfileSuggestionResponse' },
+        413: { description: 'Only bounded preview data is accepted.' },
+        422: { description: 'AI output did not produce a valid column mapping.' },
+        429: { description: 'The admin has exceeded the AI import analysis limit.' },
+        503: { description: 'The AI service is disabled or not configured.' },
+      },
+    },
+  },
   '/api/admin/sync/artist-states': {
     GET: {
       summary: 'Artist provider checkpoints and shared API cooldowns',
@@ -1631,7 +1645,7 @@ const schemaOverrides = {
         lines.push("        '503':");
         lines.push(`          description: ${yamlEscape(responses[503].description ?? 'Service unavailable')}`);
       }
-      for (const code of ['409', '410', '422', '429']) {
+      for (const code of ['409', '410', '413', '422', '429']) {
         if (!responses[code]) continue;
         lines.push(`        '${code}':`);
         lines.push(`          description: ${yamlEscape(responses[code].description ?? 'Error')}`);

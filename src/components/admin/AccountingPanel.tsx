@@ -489,6 +489,7 @@ function SosGeneratorPanel() {
       expenses,
       excludePhysical: false,
       csvAliases,
+      csvImportProfiles,
       labelArtists,
       ignoredEntries,
       distributionFeePercentage: appDefaults.distributionFeePercentage ?? 0,
@@ -958,6 +959,7 @@ function SosGeneratorPanel() {
         onAddAliases={(aliases) => {
           aliases.forEach((alias) => handleAddCsvAlias(alias))
         }}
+        onSaveProfile={saveCsvProfile}
       />
     </div>
   )

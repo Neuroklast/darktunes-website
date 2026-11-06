@@ -9,7 +9,7 @@ export function useCsvImportProfiles(
   setCustomProfiles: Dispatch<SetStateAction<CsvImportProfile[]>>,
 ) {
   const profiles = useMemo(
-    () => [...DEFAULT_CSV_PROFILES, ...customProfiles],
+    () => [...customProfiles, ...DEFAULT_CSV_PROFILES],
     [customProfiles],
   )
 

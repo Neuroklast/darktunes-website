@@ -318,7 +318,9 @@ export async function parseCSVContentStreaming(
               })
               return
             }
-            mapping = columnMapping ?? mapCSVHeadersToModel(headerCells, customAliases)
+            mapping = columnMapping
+              ? { ...mapCSVHeadersToModel(headerCells, customAliases), ...columnMapping }
+              : mapCSVHeadersToModel(headerCells, customAliases)
             continue
           }
 

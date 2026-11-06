@@ -40,6 +40,9 @@ import type {
 } from '@/lib/sos/ingestProgress'
 import { explainSosError } from '@/lib/sos/explainSosError'
 import { fileParseFingerprint, planCsvWorkerFileSync } from '@/lib/sos/workerFileSync'
+import { parseImportSample } from '@/lib/sos/ingest/importSample'
+import { matchProfile, buildStreamingColumnMapping } from '@/lib/sos/ingest/parser-facade'
+import type { CsvImportProfile } from '@/lib/sos/ingest/types'
 import type {
   SosExcelBuildArgs,
   WorkerRequest,
@@ -99,6 +102,8 @@ interface CSVProcessorConfig {
   excludePhysical: boolean
   /** User-defined additional column synonyms from the CSV Column Mapping settings. */
   csvAliases: CSVColumnAlias[]
+  /** Confirmed import profiles, applied to the worker rather than only the upload UI. */
+  csvImportProfiles?: CsvImportProfile[]
   /** Label artist roster. When non-empty, only these artists appear in results. */
   labelArtists: LabelArtist[]
   /** Entries explicitly ignored in the statement of sales. */
@@ -355,8 +360,13 @@ export function useCSVProcessor(
     return map
   }, [config.csvAliases])
   customAliasesRef.current = customAliases
+  const profilesRef = useRef<CsvImportProfile[]>([])
+  profilesRef.current = config.csvImportProfiles ?? []
 
-  const aliasKey = config.csvAliases.map(a => `${a.fieldName}:${a.synonym}`).join(',')
+  // Treat edits to confirmed mappings exactly like changes to custom aliases:
+  // invalidate cached worker parses, never reuse rows mapped with old rules.
+  const profileKey = JSON.stringify(config.csvImportProfiles ?? [])
+  const aliasKey = config.csvAliases.map(a => `${a.fieldName}:${a.synonym}`).join(',') + profileKey
   const believeKey = believeFiles.map(f => fileParseFingerprint(f.id, f.data ?? '')).join(',')
   const bandcampKey = bandcampFiles.map(f => fileParseFingerprint(f.id, f.data ?? '')).join(',')
   const shopifyKey = shopifyFiles.map(f => fileParseFingerprint(f.id, f.data ?? '')).join(',')
@@ -731,6 +741,19 @@ export function useCSVProcessor(
         content: file.data,
         source: file.type,
         customAliases: customAliasesRef.current,
+        columnMapping: file.type === 'believe' || file.type === 'bandcamp'
+          ? (() => {
+              try {
+                const headers = parseImportSample(file.data.slice(0, 256 * 1024)).headers
+                const profile = matchProfile(headers, profilesRef.current)
+                return profile?.type === 'financial'
+                  ? buildStreamingColumnMapping(profile, headers)
+                  : undefined
+              } catch {
+                return undefined
+              }
+            })()
+          : undefined,
       } satisfies WorkerRequest)
       setIsProcessing(true)
     }

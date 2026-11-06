@@ -79,6 +79,16 @@ Hosted NVIDIA inference can return HTTP 503 `ResourceExhausted: Worker local tot
 - Connection Health leaves an untested capability (`supports_enable_thinking` / `supports_low_effort`) as `null`, not `false`; configuration discovery never downgrades a known model capability without evidence.
 - Usage is settled per round. Provider usage is authoritative; estimates are marked `usage_source='estimate'`. Failed/aborted turns settle the known partial usage and write a `success=false` event. `ai_usage_events` stores latency, TTFT, rounds, retry/fallback metadata and error code (no message content or tool payloads).
 
+## Sample-only SOS import assistance
+
+The admin-only `POST /api/admin/sos/import-profile-suggestions` endpoint is
+independent of assistant chat history. It accepts a strictly validated list
+of column headings and no more than three short sample rows (maximum 16 KiB
+JSON). A rate limit and configured fast model gate the explicit Analyze action.
+Model output is an untrusted, validated proposal only. It cannot write profiles,
+import raw data or invent financial values. Confirmed profiles persist through
+the existing accounting workspace and future recognized uploads skip AI.
+
 ## API
 
 REST resources under `/api/ai/*` and `/api/admin/ai/*`. Chat turns stream SSE events: `status`, `delta`, `tool_start`, `tool_result`, `usage`, `warning`, `confirmation_required`, `error`, `done`.

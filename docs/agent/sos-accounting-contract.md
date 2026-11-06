@@ -527,6 +527,18 @@ entgegen) sowie die Restore-Übung in einer getrennten Testumgebung mit Produkti
 
 ---
 
+### AI import profile guidance
+
+The upload path is deterministic for known system and confirmed custom profiles.
+Unknown CSV formats are sampled from a maximum 256 KiB local Blob slice,
+and only headings and the first three rows can reach the optional AI endpoint.
+XLSX previews are parsed locally, never uploaded in full for AI analysis.
+The AI has no import tool and cannot modify accounting data or rules.
+Its profile proposal must be edited/confirmed by an admin before being saved.
+Confirmed profiles are matched by normalized structural header fingerprint and
+their mappings are applied inside the CSV worker. Updating a profile invalidates
+cached parses. A disabled/unavailable AI service retains manual mapping.
+
 ## §F Performance contract
 
 Owner issues: #619, #626. Mirror into #619/#626.
