@@ -15,6 +15,8 @@ import { RosterHealthTable } from './RosterHealthTable'
 import { PressAnalyticsDashboard } from './PressAnalyticsDashboard'
 import { FinancialAuditViewer } from './FinancialAuditViewer'
 import { WebsiteEngagementPanel } from './WebsiteEngagementPanel'
+import { ExternalMetricsSyncPanel } from '@/components/admin/sos/ExternalMetricsSyncPanel'
+import { ApifySpotifySyncPanel } from '@/components/admin/sos/ApifySpotifySyncPanel'
 import type { LabelPageEngagementStats } from '@/lib/api/pageEvents'
 
 const TrendsChartInner = dynamic(
@@ -59,6 +61,7 @@ function KpiCard({
 
 const LABEL_INTELLIGENCE_FALLBACK = {
   emptyTrendsHint: 'No saved period summaries yet.',
+  syncToolsTitle: 'Data synchronization',
   playbookTitle: 'How to populate this hub',
   playbookStep1: 'Upload distributor CSVs in Accounting and approve statements in Settlement Center.',
   playbookStep2: 'Click Save to Portal in Accounting → Portal Data to persist territory metrics.',
@@ -116,6 +119,7 @@ export function LabelIntelligenceHub({
           <TabsTrigger value="press">Press</TabsTrigger>
           <TabsTrigger value="engagement">Website</TabsTrigger>
           <TabsTrigger value="audit">Financial audit</TabsTrigger>
+          <TabsTrigger value="sync">{t.syncToolsTitle}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-0 space-y-4">
@@ -158,6 +162,10 @@ export function LabelIntelligenceHub({
 
         <TabsContent value="audit" className="mt-0">
           <FinancialAuditViewer events={auditEvents} />
+        </TabsContent>
+        <TabsContent value="sync" className="mt-0 space-y-4">
+          <ExternalMetricsSyncPanel />
+          <ApifySpotifySyncPanel />
         </TabsContent>
       </Tabs>
     </div>
