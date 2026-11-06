@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  accountingPeriodMonths,
+  sourcePeriodOutside,
   formatAccountingPeriodLabel,
   resolveAccountingPeriod,
 } from './accountingPeriod'
