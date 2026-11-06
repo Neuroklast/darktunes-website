@@ -13,6 +13,7 @@ const ADMIN_LIST_ROUTES = [
   '/admin/submission-form',
   '/admin/feedback',
   '/admin/invoices',
+  '/admin/accounting',
   '/admin/accounting/data-audit',
 ] as const
 
