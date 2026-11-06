@@ -299,6 +299,8 @@
     "uiPageNext": "Weiter",
     "uiRulePagination": "Seite {page} von {total}",
     "uiDeleteSplitConfirm": "Anteil für „{artist}“ löschen? Dies wirkt sich auf zukünftige Auszahlungsberechnungen aus.",
+    "uiBrowseArchives": "Gespeicherte Quelldateien ansehen",
+    "uiHideArchives": "Archivliste schließen",
     "uiSearchCompilations": "Compilation-Filter suchen",
     "uiNoMatchingCompilations": "Keine passenden Compilation-Filter gefunden.",
     "uiFiltersShown": "{shown} von {total} Filtern angezeigt",
