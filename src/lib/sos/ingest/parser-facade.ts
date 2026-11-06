@@ -19,7 +19,7 @@ import { fingerprintHeaders } from './importSample'
 import { parseCSVLine } from './csv-parser'
 import { parseCSVContentStreaming } from './streaming-csv-parser'
 import type { StreamingParseResult } from './streaming-csv-parser'
-import type { CsvImportProfile, FinancialFieldKey } from './types'
+import type { CsvImportProfile, FinancialFieldKey, ProfileDelimiter } from './types'
 import {
   FINANCIAL_KEY_TO_INTERNAL,
   SYSTEM_BANDCAMP_PROFILE_ID,
@@ -126,23 +126,29 @@ function normaliseCsvContent(content: string): string {
  */
 export function matchProfile(
   headers: string[],
-  profiles: CsvImportProfile[]
+  profiles: CsvImportProfile[],
+  delimiter?: ProfileDelimiter,
 ): CsvImportProfile | null {
   const normalized = headers.map(h => h.toLowerCase().trim())
   const signature = fingerprintHeaders(headers)
   // A user-confirmed schema is authoritative; do not let a broad system
   // heuristic misclassify an identical file and override its mapping.
-  const exact = profiles.find((profile) =>
+  const exact = profiles.filter((profile) =>
     profile.type === 'financial' &&
     profile.headerFingerprint === signature &&
-    signature.length > 0,
+    signature.length > 0 &&
+    (!delimiter || profile.delimiter === delimiter),
   )
-  if (exact) return exact
+  // Identical signatures with conflicting profiles are ambiguous. A user
+  // must resolve them before importing any financial rows.
+  if (exact.length > 1) return null
+  if (exact.length === 1) return exact[0]
 
   // A legacy profile without a confirmed fingerprint can match only when
   // at least three headers agree exactly and the match is unambiguous.
   const candidates = profiles
-    .filter((profile) => profile.type === 'financial' && profile.autoDetectHeaders.length >= 3)
+    .filter((profile) => profile.type === 'financial' && !profile.headerFingerprint &&
+      profile.autoDetectHeaders.length >= 3 && (!delimiter || profile.delimiter === delimiter))
     .map((profile) => {
       const expected = profile.autoDetectHeaders.map((header) => header.toLowerCase().trim())
       const matches = expected.filter((header) => normalized.includes(header)).length

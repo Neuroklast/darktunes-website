@@ -32,6 +32,12 @@ export const profileUpdateSchema = z.object({
   profiles: z.array(confirmedFinancialProfileSchema).max(100),
 }).strict().refine(({ profiles }) =>
   new Set(profiles.map((p) => p.id)).size === profiles.length &&
+  new Set(profiles.filter((p) => p.headerFingerprint).map((p) => `${p.headerFingerprint}|${p.delimiter}`)).size ===
+    profiles.filter((p) => p.headerFingerprint).length &&
+  profiles.every((p) => {
+    const columns = Object.values(p.columnMapping).filter((value) => Boolean(value))
+    return columns.length === new Set(columns.map((value) => value.trim().toLowerCase())).size
+  }) &&
   profiles.every((p) => !p.id.startsWith('system-') &&
     (p.dateSemantics !== 'report-period' || Boolean(p.columnMapping.salesMonth)) &&
     (p.parserSource !== 'shopify' && p.parserSource !== 'printful' && p.parserSource !== 'darkmerch' ||

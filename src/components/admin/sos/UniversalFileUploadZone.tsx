@@ -191,7 +191,7 @@ async function detectCSVSource(
   // ── Phase 1: Profile-based matching (financial only) ─────────────────────
   if (profiles.length > 0) {
     const financialProfiles = profiles.filter((p) => p.type !== 'master-data')
-    const matched = matchProfile(rawHeaders, financialProfiles)
+    const matched = matchProfile(rawHeaders, financialProfiles, sample.delimiter)
     if (matched) {
       if (matched.id === SYSTEM_SHOPIFY_PROFILE_ID) {
         return { source: 'shopify', headers: rawHeaders, sample, matchedProfile: matched }

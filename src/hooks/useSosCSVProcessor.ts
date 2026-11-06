@@ -744,8 +744,9 @@ export function useCSVProcessor(
         ...(() => {
           if (file.type !== 'believe' && file.type !== 'bandcamp') return {}
           try {
-            const headers = parseImportSample(file.data.slice(0, 256 * 1024)).headers
-            const profile = matchProfile(headers, profilesRef.current)
+            const sample = parseImportSample(file.data.slice(0, 256 * 1024))
+            const headers = sample.headers
+            const profile = matchProfile(headers, profilesRef.current, sample.delimiter)
             if (!profile || profile.type !== 'financial') return {}
             const family = profile.parserSource ??
               (profile.id.startsWith('system-bandcamp') ? 'bandcamp' : 'believe')
