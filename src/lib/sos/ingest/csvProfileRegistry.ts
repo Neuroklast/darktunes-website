@@ -40,6 +40,7 @@ export function buildCsvProfileRegistry(
   systems: CsvImportProfile[] = DEFAULT_CSV_PROFILES,
 ): CsvProfileRegistry {
   const keys = new Set<string>()
+  const ids = new Set<string>()
   const profiles: CsvImportProfile[] = []
   const shadowedProfiles: CsvImportProfile[] = []
 
@@ -47,9 +48,13 @@ export function buildCsvProfileRegistry(
   // but canonical system copies must precede their legacy clones.
   for (const profile of [...systems, ...savedCustom]) {
     const key = csvProfileDefinitionKey(profile)
-    if (keys.has(key)) shadowedProfiles.push(profile)
+    // An old workspace may contain a custom copy with the *same stable ID*
+    // as a built-in but different columns. It must not replace the specialized
+    // system parser nor create duplicate React keys.
+    if (keys.has(key) || ids.has(profile.id)) shadowedProfiles.push(profile)
     else {
       keys.add(key)
+      ids.add(profile.id)
       profiles.push(profile)
     }
   }
