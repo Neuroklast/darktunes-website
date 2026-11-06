@@ -106,8 +106,8 @@ export function CompilationFilterManager({
   }
 
   return (
-    <div className="w-full min-w-0 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <FunnelSimple size={20} weight="bold" className="text-primary" />
           <h3 className="font-semibold">Compilation Filters</h3>
@@ -204,7 +204,7 @@ export function CompilationFilterManager({
       )}
 
       {visibleFilters.length > 0 ? (
-        <div className="overflow-hidden rounded-lg border border-border bg-card/30">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-card/30" data-lenis-prevent>
           {pagedFilters.map(filter => (
             <div key={filter.id} className="flex min-h-14 items-center gap-3 border-b border-border/70 px-3 py-2 last:border-b-0 sm:px-4">
               <div className="min-w-0 flex-1">
