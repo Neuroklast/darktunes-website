@@ -194,4 +194,45 @@ describe('wizardValidation', () => {
     expect(issues.some((i) => i.id === 'incomplete-archive')).toBe(true)
     expect(wizardHasBlockingIssues(issues)).toBe(true)
   })
+  it('shows a nonblocking warning for unusually long periods and mismatched source dates', () => {
+    const issues = validateSosWizardState({
+      revenues: [],
+      labelArtists: [],
+      splitFees: [],
+      periodStart: '2025-01',
+      periodEnd: '2026-06',
+      hasBelieveFile: true,
+      hasBandcampFile: false,
+      hasShopifyFile: false,
+      hasPrintfulFile: false,
+      hasDarkmerchFile: false,
+      sourcePeriods: [
+        { name: 'Believe_older.csv', start: '2024-12', end: '2025-03' },
+        { name: 'Bandcamp_inside.csv', start: '2025-02', end: '2025-05' },
+      ],
+    })
+    expect(issues.find(issue => issue.id === 'unusually-long-period')?.title).toContain('18')
+    expect(issues.find(issue => issue.id === 'source-period-outside')?.description).toContain('Believe_older.csv')
+    expect(issues.find(issue => issue.id === 'source-period-outside')?.description).not.toContain('Bandcamp_inside.csv')
+    expect(issues.find(issue => issue.id === 'source-period-outside')?.severity).toBe('warning')
+  })
+
+  it('does not invent warnings for invalid source dates or a single-month period', () => {
+    const issues = validateSosWizardState({
+      revenues: [],
+      labelArtists: [],
+      splitFees: [],
+      periodStart: '2026-02',
+      periodEnd: '2026-02',
+      hasBelieveFile: true,
+      hasBandcampFile: false,
+      hasShopifyFile: false,
+      hasPrintfulFile: false,
+      hasDarkmerchFile: false,
+      sourcePeriods: [{ name: 'Unknown.csv', start: 'not-a-date', end: '2026-01' }],
+    })
+    expect(issues.find(issue => issue.id === 'unusually-long-period')).toBeUndefined()
+    expect(issues.find(issue => issue.id === 'source-period-outside')).toBeUndefined()
+  })
+
 })

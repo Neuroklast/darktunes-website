@@ -86,6 +86,26 @@ export function resolveAccountingPeriod(input: {
   }
 }
 
+/** Inclusive count for a validated month range; null rather than guessing for invalid input. */
+export function accountingPeriodMonths(start: string, end: string): number | null {
+  if (!isValidYearMonth(start) || !isValidYearMonth(end)) return null
+  const diff = compareYearMonth(end, start)
+  return diff == null || diff < 0 ? null : diff + 1
+}
+
+/** Detect whether source-reporting dates are only partly included in a billing period. */
+export function sourcePeriodOutside(
+  billingStart: string,
+  billingEnd: string,
+  sourceStart: string,
+  sourceEnd: string,
+): boolean {
+  if (accountingPeriodMonths(billingStart, billingEnd) == null ||
+      accountingPeriodMonths(sourceStart, sourceEnd) == null) return false
+  return (compareYearMonth(sourceStart, billingStart) ?? 0) < 0 ||
+    (compareYearMonth(sourceEnd, billingEnd) ?? 0) > 0
+}
+
 /** Human-readable `YYYY-MM – YYYY-MM` label; a single month renders once. */
 export function formatAccountingPeriodLabel(period: AccountingPeriod | null): string {
   if (!period) return ''

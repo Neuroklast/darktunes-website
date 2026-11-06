@@ -15,6 +15,8 @@ export type GuidedStepGateInput = {
   hasData: boolean
   isProcessing: boolean
   hasBlockingValidation?: boolean
+  /** Allow browsing existing settlement records when a valid period is selected but no CSV session is loaded. */
+  canOpenExistingSettlements?: boolean
   /** When false, Upload cannot continue (exchange rates not loaded yet). */
   ratesReady?: boolean
 }
@@ -55,6 +57,9 @@ export function canNavigateToGuidedStep(
   const targetIndex = guidedStepIndex(target, stepIds)
   if (targetIndex < 0) return false
   if (targetIndex === 0) return true
+  // Existing settlements live in the database and are readable independently of
+  // a current import. This does not bypass checks for an active CSV session.
+  if (target === 'settle' && !input.hasData && !input.isProcessing && input.canOpenExistingSettlements) return true
   // Direct stepper navigation uses exactly the same gates as the Continue
   // button for every preceding step — there is no weaker navigation path.
   for (let index = 0; index < targetIndex; index++) {

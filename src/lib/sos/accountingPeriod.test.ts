@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  accountingPeriodMonths,
+  sourcePeriodOutside,
   formatAccountingPeriodLabel,
   resolveAccountingPeriod,
 } from './accountingPeriod'
@@ -146,5 +148,22 @@ describe('formatAccountingPeriodLabel', () => {
 
   it('renders an empty label for a missing period', () => {
     expect(formatAccountingPeriodLabel(null)).toBe('')
+  })
+})
+
+
+describe('accounting period provenance', () => {
+  it('counts inclusive month spans without guessing invalid dates', () => {
+    expect(accountingPeriodMonths('2025-12', '2026-02')).toBe(3)
+    expect(accountingPeriodMonths('2026-01', '2026-01')).toBe(1)
+    expect(accountingPeriodMonths('2026-05', '2026-01')).toBeNull()
+    expect(accountingPeriodMonths('2026-13', '2026-01')).toBeNull()
+  })
+
+  it('detects source dates that extend outside a valid statement range', () => {
+    expect(sourcePeriodOutside('2026-01', '2026-03', '2025-12', '2026-02')).toBe(true)
+    expect(sourcePeriodOutside('2026-01', '2026-03', '2026-02', '2026-04')).toBe(true)
+    expect(sourcePeriodOutside('2026-01', '2026-03', '2026-01', '2026-03')).toBe(false)
+    expect(sourcePeriodOutside('2026-01', '2026-03', 'invalid', '2026-03')).toBe(false)
   })
 })

@@ -2,6 +2,7 @@ import type { ArtistRevenue, LabelArtist, SplitFee, TrackRevenueAssignment } fro
 import { normalizeArtistNameKey } from '@/lib/sos/artistNameKey'
 import { ownerPercentagesSumTo100, resolveAssignmentOwners } from '@/lib/sos/trackAssignmentSplits'
 import { interpolate } from '@/lib/i18n/interpolate'
+import { accountingPeriodMonths, sourcePeriodOutside } from '@/lib/sos/accountingPeriod'
 
 export type WizardIssueSeverity = 'error' | 'warning'
 
@@ -30,6 +31,10 @@ export interface WizardValidationInput {
   skippedRowCount?: number
   skipReasons?: string[]
   emptyCurrencyRowCount?: number
+  skippedRowsBySource?: { name: string; count: number }[]
+  emptyCurrencyRowsBySource?: { name: string; count: number }[]
+  /** Unmodified source-reporting bounds for traceability, not a replacement billing period. */
+  sourcePeriods?: { name: string; start?: string; end?: string }[]
   /** Session files that parsed but have no bronze archive id. */
   unarchivedSourceFiles?: string[]
 }
@@ -80,10 +85,16 @@ export const WIZARD_VALIDATION_FALLBACK = {
   validationEmptyCurrencyTitle: '{count} rows had no currency and were treated as EUR',
   validationEmptyCurrencyDesc:
     'Believe sometimes leaves the currency cell empty. Those rows stay in EUR. Missing or zero FX rates still abort processing.',
+  validationCurrencySources: 'Affected source files: {sources}.',
+  validationSkipSources: 'Rows skipped by source: {sources}.',
   validationIncompleteArchiveTitle: 'Source files are not archived',
   validationIncompleteArchiveDesc:
     'These files are not in storage yet: {files}. Retry archive before creating statements. Preview and Excel still work.',
   validationIncompleteArchiveAction: 'Go to Upload',
+  validationLongPeriodTitle: 'Billing period spans {count} months',
+  validationLongPeriodDesc: 'This is longer than one year. Check that all source dates belong to this statement before approving payouts.',
+  validationSourcePeriodOutsideTitle: '{count} source file(s) extend beyond this period',
+  validationSourcePeriodOutsideDesc: 'Source reporting dates are outside the selected billing period: {files}. Confirm that these rows were deliberately included.',
 } as const
 
 export type WizardValidationLabels = {
@@ -136,6 +147,37 @@ export function validateSosWizardState(
       actionLabel: labels.validationMissingPeriodAction,
       actionTarget: 'setup',
     })
+  }
+
+  const months = accountingPeriodMonths(input.periodStart, input.periodEnd)
+  if (months != null && months > 12) {
+    issues.push({
+      id: 'unusually-long-period',
+      severity: 'warning',
+      title: interpolate(labels.validationLongPeriodTitle, { count: String(months) }),
+      description: labels.validationLongPeriodDesc,
+      actionTarget: 'setup',
+    })
+  }
+
+  if (months != null) {
+    const outside = (input.sourcePeriods ?? []).filter(source =>
+      source.start && source.end &&
+      sourcePeriodOutside(input.periodStart, input.periodEnd, source.start, source.end),
+    )
+    if (outside.length > 0) {
+      const shown = outside.slice(0, 6).map(source => source.name)
+      issues.push({
+        id: 'source-period-outside',
+        severity: 'warning',
+        title: interpolate(labels.validationSourcePeriodOutsideTitle, { count: String(outside.length) }),
+        description: interpolate(labels.validationSourcePeriodOutsideDesc, {
+          files: shown.join(', ') + (outside.length > shown.length ? ` (+${outside.length - shown.length})` : ''),
+        }),
+        actionLabel: labels.validationIncompleteArchiveAction,
+        actionTarget: 'upload',
+      })
+    }
   }
 
   if (input.revenues.length === 0) {
@@ -230,6 +272,13 @@ export function validateSosWizardState(
     }
   }
 
+  const formatSources = (sources: { name: string; count: number }[]) => {
+    const sorted = sources.filter(source => Number.isFinite(source.count) && source.count > 0)
+      .sort((a, b) => b.count - a.count)
+    return sorted.slice(0, 5).map(source => `${source.name} (${source.count.toLocaleString()})`).join(', ') +
+      (sorted.length > 5 ? ` (+${sorted.length - 5})` : '')
+  }
+
   if ((input.skippedRowCount ?? 0) > 0) {
     const reasons = (input.skipReasons ?? []).filter(Boolean)
     issues.push({
@@ -238,7 +287,8 @@ export function validateSosWizardState(
       title: interpolate(labels.validationParseSkipsTitle, { count: String(input.skippedRowCount) }),
       description: interpolate(labels.validationParseSkipsDesc, {
         reasons: reasons.length > 0 ? reasons.join(', ') : 'filtered rows',
-      }),
+      }) + ((input.skippedRowsBySource?.length ?? 0) > 0 ? ' ' +
+        interpolate(labels.validationSkipSources, { sources: formatSources(input.skippedRowsBySource ?? []) }) : ''),
       actionLabel: labels.validationNoFilesAction,
       actionTarget: 'upload',
     })
@@ -251,7 +301,11 @@ export function validateSosWizardState(
       title: interpolate(labels.validationEmptyCurrencyTitle, {
         count: String(input.emptyCurrencyRowCount),
       }),
-      description: labels.validationEmptyCurrencyDesc,
+      description: labels.validationEmptyCurrencyDesc +
+        ((input.emptyCurrencyRowsBySource?.length ?? 0) > 0 ? ' ' +
+          interpolate(labels.validationCurrencySources, {
+            sources: formatSources(input.emptyCurrencyRowsBySource ?? []),
+          }) : ''),
       actionTarget: 'upload',
     })
   }

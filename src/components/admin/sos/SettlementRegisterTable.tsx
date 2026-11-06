@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { AdminDataTable, useAdminTable } from '@/components/admin/DataTable'
+import { AccountingListPagination } from './AccountingListPagination'
 import {
   canCorrectStatement,
   fmtCents,
@@ -327,13 +328,14 @@ export function SettlementRegisterTable({ settlement }: SettlementRegisterTableP
   const table = useAdminTable({
     data: filteredRows,
     columns,
+    pageSize: 10,
     enableSorting: false,
     getRowId: (row) => row.artistName,
   })
 
   return (
-    <>
-      <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative max-w-sm flex-1">
           <MagnifyingGlass
             size={14}
@@ -341,7 +343,7 @@ export function SettlementRegisterTable({ settlement }: SettlementRegisterTableP
           />
           <Input
             value={filter}
-            onChange={(event) => setFilter(event.target.value)}
+            onChange={(event) => { setFilter(event.target.value); table.setPageIndex(0) }}
             placeholder={t.settlementFilterPlaceholder}
             className="pl-8 h-9"
           />
@@ -363,13 +365,13 @@ export function SettlementRegisterTable({ settlement }: SettlementRegisterTableP
         </div>
       )}
 
-      <div className="space-y-3 border-b border-border p-4 lg:hidden">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain border-b border-border p-3 lg:hidden" data-lenis-prevent>
         {loading ? (
           <p className="py-6 text-center text-sm text-muted-foreground">{t.settlementLoadingRegister}</p>
         ) : loadError && filteredRows.length === 0 ? null : filteredRows.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">{t.settlementNoArtistsFilter}</p>
         ) : (
-          filteredRows.map((row) => {
+          table.getRowModel().rows.map(({ original: row }) => {
             const actionable = rowIsSelectable(row)
             const isBusy = busyArtists.has(row.artistName)
             return (
@@ -416,15 +418,21 @@ export function SettlementRegisterTable({ settlement }: SettlementRegisterTableP
         )}
       </div>
 
-      <div className="hidden lg:block" data-lenis-prevent>
+      <div className="hidden min-h-0 flex-1 overflow-auto lg:block" data-lenis-prevent>
         <AdminDataTable
           table={table}
           loading={loading}
           emptyMessage={loadError ? loadError : t.settlementNoArtistsFilter}
           skeletonRowCount={6}
+          stickyHeader
         />
       </div>
 
+      <div className="shrink-0 px-4 py-2">
+        <AccountingListPagination count={filteredRows.length}
+          page={Math.min(table.getState().pagination.pageIndex, Math.max(0, table.getPageCount() - 1))}
+          pageSize={10} onPageChange={index => table.setPageIndex(index)} />
+      </div>
       <SosConfirmDialog
         open={deleteTarget != null}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
@@ -435,7 +443,7 @@ export function SettlementRegisterTable({ settlement }: SettlementRegisterTableP
             : ''
         }
         confirmLabel={t.settlementDeleteDraftBtn}
-        cancelLabel="Cancel"
+        cancelLabel={t.uiCancel}
         destructive
         loading={deletingDraft}
         onConfirm={() => {
@@ -445,6 +453,6 @@ export function SettlementRegisterTable({ settlement }: SettlementRegisterTableP
           })
         }}
       />
-    </>
+    </div>
   )
 }

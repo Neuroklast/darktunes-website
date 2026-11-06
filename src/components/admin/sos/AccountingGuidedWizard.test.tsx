@@ -135,4 +135,11 @@ describe('AccountingGuidedWizard navigation', () => {
     expect(onImportReady).toHaveBeenCalledTimes(1)
     expect(onActiveStepChange).not.toHaveBeenCalledWith('review')
   })
+  it('allows opening existing settlement statements with a valid period and no CSV session', () => {
+    renderWizard({ canOpenExistingSettlements: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Create drafts, approve, and pay' }))
+    expect(onActiveStepChange).toHaveBeenCalledWith('settle')
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+  })
+
 })
