@@ -79,14 +79,18 @@ import { WorkspaceManager } from '@/components/admin/sos/WorkspaceManager'
 import {
   Wallet, ClockCounterClockwise, FileText,
   ChartBar, BookmarkSimple, DownloadSimple, Table, SealCheck,
-  MagnifyingGlass, SlidersHorizontal, ArrowLeft,
+  MagnifyingGlass, SlidersHorizontal, ArrowLeft, GearSix, CaretDown,
 } from '@phosphor-icons/react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
+  Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { v4 as uuidv4 } from 'uuid'
 import { toast } from 'sonner'
 import { useAccountingLabels } from '@/lib/i18n/accountingFallbacks'
@@ -195,7 +199,7 @@ function SosGeneratorPanel() {
 
   const [appDefaults, setAppDefaults] = useState<AppDefaults>(DEFAULT_APP_DEFAULTS)
   const [emailConfig, setEmailConfig] = useState<Partial<EmailConfig>>(DEFAULT_EMAIL_CONFIG)
-  const [showPdfSettings, setShowPdfSettings] = useState(false)
+  const [settingsPanel, setSettingsPanel] = useState<'presets' | 'csv' | 'workspace' | 'pdf' | null>(null)
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('upload')
   const [manualPeriodStart, setManualPeriodStart] = useState('')
   const [manualPeriodEnd, setManualPeriodEnd] = useState('')
@@ -1121,7 +1125,7 @@ function SosGeneratorPanel() {
   )
 
   const rulesStatusBanner = settingsReady ? (
-    <p className="px-6 py-1.5 text-[11px] text-muted-foreground border-b border-border bg-muted/10">
+    <p className="border-b border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground sm:px-6" role="status">
       {workspaceConflict ? (
         <span className="text-destructive">
           {t.workspaceConflict}{' '}
@@ -1144,19 +1148,18 @@ function SosGeneratorPanel() {
   ) : null
 
   const periodBanner = effectivePeriod ? (
-    <Alert className="mx-6 mt-4 border-primary/30 bg-primary/5">
-      <FileText size={14} className="text-primary" />
-      <AlertDescription className="text-xs">
-        {t.uploadPeriodLabel} <strong>{effectivePeriod.startMonth}</strong>
-        {effectivePeriod.endMonth !== effectivePeriod.startMonth && (
-          <> – <strong>{effectivePeriod.endMonth}</strong></>
-        )}
-        {isProcessing &&
-          (pipelineProgress
-            ? ` ${pipelineProgress.phase} ${pipelineProgress.percentage}%`
-            : ` ${t.processing}`)}
-      </AlertDescription>
-    </Alert>
+    <div className="mx-4 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-card/40 px-4 py-2 text-sm sm:mx-6" role="status">
+      <FileText size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+      <span className="text-muted-foreground">{t.uploadPeriodLabel}</span>
+      <strong className="tabular-nums font-semibold text-foreground">
+        {effectivePeriod.startMonth} – {effectivePeriod.endMonth}
+      </strong>
+      {isProcessing && (
+        <span className="text-xs text-muted-foreground">
+          {pipelineProgress ? `${pipelineProgress.phase} ${pipelineProgress.percentage}%` : t.processing}
+        </span>
+      )}
+    </div>
   ) : null
 
   const excelExportDialog = (
@@ -1176,131 +1179,148 @@ function SosGeneratorPanel() {
   return (
     <div className="space-y-0">
       {currencyBanner}
-      {/* Settings toolbar — Rules and Insights stay outside the billing flow */}
-      <div
-        className={cn('flex flex-wrap items-center gap-1 px-6 pt-4 border-b border-border', horizontalScrollClass)}
-        data-lenis-prevent
-      >
-        <Button
-          type="button"
-          variant={activeSubTab === 'rules' ? 'secondary' : 'outline'}
-          size="sm"
-          className="h-8 gap-1.5 text-xs mb-0.5"
-          onClick={() => handleSubTabChange('rules')}
-        >
-          <SlidersHorizontal size={13} aria-hidden="true" /> {t.subTabRules}
-          {rulesCount > 0 && (
-            <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
-              {rulesCount}
-            </span>
-          )}
-        </Button>
-        <Button
-          type="button"
-          variant={activeSubTab === 'analytics' ? 'secondary' : 'outline'}
-          size="sm"
-          className="h-8 gap-1.5 text-xs mb-0.5"
-          onClick={() => handleSubTabChange('analytics')}
-        >
-          <ChartBar size={13} aria-hidden="true" /> {t.subTabAnalytics}
-        </Button>
-        <div className="flex-1" />
-
-        {/* Presets sheet */}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs mb-0.5">
-              <BookmarkSimple size={13} /> {t.presets}
+      {/* Primary destinations stay separate from tools for the current workspace. */}
+      <div className="border-b border-border bg-card/20 px-4 py-3 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <nav aria-label={t.subTabListLabel} className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={!secondaryView ? 'secondary' : 'ghost'}
+              size="sm"
+              className="min-h-9 gap-2 text-sm"
+              aria-current={!secondaryView ? 'page' : undefined}
+              onClick={() => handleSubTabChange('upload')}
+            >
+              <Wallet size={16} aria-hidden="true" />
+              {t.tabGenerate}
             </Button>
-          </SheetTrigger>
-          <SheetContent className="w-full sm:max-w-md overflow-y-auto" data-lenis-prevent>
-            <SheetHeader>
-              <SheetTitle>{t.presetsTitle}</SheetTitle>
-            </SheetHeader>
-            <div className="mt-6">
-              <CsvProfileManager
-                artistMappings={artistMappings}
-                compilationFilters={compilationFilters}
-                splitFees={splitFees}
-                manualRevenues={manualRevenues}
-                expenses={expenses}
-                ignoredEntries={ignoredEntries}
-                csvAliases={csvAliases}
-                trackRevenueAssignments={trackRevenueAssignments}
-                appDefaults={appDefaults}
-                emailConfig={emailConfig}
-                labelInfo={labelBranding}
-                pdfSettings={pdfSettings}
-                csvImportProfiles={csvImportProfilesCustom}
-                excelExport={excelExport}
-                onLoad={handlePresetLoad}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
-
-        {/* CSV import profiles */}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs mb-0.5">
-              <Table size={13} /> {t.csvProfiles}
+            <Button
+              type="button"
+              variant={activeSubTab === 'rules' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="min-h-9 gap-2 text-sm"
+              aria-current={activeSubTab === 'rules' ? 'page' : undefined}
+              onClick={() => handleSubTabChange('rules')}
+            >
+              <SlidersHorizontal size={16} aria-hidden="true" />
+              {t.subTabRules}
+              {rulesCount > 0 && (
+                <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-primary">
+                  {rulesCount}
+                </span>
+              )}
             </Button>
-          </SheetTrigger>
-          <SheetContent className="w-full sm:max-w-lg overflow-y-auto" data-lenis-prevent>
-            <SheetHeader>
-              <SheetTitle>{t.csvProfilesTitle}</SheetTitle>
-            </SheetHeader>
-            <div className="mt-6">
-              <CsvImportProfileEditor
-                profiles={csvImportProfiles}
-                customProfiles={customProfiles}
-                onSave={saveCsvProfile}
-                onDelete={deleteCsvProfile}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
-
-        {/* Workspace sheet */}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground mb-0.5">
-              <DownloadSimple size={13} /> {t.workspace}
+            <Button
+              type="button"
+              variant={activeSubTab === 'analytics' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="min-h-9 gap-2 text-sm"
+              aria-current={activeSubTab === 'analytics' ? 'page' : undefined}
+              onClick={() => handleSubTabChange('analytics')}
+            >
+              <ChartBar size={16} aria-hidden="true" />
+              {t.subTabAnalytics}
             </Button>
-          </SheetTrigger>
-          <SheetContent className="w-full sm:max-w-md overflow-y-auto" data-lenis-prevent>
-            <SheetHeader>
-              <SheetTitle>{t.workspaceTitle}</SheetTitle>
-            </SheetHeader>
-            <div className="mt-6">
-              <WorkspaceManager
-                appDefaults={appDefaults}
-                emailConfig={emailConfig}
-                artistMappings={artistMappings}
-                compilationFilters={compilationFilters}
-                splitFees={splitFees}
-                manualRevenues={manualRevenues}
-                expenses={expenses}
-                ignoredEntries={ignoredEntries}
-                csvAliases={csvAliases}
-                trackRevenueAssignments={trackRevenueAssignments}
-                labelInfo={labelBranding}
-                pdfSettings={pdfSettings}
-                csvImportProfiles={csvImportProfilesCustom}
-                excelExport={excelExport}
-                onImport={handleWorkspaceImport}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
-
-        <button
-          onClick={() => setShowPdfSettings(v => !v)}
-          className="text-xs text-muted-foreground hover:text-foreground px-2 pb-2"
-        >
-          {t.pdfSettings}
-        </button>
+          </nav>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="sm" className="min-h-9 gap-2 text-sm">
+                <GearSix size={16} aria-hidden="true" />
+                {t.accountingTools}
+                <CaretDown size={13} aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuItem onSelect={() => setSettingsPanel('presets')}>
+                <BookmarkSimple size={16} aria-hidden="true" /> {t.presets}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setSettingsPanel('csv')}>
+                <Table size={16} aria-hidden="true" /> {t.csvProfiles}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setSettingsPanel('pdf')}>
+                <FileText size={16} aria-hidden="true" /> {t.pdfSettings}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setSettingsPanel('workspace')}>
+                <DownloadSimple size={16} aria-hidden="true" /> {t.workspaceTitle}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
+
+      <Sheet open={settingsPanel === 'presets'} onOpenChange={(open) => setSettingsPanel(open ? 'presets' : null)}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto" data-lenis-prevent>
+          <SheetHeader><SheetTitle>{t.presetsTitle}</SheetTitle></SheetHeader>
+          <div className="mt-6">
+            <CsvProfileManager
+              artistMappings={artistMappings}
+              compilationFilters={compilationFilters}
+              splitFees={splitFees}
+              manualRevenues={manualRevenues}
+              expenses={expenses}
+              ignoredEntries={ignoredEntries}
+              csvAliases={csvAliases}
+              trackRevenueAssignments={trackRevenueAssignments}
+              appDefaults={appDefaults}
+              emailConfig={emailConfig}
+              labelInfo={labelBranding}
+              pdfSettings={pdfSettings}
+              csvImportProfiles={csvImportProfilesCustom}
+              excelExport={excelExport}
+              onLoad={handlePresetLoad}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={settingsPanel === 'csv'} onOpenChange={(open) => setSettingsPanel(open ? 'csv' : null)}>
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto" data-lenis-prevent>
+          <SheetHeader><SheetTitle>{t.csvProfilesTitle}</SheetTitle></SheetHeader>
+          <div className="mt-6">
+            <CsvImportProfileEditor
+              profiles={csvImportProfiles}
+              customProfiles={customProfiles}
+              onSave={saveCsvProfile}
+              onDelete={deleteCsvProfile}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={settingsPanel === 'workspace'} onOpenChange={(open) => setSettingsPanel(open ? 'workspace' : null)}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto" data-lenis-prevent>
+          <SheetHeader><SheetTitle>{t.workspaceTitle}</SheetTitle></SheetHeader>
+          <div className="mt-6">
+            <WorkspaceManager
+              appDefaults={appDefaults}
+              emailConfig={emailConfig}
+              artistMappings={artistMappings}
+              compilationFilters={compilationFilters}
+              splitFees={splitFees}
+              manualRevenues={manualRevenues}
+              expenses={expenses}
+              ignoredEntries={ignoredEntries}
+              csvAliases={csvAliases}
+              trackRevenueAssignments={trackRevenueAssignments}
+              labelInfo={labelBranding}
+              pdfSettings={pdfSettings}
+              csvImportProfiles={csvImportProfilesCustom}
+              excelExport={excelExport}
+              onImport={handleWorkspaceImport}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={settingsPanel === 'pdf'} onOpenChange={(open) => setSettingsPanel(open ? 'pdf' : null)}>
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto" data-lenis-prevent>
+          <SheetHeader><SheetTitle>{t.pdfSettings}</SheetTitle></SheetHeader>
+          <div className="mt-6">
+            <PdfExportSettingsPanel settings={pdfSettings} onUpdate={setPdfSettings} />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {periodBanner}
 
@@ -1333,8 +1353,8 @@ function SosGeneratorPanel() {
         )}
 
         {secondaryView && (
-          <div className="flex items-center justify-between gap-3 px-6 pt-4">
-            <h2 className="text-sm font-semibold text-foreground">
+          <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
+            <h2 className="text-lg font-semibold text-foreground">
               {activeSubTab === 'rules' ? t.subTabRules : t.subTabAnalytics}
             </h2>
             <Button
