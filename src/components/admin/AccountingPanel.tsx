@@ -158,6 +158,8 @@ function SosGeneratorPanel() {
   const {
     profiles: csvImportProfiles,
     customProfiles,
+    shadowedProfiles,
+    nameConflicts,
     saveProfile: saveCsvProfile,
     deleteProfile: deleteCsvProfile,
   } = useCsvImportProfiles(csvImportProfilesCustom, setCsvImportProfilesCustom)
@@ -1296,6 +1298,8 @@ function SosGeneratorPanel() {
             <CsvImportProfileEditor
               profiles={csvImportProfiles}
               customProfiles={customProfiles}
+              shadowedProfiles={shadowedProfiles}
+              nameConflicts={nameConflicts}
               onSave={saveCsvProfile}
               onDelete={deleteCsvProfile}
             />
