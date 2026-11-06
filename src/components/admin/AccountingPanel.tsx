@@ -1198,7 +1198,7 @@ function SosGeneratorPanel() {
               onClick={() => handleSubTabChange('upload')}
             >
               <Wallet size={16} aria-hidden="true" />
-              {t.tabGenerate}
+              {t.accountingWorkflow}
             </Button>
             <Button
               type="button"
@@ -1596,20 +1596,20 @@ export function AccountingPanel() {
 
   return (
     <Tabs defaultValue="generate" className="flex flex-col h-full">
-      <div className="flex items-center justify-between border-b border-border px-6 pt-4">
-        <TabsList className="h-9">
-          <TabsTrigger value="generate" className="gap-1.5 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
+        <TabsList className="h-10">
+          <TabsTrigger value="generate" className="min-h-9 gap-2 text-sm">
             <Wallet size={14} />
             {t.tabGenerate}
           </TabsTrigger>
-          <TabsTrigger value="history" className="gap-1.5 text-xs">
+          <TabsTrigger value="history" className="min-h-9 gap-2 text-sm">
             <ClockCounterClockwise size={14} />
             {t.tabHistory}
           </TabsTrigger>
         </TabsList>
         <Link
           href="/admin/accounting/data-audit"
-          className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <MagnifyingGlass size={14} />
           {tAudit('title')}
