@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateProfileSuggestion } from './route'
+import { validateProfileSuggestion } from '@/lib/sos/ingest/validateProfileSuggestion'
 
 describe('AI import profile suggestion validation', () => {
   const headers = ['Date', 'Band', 'Net Revenue']
