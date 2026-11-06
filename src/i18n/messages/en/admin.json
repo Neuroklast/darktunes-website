@@ -214,6 +214,7 @@
     "aiImportUpdateExisting": "Update an existing custom profile (optional)",
     "aiImportOnce": "Import once",
     "aiImportSaveProfile": "Save profile & import",
+    "aiImportRepair": "Repair mapping with AI",
     "aiImportProfileSaved": "Confirmed import profile saved.",
     "pageTitle": "Accounting",
     "pageDescription": "Generate royalty statements for artists and review statement history.",

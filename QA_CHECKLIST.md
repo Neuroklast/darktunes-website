@@ -8,6 +8,7 @@
 - [ ] Saving a confirmed custom profile binds its exact header signature, persists in workspace settings and applies column mapping inside the worker.
 - [ ] Re-import the same header format: the confirmed profile is recognized without AI.
 - [ ] Update a confirmed custom profile: existing file rows are re-parsed with its updated mappings; system profiles remain immutable.
+- [ ] A failed already-loaded CSV offers Repair mapping with AI, then reparses the original after confirmation without importing the truncated preview.
 - [ ] A disabled/unavailable AI service allows manual mapping, with a clear error.
 - [ ] Malformed AI mappings and unknown column names are rejected; three-row and request-size caps cannot be bypassed.
 - [ ] English, German and French localizations work on desktop and mobile and all form controls remain accessible.

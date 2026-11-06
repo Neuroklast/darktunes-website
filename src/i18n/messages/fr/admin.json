@@ -214,6 +214,7 @@
     "aiImportUpdateExisting": "Mettre à jour un profil personnalisé (facultatif)",
     "aiImportOnce": "Importer une fois",
     "aiImportSaveProfile": "Enregistrer le profil et importer",
+    "aiImportRepair": "Corriger avec l'IA",
     "aiImportProfileSaved": "Profil d'import confirmé enregistré.",
     "pageTitle": "Comptabilité",
     "pageDescription": "Générez des relevés de redevances pour les artistes et consultez l’historique des relevés.",

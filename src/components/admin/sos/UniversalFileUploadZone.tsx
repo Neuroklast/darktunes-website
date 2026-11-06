@@ -57,7 +57,7 @@ import { toast } from 'sonner'
 import type { UploadedFile, FileProcessingState } from '@/lib/sos/types'
 import { formatBytes, formatInteger, type SosProcessProgress } from '@/lib/sos/ingestProgress'
 import { interpolate } from '@/lib/i18n/interpolate'
-import { fingerprintHeaders, readImportSample, sanitizeAiSample, type ImportSample } from '@/lib/sos/ingest/importSample'
+import { fingerprintHeaders, parseImportSample, readImportSample, sanitizeAiSample, type ImportSample } from '@/lib/sos/ingest/importSample'
 import { matchProfile } from '@/lib/sos/ingest/parser-facade'
 import {
   SYSTEM_SHOPIFY_PROFILE_ID,
@@ -320,6 +320,7 @@ interface ProfileSelectionDialogProps {
   delimiter: ',' | ';' | '\t'
   profiles: CsvImportProfile[]
   onSaveAndImport: (profile: CsvImportProfile) => void
+  isRepair?: boolean
   onSelectProfile: (profile: CsvImportProfile) => void
   onFallbackMapping: (mapping: { artist: string; revenue: string; date: string }) => void
   onCancel: () => void
@@ -333,6 +334,7 @@ function ProfileSelectionDialog({
   delimiter,
   profiles,
   onSaveAndImport,
+  isRepair = false,
   onSelectProfile,
   onFallbackMapping,
   onCancel,
@@ -415,11 +417,12 @@ function ProfileSelectionDialog({
 
   useEffect(() => {
     if (!open) return
+    if (isRepair) setMode('manual')
     const suggestions = suggestColumnMappings(headers)
     if (suggestions.artistName) setArtist(suggestions.artistName)
     if (suggestions.netRevenue) setRevenue(suggestions.netRevenue)
     if (suggestions.salesMonth) setDate(suggestions.salesMonth)
-  }, [open, headers])
+  }, [open, headers, isRepair])
 
   const financialProfiles = profiles.filter(p => p.type === 'financial')
   const canConfirmProfile = selectedProfileId !== ''
@@ -439,7 +442,7 @@ function ProfileSelectionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex gap-2 mb-3">
+        {!isRepair && <div className="flex gap-2 mb-3">
           <Button
             size="sm"
             variant={mode === 'profile' ? 'default' : 'outline'}
@@ -456,7 +459,7 @@ function ProfileSelectionDialog({
           >
             {tImport('aiImportMapManually')}
           </Button>
-        </div>
+        </div>}
 
         <div className="rounded-md border border-border p-3 space-y-2">
           <Button type="button" size="sm" variant="outline" disabled={aiBusy}
@@ -592,10 +595,11 @@ interface FileItemProps {
   replaceRef: ((el: HTMLInputElement | null) => void) | null
   onReplaceInput: ((e: React.ChangeEvent<HTMLInputElement>) => void) | null
   onRetryArchive: (() => void) | null
+  onRepair: (() => void) | null
   onRestore: (() => void) | null
 }
 
-function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef, onReplaceInput, onRetryArchive, onRestore }: FileItemProps) {
+function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef, onReplaceInput, onRetryArchive, onRepair, onRestore }: FileItemProps) {
   const t = useTranslations('admin.accounting')
   const isProcessingFile =
     state?.status === 'uploading' ||
@@ -714,6 +718,10 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
           </div>
 
           <div className="flex items-center gap-1 flex-shrink-0">
+            {onRepair && state?.status === 'error' && (
+              <Button type="button" variant="outline" size="sm" onClick={onRepair}
+                title={t('aiImportRepair')}>{t('aiImportRepair')}</Button>
+            )}
             {onRetryArchive && (state?.bronzeStatus === 'error' || state?.bronzeStatus === 'skipped') && !file.bronzeBatchId && (
               <Button
                 variant="ghost"
@@ -766,6 +774,7 @@ interface FileEntry {
   replaceRef: ((el: HTMLInputElement | null) => void) | null
   onReplaceInput: ((e: React.ChangeEvent<HTMLInputElement>) => void) | null
   onRetryArchive: (() => void) | null
+  onRepair: (() => void) | null
   onRestore: (() => void) | null
 }
 
@@ -796,6 +805,7 @@ export function UniversalFileUploadZone({
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [pendingHeaders, setPendingHeaders] = useState<string[]>([])
   const [pendingSample, setPendingSample] = useState<ImportSample | null>(null)
+  const [repairFileId, setRepairFileId] = useState<string | null>(null)
 
 
   // Per-file replace input refs (keyed by file id)
@@ -919,7 +929,7 @@ export function UniversalFileUploadZone({
 
   const handleProfileSelected = useCallback(
     (profile: CsvImportProfile) => {
-      if (!pendingFile) return
+      if (!pendingFile || repairFileId) return
       // Route based on matched profile (same logic as routeFile)
       const label = profile.name
       if (profile.id === SYSTEM_BANDCAMP_PROFILE_ID) {
@@ -932,7 +942,7 @@ export function UniversalFileUploadZone({
       setPendingHeaders([])
       setPendingSample(null)
     },
-    [pendingFile, believeManager, bandcampManager]
+    [pendingFile, repairFileId, believeManager, bandcampManager]
   )
 
   const handleMappingConfirm = useCallback(
@@ -947,31 +957,47 @@ export function UniversalFileUploadZone({
         { fieldName: 'sales_month', synonym: mapping.date },
       ])
 
-      // Default to believe for unrecognised format (safer: no payout filtering)
-      believeManager.addFiles([pendingFile])
+      // Never add the short preview as a duplicate on a repair.
+      if (!repairFileId) believeManager.addFiles([pendingFile])
       toast.success(`"${pendingFile.name}" imported with custom column mapping`)
       setPendingFile(null)
       setPendingHeaders([])
       setPendingSample(null)
+      setRepairFileId(null)
     },
-    [pendingFile, believeManager, onAddAliases]
+    [pendingFile, repairFileId, believeManager, onAddAliases]
   )
 
   const handleSaveAndImport = useCallback((profile: CsvImportProfile) => {
     if (!pendingFile) return
     onSaveProfile(profile)
-    believeManager.addFiles([pendingFile])
+    if (!repairFileId) believeManager.addFiles([pendingFile])
     toast.success(t('aiImportProfileSaved'))
     setPendingFile(null)
     setPendingHeaders([])
     setPendingSample(null)
-  }, [pendingFile, onSaveProfile, believeManager, t])
+    setRepairFileId(null)
+  }, [pendingFile, repairFileId, onSaveProfile, believeManager, t])
+
+  const openRepair = useCallback((file: UploadedFile) => {
+    if (!file.data) return
+    try {
+      const preview = parseImportSample(file.data.slice(0, 256 * 1024))
+      setPendingFile(new File([], file.name))
+      setPendingHeaders(preview.headers)
+      setPendingSample(preview)
+      setRepairFileId(file.id)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('aiImportFailed'))
+    }
+  }, [t])
 
   const handleMappingCancel = useCallback(() => {
     toast.info(tToast('import_cancelled'))
     setPendingFile(null)
     setPendingHeaders([])
     setPendingSample(null)
+    setRepairFileId(null)
   }, [tToast])
 
   // ── Combined file list (all sources) ─────────────────────────────────────
@@ -988,6 +1014,8 @@ export function UniversalFileUploadZone({
         replaceRef: makeRefSetter(f.id),
         onReplaceInput: (e: React.ChangeEvent<HTMLInputElement>) => handleReplaceInput(manager, f.id, e),
         onRetryArchive: manager.retryArchive ? () => manager.retryArchive?.(f.id) : null,
+        onRepair: f.data && manager.fileStates[f.id]?.status === 'error'
+          ? () => openRepair(f) : null,
         onRestore: manager.restoreArchivedFile
           ? () => { void manager.restoreArchivedFile!(f.id).catch((err) => {
               toast.error(t('bronzeArchiveLoadError'), {
@@ -996,7 +1024,7 @@ export function UniversalFileUploadZone({
             }) }
           : null,
       })),
-    [makeRefSetter, handleReplaceInput]
+    [makeRefSetter, handleReplaceInput, openRepair]
   )
 
   /** Builds FileEntry objects for an e-commerce manager (shopify/printful/darkmerch). */
@@ -1011,6 +1039,7 @@ export function UniversalFileUploadZone({
         replaceRef: null,
         onReplaceInput: null,
         onRetryArchive: manager.retryArchive ? () => manager.retryArchive?.(f.id) : null,
+        onRepair: null,
         onRestore: manager.restoreArchivedFile
           ? () => { void manager.restoreArchivedFile!(f.id).catch((err) => {
               toast.error(t('bronzeArchiveLoadError'), {
@@ -1166,7 +1195,7 @@ export function UniversalFileUploadZone({
             transition={prefersReducedMotion ? { duration: 0 } : undefined}
             className="space-y-2"
           >
-            {allFiles.map(({ file, source, state, onRemove, onReplace, replaceRef, onReplaceInput, onRetryArchive, onRestore }, index) => (
+            {allFiles.map(({ file, source, state, onRemove, onReplace, replaceRef, onReplaceInput, onRetryArchive, onRepair, onRestore }, index) => (
               <FileItem
                 key={file.id}
                 file={file}
@@ -1178,6 +1207,7 @@ export function UniversalFileUploadZone({
                 replaceRef={replaceRef}
                 onReplaceInput={onReplaceInput}
                 onRetryArchive={onRetryArchive}
+                onRepair={onRepair}
                 onRestore={onRestore}
               />
             ))}
@@ -1195,6 +1225,7 @@ export function UniversalFileUploadZone({
           delimiter={pendingSample.delimiter}
           profiles={csvProfiles}
           onSaveAndImport={handleSaveAndImport}
+          isRepair={repairFileId !== null}
           onSelectProfile={handleProfileSelected}
           onFallbackMapping={handleMappingConfirm}
           onCancel={handleMappingCancel}

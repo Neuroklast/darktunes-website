@@ -214,6 +214,7 @@
     "aiImportUpdateExisting": "Vorhandenes eigenes Profil aktualisieren (optional)",
     "aiImportOnce": "Einmalig importieren",
     "aiImportSaveProfile": "Profil speichern und importieren",
+    "aiImportRepair": "Zuordnung mit KI korrigieren",
     "aiImportProfileSaved": "Bestätigtes Importprofil gespeichert.",
     "pageTitle": "Accounting",
     "pageDescription": "Royalty-Statements für Artists erstellen und Statement-Historie einsehen.",
