@@ -191,19 +191,20 @@ export function CsvImportProfileEditor({
           <p className="text-sm font-medium">{customProfiles.some((p) => p.id === draft.id) ? 'Edit' : 'New'} CSV Profile</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label className="text-xs">Name</Label>
+              <Label htmlFor="csv-profile-name" className="text-sm">{t.uiProfileName}</Label>
               <Input
+                id="csv-profile-name"
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Delimiter</Label>
+              <Label htmlFor="csv-profile-delimiter" className="text-sm">{t.uiProfileDelimiter}</Label>
               <Select
                 value={draft.delimiter}
                 onValueChange={(v) => setDraft({ ...draft, delimiter: v as ',' | ';' })}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="csv-profile-delimiter"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value=",">Comma (,)</SelectItem>
                   <SelectItem value=";">Semicolon (;)</SelectItem>
@@ -212,8 +213,8 @@ export function CsvImportProfileEditor({
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Auto-detect headers (comma-separated)</Label>
-            <Input
+            <Label htmlFor="csv-profile-headers" className="text-sm">{t.uiProfileHeaders}</Label>
+            <Input id="csv-profile-headers"
               value={draft.autoDetectHeaders.join(', ')}
               onChange={(e) =>
                 setDraft({
@@ -226,8 +227,8 @@ export function CsvImportProfileEditor({
           <div className="grid gap-2 sm:grid-cols-2">
             {FINANCIAL_FIELDS.map((field) => (
               <div key={field} className="space-y-1">
-                <Label className="text-xs capitalize">{field}</Label>
-                <Input
+                <Label htmlFor={`csv-profile-field-${field}`} className="text-sm capitalize">{field}</Label>
+                <Input id={`csv-profile-field-${field}`}
                   value={draft.columnMapping[field] ?? ''}
                   onChange={(e) =>
                     setDraft({
@@ -256,7 +257,7 @@ export function CsvImportProfileEditor({
           {duplicateDraft && <p role="alert" className="text-sm text-amber-300">{t.uiIdenticalProfile}</p>}
           <div className="flex gap-2 justify-end">
             <Button type="button" variant="outline" size="sm" onClick={() => setDraft(null)}>
-              Cancel
+              {t.uiCancel}
             </Button>
             <Button type="button" size="sm" onClick={saveDraft} disabled={!draft.name.trim() || duplicateDraft}>
               <FloppyDisk size={14} className="mr-1" /> Save profile
