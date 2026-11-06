@@ -1399,6 +1399,7 @@ function SosGeneratorPanel() {
             onActiveStepChange={(step) => handleSubTabChange(SUB_TAB_BY_WIZARD_STEP[step])}
             onImportReady={handleImportReady}
             hasBlockingValidation={hasBlockingValidation}
+            canOpenExistingSettlements={effectivePeriod != null}
             ratesReady={exchangeRatesReady}
             labels={recoverableSessionFiles.length > 0
               ? { blockedUploadNoData: t.uiArchiveRestoreHint }
