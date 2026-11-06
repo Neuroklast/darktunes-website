@@ -177,7 +177,7 @@ export function AnalyticsDashboard({ revenues, showSummaryKpis = true }: Analyti
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="w-full min-w-0 space-y-5">
       {showSummaryKpis && (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <RevenueSummaryCard
@@ -254,7 +254,7 @@ export function AnalyticsDashboard({ revenues, showSummaryKpis = true }: Analyti
 
         {/* Platform bar chart */}
         <TabsContent value="platforms">
-          <Card className="p-4 mt-2">
+          <Card className="min-w-0 p-4 mt-2">
             <div className="flex items-center gap-1.5 mb-4">
               <ChartBar size={16} className="text-primary" />
               <span className="text-sm font-semibold">Revenue by Platform</span>
@@ -277,7 +277,7 @@ export function AnalyticsDashboard({ revenues, showSummaryKpis = true }: Analyti
                     contentStyle={tooltipStyle}
                     formatter={(v) => [fmtEur(Number(v ?? 0)), 'Revenue']}
                   />
-                  <Bar dataKey="revenue" fill={CHART_COLORS[0]} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="revenue" fill={CHART_COLORS[0]} radius={[3, 3, 0, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -286,7 +286,7 @@ export function AnalyticsDashboard({ revenues, showSummaryKpis = true }: Analyti
 
         {/* Country bar chart */}
         <TabsContent value="countries">
-          <Card className="p-4 mt-2">
+          <Card className="min-w-0 p-4 mt-2">
             <div className="flex items-center gap-1.5 mb-4">
               <MapPin size={16} className="text-primary" />
               <span className="text-sm font-semibold">Top Countries</span>
@@ -303,7 +303,7 @@ export function AnalyticsDashboard({ revenues, showSummaryKpis = true }: Analyti
                     contentStyle={tooltipStyle}
                     formatter={(v) => [fmtEur(Number(v ?? 0)), 'Revenue']}
                   />
-                  <Bar dataKey="revenue" fill={CHART_COLORS[2]} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="revenue" fill={CHART_COLORS[2]} radius={[3, 3, 0, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -312,7 +312,7 @@ export function AnalyticsDashboard({ revenues, showSummaryKpis = true }: Analyti
 
         {/* Monthly area chart */}
         <TabsContent value="monthly">
-          <Card className="p-4 mt-2">
+          <Card className="min-w-0 p-4 mt-2">
             <div className="flex items-center gap-1.5 mb-4">
               <CalendarBlank size={16} className="text-primary" />
               <span className="text-sm font-semibold">Monthly Revenue Trend</span>
@@ -341,6 +341,7 @@ export function AnalyticsDashboard({ revenues, showSummaryKpis = true }: Analyti
                     stroke={CHART_COLORS[0]}
                     fill="url(#revGrad)"
                     strokeWidth={2}
+                    isAnimationActive={false}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -350,7 +351,7 @@ export function AnalyticsDashboard({ revenues, showSummaryKpis = true }: Analyti
 
         {/* Artist pie chart */}
         <TabsContent value="artists">
-          <Card className="p-4 mt-2">
+          <Card className="min-w-0 p-4 mt-2">
             <div className="flex items-center gap-1.5 mb-4">
               <MusicNote size={16} className="text-primary" />
               <span className="text-sm font-semibold">Revenue by Artist</span>
@@ -369,6 +370,7 @@ export function AnalyticsDashboard({ revenues, showSummaryKpis = true }: Analyti
                       outerRadius={110}
                       dataKey="value"
                       nameKey="name"
+                      isAnimationActive={false}
                     >
                       {artistPieData.map((_, i) => (
                         <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
