@@ -23,7 +23,7 @@ import { useCallback, useMemo, useState } from 'react'
 import type { CompilationFilter } from '@/lib/sos/types'
 import { useAccountingLabels } from '@/lib/i18n/accountingFallbacks'
 import { SosConfirmDialog } from './SosConfirmDialog'
-import { AccountingListPagination, ACCOUNTING_PAGE_SIZE } from './AccountingListPagination'
+import { AccountingListPagination, useAccountingAdaptivePageSize } from './AccountingListPagination'
 
 export interface CompilationFilterManagerProps {
   filters: CompilationFilter[]
@@ -61,13 +61,14 @@ export function CompilationFilterManager({
   const [releaseSearch, setReleaseSearch] = useState('')
   const [filterSearch, setFilterSearch] = useState('')
   const [page, setPage] = useState(0)
+  const { listRef, pageSize } = useAccountingAdaptivePageSize(64, filters.length > 0)
   const duplicateValue = isDuplicate(filters, identifier, type, editId ?? undefined)
   const visibleFilters = useMemo(() => {
     const query = filterSearch.toLocaleLowerCase().trim()
     return query ? filters.filter(f => `${f.label} ${f.identifier} ${FILTER_TYPE_LABELS[f.type]}`.toLocaleLowerCase().includes(query)) : filters
   }, [filters, filterSearch])
-  const currentPage = Math.min(page, Math.max(0, Math.ceil(visibleFilters.length / ACCOUNTING_PAGE_SIZE) - 1))
-  const pagedFilters = visibleFilters.slice(currentPage * ACCOUNTING_PAGE_SIZE, (currentPage + 1) * ACCOUNTING_PAGE_SIZE)
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(visibleFilters.length / pageSize) - 1))
+  const pagedFilters = visibleFilters.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
 
   const handleClose = useCallback(() => {
     setOpen(false)
@@ -204,7 +205,7 @@ export function CompilationFilterManager({
       )}
 
       {visibleFilters.length > 0 ? (
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-card/30" data-lenis-prevent>
+        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-card/30" data-lenis-prevent>
           {pagedFilters.map(filter => (
             <div key={filter.id} className="flex min-h-14 items-center gap-3 border-b border-border/70 px-3 py-2 last:border-b-0 sm:px-4">
               <div className="min-w-0 flex-1">
@@ -244,7 +245,7 @@ export function CompilationFilterManager({
           {t.uiFiltersShown.replace('{shown}', String(visibleFilters.length)).replace('{total}', String(filters.length))}
         </p>
       )}
-      <AccountingListPagination count={visibleFilters.length} page={currentPage} onPageChange={setPage} />
+      <AccountingListPagination count={visibleFilters.length} page={currentPage} pageSize={pageSize} onPageChange={setPage} />
       <SosConfirmDialog open={deleteTarget !== null} onOpenChange={open => { if (!open) setDeleteTarget(null) }}
         title={t.uiRemoveCompilation}
         description={t.uiCompilationDeleteConfirm.replace('{name}', deleteTarget?.label ?? '')}
