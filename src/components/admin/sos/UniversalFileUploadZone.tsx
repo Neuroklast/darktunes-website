@@ -57,7 +57,7 @@ import { toast } from 'sonner'
 import type { UploadedFile, FileProcessingState } from '@/lib/sos/types'
 import { formatBytes, formatInteger, type SosProcessProgress } from '@/lib/sos/ingestProgress'
 import { interpolate } from '@/lib/i18n/interpolate'
-import { fingerprintHeaders, parseImportSample, readImportSample, sanitizeAiSample, type ImportSample } from '@/lib/sos/ingest/importSample'
+import { fingerprintHeaders, parseImportSample, readImportSample, readXlsxAsCsv, sanitizeAiSample, type ImportSample } from '@/lib/sos/ingest/importSample'
 import { matchProfile } from '@/lib/sos/ingest/parser-facade'
 import {
   SYSTEM_SHOPIFY_PROFILE_ID,
@@ -99,6 +99,7 @@ export interface FileManagerCallbacks {
   removeFile: (id: string) => void
   replaceFile: (id: string, file: File) => void
   retryArchive?: (id: string) => void
+  prepareProfileRepair?: (id: string) => void
   restoreArchivedFile?: (id: string) => Promise<void>
 }
 
@@ -116,6 +117,7 @@ export interface EcommerceManagerCallbacks {
   addFiles: (files: File[]) => void
   removeFile: (id: string) => void
   retryArchive?: (id: string) => void
+  prepareProfileRepair?: (id: string) => void
   restoreArchivedFile?: (id: string) => Promise<void>
 }
 
@@ -128,10 +130,8 @@ interface UniversalFileUploadZoneProps {
   printfulManager: EcommerceManagerCallbacks
   /** Manager for Darkmerch orders export CSVs. */
   darkmerchManager: EcommerceManagerCallbacks
-  /** Called when an unknown CSV is confirmed with user-defined column aliases. */
-  onAddAliases: (aliases: { fieldName: string; synonym: string }[]) => void
   /** Confirmed profiles are saved to the current accounting workspace. */
-  onSaveProfile: (profile: CsvImportProfile) => void
+  onSaveProfile: (profile: CsvImportProfile) => Promise<void>
   isProcessing?: boolean
   pipelineProgress?: SosProcessProgress | null
   /**
@@ -344,7 +344,6 @@ interface ProfileSelectionDialogProps {
   onSaveAndImport: (profile: CsvImportProfile) => Promise<void>
   isRepair?: boolean
   repairSource?: 'believe' | 'bandcamp'
-  onSelectProfile: (profile: CsvImportProfile) => Promise<void>
   onCancel: () => void
 }
 
@@ -358,7 +357,6 @@ function ProfileSelectionDialog({
   onSaveAndImport,
   isRepair = false,
   repairSource,
-  onSelectProfile,
   onCancel,
 }: ProfileSelectionDialogProps) {
   const [selectedProfileId, setSelectedProfileId] = useState('')
@@ -436,6 +434,24 @@ function ProfileSelectionDialog({
     } finally {
       setAiBusy(false)
     }
+  }
+
+  const applyExistingProfile = (profile: CsvImportProfile) => {
+    const mapping = profile.columnMapping
+    setArtist(mapping.artistName && headers.includes(mapping.artistName) ? mapping.artistName : '')
+    setRevenue(mapping.netRevenue && headers.includes(mapping.netRevenue) ? mapping.netRevenue : '')
+    setDate(mapping.salesMonth && headers.includes(mapping.salesMonth) ? mapping.salesMonth : '')
+    setExtraMappings(Object.fromEntries(
+      OPTIONAL_FIELDS.map(({ field }) => [field, mapping[field] && headers.includes(mapping[field]) ? mapping[field] : undefined]),
+    ) as Partial<Record<FinancialFieldKey, string>>)
+    setProfileName(profile.name)
+    setUpdateId(profile.isSystemDefault ? '' : profile.id)
+    if (!repairSource && (profile.parserSource === 'believe' || profile.parserSource === 'bandcamp')) {
+      setParserSource(profile.parserSource)
+    }
+    setDateSemantics(profile.dateSemantics ?? 'sale-date')
+    setDateOrder(profile.dateOrder ?? 'day-first')
+    setMode('manual')
   }
 
   const saveConfirmedProfile = async () => {
@@ -671,12 +687,12 @@ function ProfileSelectionDialog({
             <Button
               onClick={() => {
                 const profile = financialProfiles.find(p => p.id === selectedProfileId)
-                if (profile) onSelectProfile(profile)
+                if (profile) applyExistingProfile(profile)
               }}
               disabled={!canConfirmProfile}
               size="sm"
             >
-              {tImport('aiImportWithProfile')}
+              {tImport('aiImportReviewProfile')}
             </Button>
           ) : (
             <>
@@ -893,7 +909,6 @@ export function UniversalFileUploadZone({
   shopifyManager,
   printfulManager,
   darkmerchManager,
-  onAddAliases,
   onSaveProfile,
   csvProfiles = [],
   isProcessing = false,
