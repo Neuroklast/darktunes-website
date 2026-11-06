@@ -88,3 +88,29 @@ export async function readImportSample(file: File): Promise<ImportSample> {
     : first[0] === 0xFE && first[1] === 0xFF ? 'utf-16be' : 'utf-8'
   return parseImportSample(new TextDecoder(encoding).decode(chunk))
 }
+
+// This is used ONLY after the user confirms an XLSX import, never for AI.
+export async function readXlsxAsCsv(file: File): Promise<File> {
+  const ExcelJS = await import('exceljs')
+  const wb = new ExcelJS.Workbook()
+  await wb.xlsx.load(Buffer.from(await file.arrayBuffer()) as never)
+  const sheet = wb.worksheets.find((ws) => ws.actualRowCount > 0)
+  if (!sheet) throw new Error('The spreadsheet contains no rows.')
+  const rows: string[][] = []
+  for (let rowIndex = 1; rowIndex <= sheet.rowCount; rowIndex++) {
+    const row = sheet.getRow(rowIndex)
+    const cells = (row.values as import('exceljs').CellValue[]).slice(1).map((value) => {
+      if (value == null) return ''
+      if (value instanceof Date) return value.toISOString().slice(0, 10)
+      if (typeof value !== 'object') return String(value)
+      if ('text' in value && typeof value.text === 'string') return value.text
+      if ('result' in value && value.result != null) return String(value.result)
+      if ('richText' in value && Array.isArray(value.richText)) return value.richText.map((r) => r.text).join('')
+      return ''
+    })
+    if (cells.some((cell) => cell.trim())) rows.push(cells)
+  }
+  if (!rows.length) throw new Error('The spreadsheet contains no data.')
+  const csv = Papa.unparse(rows, { header: false })
+  return new File([csv], file.name.replace(/\.xlsx$/i, '.csv'), { type: 'text/csv' })
+}

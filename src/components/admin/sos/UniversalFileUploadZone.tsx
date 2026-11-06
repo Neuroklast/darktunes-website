@@ -978,43 +978,46 @@ export function UniversalFileUploadZone({
   // ── File routing ──────────────────────────────────────────────────────────
 
   const routeFile = useCallback(async (file: File) => {
-    // XLSX files are always routed to Darkmerch — no header inspection needed.
-    if (file.name.toLowerCase().endsWith('.xlsx')) {
-      toast.info(`"${file.name}" detected as Darkmerch XLSX`, { duration: 3000 })
-      darkmerchManager.addFiles([file])
+    const { source, headers, matchedProfile, sample } = await detectCSVSource(file, csvProfiles)
+    const parser = matchedProfile?.parserSource ??
+      (source === 'profile-financial' ? 'believe' : source)
+
+    if (parser === 'unknown' || (
+      matchedProfile && !matchedProfile.isSystemDefault &&
+      (parser === 'shopify' || parser === 'printful' || parser === 'darkmerch')
+    )) {
+      // No second unknown upload can overwrite the dialog for the first one.
+      enqueuePending({ file, headers, sample })
       return
     }
 
-    const { source, headers, matchedProfile, sample } = await detectCSVSource(file, csvProfiles)
-
-    if (source === 'believe') {
-      toast.info(`"${file.name}" detected as Believe CSV`, { duration: 3000 })
-      believeManager.addFiles([file])
-    } else if (source === 'bandcamp') {
-      const label = matchedProfile ? `"${matchedProfile.name}" profile` : 'Bandcamp CSV'
-      toast.info(`"${file.name}" detected as ${label}`, { duration: 3000 })
-      bandcampManager.addFiles([file])
-    } else if (source === 'profile-financial') {
-      // Generic financial profile — route to believe manager (streaming parser)
-      const label = matchedProfile?.name ?? 'custom profile'
-      toast.info(`"${file.name}" matched profile "${label}"`, { duration: 3000 })
-      believeManager.addFiles([file])
-    } else if (source === 'shopify') {
-      toast.info(`"${file.name}" detected as Shopify export`, { duration: 3000 })
-      shopifyManager.addFiles([file])
-    } else if (source === 'printful') {
-      toast.info(`"${file.name}" detected as Printful export`, { duration: 3000 })
-      printfulManager.addFiles([file])
-    } else if (source === 'darkmerch') {
-      toast.info(`"${file.name}" detected as Darkmerch export`, { duration: 3000 })
-      darkmerchManager.addFiles([file])
-    } else {
-      // Unknown format: open profile selection / mapping dialog
-      setPendingFile(file)
-      setPendingHeaders(headers)
-      setPendingSample(sample)
+    // XLSX must be sniffed exactly like CSV. Only confirmed Darkmerch
+    // workbooks use the Darkmerch-specific conversion and parser.
+    const upload = file.name.toLowerCase().endsWith('.xlsx') && parser !== 'darkmerch'
+      ? await readXlsxAsCsv(file)
+      : file
+    switch (parser) {
+      case 'believe':
+        believeManager.addFiles([upload])
+        break
+      case 'bandcamp':
+        bandcampManager.addFiles([upload])
+        break
+      case 'shopify':
+        shopifyManager.addFiles([upload])
+        break
+      case 'printful':
+        printfulManager.addFiles([upload])
+        break
+      case 'darkmerch':
+        darkmerchManager.addFiles([upload])
+        break
+      default:
+        enqueuePending({ file, headers, sample })
+        return
     }
-  }, [believeManager, bandcampManager, shopifyManager, printfulManager, darkmerchManager, csvProfiles])
+    toast.info(`"${file.name}" identified as ${matchedProfile?.name ?? parser}`, { duration: 3000 })
+  }, [believeManager, bandcampManager, shopifyManager, printfulManager, darkmerchManager, csvProfiles, enqueuePending])
 
   const processFiles = useCallback(async (rawFiles: File[]) => {
     const acceptedFiles = rawFiles.filter(f => {
@@ -1042,7 +1045,11 @@ export function UniversalFileUploadZone({
     }
 
     for (const file of acceptedFiles) {
-      await routeFile(file)
+      try {
+        await routeFile(file)
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Could not read the import file.')
+      }
     }
   }, [routeFile, tToast, t])
 

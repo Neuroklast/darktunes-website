@@ -956,9 +956,6 @@ function SosGeneratorPanel() {
         csvProfiles={csvImportProfiles}
         isProcessing={isProcessing}
         pipelineProgress={pipelineProgress}
-        onAddAliases={(aliases) => {
-          aliases.forEach((alias) => handleAddCsvAlias(alias))
-        }}
         onSaveProfile={saveCsvProfile}
       />
     </div>
