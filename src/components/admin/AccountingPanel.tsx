@@ -955,6 +955,7 @@ function SosGeneratorPanel() {
         onAddAliases={(aliases) => {
           aliases.forEach((alias) => handleAddCsvAlias(alias))
         }}
+        onSaveProfile={saveCsvProfile}
       />
     </div>
   )

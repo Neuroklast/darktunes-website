@@ -50,13 +50,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { toast } from 'sonner'
 import type { UploadedFile, FileProcessingState } from '@/lib/sos/types'
 import { formatBytes, formatInteger, type SosProcessProgress } from '@/lib/sos/ingestProgress'
 import { interpolate } from '@/lib/i18n/interpolate'
-import { parseCSVLine } from '@/lib/sos/ingest/csv-parser'
+import { fingerprintHeaders, readImportSample, type ImportSample } from '@/lib/sos/ingest/importSample'
 import { matchProfile } from '@/lib/sos/ingest/parser-facade'
 import {
   SYSTEM_SHOPIFY_PROFILE_ID,
@@ -108,6 +109,8 @@ interface UniversalFileUploadZoneProps {
   darkmerchManager: EcommerceManagerCallbacks
   /** Called when an unknown CSV is confirmed with user-defined column aliases. */
   onAddAliases: (aliases: { fieldName: string; synonym: string }[]) => void
+  /** Confirmed profiles are saved to the current accounting workspace. */
+  onSaveProfile: (profile: CsvImportProfile) => void
   isProcessing?: boolean
   pipelineProgress?: SosProcessProgress | null
   /**
@@ -157,23 +160,11 @@ async function detectCSVSource(
 ): Promise<{
   source: 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch' | 'profile-financial' | 'unknown'
   headers: string[]
+  sample: ImportSample
   matchedProfile?: CsvImportProfile
 }> {
-  const buffer = await file.arrayBuffer()
-  const firstBytes = new Uint8Array(buffer, 0, 2)
-  let text: string
-  if (firstBytes[0] === 0xFF && firstBytes[1] === 0xFE) {
-    text = new TextDecoder('utf-16le').decode(buffer)
-  } else if (firstBytes[0] === 0xFE && firstBytes[1] === 0xFF) {
-    text = new TextDecoder('utf-16be').decode(buffer)
-  } else {
-    text = new TextDecoder('utf-8').decode(buffer)
-  }
-
-  const clean = text.startsWith('\uFEFF') ? text.slice(1) : text
-  const firstLine = clean.split(/\r?\n/)[0] ?? ''
-  const delimiter = firstLine.includes(';') ? ';' : ','
-  const rawHeaders = parseCSVLine(firstLine, delimiter).map(h => h.trim())
+  const sample = await readImportSample(file)
+  const rawHeaders = sample.headers
   const normalizedHeaders = rawHeaders.map(h => h.toLowerCase())
 
   // ── Phase 1: Profile-based matching (financial only) ─────────────────────
@@ -182,38 +173,38 @@ async function detectCSVSource(
     const matched = matchProfile(rawHeaders, financialProfiles)
     if (matched) {
       if (matched.id === SYSTEM_SHOPIFY_PROFILE_ID) {
-        return { source: 'shopify', headers: rawHeaders, matchedProfile: matched }
+        return { source: 'shopify', headers: rawHeaders, sample, matchedProfile: matched }
       }
       if (matched.id === SYSTEM_PRINTFUL_PROFILE_ID) {
-        return { source: 'printful', headers: rawHeaders, matchedProfile: matched }
+        return { source: 'printful', headers: rawHeaders, sample, matchedProfile: matched }
       }
       if (matched.id === SYSTEM_BANDCAMP_PROFILE_ID || matched.id === SYSTEM_BANDCAMP_DDS_PROFILE_ID) {
-        return { source: 'bandcamp', headers: rawHeaders, matchedProfile: matched }
+        return { source: 'bandcamp', headers: rawHeaders, sample, matchedProfile: matched }
       }
       if (matched.id === SYSTEM_DARKMERCH_PROFILE_ID) {
-        return { source: 'darkmerch', headers: rawHeaders, matchedProfile: matched }
+        return { source: 'darkmerch', headers: rawHeaders, sample, matchedProfile: matched }
       }
       // Any other financial profile routes to the generic believe parser
-      return { source: 'profile-financial', headers: rawHeaders, matchedProfile: matched }
+      return { source: 'profile-financial', headers: rawHeaders, sample, matchedProfile: matched }
     }
   }
 
   // ── Phase 2: Legacy hardcoded heuristics ─────────────────────────────────
   if (normalizedHeaders.some(h => h === 'bandcamp transaction id')) {
-    return { source: 'bandcamp', headers: normalizedHeaders }
+    return { source: 'bandcamp', headers: normalizedHeaders, sample }
   }
   if (
     normalizedHeaders.some((h) => h.includes('sales month')) &&
     normalizedHeaders.some((h) => h === 'isrc')
   ) {
-    return { source: 'believe', headers: normalizedHeaders }
+    return { source: 'believe', headers: normalizedHeaders, sample }
   }
   // Darkmerch CSV: has BAND and NET REVENUE columns
   if (normalizedHeaders.some(h => h === 'band') && normalizedHeaders.some(h => h === 'net revenue')) {
-    return { source: 'darkmerch', headers: rawHeaders }
+    return { source: 'darkmerch', headers: rawHeaders, sample }
   }
   // Artist roster CSVs are intentionally not auto-detected — roster comes from the portal DB.
-  return { source: 'unknown', headers: rawHeaders }
+  return { source: 'unknown', headers: rawHeaders, sample }
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -325,7 +316,10 @@ interface ProfileSelectionDialogProps {
   open: boolean
   fileName: string
   headers: string[]
+  sampleRows: string[][]
+  delimiter: ',' | ';' | '\t'
   profiles: CsvImportProfile[]
+  onSaveAndImport: (profile: CsvImportProfile) => void
   onSelectProfile: (profile: CsvImportProfile) => void
   onFallbackMapping: (mapping: { artist: string; revenue: string; date: string }) => void
   onCancel: () => void
@@ -335,7 +329,10 @@ function ProfileSelectionDialog({
   open,
   fileName,
   headers,
+  sampleRows,
+  delimiter,
   profiles,
+  onSaveAndImport,
   onSelectProfile,
   onFallbackMapping,
   onCancel,
@@ -345,6 +342,76 @@ function ProfileSelectionDialog({
   const [revenue, setRevenue] = useState('')
   const [date, setDate] = useState('')
   const [mode, setMode] = useState<'profile' | 'manual'>('profile')
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiQuestion, setAiQuestion] = useState<string | null>(null)
+  const [aiExplanation, setAiExplanation] = useState('')
+  const [aiAnswer, setAiAnswer] = useState('')
+  const [profileName, setProfileName] = useState('')
+  const [updateId, setUpdateId] = useState('')
+  const [aiError, setAiError] = useState('')
+  const tImport = useTranslations('admin.accounting')
+
+  // This request is only possible in the unknown-format dialog. The main
+  // importer never calls AI for recognized or previously confirmed profiles.
+  const requestAi = async (answer?: string) => {
+    setAiBusy(true)
+    setAiError('')
+    try {
+      const response = await fetch('/api/admin/sos/import-profile-suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          headers,
+          sample_rows: sampleRows.slice(0, 3),
+          delimiter,
+          ...(answer ? { user_answer: answer } : {}),
+        }),
+      })
+      const body: unknown = await response.json()
+      if (!response.ok) {
+        const error = body as { detail?: string }
+        throw new Error(error.detail || tImport('aiImportFailed'))
+      }
+      const suggestion = body as {
+        profile_name?: string
+        field_mapping?: Record<string, string>
+        question?: string | null
+        explanation?: string
+      }
+      const mapping = suggestion.field_mapping ?? {}
+      if (mapping.artist_name && headers.includes(mapping.artist_name)) setArtist(mapping.artist_name)
+      if (mapping.net_revenue && headers.includes(mapping.net_revenue)) setRevenue(mapping.net_revenue)
+      if (mapping.sales_month && headers.includes(mapping.sales_month)) setDate(mapping.sales_month)
+      if (suggestion.profile_name) setProfileName(suggestion.profile_name)
+      setAiQuestion(suggestion.question ?? null)
+      setAiExplanation(suggestion.explanation ?? '')
+      setMode('manual')
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : tImport('aiImportFailed'))
+    } finally {
+      setAiBusy(false)
+    }
+  }
+
+  const saveConfirmedProfile = () => {
+    if (!artist || !revenue || !date || !profileName.trim()) return
+    const existing = profiles.find((p) => p.id === updateId && !p.isSystemDefault)
+    onSaveAndImport({
+      ...existing,
+      id: existing?.id ?? crypto.randomUUID(),
+      name: profileName.trim(),
+      type: 'financial',
+      delimiter: delimiter === '\t' ? ',' : delimiter,
+      autoDetectHeaders: headers.slice(0, 12),
+      headerFingerprint: fingerprintHeaders(headers),
+      columnMapping: {
+        ...existing?.columnMapping,
+        artistName: artist,
+        netRevenue: revenue,
+        salesMonth: date,
+      },
+    })
+  }
 
   useEffect(() => {
     if (!open) return
@@ -389,6 +456,23 @@ function ProfileSelectionDialog({
           >
             Map Manually
           </Button>
+        </div>
+
+        <div className="rounded-md border border-border p-3 space-y-2">
+          <Button type="button" size="sm" variant="outline" disabled={aiBusy}
+            onClick={() => { void requestAi() }}>
+            {aiBusy ? tImport('aiImportAnalyzing') : tImport('aiImportAnalyze')}
+          </Button>
+          <p className="text-xs text-muted-foreground">{tImport('aiImportSampleOnly')}</p>
+          {aiError && <p role="alert" className="text-xs text-destructive">{aiError}</p>}
+          {aiExplanation && <p className="text-xs">{aiExplanation}</p>}
+          {aiQuestion && <div className="space-y-2">
+            <Label>{aiQuestion}</Label>
+            <Input value={aiAnswer} onChange={(event) => setAiAnswer(event.target.value)}
+              maxLength={350} placeholder={tImport('aiImportAnswerPlaceholder')} />
+            <Button type="button" size="sm" disabled={aiBusy || !aiAnswer.trim()}
+              onClick={() => { void requestAi(aiAnswer.trim()) }}>{tImport('aiImportAnswer')}</Button>
+          </div>}
         </div>
 
         {mode === 'profile' && (
@@ -444,6 +528,25 @@ function ProfileSelectionDialog({
                 </SelectContent>
               </Select>
             </div>
+          <div className="space-y-2">
+            <Label>{tImport('aiImportProfileName')}</Label>
+            <Input value={profileName} onChange={(e) => setProfileName(e.target.value)}
+              maxLength={80} placeholder={tImport('aiImportProfileNamePlaceholder')} />
+            {profiles.some((p) => !p.isSystemDefault) && (
+              <Select value={updateId} onValueChange={(id) => {
+                setUpdateId(id)
+                const selected = profiles.find((profile) => profile.id === id)
+                if (selected) setProfileName(selected.name)
+              }}>
+                <SelectTrigger><SelectValue placeholder={tImport('aiImportUpdateExisting')} /></SelectTrigger>
+                <SelectContent>
+                  {profiles.filter((p) => !p.isSystemDefault).map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
           </div>
         )}
 
@@ -461,13 +564,15 @@ function ProfileSelectionDialog({
               Import with Profile
             </Button>
           ) : (
-            <Button
-              onClick={() => canConfirmManual && onFallbackMapping({ artist, revenue, date })}
-              disabled={!canConfirmManual}
-              size="sm"
-            >
-              Import File
-            </Button>
+            <>
+              <Button variant="outline"
+                onClick={() => canConfirmManual && onFallbackMapping({ artist, revenue, date })}
+                disabled={!canConfirmManual}
+                size="sm"
+              >{tImport('aiImportOnce')}</Button>
+              <Button onClick={saveConfirmedProfile} disabled={!canConfirmManual || !profileName.trim()}
+                size="sm">{tImport('aiImportSaveProfile')}</Button>
+            </>
           )}
         </DialogFooter>
       </DialogContent>
@@ -765,6 +870,7 @@ export function UniversalFileUploadZone({
   printfulManager,
   darkmerchManager,
   onAddAliases,
+  onSaveProfile,
   csvProfiles = [],
   isProcessing = false,
   pipelineProgress = null,
@@ -781,7 +887,8 @@ export function UniversalFileUploadZone({
   // Pending file awaiting format mapping from the user
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [pendingHeaders, setPendingHeaders] = useState<string[]>([])
-  const [pendingHasProfiles, setPendingHasProfiles] = useState(false)
+  const [pendingSample, setPendingSample] = useState<ImportSample | null>(null)
+
 
   // Per-file replace input refs (keyed by file id)
   const replaceRefs = useRef<Map<string, HTMLInputElement>>(new Map())
@@ -812,7 +919,7 @@ export function UniversalFileUploadZone({
       return
     }
 
-    const { source, headers, matchedProfile } = await detectCSVSource(file, csvProfiles)
+    const { source, headers, matchedProfile, sample } = await detectCSVSource(file, csvProfiles)
 
     if (source === 'believe') {
       toast.info(`"${file.name}" detected as Believe CSV`, { duration: 3000 })
@@ -839,7 +946,7 @@ export function UniversalFileUploadZone({
       // Unknown format: open profile selection / mapping dialog
       setPendingFile(file)
       setPendingHeaders(headers)
-      setPendingHasProfiles(csvProfiles.filter((p) => p.type === 'financial').length > 0)
+      setPendingSample(sample)
     }
   }, [believeManager, bandcampManager, shopifyManager, printfulManager, darkmerchManager, csvProfiles])
 
@@ -915,6 +1022,7 @@ export function UniversalFileUploadZone({
       toast.success(`"${pendingFile.name}" imported with profile "${label}"`)
       setPendingFile(null)
       setPendingHeaders([])
+      setPendingSample(null)
     },
     [pendingFile, believeManager, bandcampManager]
   )
@@ -936,14 +1044,26 @@ export function UniversalFileUploadZone({
       toast.success(`"${pendingFile.name}" imported with custom column mapping`)
       setPendingFile(null)
       setPendingHeaders([])
+      setPendingSample(null)
     },
     [pendingFile, believeManager, onAddAliases]
   )
+
+  const handleSaveAndImport = useCallback((profile: CsvImportProfile) => {
+    if (!pendingFile) return
+    onSaveProfile(profile)
+    believeManager.addFiles([pendingFile])
+    toast.success(t('aiImportProfileSaved'))
+    setPendingFile(null)
+    setPendingHeaders([])
+    setPendingSample(null)
+  }, [pendingFile, onSaveProfile, believeManager, t])
 
   const handleMappingCancel = useCallback(() => {
     toast.info(tToast('import_cancelled'))
     setPendingFile(null)
     setPendingHeaders([])
+    setPendingSample(null)
   }, [tToast])
 
   // ── Combined file list (all sources) ─────────────────────────────────────
@@ -1158,23 +1278,17 @@ export function UniversalFileUploadZone({
       </AnimatePresence>
 
       {/* Unknown CSV dialog — profile selection or manual mapping */}
-      {pendingFile && pendingHasProfiles && (
+      {pendingFile && pendingSample && (
         <ProfileSelectionDialog
           open={true}
           fileName={pendingFile.name}
           headers={pendingHeaders}
+          sampleRows={pendingSample.sampleRows}
+          delimiter={pendingSample.delimiter}
           profiles={csvProfiles}
+          onSaveAndImport={handleSaveAndImport}
           onSelectProfile={handleProfileSelected}
           onFallbackMapping={handleMappingConfirm}
-          onCancel={handleMappingCancel}
-        />
-      )}
-      {pendingFile && !pendingHasProfiles && (
-        <UnknownCSVMappingDialog
-          open={true}
-          headers={pendingHeaders}
-          fileName={pendingFile.name}
-          onConfirm={handleMappingConfirm}
           onCancel={handleMappingCancel}
         />
       )}
