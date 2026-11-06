@@ -122,4 +122,15 @@ describe('guidedWizard', () => {
       }),
     ).toBeNull()
   })
+  it('opens existing settlements with a period and no current CSV, without bypassing active validation errors', () => {
+    const viewing = { hasData: false, isProcessing: false, canOpenExistingSettlements: true }
+    expect(canNavigateToGuidedStep('settle', viewing)).toBe(true)
+    expect(canNavigateToGuidedStep('review', viewing)).toBe(false)
+    expect(canAdvanceGuidedStep('upload', viewing)).toBe(false)
+    expect(canNavigateToGuidedStep('settle', { ...viewing, isProcessing: true })).toBe(false)
+    expect(canNavigateToGuidedStep('settle', {
+      ...viewing, hasData: true, hasBlockingValidation: true,
+    })).toBe(false)
+  })
+
 })
