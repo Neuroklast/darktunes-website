@@ -1,9 +1,37 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
+import { useEffect, useRef, useState } from 'react'
 import { useAccountingLabels } from '@/lib/i18n/accountingFallbacks'
 
 export const ACCOUNTING_PAGE_SIZE = 15
+
+/**
+ * Fit page length to the remaining height of a flex-based list pane.
+ * Keeps the search, headings and pagination visible without scrolling
+ * the entire accounting page. The row pane retains native overflow as
+ * a fallback when rows become taller from custom percentages or labels.
+ */
+export function useAccountingAdaptivePageSize(rowHeight: number, active = true) {
+  const listRef = useRef<HTMLDivElement>(null)
+  const [pageSize, setPageSize] = useState(6)
+  useEffect(() => {
+    const element = listRef.current
+    if (!active || !element) return
+    const recalculate = () => {
+      const visibleHeight = element.getBoundingClientRect().height
+      if (visibleHeight < 1) return
+      const fit = Math.max(1, Math.min(ACCOUNTING_PAGE_SIZE, Math.floor(visibleHeight / rowHeight)))
+      setPageSize(previous => previous === fit ? previous : fit)
+    }
+    recalculate()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(recalculate)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [active, rowHeight])
+  return { listRef, pageSize }
+}
 
 interface AccountingListPaginationProps {
   count: number
