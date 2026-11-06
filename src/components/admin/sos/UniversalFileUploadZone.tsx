@@ -928,6 +928,32 @@ export function UniversalFileUploadZone({
   const [pendingHeaders, setPendingHeaders] = useState<string[]>([])
   const [pendingSample, setPendingSample] = useState<ImportSample | null>(null)
   const [repairFileId, setRepairFileId] = useState<string | null>(null)
+  const [repairSource, setRepairSource] = useState<'believe' | 'bandcamp' | undefined>()
+  const pendingQueueRef = useRef<Array<{ file: File; headers: string[]; sample: ImportSample }>>([])
+  const pendingActiveRef = useRef(false)
+
+  const showPending = useCallback((job: { file: File; headers: string[]; sample: ImportSample }) => {
+    pendingActiveRef.current = true
+    setPendingFile(job.file)
+    setPendingHeaders(job.headers)
+    setPendingSample(job.sample)
+  }, [])
+  const enqueuePending = useCallback((job: { file: File; headers: string[]; sample: ImportSample }) => {
+    if (pendingActiveRef.current) pendingQueueRef.current.push(job)
+    else showPending(job)
+  }, [showPending])
+  const finishPending = useCallback(() => {
+    setRepairFileId(null)
+    setRepairSource(undefined)
+    const next = pendingQueueRef.current.shift()
+    if (next) showPending(next)
+    else {
+      pendingActiveRef.current = false
+      setPendingFile(null)
+      setPendingHeaders([])
+      setPendingSample(null)
+    }
+  }, [showPending])
 
 
   // Per-file replace input refs (keyed by file id)
@@ -1049,66 +1075,41 @@ export function UniversalFileUploadZone({
 
   // ── Unknown CSV mapping dialog ─────────────────────────────────────────────
 
-  const handleProfileSelected = useCallback(
-    (profile: CsvImportProfile) => {
-      if (!pendingFile || repairFileId) return
-      // Route based on matched profile (same logic as routeFile)
-      const label = profile.name
-      if (profile.id === SYSTEM_BANDCAMP_PROFILE_ID) {
-        bandcampManager.addFiles([pendingFile])
-      } else {
-        believeManager.addFiles([pendingFile])
-      }
-      toast.success(`"${pendingFile.name}" imported with profile "${label}"`)
-      setPendingFile(null)
-      setPendingHeaders([])
-      setPendingSample(null)
-    },
-    [pendingFile, repairFileId, believeManager, bandcampManager]
-  )
-
-  const handleMappingConfirm = useCallback(
-    (mapping: { artist: string; revenue: string; date: string }) => {
-      if (!pendingFile) return
-
-      // Add the user's column selections as global aliases so the parser can
-      // auto-map them. These also persist to help future similar CSVs.
-      onAddAliases([
-        { fieldName: 'original_artist', synonym: mapping.artist },
-        { fieldName: 'net_revenue', synonym: mapping.revenue },
-        { fieldName: 'sales_month', synonym: mapping.date },
-      ])
-
-      // Never add the short preview as a duplicate on a repair.
-      if (!repairFileId) believeManager.addFiles([pendingFile])
-      toast.success(`"${pendingFile.name}" imported with custom column mapping`)
-      setPendingFile(null)
-      setPendingHeaders([])
-      setPendingSample(null)
-      setRepairFileId(null)
-    },
-    [pendingFile, repairFileId, believeManager, onAddAliases]
-  )
-
-  const handleSaveAndImport = useCallback((profile: CsvImportProfile) => {
+  const handleSaveAndImport = useCallback(async (profile: CsvImportProfile): Promise<void> => {
     if (!pendingFile) return
-    onSaveProfile(profile)
-    if (!repairFileId) believeManager.addFiles([pendingFile])
+    const source = profile.parserSource ?? 'believe'
+    if (repairFileId && repairSource && source !== repairSource) {
+      throw new Error('A repair cannot change the source parser. Re-import the file if the source type is different.')
+    }
+    if (source !== 'believe' && source !== 'bandcamp') {
+      throw new Error('This custom mapping requires the complete supplier schema. Select Standard or Bandcamp.')
+    }
+    const uploadFile = pendingFile.name.toLowerCase().endsWith('.xlsx') && !repairFileId
+      ? await readXlsxAsCsv(pendingFile)
+      : pendingFile
+    // Only a confirmed server write can trigger a financial import.
+    await onSaveProfile(profile)
+    if (repairFileId) {
+      const manager = repairSource === 'bandcamp' ? bandcampManager : believeManager
+      manager.prepareProfileRepair?.(repairFileId)
+    } else {
+      const manager = source === 'bandcamp' ? bandcampManager : believeManager
+      await manager.addFiles([uploadFile])
+    }
     toast.success(t('aiImportProfileSaved'))
-    setPendingFile(null)
-    setPendingHeaders([])
-    setPendingSample(null)
-    setRepairFileId(null)
-  }, [pendingFile, repairFileId, onSaveProfile, believeManager, t])
+    finishPending()
+  }, [pendingFile, repairFileId, repairSource, onSaveProfile, believeManager, bandcampManager, finishPending, t])
 
   const openRepair = useCallback((file: UploadedFile) => {
-    if (!file.data) return
+    if (!file.data || pendingActiveRef.current) return
     try {
       const preview = parseImportSample(file.data.slice(0, 256 * 1024))
+      pendingActiveRef.current = true
       setPendingFile(new File([], file.name))
       setPendingHeaders(preview.headers)
       setPendingSample(preview)
       setRepairFileId(file.id)
+      setRepairSource(file.type === 'bandcamp' ? 'bandcamp' : 'believe')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('aiImportFailed'))
     }
@@ -1116,11 +1117,8 @@ export function UniversalFileUploadZone({
 
   const handleMappingCancel = useCallback(() => {
     toast.info(tToast('import_cancelled'))
-    setPendingFile(null)
-    setPendingHeaders([])
-    setPendingSample(null)
-    setRepairFileId(null)
-  }, [tToast])
+    finishPending()
+  }, [tToast, finishPending])
 
   // ── Combined file list (all sources) ─────────────────────────────────────
 
@@ -1136,8 +1134,12 @@ export function UniversalFileUploadZone({
         replaceRef: makeRefSetter(f.id),
         onReplaceInput: (e: React.ChangeEvent<HTMLInputElement>) => handleReplaceInput(manager, f.id, e),
         onRetryArchive: manager.retryArchive ? () => manager.retryArchive?.(f.id) : null,
-        onRepair: f.data && manager.fileStates[f.id]?.status === 'error'
-          ? () => openRepair(f) : null,
+        onRepair: f.data && (
+          manager.fileStates[f.id]?.status === 'error' ||
+          manager.fileStates[f.id]?.bronzeStatus === 'skipped' ||
+          manager.fileStates[f.id]?.bronzeStatus === 'error' ||
+          (f.rowsSkipped ?? 0) > 0
+        ) ? () => openRepair(f) : null,
         onRestore: manager.restoreArchivedFile
           ? () => { void manager.restoreArchivedFile!(f.id).catch((err) => {
               toast.error(t('bronzeArchiveLoadError'), {
@@ -1348,8 +1350,7 @@ export function UniversalFileUploadZone({
           profiles={csvProfiles}
           onSaveAndImport={handleSaveAndImport}
           isRepair={repairFileId !== null}
-          onSelectProfile={handleProfileSelected}
-          onFallbackMapping={handleMappingConfirm}
+          repairSource={repairSource}
           onCancel={handleMappingCancel}
         />
       )}
