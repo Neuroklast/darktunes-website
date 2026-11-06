@@ -218,7 +218,7 @@ async function detectCSVSource(
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function FileStatusIcon({ state, hasData }: { state: FileProcessingState | undefined; hasData: boolean }) {
+function FileStatusIcon({ state, hasData, archived }: { state: FileProcessingState | undefined; hasData: boolean; archived: boolean }) {
   if (state?.status === 'error') return <WarningCircle size={16} className="text-destructive flex-shrink-0" />
   if (
     state?.status === 'uploading' ||
@@ -228,6 +228,7 @@ function FileStatusIcon({ state, hasData }: { state: FileProcessingState | undef
     return <Spinner size={16} className="text-primary animate-spin flex-shrink-0" />
   if (state?.bronzeStatus === 'error' || state?.bronzeStatus === 'skipped')
     return <Warning size={16} className="text-amber-400 flex-shrink-0" />
+  if (!hasData && archived) return <CloudArrowDown size={16} className="text-muted-foreground flex-shrink-0" />
   if (!hasData) return <Warning size={16} className="text-amber-400 flex-shrink-0" />
   return <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
 }
@@ -617,7 +618,7 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
           state?.status === 'error'
             ? 'border-destructive/40 bg-destructive/5'
             : needsReupload
-              ? 'border-amber-500/30 bg-amber-500/5'
+              ? needsRestore ? 'border-border bg-card/40' : 'border-amber-500/30 bg-amber-500/5'
               : 'bg-card hover:shadow-md',
         ].join(' ')}
       >
@@ -628,7 +629,7 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <FileStatusIcon state={state} hasData={hasData} />
+              <FileStatusIcon state={state} hasData={hasData} archived={Boolean(file.bronzeBatchId)} />
               <p className="text-sm font-medium truncate">{file.name}</p>
               <SourceBadge source={source} />
             </div>
@@ -636,12 +637,12 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
 
             {isDone && (file.rowsParsed != null || file.rowsSkipped != null) && (
               <div className="flex flex-wrap gap-1 mt-1.5">
-                {file.rowsParsed != null && <StatPill label="rows" value={formatCount(file.rowsParsed)} />}
+                {file.rowsParsed != null && <StatPill label="rows" value={formatInteger(file.rowsParsed)} />}
                 {file.uniqueArtistsCount != null && file.uniqueArtistsCount > 0 && (
-                  <StatPill label="artists" value={formatCount(file.uniqueArtistsCount)} />
+                  <StatPill label="artists" value={formatInteger(file.uniqueArtistsCount)} />
                 )}
                 {file.rowsSkipped != null && file.rowsSkipped > 0 && (
-                  <StatPill label="skipped" value={formatCount(file.rowsSkipped)} />
+                  <StatPill label="skipped" value={formatInteger(file.rowsSkipped)} />
                 )}
                 {file.bronzeBatchId && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
@@ -670,7 +671,7 @@ function FileItem({ file, source, state, index, onRemove, onReplace, replaceRef,
 
             {needsReupload && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <p className="text-xs text-amber-400">
+                <p className={file.bronzeBatchId ? "text-xs text-muted-foreground" : "text-xs text-amber-400"}>
                   {file.bronzeBatchId
                     ? 'Saved in archive. Restore the data to continue.'
                     : 'The original file data is no longer loaded. Select the file again.'}
@@ -1010,7 +1011,7 @@ export function UniversalFileUploadZone({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={[
-          'relative border-2 border-dashed rounded-lg p-8 transition-all duration-200',
+          'relative rounded-lg border-2 border-dashed px-4 py-5 transition-all duration-200 sm:px-6 sm:py-6',
           isDragging
             ? 'border-accent bg-accent/5 shadow-lg shadow-accent/20'
             : 'border-border hover:border-accent/50 hover:bg-accent/5',
@@ -1025,17 +1026,17 @@ export function UniversalFileUploadZone({
           id="universal-file-input"
         />
 
-        <div className="flex flex-col items-center gap-3 pointer-events-none">
+        <div className="pointer-events-none flex flex-col items-center gap-2">
           <div
             className={[
-              'p-4 rounded-full transition-colors',
+              'rounded-full p-3 transition-colors',
               isDragging ? 'bg-accent text-accent-foreground' : 'bg-primary/10 text-primary',
             ].join(' ')}
           >
             {isAnyProcessing ? (
-              <Spinner size={32} weight="bold" className="animate-spin" />
+              <Spinner size={26} weight="bold" className="animate-spin" />
             ) : (
-              <UploadSimple size={32} weight="bold" />
+              <UploadSimple size={26} weight="bold" />
             )}
           </div>
 
