@@ -22,6 +22,7 @@ export const confirmedFinancialProfileSchema = z.object({
   parserSource: z.enum(['believe', 'bandcamp', 'shopify', 'printful', 'darkmerch']).optional(),
   dateSemantics: z.enum(['sale-date', 'report-period', 'none']).optional(),
   dateOrder: z.enum(['day-first', 'month-first', 'iso']).optional(),
+  amountConvention: z.enum(['de', 'en', 'auto']).optional(),
   revision: z.number().int().min(1).max(1_000_000).optional(),
   isSystemDefault: z.literal(false).optional(),
 }).strict()

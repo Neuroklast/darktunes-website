@@ -37,6 +37,7 @@
 import { normalizeRevenueToEur } from '../lib/sos/currency'
 import { parseCSVContentStreaming } from '../lib/sos/ingest/streaming-csv-parser'
 import type { ImportDateOrder, ImportDateSemantics } from '../lib/sos/ingest/types'
+import type { AmountConvention } from '../lib/sos/ingest/amountParsing'
 import { parseShopifyRaw, reconcileMerchTransactions } from '../lib/sos/ingest/ecommerce-merger'
 import type { ShopifyRawOrder } from '../lib/sos/ingest/ecommerce-merger'
 import { parsePrintfulCSV } from '../lib/sos/ingest/printful-parser'
@@ -164,7 +165,7 @@ export interface WorkerResult {
 }
 
 export type WorkerRequest =
-  | { type: 'add-file'; fileId: string; content: string; source: 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch'; customAliases: Record<string, string[]>; columnMapping?: Record<string, string>; dateSemantics?: ImportDateSemantics; dateOrder?: ImportDateOrder }
+  | { type: 'add-file'; fileId: string; content: string; source: 'believe' | 'bandcamp' | 'shopify' | 'printful' | 'darkmerch'; customAliases: Record<string, string[]>; columnMapping?: Record<string, string>; dateSemantics?: ImportDateSemantics; dateOrder?: ImportDateOrder; amountConvention?: AmountConvention }
   | { type: 'remove-file'; fileId: string }
   | { type: 'process'; config: WorkerProcessConfig; requestId?: number }
   | { type: 'reset' }
@@ -471,7 +472,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
 
   switch (msg.type) {
     case 'add-file': {
-      const { fileId, content, source, customAliases, columnMapping, dateSemantics, dateOrder } = msg
+      const { fileId, content, source, customAliases, columnMapping, dateSemantics, dateOrder, amountConvention } = msg
       try {
         if (source === 'shopify') {
           // Stage raw orders for reconciliation — do NOT convert to SalesTransactions yet.
@@ -517,6 +518,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
             customAliases,
             dateSemantics,
             dateOrder,
+            amountConvention,
           )
           fileTransactions.set(fileId, result.transactions)
           postParseDone(

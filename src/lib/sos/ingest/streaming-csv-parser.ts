@@ -4,7 +4,7 @@ import { mapCSVHeadersToModel } from './csv-parser'
 import { normalizeDateToMonth } from './normalizeDateToMonth'
 import { parseDarkmerchReportingPeriod } from './darkmerch-parser'
 import type { ImportDateOrder, ImportDateSemantics } from './types'
-import { parseAmount, parseIntegerAmount, SOURCE_AMOUNT_CONVENTION } from './amountParsing'
+import { parseAmount, parseIntegerAmount, SOURCE_AMOUNT_CONVENTION, type AmountConvention } from './amountParsing'
 
 export { normalizeDateToMonth } from './normalizeDateToMonth'
 export type { DateParseSource } from './normalizeDateToMonth'
@@ -55,6 +55,7 @@ function processChunk(
   parseTag: string,
   dateSemantics: ImportDateSemantics = 'sale-date',
   dateOrder?: ImportDateOrder,
+  amountConvention?: AmountConvention,
 ): {
   transactions: SalesTransaction[]
   artists: Set<string>
@@ -134,7 +135,7 @@ function processChunk(
       // balance columns (all four map to balance_eur and the last write wins).
       // Revenue is a required amount: invalid or missing values become visible
       // row errors instead of a silent 0 (no factor-100 misreads).
-      const convention = SOURCE_AMOUNT_CONVENTION[source]
+      const convention = amountConvention ?? SOURCE_AMOUNT_CONVENTION[source]
       const revenueResult = parseAmount(mappedData.net_revenue ?? '', convention)
       if (revenueResult.kind === 'invalid') {
         errors.push({
@@ -272,6 +273,7 @@ export async function parseCSVContentStreaming(
   customAliases?: Record<string, string[]>,
   dateSemantics: ImportDateSemantics = 'sale-date',
   dateOrder?: ImportDateOrder,
+  amountConvention?: AmountConvention,
 ): Promise<StreamingParseResult> {
   const allTransactions: SalesTransaction[] = []
   const uniqueArtistsSet = new Set<string>()
@@ -362,7 +364,7 @@ export async function parseCSVContentStreaming(
 
         if (!sawHeader || !headers || !mapping || dataRows.length === 0) return
 
-        const result = processChunk(dataRows, headers, mapping, source, processedRows, parseTag, dateSemantics, dateOrder)
+        const result = processChunk(dataRows, headers, mapping, source, processedRows, parseTag, dateSemantics, dateOrder, amountConvention)
         if (result.periodStart && (!reportStart || result.periodStart < reportStart)) reportStart = result.periodStart
         if (result.periodEnd && (!reportEnd || result.periodEnd > reportEnd)) reportEnd = result.periodEnd
 

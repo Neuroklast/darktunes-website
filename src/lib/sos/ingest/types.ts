@@ -51,5 +51,6 @@ export interface CsvImportProfile {
   parserSource?: ImportParserSource
   dateSemantics?: ImportDateSemantics
   dateOrder?: ImportDateOrder
+  amountConvention?: 'de' | 'en' | 'auto'
   revision?: number
 }

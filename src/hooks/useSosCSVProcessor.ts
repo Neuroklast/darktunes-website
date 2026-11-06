@@ -754,6 +754,7 @@ export function useCSVProcessor(
               columnMapping: buildStreamingColumnMapping(profile, headers),
               dateSemantics: profile.dateSemantics ?? 'sale-date',
               dateOrder: profile.dateOrder,
+              amountConvention: profile.amountConvention,
             }
           } catch {
             return {}
