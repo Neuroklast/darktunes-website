@@ -41,7 +41,7 @@ export function parseImportSample(content: string): ImportSample {
 
 /** Redact obvious personal/contact identifiers before a sample leaves the browser. */
 export function sanitizeAiSample(sample: ImportSample): ImportSample {
-  const sensitiveHeader = /(?:e-?mail|iban|swift|bic|address|adresse|street|phone|telefon|mobile|customer|buyer|recipient|contact|invoice|tax.?id|account.?holder|first.?name|last.?name|full.?name|person)/i
+  const sensitiveHeader = /(?:e-?mail|iban|swift|bic|address|adresse|street|phone|telefon|mobile|customer|buyer|recipient|contact|invoice|tax.?id|account.?holder|first.?name|last.?name|full.?name|person|artist|künstler|band.?name|performer)/i
   return {
     ...sample,
     sampleRows: sample.sampleRows.slice(0, 3).map((row) =>

@@ -23,6 +23,11 @@ describe('sample-only import detection', () => {
     expect(fingerprintHeaders(['NET', 'Date'])).not.toBe(fingerprintHeaders(['NET REVENUE', 'Date']))
   })
 
+  it('redacts artist identifiers while keeping amount semantics in the preview', () => {
+    const sample = parseImportSample('Artist,Net Revenue,Date\nPersonal Artist,12.50,2026-07')
+    expect(sanitizeAiSample(sample).sampleRows[0]).toEqual(['[redacted]', '12.50', '2026-07'])
+  })
+
   it('redacts contact details before they are sent to AI', () => {
     const sample = parseImportSample('Band,Email,Net Revenue\nAlpha,a@example.com,5')
     expect(sanitizeAiSample(sample).sampleRows[0]).toEqual(['Alpha', '[redacted]', '5'])

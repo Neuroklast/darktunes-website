@@ -31,6 +31,11 @@ describe('financial report format identification', () => {
     expect(matchProfile(['Artist', 'Net Revenue'], [{ ...saved, headerFingerprint: undefined }], ';')).toBeNull()
   })
 
+  it('does not infer Darkmerch from merely an artist and net revenue column', () => {
+    // Supplier attribution needs its distinctive order and date fields.
+    expect(matchProfile(['BAND', 'NET REVENUE'], DEFAULT_CSV_PROFILES, ',')).toBeNull()
+  })
+
   it('preserves matching well-known system profile formats', () => {
     expect(matchProfile(['DATE', 'ORDER NUMBER', 'BAND', 'NET REVENUE'], DEFAULT_CSV_PROFILES, ',')?.id).toBe('system-darkmerch')
   })

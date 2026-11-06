@@ -106,6 +106,26 @@ describe('parseCSVContentStreaming skips', () => {
   })
 })
 
+describe('confirmed reporting-period profile safety', () => {
+  it('rejects payable rows when the report-period column contains no recognized period', async () => {
+    const csv = ['Band,Net Revenue,Date', 'Artist,12.50,not-a-period'].join('\n')
+    await expect(parseCSVContentStreaming(csv, 'believe', undefined, {
+      Band: 'original_artist', 'Net Revenue': 'net_revenue', Date: 'sales_month',
+    }, undefined, 'report-period')).rejects.toThrow(/No valid reporting period/)
+  })
+
+  it('keeps sales transactions undated while retaining file-level report bounds', async () => {
+    const csv = ['Band,Net Revenue,Date', 'Artist,12.50,Q2 - Q3 2026'].join('\n')
+    const result = await parseCSVContentStreaming(csv, 'believe', undefined, {
+      Band: 'original_artist', 'Net Revenue': 'net_revenue', Date: 'sales_month',
+    }, undefined, 'report-period')
+    expect(result.transactions).toHaveLength(1)
+    expect(result.transactions[0]?.sales_month).toBe('')
+    expect(result.periodStart).toBe('2026-04')
+    expect(result.periodEnd).toBe('2026-09')
+  })
+})
+
 describe('parseCSVContentStreaming strict amounts (#632)', () => {
   it('reports an invalid net_revenue value instead of silently using 0', async () => {
     const csv = [
