@@ -20,7 +20,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { useCallback, useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import type { CompilationFilter } from '@/lib/sos/types'
 
 export interface CompilationFilterManagerProps {
@@ -52,6 +51,11 @@ export function CompilationFilterManager({
   const [type, setType] = useState<FilterType>('ean')
   const [identifier, setIdentifier] = useState('')
   const [releaseSearch, setReleaseSearch] = useState('')
+  const [filterSearch, setFilterSearch] = useState('')
+  const visibleFilters = useMemo(() => {
+    const query = filterSearch.toLocaleLowerCase().trim()
+    return query ? filters.filter(f => `${f.label} ${f.identifier} ${FILTER_TYPE_LABELS[f.type]}`.toLocaleLowerCase().includes(query)) : filters
+  }, [filters, filterSearch])
 
   const handleClose = useCallback(() => {
     setOpen(false)
@@ -78,8 +82,8 @@ export function CompilationFilterManager({
   }, [availableReleases, releaseSearch])
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <FunnelSimple size={20} weight="bold" className="text-primary" />
           <h3 className="font-semibold">Compilation Filters</h3>
@@ -161,30 +165,54 @@ export function CompilationFilterManager({
         </Dialog>
       </div>
 
-      <AnimatePresence mode="popLayout">
-        {filters.length > 0 ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-            {filters.map((filter, index) => (
-              <motion.div key={filter.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ delay: index * 0.05 }}>
-                <Card className="p-3 flex items-center gap-3 bg-card hover:shadow-md transition-shadow">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{filter.label}</p>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">{FILTER_TYPE_LABELS[filter.type]}</p>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => onRemoveFilter(filter.id)} className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive">
-                    <Trash size={16} />
-                  </Button>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
-        ) : (
-          <Card className="p-8 text-center border-dashed">
-            <FunnelSimple size={32} className="mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No compilation filters yet.</p>
-          </Card>
-        )}
-      </AnimatePresence>
+      {filters.length > 0 && (
+        <div className="relative max-w-md">
+          <MagnifyingGlass size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input
+            value={filterSearch}
+            onChange={event => setFilterSearch(event.target.value)}
+            className="h-10 pl-9 text-sm"
+            placeholder="Search compilation filters…"
+            aria-label="Search compilation filters"
+          />
+        </div>
+      )}
+
+      {visibleFilters.length > 0 ? (
+        <div className="overflow-hidden rounded-lg border border-border bg-card/30">
+          {visibleFilters.map(filter => (
+            <div key={filter.id} className="flex min-h-14 items-center gap-3 border-b border-border/70 px-3 py-2 last:border-b-0 sm:px-4">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground" title={filter.label}>{filter.label}</p>
+                <p className="text-xs text-muted-foreground">{FILTER_TYPE_LABELS[filter.type]}</p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={`Remove compilation filter ${filter.label}`}
+                title={`Remove ${filter.label}`}
+                onClick={() => onRemoveFilter(filter.id)}
+                className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash size={17} aria-hidden="true" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Card className="rounded-lg border-dashed p-8 text-center">
+          <FunnelSimple size={28} className="mx-auto mb-2 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            {filters.length ? 'No matching compilation filters.' : 'No compilation filters yet.'}
+          </p>
+        </Card>
+      )}
+      {filters.length > 0 && (
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {visibleFilters.length} of {filters.length} filters shown
+        </p>
+      )}
     </div>
   )
 }
