@@ -212,6 +212,15 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
     [setFileMetas, setFileState, t.ingestArchiving, t.ingestArchiveNoPeriod, t.ingestArchiveRetryNoData, t.ingestConfirmFailed, type],
   )
 
+  /** Re-arm an unarchived file after a confirmed profile repair. The next
+   * worker parse result (not stale metadata) decides whether R2 can archive. */
+  const prepareProfileRepair = useCallback((id: string) => {
+    const file = (fileMetasRef.current ?? []).find((entry) => entry.id === id)
+    if (!file || file.bronzeBatchId) return
+    bronzeStartedRef.current.delete(id)
+    setFileState(id, { status: 'processing', phase: 'parsing', progress: 0 })
+  }, [setFileState])
+
   const retryArchive = useCallback(
     (id: string) => {
       bronzeStartedRef.current.add(id)
@@ -569,6 +578,7 @@ export function useFileManager(type: FileType, callbacks?: FileEventCallbacks) {
     removeFile,
     replaceFile,
     retryArchive,
+    prepareProfileRepair,
     restoreArchivedFile,
     restoreArchivedBatch,
     clearAll,
