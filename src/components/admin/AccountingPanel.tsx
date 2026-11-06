@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import {
+  accountingPeriodMonths,
   resolveAccountingPeriod,
 } from '@/lib/sos/accountingPeriod'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -1103,6 +1104,7 @@ function SosGeneratorPanel() {
             0,
           ),
           unarchivedSourceFiles,
+          sourcePeriods: sessionFiles.map(file => ({ name: file.name, start: file.periodStart, end: file.periodEnd })),
         },
         t,
       ),
@@ -1207,6 +1209,12 @@ function SosGeneratorPanel() {
       <strong className="tabular-nums font-semibold text-foreground">
         {effectivePeriod.startMonth} – {effectivePeriod.endMonth}
       </strong>
+      <span className="text-xs text-muted-foreground">
+        {effectivePeriod.source === 'manual' ? t.uiPeriodManual : t.uiPeriodDetected}
+        {' · '}{t.uiPeriodMonths.replace('{count}', String(accountingPeriodMonths(effectivePeriod.startMonth, effectivePeriod.endMonth) ?? 0))}
+      </span>
+      <Button type="button" variant="ghost" size="sm" className="ml-auto h-8 text-xs"
+        onClick={() => handleSubTabChange('upload')}>{t.uiPeriodEdit}</Button>
       {isProcessing && (
         <span className="text-xs text-muted-foreground">
           {pipelineProgress ? `${pipelineProgress.phase} ${pipelineProgress.percentage}%` : t.processing}
