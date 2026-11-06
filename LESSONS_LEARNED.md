@@ -235,6 +235,11 @@ Distilled anti-patterns from project history. **Append session findings before o
 
 | Anti-pattern | Rule |
 |--------------|------|
+| Treating AI import suggestions as executable financial instructions | AI sees only bounded sanitized headers + three rows, returns a schema-validated suggestion, and never persists or imports before explicit user confirmation. |
+| Recognizing profiles in the upload dialog but ignoring them in the worker | Include confirmed profile mappings in the worker request and invalidate cached parses when profiles change. |
+
+| Anti-pattern | Rule |
+|--------------|------|
 | Admin form state derived from parent list on render | Local `react-hook-form` state; sync on save |
 | `documentElement.style` for theme preview | Declarative `<style>` tag + `useReducer` (`ColorThemeManager`) |
 | Fixed `max-w-lg` modals | Viewport-relative breakpoints — see `docs/agent/frontend.md` |

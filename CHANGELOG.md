@@ -10,6 +10,9 @@ Release ritual: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## [Unreleased]
 
+### Added
+- **Sample-only AI import assistance:** unknown financial reports offer explicit AI analysis of column headings and at most three local preview rows; no full CSV is sent. AI suggestions ask clarifying questions and cannot change data or profiles before confirmation. Confirmed format signatures and column mappings are reused by the worker without further AI calls.
+
 ### Fixed
 - **Darkmerch R2 archive recovery:** detect reporting periods even on rows with no payable revenue, recover lost parser metadata directly from the loaded source file, and offer Retry for skipped archives. File names and current dates are never used to manufacture periods.
 - **AI Credits language mismatch:** translated admin credit settings, cost tables, adjustments, the credit balance display and tab labels into English, German and French; dates and currency follow the selected locale instead of always using German.

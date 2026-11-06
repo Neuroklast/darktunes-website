@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fingerprintHeaders, parseImportSample, readImportSample } from './importSample'
+import { fingerprintHeaders, parseImportSample, readImportSample, sanitizeAiSample } from './importSample'
 
 describe('sample-only import detection', () => {
   it('extracts headers and exactly the first three data rows', () => {
@@ -21,6 +21,11 @@ describe('sample-only import detection', () => {
   it('normalizes signatures without using sample values', () => {
     expect(fingerprintHeaders(['NET REVENUE', ' Date '])).toBe(fingerprintHeaders(['date', 'net revenue']))
     expect(fingerprintHeaders(['NET', 'Date'])).not.toBe(fingerprintHeaders(['NET REVENUE', 'Date']))
+  })
+
+  it('redacts contact details before they are sent to AI', () => {
+    const sample = parseImportSample('Band,Email,Net Revenue\nAlpha,a@example.com,5')
+    expect(sanitizeAiSample(sample).sampleRows[0]).toEqual(['Alpha', '[redacted]', '5'])
   })
 
   it('reads only a slice of a CSV even if the file is much larger', async () => {

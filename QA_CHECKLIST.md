@@ -1,5 +1,17 @@
 # Pre-Release QA Checklist
 
+## AI import assistant
+- [ ] A known Believe, Bandcamp, Shopify, Printful or Darkmerch file imports without a call to the AI endpoint.
+- [ ] A >50 MB unknown CSV is sampled via a bounded Blob slice; only headers and at most three preview rows reach the server.
+- [ ] An unknown format opens a manual mapping dialog. AI analysis runs only after clicking Analyze.
+- [ ] AI questions accept user answers without saving or importing anything automatically.
+- [ ] Saving a confirmed custom profile binds its exact header signature, persists in workspace settings and applies column mapping inside the worker.
+- [ ] Re-import the same header format: the confirmed profile is recognized without AI.
+- [ ] Update a confirmed custom profile: existing file rows are re-parsed with its updated mappings; system profiles remain immutable.
+- [ ] A disabled/unavailable AI service allows manual mapping, with a clear error.
+- [ ] Malformed AI mappings and unknown column names are rejected; three-row and request-size caps cannot be bypassed.
+- [ ] English, German and French localizations work on desktop and mobile and all form controls remain accessible.
+
 ## SOS / Darkmerch archive
 - [ ] Import `Darkmerch_Q4_2025-Q1_2026.xlsx`: source bounds are `2025-10` through `2026-03`, with no fabricated per-order `sales_month`.
 - [ ] Import a Darkmerch source using `Q2 - Q3 2026` in DATE: archive bounds are `2026-04` through `2026-09`, even if the only dated row has empty NET REVENUE.

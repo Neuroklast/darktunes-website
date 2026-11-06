@@ -39,6 +39,20 @@ export function parseImportSample(content: string): ImportSample {
   }
 }
 
+/** Redact obvious personal/contact identifiers before a sample leaves the browser. */
+export function sanitizeAiSample(sample: ImportSample): ImportSample {
+  const sensitiveHeader = /(?:e-?mail|iban|bic|address|adresse|street|phone|telefon|mobile|customer|buyer name|first name|last name)/i
+  return {
+    ...sample,
+    sampleRows: sample.sampleRows.slice(0, 3).map((row) =>
+      sample.headers.map((header, i) => {
+        if (sensitiveHeader.test(header)) return '[redacted]'
+        return (row[i] ?? '').replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted]')
+      }),
+    ),
+  }
+}
+
 export async function readImportSample(file: File): Promise<ImportSample> {
   if (/\.xlsx$/i.test(file.name)) {
     // XLSX is compressed; reading its workbook locally is unavoidable.

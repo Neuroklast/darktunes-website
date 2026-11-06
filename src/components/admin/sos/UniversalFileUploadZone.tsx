@@ -57,7 +57,7 @@ import { toast } from 'sonner'
 import type { UploadedFile, FileProcessingState } from '@/lib/sos/types'
 import { formatBytes, formatInteger, type SosProcessProgress } from '@/lib/sos/ingestProgress'
 import { interpolate } from '@/lib/i18n/interpolate'
-import { fingerprintHeaders, readImportSample, type ImportSample } from '@/lib/sos/ingest/importSample'
+import { fingerprintHeaders, readImportSample, sanitizeAiSample, type ImportSample } from '@/lib/sos/ingest/importSample'
 import { matchProfile } from '@/lib/sos/ingest/parser-facade'
 import {
   SYSTEM_SHOPIFY_PROFILE_ID,
@@ -362,7 +362,7 @@ function ProfileSelectionDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           headers,
-          sample_rows: sampleRows.slice(0, 3),
+          sample_rows: sanitizeAiSample({ headers, sampleRows, delimiter }).sampleRows,
           delimiter,
           ...(answer ? { user_answer: answer } : {}),
         }),
