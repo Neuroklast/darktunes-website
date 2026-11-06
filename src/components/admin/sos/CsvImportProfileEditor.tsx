@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { CsvImportProfile, FinancialFieldKey } from '@/lib/sos/ingest/types'
+import { useAccountingLabels } from '@/lib/i18n/accountingFallbacks'
 
 const FINANCIAL_FIELDS: FinancialFieldKey[] = [
   'salesMonth',
@@ -45,6 +46,7 @@ export function CsvImportProfileEditor({
   onSave,
   onDelete,
 }: CsvImportProfileEditorProps) {
+  const t = useAccountingLabels()
   const [draft, setDraft] = useState<CsvImportProfile | null>(null)
   const [query, setQuery] = useState('')
   const matches = (profile: CsvImportProfile) => profile.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
@@ -92,13 +94,13 @@ export function CsvImportProfileEditor({
           value={query}
           onChange={event => setQuery(event.target.value)}
           className="h-10 pl-9 text-sm"
-          placeholder="Search import profiles…"
-          aria-label="Search import profiles"
+          placeholder={t.uiSearchProfiles}
+          aria-label={t.uiSearchProfiles}
         />
       </div>
       {([
-        { key: 'system', title: 'System profiles', items: systemProfiles },
-        { key: 'custom', title: 'Custom profiles', items: userProfiles },
+        { key: 'system', title: t.uiSystemProfiles, items: systemProfiles },
+        { key: 'custom', title: t.uiCustomProfiles, items: userProfiles },
       ] as const).map(group => group.items.length > 0 && (
         <section key={group.key} className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -135,7 +137,7 @@ export function CsvImportProfileEditor({
       ))}
       {systemProfiles.length === 0 && userProfiles.length === 0 && (
         <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No profiles match your search.
+          {t.uiNoMatchingProfiles}
         </p>
       )}
 
