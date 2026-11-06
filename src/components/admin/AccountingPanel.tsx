@@ -318,6 +318,9 @@ function SosGeneratorPanel() {
   const handleRemoveFilter = useCallback((id: string) => {
     setCompilationFilters(prev => prev.filter(f => f.id !== id))
   }, [])
+  const handleUpdateFilter = useCallback((id: string, update: Omit<CompilationFilter, 'id'>) => {
+    setCompilationFilters(prev => prev.map(filter => filter.id === id ? { id, ...update } : filter))
+  }, [])
 
   // Split fee handlers
   const handleAddSplitFee = useCallback((fee: SplitFee) => {
@@ -1534,6 +1537,7 @@ function SosGeneratorPanel() {
             onUpdateArtistMapping={handleUpdateMapping}
             onAddCompilationFilter={handleAddFilter}
             onRemoveCompilationFilter={handleRemoveFilter}
+            onUpdateCompilationFilter={handleUpdateFilter}
             onAddSplitFee={handleAddSplitFee}
             onRemoveSplitFee={handleRemoveSplitFee}
             onUpdateSplitFee={handleUpdateSplitFee}
