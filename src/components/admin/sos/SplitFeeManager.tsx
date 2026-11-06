@@ -21,7 +21,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { SosConfirmDialog } from './SosConfirmDialog'
-import { AccountingListPagination, ACCOUNTING_PAGE_SIZE } from './AccountingListPagination'
+import { AccountingListPagination, useAccountingAdaptivePageSize } from './AccountingListPagination'
 import type { SplitFee } from '@/lib/sos/types'
 import { PercentField } from '@/components/admin/sos/fields/AccountingNumberFields'
 import { clampPercent, parseOptionalPercent, parseRequiredPercent } from '@/lib/sos/accountingInputValidation'
@@ -202,8 +202,9 @@ export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, on
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [deleteTarget, setDeleteTarget] = useState<SplitFee | null>(null)
+  const { listRef, pageSize } = useAccountingAdaptivePageSize(64, splitFees.length > 0)
   const filtered = splitFees.filter(fee => fee.artist.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))
-  const perPage = ACCOUNTING_PAGE_SIZE
+  const perPage = pageSize
   const pageCount = Math.max(1, Math.ceil(filtered.length / perPage))
   const currentPage = Math.min(page, pageCount - 1)
   const visible = filtered.slice(currentPage * perPage, (currentPage + 1) * perPage)
@@ -248,7 +249,7 @@ export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, on
         </div>
       )}
       {visible.length > 0 ? (
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-card/30" data-lenis-prevent>
+        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border border-border bg-card/30" data-lenis-prevent>
           {visible.map(fee => (
             <div key={fee.artist} className="flex min-h-14 flex-wrap items-center gap-3 border-b border-border/70 px-3 py-2 last:border-0 sm:flex-nowrap sm:px-4">
               <Percent size={17} className="shrink-0 text-primary" aria-hidden="true" />
@@ -286,7 +287,7 @@ export function SplitFeeManager({ splitFees, onAddSplitFee, onRemoveSplitFee, on
           {splitFees.length ? t.uiNoMatchingSplits : t.uiNoConfiguredSplits}
         </Card>
       )}
-      <AccountingListPagination count={filtered.length} page={currentPage} onPageChange={setPage} />
+      <AccountingListPagination count={filtered.length} page={currentPage} pageSize={pageSize} onPageChange={setPage} />
       <SosConfirmDialog open={deleteTarget !== null} onOpenChange={open => { if (!open) setDeleteTarget(null) }}
         title={t.uiRemoveSplit}
         description={t.uiDeleteSplitConfirm.replace('{artist}', deleteTarget?.artist ?? '')}
