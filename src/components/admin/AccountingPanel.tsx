@@ -973,7 +973,7 @@ function SosGeneratorPanel() {
             onClick={() => void restoreArchivedSources()}
             disabled={restoringArchives || isProcessing}
           >
-            {restoringArchives ? t.uiArchivePending : t.uiArchiveRestoreAll}
+            {restoringArchives ? t.workspaceLoading : t.uiArchiveRestoreAll}
           </Button>
         </div>
       )}
