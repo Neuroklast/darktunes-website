@@ -33,6 +33,7 @@ export const ACCOUNTING_FALLBACK = {
   ruleGroupNavigation: 'Rule groups',
   ruleCategoryNavigation: 'Rule categories',
   uiLogoTitle: "Label logo for PDF statements",
+  uiLogoAlt: "Current label logo",
   uiLogoMissing: "No label logo configured.",
   uiLogoHelp: "PNG, JPEG or WebP. Maximum 4 MB. Displayed in the PDF header.",
   uiLogoRemove: "Remove label logo",
