@@ -244,6 +244,10 @@ export const ACCOUNTING_FALLBACK = {
   validationIncompleteArchiveDesc:
     'These files are not in storage yet: {files}. Retry archive before creating statements. Preview and Excel still work.',
   validationIncompleteArchiveAction: 'Go to Upload',
+  validationLongPeriodTitle: "Billing period spans {count} months",
+  validationLongPeriodDesc: "This exceeds one year. Check that all sales and source dates belong to this statement before approving payouts.",
+  validationSourcePeriodOutsideTitle: "{count} source file(s) extend beyond the billing period",
+  validationSourcePeriodOutsideDesc: "Source reporting bounds extend outside the selected period: {files}. Check whether their contents were intentionally included.",
   setupTitle: 'Set up accounting period',
   setupSubtitle:
     'Enter the settlement period and label defaults used on PDFs. Advanced rules stay available in Advanced mode.',
