@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import { useCallback, useMemo, useState } from 'react'
 import type { CompilationFilter } from '@/lib/sos/types'
+import { useAccountingLabels } from '@/lib/i18n/accountingFallbacks'
 
 export interface CompilationFilterManagerProps {
   filters: CompilationFilter[]
@@ -47,6 +48,7 @@ export function CompilationFilterManager({
   onRemoveFilter,
   availableReleases = [],
 }: CompilationFilterManagerProps) {
+  const t = useAccountingLabels()
   const [open, setOpen] = useState(false)
   const [type, setType] = useState<FilterType>('ean')
   const [identifier, setIdentifier] = useState('')
@@ -172,8 +174,8 @@ export function CompilationFilterManager({
             value={filterSearch}
             onChange={event => setFilterSearch(event.target.value)}
             className="h-10 pl-9 text-sm"
-            placeholder="Search compilation filters…"
-            aria-label="Search compilation filters"
+            placeholder={t.uiSearchCompilations}
+            aria-label={t.uiSearchCompilations}
           />
         </div>
       )}
@@ -204,13 +206,13 @@ export function CompilationFilterManager({
         <Card className="rounded-lg border-dashed p-8 text-center">
           <FunnelSimple size={28} className="mx-auto mb-2 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            {filters.length ? 'No matching compilation filters.' : 'No compilation filters yet.'}
+            {filters.length ? t.uiNoMatchingCompilations : 'No compilation filters yet.'}
           </p>
         </Card>
       )}
       {filters.length > 0 && (
         <p className="text-xs text-muted-foreground tabular-nums">
-          {visibleFilters.length} of {filters.length} filters shown
+          {t.uiFiltersShown.replace('{shown}', String(visibleFilters.length)).replace('{total}', String(filters.length))}
         </p>
       )}
     </div>
