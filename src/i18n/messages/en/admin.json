@@ -134,6 +134,7 @@
     "loadingEvents": "Loading events"
   },
   "labelIntelligence": {
+    "syncToolsTitle": "Data synchronization",
     "pageTitle": "Analytics",
     "pageDescription": "Persisted label-wide revenue trends, roster health, press engagement, and financial audit trail.",
     "emptyTrendsHint": "No saved period summaries yet.",
@@ -253,6 +254,7 @@
     "ruleGroupNavigation": "Rule groups",
     "ruleCategoryNavigation": "Rule categories",
     "uiLogoTitle": "Label logo for PDF statements",
+    "uiLogoAlt": "Current label logo",
     "uiLogoMissing": "No label logo configured.",
     "uiLogoHelp": "PNG, JPEG or WebP. Maximum 4 MB. Displayed in the PDF header.",
     "uiLogoRemove": "Remove label logo",
