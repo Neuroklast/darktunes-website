@@ -134,6 +134,7 @@
     "loadingEvents": "Events werden geladen"
   },
   "labelIntelligence": {
+    "syncToolsTitle": "Datensynchronisierung",
     "pageTitle": "Analytics",
     "pageDescription": "Persistierte Label-weite Umsatztrends, Roster-Gesundheit, Press-Engagement und Finanz-Audit-Trail.",
     "emptyTrendsHint": "Noch keine gespeicherten Perioden-Zusammenfassungen.",
@@ -253,6 +254,7 @@
     "ruleGroupNavigation": "Regelgruppen",
     "ruleCategoryNavigation": "Regelkategorien",
     "uiLogoTitle": "Label-Logo für PDF-Abrechnungen",
+    "uiLogoAlt": "Aktuelles Label-Logo",
     "uiLogoMissing": "Noch kein Label-Logo hinterlegt.",
     "uiLogoHelp": "PNG, JPEG oder WebP. Maximal 4 MB. Erscheint im PDF-Kopfbereich.",
     "uiLogoRemove": "Label-Logo entfernen",
