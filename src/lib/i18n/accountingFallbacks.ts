@@ -248,6 +248,11 @@ export const ACCOUNTING_FALLBACK = {
   validationIncompleteArchiveDesc:
     'These files are not in storage yet: {files}. Retry archive before creating statements. Preview and Excel still work.',
   validationIncompleteArchiveAction: 'Go to Upload',
+  uiValidationAll: "All checks",
+  uiValidationErrors: "Blocking errors",
+  uiValidationWarnings: "Warnings",
+  uiValidationSearch: "Search checks and artists",
+  uiValidationNoMatches: "No checks match these filters.",
   validationLongPeriodTitle: "Billing period spans {count} months",
   validationLongPeriodDesc: "This exceeds one year. Check that all sales and source dates belong to this statement before approving payouts.",
   validationSourcePeriodOutsideTitle: "{count} source file(s) extend beyond the billing period",
