@@ -53,30 +53,30 @@ export function LabelIdentityManager({
   const handleLogoFile = (file?: File) => {
     if (!file) return
     if (!ACCEPTED_LOGO_TYPES.has(file.type)) {
-      setLogoError('PNG, JPEG or WebP files only.')
+      setLogoError(t.uiLogoInvalidType)
       return
     }
     if (file.size > MAX_LOGO_BYTES) {
-      setLogoError('Logo must be smaller than 4 MB.')
+      setLogoError(t.uiLogoTooLarge)
       return
     }
     setLogoError(null)
     const reader = new FileReader()
     reader.onload = () => {
       if (typeof reader.result !== 'string' || !reader.result.startsWith('data:image/')) {
-        setLogoError('Logo file could not be read.')
+        setLogoError(t.uiLogoUnreadable)
         return
       }
       patch({ logo: reader.result, logoBase64: reader.result, logoAssetId: undefined })
     }
-    reader.onerror = () => setLogoError('Logo file could not be read.')
+    reader.onerror = () => setLogoError(t.uiLogoUnreadable)
     reader.readAsDataURL(file)
   }
 
   const body = (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="label-identity-logo">Label logo for PDF statements</Label>
+        <Label htmlFor="label-identity-logo">{t.uiLogoTitle}</Label>
         <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border/70 p-3">
           {logoPreview ? (
             <div className="flex h-24 w-48 items-center justify-center rounded-md bg-white p-2">
@@ -84,7 +84,7 @@ export function LabelIdentityManager({
                 unoptimized className="max-h-full max-w-full object-contain" />
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No label logo configured.</p>
+            <p className="text-sm text-muted-foreground">{t.uiLogoMissing}</p>
           )}
           <div className="min-w-0 flex-1 space-y-2">
             <Input id="label-identity-logo" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
@@ -93,10 +93,10 @@ export function LabelIdentityManager({
                 handleLogoFile(event.currentTarget.files?.[0])
                 event.currentTarget.value = ''
               }} />
-            <p className="text-xs text-muted-foreground">PNG, JPEG or WebP. Maximum 4 MB. The logo appears in the PDF header.</p>
+            <p className="text-xs text-muted-foreground">{t.uiLogoHelp}</p>
             {logoPreview && <Button type="button" size="sm" variant="outline"
               onClick={() => { patch({ logo: undefined, logoBase64: undefined, logoAssetId: undefined }); setLogoError(null) }}>
-              Remove label logo
+              {t.uiLogoRemove}
             </Button>}
           </div>
         </div>
