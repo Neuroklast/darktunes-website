@@ -200,6 +200,7 @@ function SosGeneratorPanel() {
   const [settingsPanel, setSettingsPanel] = useState<'presets' | 'csv' | 'workspace' | 'pdf' | null>(null)
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('upload')
   const [insightsView, setInsightsView] = useState<'operations' | 'reports' | 'trends'>('operations')
+  const [settleView, setSettleView] = useState<'register' | 'sepa'>('register')
   const previousWorkflowStep = useRef<SubTab>('upload')
   const [activeRuleTab, setActiveRuleTab] = useState<RulesTab>('label')
   const [manualPeriodStart, setManualPeriodStart] = useState('')
@@ -1039,7 +1040,26 @@ function SosGeneratorPanel() {
   // The settlement center opens from the database for a resolved period even
   // without a CSV upload session (contract §B.2/#617).
   const settlePanel = effectivePeriod ? (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <nav role="tablist" aria-label={t.subTabSettlements}
+        className="flex shrink-0 flex-wrap gap-2 border-b border-border bg-card/20 px-4 py-2 sm:px-6">
+        {([
+          { id: 'register', label: t.uiSettlementTabRegister },
+          { id: 'sepa', label: t.uiSettlementTabPayout },
+        ] as const).map(view => (
+          <Button key={view.id} type="button" size="sm"
+            variant={settleView === view.id ? 'secondary' : 'outline'}
+            role="tab" aria-selected={settleView === view.id}
+            aria-controls={`accounting-settlement-${view.id}`}
+            onClick={() => setSettleView(view.id)}>
+            {view.label}
+          </Button>
+        ))}
+      </nav>
+      <div id="accounting-settlement-register" role="tabpanel"
+        className={settleView === 'register'
+          ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
+          : 'hidden'}>
       <div className="px-6 pt-4 space-y-3">
         <p className="text-sm text-muted-foreground leading-relaxed">{t.settlementDauIntro}</p>
         {unarchivedSourceFiles.length > 0 && (
@@ -1062,8 +1082,13 @@ function SosGeneratorPanel() {
         onCreateDraft={handlePublishToPortal}
         onBuildCorrectionPdf={buildCorrectionPdfBase64}
       />
-      <div className="px-6 pb-6 space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">{t.subTabPayout}</h3>
+      </div>
+      <div id="accounting-settlement-sepa" role="tabpanel"
+        className={settleView === 'sepa'
+          ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain'
+          : 'hidden'} data-lenis-prevent>
+        <div className="px-4 py-3 sm:px-6">
+          <h3 className="mb-2 text-sm font-semibold text-foreground">{t.subTabPayout}</h3>
         <PayoutManager
           labelArtists={labelArtists}
           labelInfo={labelInfo}
@@ -1071,6 +1096,7 @@ function SosGeneratorPanel() {
           periodEnd={effectivePeriodEnd}
           onLabelSepaUpdate={handleLabelSepaUpdate}
         />
+        </div>
       </div>
     </div>
   ) : (
