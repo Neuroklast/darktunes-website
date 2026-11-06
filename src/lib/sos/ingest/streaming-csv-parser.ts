@@ -103,6 +103,16 @@ function processChunk(
         if (field) mappedData[field] = value
       }
 
+      // Report-level dates are metadata for the entire source, even on rows
+      // without payable revenue. Never turn them into per-sale months.
+      if (dateSemantics === 'report-period') {
+        const period = parseDarkmerchReportingPeriod((mappedData.sales_month ?? '').trim())
+        if (period) {
+          if (!periodStart || period.periodStart < periodStart) periodStart = period.periodStart
+          if (!periodEnd || period.periodEnd > periodEnd) periodEnd = period.periodEnd
+        }
+      }
+
       const originalArtist = (mappedData.original_artist ?? '').trim()
       const releaseType = (mappedData.release_type ?? '').trim().toLowerCase()
 
@@ -206,13 +216,6 @@ function processChunk(
       // Normalise the date to YYYY-MM for all sources.
       const rawMonth = (mappedData.sales_month ?? '').trim()
       const salesMonth = dateSemantics === 'sale-date' ? normalizeDateToMonth(rawMonth, source, dateOrder) : ''
-      if (dateSemantics === 'report-period' && rawMonth) {
-        const bounds = parseDarkmerchReportingPeriod(rawMonth)
-        if (bounds) {
-          if (!periodStart || bounds.periodStart < periodStart) periodStart = bounds.periodStart
-          if (!periodEnd || bounds.periodEnd > periodEnd) periodEnd = bounds.periodEnd
-        }
-      }
 
       // Bandcamp CSVs have no dedicated platform column; default to "Bandcamp".
       const platform = (mappedData.platform ?? '').trim() || (source === 'bandcamp' ? 'Bandcamp' : '')

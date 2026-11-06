@@ -148,3 +148,42 @@ describe('parseCSVContentStreaming strict amounts (#632)', () => {
     expect(result.errors[0]?.reason).toContain('15,79')
   })
 })
+
+describe('confirmed financial import profiles', () => {
+  it('never allows fuzzy aliases to override a confirmed net revenue column', async () => {
+    const csv = [
+      'Artist,Net Revenue,Net Amount,Sales Month',
+      'Neuroklast,100,3,2026-03',
+    ].join('\n')
+    const result = await parseCSVContentStreaming(
+      csv, 'believe', undefined,
+      { Artist: 'original_artist', 'Net Revenue': 'net_revenue', 'Sales Month': 'sales_month' },
+    )
+    expect(result.transactions).toHaveLength(1)
+    expect(result.transactions[0]?.net_revenue).toBe(100)
+  })
+
+  it('derives report bounds from non-payable rows while leaving sales months empty', async () => {
+    const csv = [
+      'Artist,Net Revenue,Report Period',
+      'Neuroklast,,Q2 - Q3 2026',
+      'Neuroklast,42,',
+    ].join('\n')
+    const result = await parseCSVContentStreaming(
+      csv, 'believe', undefined,
+      { Artist: 'original_artist', 'Net Revenue': 'net_revenue', 'Report Period': 'sales_month' },
+      undefined, 'report-period',
+    )
+    expect(result.periodStart).toBe('2026-04')
+    expect(result.periodEnd).toBe('2026-09')
+    expect(result.transactions).toHaveLength(1)
+    expect(result.transactions[0]?.sales_month).toBe('')
+  })
+
+  it('honours explicit date order rather than the default Believe locale', async () => {
+    const csv = 'Artist,Net Revenue,Date\nNeuroklast,10,04/05/2026'
+    const mapping = { Artist: 'original_artist', 'Net Revenue': 'net_revenue', Date: 'sales_month' }
+    const result = await parseCSVContentStreaming(csv, 'believe', undefined, mapping, undefined, 'sale-date', 'month-first')
+    expect(result.transactions[0]?.sales_month).toBe('2026-04')
+  })
+})
