@@ -47,12 +47,17 @@ export function SettlementActionToolbar({ settlement }: SettlementActionToolbarP
   } = settlement
 
   return (
-    <div className="flex flex-col gap-4 border-b border-border p-4 lg:flex-row lg:items-end lg:justify-between">
-      <div className="space-y-3 flex-1">
-        <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="flex shrink-0 flex-col gap-2 border-b border-border p-3 sm:p-4">
+      <details className="rounded-lg border border-border/70 bg-background/30">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+          {t.settlementApprovalNotesLabel}
+        </summary>
+        <div className="space-y-3 border-t border-border/70 p-3">
+        <label htmlFor="settlement-approval-notes" className="text-xs font-medium text-muted-foreground">
           {t.settlementApprovalNotesLabel}
         </label>
         <Textarea
+          id="settlement-approval-notes"
           value={approvalNotes}
           onChange={(event) => setApprovalNotes(event.target.value)}
           placeholder={t.settlementApprovalNotesPlaceholder}
@@ -68,8 +73,9 @@ export function SettlementActionToolbar({ settlement }: SettlementActionToolbarP
           />
           <span>{t.settlementSyncAnalyticsOnApprove}</span>
         </label>
-      </div>
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
+        </div>
+      </details>
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-start">
         <Button
           size="default"
           variant="secondary"
