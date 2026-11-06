@@ -199,7 +199,7 @@ export function RulesPanel({
         </nav>
       </div>
 
-      <div className="mx-auto w-full max-w-6xl p-4 sm:p-6">
+      <div className="w-full min-w-0 p-4 sm:p-6">
         {activeTab === 'label' && (
           <LabelIdentityManager
             labelInfo={labelInfo}
