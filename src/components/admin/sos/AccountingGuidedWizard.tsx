@@ -81,6 +81,7 @@ export interface AccountingGuidedWizardProps {
   onImportReady?: () => void
   stepIds?: readonly GuidedWizardStep[]
   hasBlockingValidation?: boolean
+  canOpenExistingSettlements?: boolean
   ratesReady?: boolean
   /** Extra content under the stepper (e.g. FX banner). */
   statusBanner?: React.ReactNode
@@ -103,6 +104,7 @@ export function AccountingGuidedWizard({
   onImportReady,
   stepIds = GUIDED_WIZARD_STEP_IDS,
   hasBlockingValidation = false,
+  canOpenExistingSettlements = false,
   ratesReady = true,
   statusBanner,
   uploadPanel,
@@ -122,9 +124,10 @@ export function AccountingGuidedWizard({
       hasData,
       isProcessing,
       hasBlockingValidation,
+      canOpenExistingSettlements,
       ratesReady,
     }),
-    [hasData, isProcessing, hasBlockingValidation, ratesReady],
+    [hasData, isProcessing, hasBlockingValidation, canOpenExistingSettlements, ratesReady],
   )
   const importReadyNotifiedRef = useRef(false)
 
